@@ -32,3 +32,8 @@ supportInterpreter = true
 [[lean_lib]]
 name = "Cases"
 globs = ["Cases.+"]
+
+[[lean_exe]]
+name = "frame-sweep"
+root = "Tools.FrameSweep"
+supportInterpreter = true

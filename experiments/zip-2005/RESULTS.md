@@ -306,3 +306,32 @@ that the two loaders agree on this ELF; it is checked exhaustively, and narrower
 
 **Not yet:** memory read-back lemmas (`memAt`) for statics and `.rodata`. Nothing proved so
 far needs them; item 2's statics premises will.
+
+---
+
+# Coverage sweep: the frame checker over the whole binary (2026-10-12)
+
+`lake exe frame-sweep ELF NM OUT.tsv` (`Tools/FrameSweep.lean`) runs the analysis and
+`Fn.valid` in compiled code over every function, offering each the image's outlined
+fragments. The full binary takes 2 s.
+
+**290 of 304 functions check**, covering 40,596 of the 41,776 function words (97%).
+
+The 14 that do not fall into three kinds:
+
+| Kind | Count | Functions | Fix |
+|---|---|---|---|
+| `ecall` | 6 | `syscall_halt`, `syscall_write`, `read_vec_raw`, `syscall_pallas_add`/`_double`, `syscall_uint256_mulmod` | model `ECALL` (changes `t0` and memory only; needs an `sp1Ecall` register lemma) |
+| undecodable word | 3 | `rust_panic`, `panic_with_hook`, `__rust_end_short_backtrace` (`unimp` pads after noreturn calls) | an undecodable word traps: no successors (as in `stepSp1`) |
+| exit check | 5 | `core::fmt::{write, Formatter::pad, pad_integral, write_prefix, PadAdapter::write_char}` | indirect tail calls through vtables, treated as "anywhere" edges; need relocation-derived targets plus a control-flow premise |
+
+Premises among the 290 that check:
+
+| | Functions | Total |
+|---|---|---|
+| None at all | 159 | — |
+| `Req`s (entry-register footprint) | 106 | 886 |
+| Residuals (stores through unknown pointers) | 48 | 229 |
+| Calls assumed not to return | 89 | 89 |
+
+This is the size of the obligation the whole-program layer has to discharge.
