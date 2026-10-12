@@ -50,6 +50,8 @@ inductive Len where
   | n (k : Nat)
   /-- The entry value of a register, as a byte count. -/
   | reg (r : Reg)
+  /-- The entry value of a register plus a constant, as a byte count. -/
+  | regPlus (r : Reg) (c : Nat)
   deriving DecidableEq, Repr
 
 /-- `len` bytes from `base`. -/
@@ -162,6 +164,10 @@ def instLen (A : AState) : Len → Option Len
     | .const c => some (.n c.toNat)
     | .lin r' k => if k = 0 then some (.reg r') else none
     | .top => none
+  | .regPlus r c => match A.get r with
+    | .const v => some (.n (v.toNat + c))
+    | .lin r' k => if k = 0 then some (.regPlus r' c) else none
+    | .top => none
 
 def instItem (A : AState) (it : Item) : Option Item :=
   (instLen A it.len).map fun l => { base := instVal A it.base, len := l }
@@ -172,21 +178,23 @@ def instItem (A : AState) (it : Item) : Option Item :=
 def itemOk (σ : Iface) (m : Nat) (it : Item) : Bool :=
   match it.base.frameOff?, it.len with
   | some k, .n l => decide (l ≤ negOff k) && decide (negOff k ≤ m) && decide (m ≤ σ.depth)
-  | some _, .reg _ => false
+  | some _, _ => false
   | none, _ => it.base != .top && σ.foot.any (·.within it)
 
 /-- A frame slot `k` cannot be written by a callee item. -/
 def slotClear (k : Word) (it : Item) : Bool :=
   match it.base.frameOff?, it.len with
   | some k', .n l => decide (negOff k' ≤ negOff k - 8) || decide (negOff k + l ≤ negOff k')
-  | some _, .reg _ => false
+  | some _, _ => false
   | none, _ => true
 
-def nzOk (σ : Iface) (A : AState) (v : AVal) : Bool :=
-  match instVal A v with
+/-- A value known nonzero: a nonzero constant, or one of the function's own `nz`. -/
+def nzVal (σ : Iface) : AVal → Bool
   | .const c => c != 0
   | .lin r k => σ.nz.contains (.lin r k)
   | .top => false
+
+def nzOk (σ : Iface) (A : AState) (v : AVal) : Bool := nzVal σ (instVal A v)
 
 /-- The callee-saved registers: `sp`, `gp`, `tp`, `s0`-`s11`. -/
 def savedRegs : List Reg :=
@@ -228,6 +236,52 @@ def tailOk (σ : Iface) (A : AState) (g : Iface) : Bool :=
   | none => false
   | some its => its.all (fun it => it.base.frameOff?.isNone && it.base != .top &&
       σ.foot.any (·.within it)) && g.nz.all (nzOk σ A)
+
+/-! ## Syscalls
+
+`ecall` dispatches on `t0`, as SP1 does (`sp1Ecall`): a precompile writes its result over
+the operand at `a0`; `HINT_LEN` writes `t0`; `HINT_READ` writes the hint at `a0`, `a1 + 8`
+bytes at most; `COMMIT` and `COMMIT_DEFERRED_PROOFS` write no memory or register; `HALT`
+stops, and must not accept: its exit code must be known nonzero; `WRITE` writes no memory;
+`read_input` writes the doublewords at `a0` and `a1`; any other id traps. -/
+
+/-- The doublewords a precompile writes at `a0`, for those with a fixed-size result. -/
+def accelLen (t : Word) : Option Nat :=
+  if t = Sp1.SECP256K1_ADD ∨ t = Sp1.SECP256K1_DOUBLE ∨ t = Sp1.PALLAS_ADD ∨
+      t = Sp1.PALLAS_DOUBLE ∨ t = Sp1.BN254_ADD ∨ t = Sp1.BN254_DOUBLE ∨
+      t = Sp1.BN254_FP2_ADD ∨ t = Sp1.BN254_FP2_SUB ∨ t = Sp1.BN254_FP2_MUL then some 8
+  else if t = Sp1.BLS12381_ADD ∨ t = Sp1.BLS12381_DOUBLE ∨ t = Sp1.BLS12381_FP2_ADD ∨
+      t = Sp1.BLS12381_FP2_SUB ∨ t = Sp1.BLS12381_FP2_MUL then some 12
+  else if t = Sp1.UINT256_MUL then some 4
+  else none
+
+/-- The byte count of a value, plus `c`, as a footprint length. -/
+def lenPlus (v : AVal) (c : Nat) : Option Len :=
+  match v with
+  | .const n => some (.n (n.toNat + c))
+  | .lin r k => if k = 0 then some (.regPlus r c) else none
+  | .top => none
+
+inductive SysOut where
+  /-- No successor: a halt with a nonzero exit code, or a trap. -/
+  | stop
+  /-- Continue at `pc + 4` in this state, having written these items. -/
+  | next (B : AState) (its : List Item)
+
+def sysStep (σ : Iface) (A : AState) : Option SysOut :=
+  match A.get .x5 with
+  | .const t =>
+    if Sp1.isAccelId t then
+      (accelLen t).map fun L => .next A [⟨A.get .x10, .n (8 * L)⟩]
+    else if t = Sp1.HINT_LEN then some (.next (A.set .x5 .top) [])
+    else if t = Sp1.HINT_READ then
+      (lenPlus (A.get .x11) 8).map fun l => .next A [⟨A.get .x10, l⟩]
+    else if t = Sp1.COMMIT ∨ t = Sp1.COMMIT_DEFERRED_PROOFS then some (.next A [])
+    else if t = 0 then (if nzVal σ (A.get .x10) then some .stop else none)
+    else if t = 2 then some (.next A [])
+    else if t = 0xF2 then some (.next A [⟨A.get .x10, .n 8⟩, ⟨A.get .x11, .n 8⟩])
+    else some .stop
+  | _ => none
 
 /-! ## Control flow -/
 
@@ -325,6 +379,14 @@ def Ctx.stepAt (c : Ctx) (pc : Word) (oi : Option Instr) (A : AState) : Option (
       else if rd = .x5 ∧ rs = .x5 then c.outlined pc A off
       else none
   | .EBREAK => some []
+  | .ECALL =>
+      match sysStep c.σ A with
+      | some .stop => some []
+      | some (.next B its) =>
+          if its.all (itemOk c.σ c.σ.depth) then
+            c.jump { B with slots := B.slots.filter fun p => its.all (slotClear p.1) } (pc + 4)
+          else none
+      | none => none
   | ins => (plainStep c.env c.σ pc A ins).bind fun B => c.jump B (pc + 4)
 
 def Ctx.step (c : Ctx) (i : Nat) (A : AState) : Option (List Edge) :=

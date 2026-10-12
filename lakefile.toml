@@ -37,3 +37,7 @@ globs = ["Cases.+"]
 name = "frame-sweep"
 root = "Tools.FrameSweep"
 supportInterpreter = true
+
+[[lean_exe]]
+name = "infer-contracts"
+root = "Tools.Infer"

@@ -117,6 +117,7 @@ def _root_.AsmVerif.RiscV.Frame.AVal.eval (E : Reg → Word) : AVal → Word
 def Len.eval (E : Reg → Word) : Len → Nat
   | .n l => l
   | .reg r => (E r).toNat
+  | .regPlus r c => (E r).toNat + c
 
 def Item.Hits (E : Reg → Word) (it : Item) (a : Word) : Prop :=
   Check.Hits (it.base.eval E) (it.len.eval E) a

@@ -6,6 +6,7 @@
 -/
 
 import AsmVerif.RiscV.Check.Arith
+import AsmVerif.RiscV.Check.Ecall
 
 namespace AsmVerif.RiscV.Check
 
@@ -308,6 +309,24 @@ theorem instLen_eval (h : RegsHold E A y) {l l' : Len} (hl : instLen A l = some 
         simp [Len.eval, regsOf, hr]
       · cases hl
     | top => rw [hA] at hl; cases hl
+  | regPlus r c =>
+    simp only [instLen] at hl
+    have hr := h r
+    cases hA : A.get r with
+    | const v =>
+      rw [hA] at hl hr; simp only [Option.some.injEq] at hl; subst hl
+      simp only [AVal.Holds] at hr
+      simp [Len.eval, regsOf, hr]
+    | lin r' k =>
+      rw [hA] at hl hr
+      simp only at hl
+      split at hl
+      · rename_i hk; subst hk
+        simp only [Option.some.injEq] at hl; subst hl
+        simp only [AVal.Holds] at hr
+        simp [Len.eval, regsOf, hr]
+      · cases hl
+    | top => rw [hA] at hl; cases hl
 
 theorem instItem_hits (h : RegsHold E A y) {it it' : Item} (hi : instItem A it = some it')
     (hnt : it'.base ≠ .top) {a : Word} (ha : it.Hits (regsOf y) a) : it'.Hits E a := by
@@ -323,16 +342,19 @@ theorem instItem_hits (h : RegsHold E A y) {it it' : Item} (hi : instItem A it =
     rw [instVal_eval h hnt, instLen_eval h hl]
     exact ha
 
+theorem nzVal_sound {σ : Iface} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) {v : AVal}
+    (hok : nzVal σ v = true) : v.eval E ≠ 0 := by
+  cases v with
+  | const c => simpa [nzVal, AVal.eval] using hok
+  | lin r k => exact hnz _ (List.contains_iff_mem.mp hok)
+  | top => simp [nzVal] at hok
+
 theorem nzOk_sound {σ : Iface} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) (h : RegsHold E A y) {v : AVal}
     (hok : nzOk σ A v = true) : v.eval (regsOf y) ≠ 0 := by
   unfold nzOk at hok
-  have hnt : instVal A v ≠ .top := by intro he; rw [he] at hok; simp at hok
+  have hnt : instVal A v ≠ .top := by intro he; rw [he] at hok; simp [nzVal] at hok
   rw [← instVal_eval h hnt]
-  revert hok
-  cases instVal A v with
-  | const c => simp [AVal.eval]
-  | lin r k => intro hok; exact hnz _ (List.contains_iff_mem.mp hok)
-  | top => simp
+  exact nzVal_sound hnz hok
 
 end Inst
 
@@ -440,6 +462,7 @@ theorem call_pre (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState} {
           rw [hfo] at hio
           cases hl : it'.len with
           | reg _ => rw [hl] at hio; cases hio
+          | regPlus _ _ => rw [hl] at hio; cases hio
           | n l =>
             rw [hl] at hio
             simp only [Bool.and_eq_true, decide_eq_true_eq] at hio
@@ -491,6 +514,7 @@ theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {
         rw [hfo] at hio
         cases hl : it'.len with
         | reg _ => rw [hl] at hio; cases hio
+          | regPlus _ _ => rw [hl] at hio; cases hio
         | n l =>
           rw [hl] at hio
           simp only [Bool.and_eq_true, decide_eq_true_eq] at hio
@@ -535,6 +559,7 @@ theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {
           rw [hfo] at hio hc
           cases hl : it'.len with
           | reg _ => rw [hl] at hio; cases hio
+          | regPlus _ _ => rw [hl] at hio; cases hio
           | n l =>
             rw [hl] at hio hc
             simp only [Bool.and_eq_true, decide_eq_true_eq] at hio
@@ -669,6 +694,85 @@ theorem St.setReg {σ C E s0} {A : AState} {x : MachineState} {r : Reg} {v : AVa
     by
       intro p hp
       exact h.slots p (by simpa [AState.set] using hp)⟩
+
+/-! ## Items a syscall writes -/
+
+section SysItems
+
+variable {env : Env} {σ : Iface} {C : Word → Option Instr} {E : Reg → Word} {s0 : MachineState}
+
+theorem frameItem_inWin {e : Word} {D mk l : Nat} (hD : D ≤ e.toNat) (hl : l ≤ mk) (hk : mk ≤ D)
+    {a : Word} (h : Hits (e - BitVec.ofNat 64 mk) l a) : InWin e D a := by
+  have hl0 : 0 < l := by
+    rcases h with h | ⟨h0, _⟩
+    · exact Nat.lt_of_le_of_lt (Nat.zero_le _) h
+    · exact h0
+  have hb : (e - (e - BitVec.ofNat 64 mk)).toNat = mk := by
+    have : e - (e - BitVec.ofNat 64 mk) = BitVec.ofNat 64 mk := by bv_omega
+    rw [this, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by have := e.isLt; omega)]
+  exact inWin_of_hits (by omega) (by omega) hl0 h
+
+/-- An item `itemOk` accepts with `m = depth` is something the function may write, and its
+    base is known. -/
+theorem itemOk_depth (hF : Facts env σ E s0) {it : Item} (h : itemOk σ σ.depth it = true) :
+    it.base ≠ .top ∧ ∀ a, it.Hits E a → Written σ E a := by
+  unfold itemOk at h
+  cases hfo : it.base.frameOff? with
+  | some k =>
+    rw [hfo] at h
+    have hb := AVal.frameOff?_some hfo
+    cases hl : it.len with
+    | reg _ => rw [hl] at h; cases h
+    | regPlus _ _ => rw [hl] at h; cases h
+    | n l =>
+      rw [hl] at h
+      simp only [Bool.and_eq_true, decide_eq_true_eq] at h
+      refine ⟨by rw [hb]; simp, fun a ha => Or.inl ?_⟩
+      unfold Item.Hits at ha
+      rw [hb, hl] at ha
+      simp only [AVal.eval, Len.eval] at ha
+      rw [add_frame] at ha
+      exact frameItem_inWin hF.depth h.1.1 h.1.2 ha
+  | none =>
+    rw [hfo] at h
+    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, List.any_eq_true] at h
+    obtain ⟨hnt, d, hd, hwd⟩ := h
+    exact ⟨hnt, fun a ha => Or.inr ⟨d, hd, within_hits hwd ha⟩⟩
+
+/-- A slot that `slotClear` keeps is not hit by an item `itemOk` accepts. -/
+theorem slot_clear_items (hF : Facts env σ E s0) {p : Word × AVal}
+    (hsl : 8 ≤ negOff p.1 ∧ negOff p.1 ≤ σ.depth ∧ negOff p.1 % 8 = 0) {it : Item}
+    (hok : itemOk σ σ.depth it = true) (hc : slotClear p.1 it = true) :
+    ¬ it.Hits E (E .x2 + p.1) := by
+  have hkey := slot_facts hF hsl
+  unfold itemOk at hok
+  unfold slotClear at hc
+  cases hfo : it.base.frameOff? with
+  | some k =>
+    rw [hfo] at hok hc
+    have hb := AVal.frameOff?_some hfo
+    cases hl : it.len with
+    | reg _ => rw [hl] at hok; cases hok
+    | regPlus _ _ => rw [hl] at hok; cases hok
+    | n l =>
+      rw [hl] at hok hc
+      simp only [Bool.and_eq_true, decide_eq_true_eq] at hok
+      simp only [Bool.or_eq_true, decide_eq_true_eq] at hc
+      intro hh
+      unfold Item.Hits at hh
+      rw [hb, hl] at hh
+      simp only [AVal.eval, Len.eval] at hh
+      rw [add_frame, add_frame] at hh
+      have := hF.depth
+      exact slot_not_hits (by omega) (by omega) hsl.1 hok.1.1 hc hh
+  | none =>
+    rw [hfo] at hok
+    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, List.any_eq_true] at hok
+    obtain ⟨_, d, hd, hwd⟩ := hok
+    intro hh
+    exact (hF.foot d hd _ hkey.1 (within_hits hwd hh)).1 hkey.2
+
+end SysItems
 
 section Act
 
@@ -859,9 +963,44 @@ theorem act (h : ActHyp c anno C n P s0) : ∀ k ≤ n, ∀ x, c.At anno C s0 x 
   | some ins =>
   unfold Ctx.stepAt at hstp
   simp only at hstp
-  have hne : ins ≠ .ECALL := by
-    rintro rfl
-    simp [branchOff?, plainStep_ecall] at hstp
+  by_cases hec : ins = .ECALL
+  · -- A syscall.
+    subst hec
+    simp only [branchOff?] at hstp
+    have hregs : ∀ r, (A.get r).Holds (regsOf s0) (x.getReg r) := hx.holds.1
+    cases hss : sysStep c.σ A with
+    | none => rw [hss] at hstp; cases hstp
+    | some out =>
+    rw [hss] at hstp
+    obtain ⟨hstop, hnext⟩ := sysStep_sound hss hregs h.facts.nz hfetch
+    cases out with
+    | stop =>
+      obtain ⟨hs, hna⟩ := hstop rfl
+      exact SafeN.stuck hs (fun ha => absurd ha hna)
+    | next B its =>
+      simp only at hstp
+      split at hstp
+      · rename_i hall
+        simp only [List.all_eq_true] at hall
+        have hit := fun it hi => itemOk_depth h.facts (hall it hi)
+        obtain ⟨hna, hy⟩ := hnext B its rfl (fun it hi => (hit it hi).1)
+        refine SafeN.intro (n := k) (P := P) hna (fun y hst => ?_)
+        obtain ⟨hpc, hcode, hB, hsl, hmem⟩ := hy y hst
+        refine jump_sound h hkn' ih' hstp hok ?_ hpc
+        refine ⟨⟨fun r => hB r, fun p hp => ?_⟩, by rw [hcode, hx.code], fun a ha hnw => ?_,
+          fun p hp => ?_⟩
+        · simp only [List.mem_filter, List.all_eq_true] at hp
+          rw [hsl] at hp
+          rw [hmem _ (fun it hi => slot_clear_items h.facts (hx.slots p hp.1) (hall it hi)
+            (hp.2 it hi))]
+          exact hx.holds.2 p hp.1
+        · rw [hmem a (fun it hi hh => hnw ((hit it hi).2 a hh))]
+          exact hx.mem a ha hnw
+        · simp only [List.mem_filter] at hp
+          rw [hsl] at hp
+          exact hx.slots p hp.1
+      · cases hstp
+  have hne : ins ≠ .ECALL := hec
   have hna := not_accepted_of_code hfetch hne
   refine SafeN.intro (n := k) (P := P) hna (fun y hst => ?_)
   split at hstp
@@ -973,6 +1112,7 @@ theorem act (h : ActHyp c anno C n P s0) : ∀ k ≤ n, ∀ x, c.At anno C s0 x 
           · cases hstp
     · -- `ebreak` traps.
       simp [stepSp1, hfetch] at hst
+    · exact absurd rfl hec
     · -- A straight-line instruction.
       cases hp : plainStep c.env c.σ x.pc A ins with
       | none => rw [hp] at hstp; simp at hstp
