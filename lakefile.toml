@@ -1,0 +1,34 @@
+name = "asm-verif"
+version = "0.1.0"
+defaultTargets = ["AsmVerif", "Tools", "Cases"]
+# Generated image modules are deep literals; mirror riscv-zkvm's own setting.
+moreLeanArgs = ["--tstack=400000"]
+
+# The RV64IM machine model, its decoder and ELF loader, used unmodified. Pinned to the
+# commit zip-2005-asm resolved (branch `sp1-backend`, which runs SP1 guests), so the two
+# repositories agree on `decode` and `stepSp1`. A commit forfeits release oleans, but our
+# import closure (`Rv64` + `Interpreter`) never reaches the generated Sail tree.
+[[require]]
+name = "riscv-zkvm"
+git = "https://github.com/Verified-zkEVM/riscv-zkvm"
+rev = "4634e41b229da4256e4a1f1688b94133fffa4af0"
+
+# The framework: ISA-independent definitions at the top level, RISC-V under `AsmVerif.RiscV`.
+[[lean_lib]]
+name = "AsmVerif"
+globs = ["AsmVerif", "AsmVerif.+"]
+
+# Build-time tooling (generators). Nothing in `AsmVerif` or `Cases` imports it.
+[[lean_lib]]
+name = "Tools"
+globs = ["Tools.+"]
+
+[[lean_exe]]
+name = "gen-image"
+root = "Tools.GenImage"
+supportInterpreter = true
+
+# Case studies: generated image data and the proofs about it.
+[[lean_lib]]
+name = "Cases"
+globs = ["Cases.+"]
