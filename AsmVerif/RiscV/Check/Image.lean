@@ -32,18 +32,6 @@ theorem codeAt_of_image {img : Image} {f : Fn} (hwf : img.codeWF = true) {k : Na
   · obtain ⟨k', ws', hk', hdec'⟩ := hfr fb fp hfp
     exact Image.codeAt_prog hwf hk' hdec' hm
 
-theorem lookup_mem' {α β : Type} [BEq α] [LawfulBEq α] {l : List (α × β)} {k : α} {v : β}
-    (h : l.lookup k = some v) : (k, v) ∈ l := by
-  induction l with
-  | nil => simp at h
-  | cons p l ih =>
-    obtain ⟨k', v'⟩ := p
-    simp only [List.lookup] at h
-    by_cases hk : k = k'
-    · subst hk; simp at h; subst h; simp
-    · have : (k == k') = false := by simpa using hk
-      rw [this] at h; exact List.mem_cons_of_mem _ (ih h)
-
 /-- The fragment premise of `codeAt_of_image`, from one fact per fragment. -/
 theorem frags_of_image {img : Image} {l : List (Word × List (Option Instr))}
     (h : ∀ p ∈ l, ∃ (k : Nat) (ws : List (BitVec 32)), img.code[k]? = some (CodeChunk.mk p.1 ws) ∧
@@ -51,6 +39,6 @@ theorem frags_of_image {img : Image} {l : List (Word × List (Option Instr))}
     ∀ fb fp, l.lookup fb = some fp →
       ∃ (k' : Nat) (ws' : List (BitVec 32)), img.code[k']? = some (CodeChunk.mk fb ws') ∧
         decodeWords ws' = fp :=
-  fun fb fp hl => h (fb, fp) (lookup_mem' hl)
+  fun fb fp hl => h (fb, fp) (lookup_mem hl)
 
 end AsmVerif.RiscV.Check

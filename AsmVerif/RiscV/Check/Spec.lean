@@ -113,6 +113,7 @@ def _root_.AsmVerif.RiscV.Frame.AVal.eval (E : Reg → Word) : AVal → Word
   | .lin r k => E r + k
   | .const c => c
   | .top => 0
+  | .oneOf _ => 0
 
 def Len.eval (E : Reg → Word) : Len → Nat
   | .n l => l
@@ -141,14 +142,16 @@ def regsOf (s : MachineState) : Reg → Word := s.getReg
 
 /-- The precondition: the code is the program's; the stack has room for the window and lies
     below the program; the protected regions hold their contents; footprint items avoid the
-    window and the protected regions; the `nz` values are nonzero. -/
+    window and the protected regions; the `nz` values are nonzero; the `vals` registers hold
+    one of their candidates. -/
 def Pre (env : Env) (C : Word → Option Instr) (σ : Iface) (s : MachineState) : Prop :=
   s.code = C ∧ σ.depth ≤ (s.getReg .x2).toNat ∧ (s.getReg .x2).toNat ≤ env.stackTop ∧
   Aligned (s.getReg .x2) ∧
   (∀ a, Aligned a → env.InProt a → s.getMem a = env.init a) ∧
   (∀ it ∈ σ.foot, ∀ a, Aligned a → it.Hits (regsOf s) a →
     ¬ InWin (s.getReg .x2) σ.depth a ∧ ¬ env.InProt a) ∧
-  (∀ v ∈ σ.nz, v.eval (regsOf s) ≠ 0)
+  (∀ v ∈ σ.nz, v.eval (regsOf s) ≠ 0) ∧
+  (∀ p ∈ σ.vals, s.getReg p.1 ∈ p.2)
 
 /-- The postcondition: it returns, to `ra`, with the callee-saved registers restored and
     memory unchanged outside what it may write. -/

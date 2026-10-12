@@ -286,12 +286,13 @@ theorem sys_trap {x : MachineState} (hf : x.code x.pc = some .ECALL)
 
 /-! ## `sysStep` is sound -/
 
-theorem holds_eval {E : Reg → Word} {v : AVal} {w : Word} (h : v.Holds E w) (hv : v ≠ .top) :
-    v.eval E = w := by
+theorem holds_eval {E : Reg → Word} {v : AVal} {w : Word} (h : v.Holds E w)
+    (hv : v.isPtr = true) : v.eval E = w := by
   cases v with
   | lin r k => simp only [AVal.Holds] at h; simp [AVal.eval, h]
   | const c => simp only [AVal.Holds] at h; simp [AVal.eval, h]
-  | top => exact absurd rfl hv
+  | top => simp [AVal.isPtr] at hv
+  | oneOf _ => simp [AVal.isPtr] at hv
 
 theorem lenPlus_eval {E : Reg → Word} {v : AVal} {w : Word} {c : Nat} {l : Len}
     (h : v.Holds E w) (hl : lenPlus v c = some l) : l.eval E = w.toNat + c := by
@@ -307,13 +308,28 @@ theorem lenPlus_eval {E : Reg → Word} {v : AVal} {w : Word} {c : Nat} {l : Len
       simp only [AVal.Holds] at h; simp [Len.eval, h]
     · cases hl
   | top => simp [lenPlus] at hl
+  | oneOf _ => simp [lenPlus] at hl
+
+/-- A value `nzVal` accepts is nonzero, whatever it denotes. -/
+theorem nzVal_holds {σ : Iface} {E : Reg → Word} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) {v : AVal}
+    {w : Word} (h : v.Holds E w) (hok : nzVal σ v = true) : w ≠ 0 := by
+  cases v with
+  | const c => simp only [AVal.Holds] at h; subst h; simpa [nzVal] using hok
+  | lin r k =>
+    simp only [AVal.Holds] at h; subst h
+    exact hnz _ (List.contains_iff_mem.mp hok)
+  | top => simp [nzVal] at hok
+  | oneOf cs =>
+    simp only [AVal.Holds] at h
+    simp only [nzVal, List.all_eq_true, bne_iff_ne, ne_eq] at hok
+    exact hok w h
 
 /-- What `sysStep` promises about an `ecall` in a state its abstract registers describe. -/
 theorem sysStep_sound {σ : Iface} {E : Reg → Word} {A : AState} {x : MachineState} {out : SysOut}
     (h : sysStep σ A = some out) (hr : ∀ r, (A.get r).Holds E (x.getReg r))
     (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) (hf : x.code x.pc = some .ECALL) :
     (out = .stop → stepSp1 x = none ∧ ¬ Accepted x) ∧
-    (∀ B its, out = .next B its → (∀ it ∈ its, it.base ≠ .top) → ¬ Accepted x ∧
+    (∀ B its, out = .next B its → (∀ it ∈ its, it.base.isPtr = true) → ¬ Accepted x ∧
       ∀ y, stepSp1 x = some y →
       y.pc = x.pc + 4 ∧ y.code = x.code ∧ (∀ r, (B.get r).Holds E (y.getReg r)) ∧
       B.slots = A.slots ∧ ∀ a, (∀ it ∈ its, ¬ it.Hits E a) → y.getMem a = x.getMem a) := by
@@ -322,6 +338,7 @@ theorem sysStep_sound {σ : Iface} {E : Reg → Word} {A : AState} {x : MachineS
   cases ht : A.get .x5 with
   | lin _ _ => rw [ht] at h; cases h
   | top => rw [ht] at h; cases h
+  | oneOf _ => rw [ht] at h; cases h
   | const t =>
   rw [ht] at h h5
   simp only [AVal.Holds] at h5
@@ -411,15 +428,7 @@ theorem sysStep_sound {σ : Iface} {E : Reg → Word} {A : AState} {x : MachineS
             · rename_i hnzv
               cases h
               refine ⟨fun _ => ?_, fun B its he => by cases he⟩
-              have h10 := hr .x10
-              have hne : (A.get .x10).eval E ≠ 0 := by
-                cases hv : A.get .x10 with
-                | top => rw [hv] at hnzv; simp [nzVal] at hnzv
-                | const c => rw [hv] at hnzv; simpa [nzVal, AVal.eval] using hnzv
-                | lin r k => rw [hv] at hnzv; exact hnz _ (List.contains_iff_mem.mp hnzv)
-              have hnt : A.get .x10 ≠ .top := by intro he; rw [he] at hnzv; simp [nzVal] at hnzv
-              rw [holds_eval h10 hnt] at hne
-              exact sys_halt hf (by rw [h5, h0]) hne
+              exact sys_halt hf (by rw [h5, h0]) (nzVal_holds hnz (hr .x10) hnzv)
             · cases h
           · split at h
             · rename_i h2

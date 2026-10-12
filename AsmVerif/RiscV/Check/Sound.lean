@@ -27,10 +27,12 @@ structure Facts (env : Env) (σ : Iface) (E : Reg → Word) (s0 : MachineState) 
   prot : ∀ a, Aligned a → env.InProt a → s0.getMem a = env.init a
   foot : ∀ it ∈ σ.foot, ∀ a, Aligned a → it.Hits E a → ¬ InWin (E .x2) σ.depth a ∧ ¬ env.InProt a
   nz : ∀ v ∈ σ.nz, v.eval E ≠ 0
+  vals : ∀ p ∈ σ.vals, E p.1 ∈ p.2
 
 theorem Facts.of_pre {env : Env} {C} {σ : Iface} {s0 : MachineState} (hwf : env.wf = true)
     (h : Pre env C σ s0) : Facts env σ (regsOf s0) s0 :=
-  ⟨hwf, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.1, h.2.2.2.2.2.2⟩
+  ⟨hwf, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.1, h.2.2.2.2.2.2.1,
+    h.2.2.2.2.2.2.2⟩
 
 /-- The checker's invariant at a state `x` of the activation, with abstract state `A`. -/
 structure St (σ : Iface) (C : Word → Option Instr) (E : Reg → Word) (s0 : MachineState)
@@ -106,6 +108,15 @@ theorem loadVal_sound (hF : Facts env σ E s0) {A : AState} {x : MachineState} {
         simp only [AVal.Holds]
         exact St.prot hF h hal hp
       · trivial
+    · rename_i cs
+      simp only [AVal.Holds] at hb
+      split
+      · rename_i hall
+        obtain ⟨hal, hp⟩ := protKey_inProt (List.all_eq_true.mp hall addr hb)
+        simp only [AVal.Holds]
+        rw [St.prot hF h hal hp]
+        exact List.mem_map_of_mem hb
+      · trivial
     · trivial
 
 theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineState}
@@ -160,6 +171,14 @@ theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
                 exact h.holds.1 rs2
               · exact keep p hp
             · exact keep p hp
+          | oneOf cs =>
+            simp only [hr2] at hp
+            split at hp
+            · rcases List.mem_cons.mp hp with rfl | hp
+              · rw [← hkeyF, getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+                exact h.holds.1 rs2
+              · exact keep p hp
+            · exact keep p hp
       · rw [getMem_setMem, if_neg (fun he => hnw (Or.inl (by rw [he]; exact hkw)))]
         exact h.mem a ha hnw
       · have sub : ∀ p ∈ A.slots.filter (fun p => !mayHit w k p.1), p ∈ A.slots :=
@@ -186,6 +205,14 @@ theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
               · exact ⟨hwin.1, hwin.2, h8⟩
               · exact h.slots p (sub p hp)
             · exact h.slots p (sub p hp)
+          | oneOf cs =>
+            simp only [hr2] at hp
+            split at hp
+            · rename_i h8
+              rcases List.mem_cons.mp hp with rfl | hp
+              · exact ⟨hwin.1, hwin.2, h8⟩
+              · exact h.slots p (sub p hp)
+            · exact h.slots p (sub p hp)
     · cases hs
   | none =>
     simp only [hk] at hs
@@ -204,7 +231,8 @@ theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
             cases b with
             | lin r k => simp only [AVal.Holds] at hb; simp [AVal.eval, hb]
             | const c => simp only [AVal.Holds] at hb; simp [AVal.eval, hb]
-            | top => exact absurd rfl hnt
+            | top => simp [AVal.isPtr] at hnt
+            | oneOf _ => simp [AVal.isPtr] at hnt
           simp only [this, Len.eval]
           rw [← hkey]; exact hits_target w _
         refine ⟨⟨hregs _, fun p hp => ?_⟩, by simp [h.code], fun a ha hnw => ?_, h.slots⟩
@@ -270,7 +298,7 @@ variable {E : Reg → Word} {A : AState} {y : MachineState}
 def RegsHold (E : Reg → Word) (A : AState) (y : MachineState) : Prop :=
   ∀ r, (A.get r).Holds E (y.getReg r)
 
-theorem instVal_eval (h : RegsHold E A y) {v : AVal} (hv : instVal A v ≠ .top) :
+theorem instVal_eval (h : RegsHold E A y) {v : AVal} (hv : (instVal A v).isPtr = true) :
     (instVal A v).eval E = v.eval (regsOf y) := by
   cases v with
   | lin r k =>
@@ -283,9 +311,11 @@ theorem instVal_eval (h : RegsHold E A y) {v : AVal} (hv : instVal A v ≠ .top)
     | const c =>
       rw [hA] at hr; simp only [AVal.Holds] at hr
       simp [AVal.addK, AVal.eval, regsOf, hr]
-    | top => rw [hA] at hv; simp [AVal.addK] at hv
+    | top => rw [hA] at hv; simp [AVal.addK, AVal.isPtr] at hv
+    | oneOf _ => rw [hA] at hv; simp [AVal.addK, AVal.isPtr] at hv
   | const c => rfl
-  | top => simp [instVal] at hv
+  | top => simp [instVal, AVal.isPtr] at hv
+  | oneOf _ => simp [instVal, AVal.isPtr] at hv
 
 theorem instLen_eval (h : RegsHold E A y) {l l' : Len} (hl : instLen A l = some l') :
     l'.eval E = l.eval (regsOf y) := by
@@ -309,6 +339,7 @@ theorem instLen_eval (h : RegsHold E A y) {l l' : Len} (hl : instLen A l = some 
         simp [Len.eval, regsOf, hr]
       · cases hl
     | top => rw [hA] at hl; cases hl
+    | oneOf _ => rw [hA] at hl; cases hl
   | regPlus r c =>
     simp only [instLen] at hl
     have hr := h r
@@ -327,9 +358,10 @@ theorem instLen_eval (h : RegsHold E A y) {l l' : Len} (hl : instLen A l = some 
         simp [Len.eval, regsOf, hr]
       · cases hl
     | top => rw [hA] at hl; cases hl
+    | oneOf _ => rw [hA] at hl; cases hl
 
 theorem instItem_hits (h : RegsHold E A y) {it it' : Item} (hi : instItem A it = some it')
-    (hnt : it'.base ≠ .top) {a : Word} (ha : it.Hits (regsOf y) a) : it'.Hits E a := by
+    (hnt : it'.base.isPtr = true) {a : Word} (ha : it.Hits (regsOf y) a) : it'.Hits E a := by
   unfold instItem at hi
   cases hl : instLen A it.len with
   | none => rw [hl] at hi; cases hi
@@ -342,19 +374,33 @@ theorem instItem_hits (h : RegsHold E A y) {it it' : Item} (hi : instItem A it =
     rw [instVal_eval h hnt, instLen_eval h hl]
     exact ha
 
-theorem nzVal_sound {σ : Iface} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) {v : AVal}
-    (hok : nzVal σ v = true) : v.eval E ≠ 0 := by
+/-- An entry-relative or constant value, instantiated in a state `A` describes. -/
+theorem instVal_holds (h : RegsHold E A y) {v : AVal} (hv : v.isPtr = true) :
+    (instVal A v).Holds E (v.eval (regsOf y)) := by
   cases v with
-  | const c => simpa [nzVal, AVal.eval] using hok
-  | lin r k => exact hnz _ (List.contains_iff_mem.mp hok)
-  | top => simp [nzVal] at hok
+  | lin r k => exact AVal.holds_addK (h r)
+  | const c => simp [instVal, AVal.Holds, AVal.eval]
+  | top => simp [AVal.isPtr] at hv
+  | oneOf _ => simp [AVal.isPtr] at hv
 
 theorem nzOk_sound {σ : Iface} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) (h : RegsHold E A y) {v : AVal}
     (hok : nzOk σ A v = true) : v.eval (regsOf y) ≠ 0 := by
   unfold nzOk at hok
-  have hnt : instVal A v ≠ .top := by intro he; rw [he] at hok; simp [nzVal] at hok
-  rw [← instVal_eval h hnt]
-  exact nzVal_sound hnz hok
+  simp only [Bool.and_eq_true] at hok
+  exact nzVal_holds hnz (instVal_holds h hok.1) hok.2
+
+theorem valOk_sound (h : RegsHold E A y) {p : Reg × List Word} (hok : valOk A p = true) :
+    y.getReg p.1 ∈ p.2 := by
+  unfold valOk at hok
+  have hr := h p.1
+  split at hok
+  · rename_i c hc
+    rw [hc] at hr; simp only [AVal.Holds] at hr
+    rw [hr]; exact List.contains_iff_mem.mp hok
+  · rename_i cs hc
+    rw [hc] at hr; simp only [AVal.Holds] at hr
+    exact List.contains_iff_mem.mp (List.all_eq_true.mp hok _ hr)
+  · cases hok
 
 end Inst
 
@@ -379,6 +425,20 @@ theorem mapM_some_mem {f : α → Option β} :
         · exact ⟨b, List.mem_cons_self .., hb⟩
         · obtain ⟨y, hy, hfy⟩ := mapM_some_mem hl x hx
           exact ⟨y, List.mem_cons_of_mem _ hy, hfy⟩
+
+/-- A candidate's edges are among all candidates' edges. -/
+theorem allEdges_mem {f : Word → Option (List Edge)} {ts : List Word} {es : List Edge}
+    (h : allEdges f ts = some es) {t : Word} (ht : t ∈ ts) :
+    ∃ es', f t = some es' ∧ ∀ e ∈ es', e ∈ es := by
+  unfold allEdges at h
+  cases hm : ts.mapM f with
+  | none => rw [hm] at h; cases h
+  | some l =>
+    rw [hm] at h
+    simp only [Option.map_some, Option.some.injEq] at h
+    subst h
+    obtain ⟨y, hy, hfy⟩ := mapM_some_mem hm t ht
+    exact ⟨y, hfy, fun e he => List.mem_flatten.mpr ⟨y, hy, he⟩⟩
 
 theorem afterCall_get (A : AState) (m : Nat) (its : List Item) (r : Reg) :
     (afterCall A m its).get r =
@@ -444,18 +504,19 @@ theorem call_pre (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState} {
       simp only [Option.some.injEq, Prod.mk.injEq] at hok
       obtain ⟨rfl, rfl⟩ := hok
       simp only [Bool.and_eq_true, List.all_eq_true] at hall
+      obtain ⟨⟨hall1, hall2⟩, hall3⟩ := hall
       obtain ⟨hsp1, hm8⟩ := spOff_sound hy1 hsp
       have he := hF.depth
       have hsp' : (y.getReg .x2).toNat = (E .x2).toNat - m' := by
         rw [hsp1]; have := (E .x2).isLt; bv_omega
       have ht := hF.top
       refine ⟨⟨hcode, by omega, by omega, by rw [hsp1]; exact aligned_sub hF.al hm8,
-        fun a ha hp => ?_, fun it hit a ha hh => ?_, fun v hv => ?_⟩,
-        hsp1, hm8, hdep, rfl, by simpa [List.all_eq_true] using hall.1⟩
+        fun a ha hp => ?_, fun it hit a ha hh => ?_, fun v hv => ?_, fun p hp => ?_⟩,
+        hsp1, hm8, hdep, rfl, by simpa [List.all_eq_true] using hall1⟩
       · simp only [MachineState.getMem, hmem]
         exact St.prot hF hx ha hp
       · obtain ⟨it', hit', hinst⟩ := mapM_some_mem hits it hit
-        have hio := hall.1 it' hit'
+        have hio := hall1 it' hit'
         unfold itemOk at hio
         cases hfo : it'.base.frameOff? with
         | some k =>
@@ -467,7 +528,7 @@ theorem call_pre (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState} {
             rw [hl] at hio
             simp only [Bool.and_eq_true, decide_eq_true_eq] at hio
             have hb := AVal.frameOff?_some hfo
-            have hh' := instItem_hits hy1 hinst (by rw [hb]; simp) hh
+            have hh' := instItem_hits hy1 hinst (by simp [hb, AVal.isPtr]) hh
             unfold Item.Hits at hh'
             rw [hb, hl] at hh'
             simp only [AVal.eval, Len.eval] at hh'
@@ -477,14 +538,15 @@ theorem call_pre (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState} {
             exact ⟨this.1, not_prot_of_inWin hF.wf hF.top hF.depth this.2⟩
         | none =>
           rw [hfo] at hio
-          simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, List.any_eq_true] at hio
+          simp only [Bool.and_eq_true, List.any_eq_true] at hio
           obtain ⟨hnt, d, hd, hwd⟩ := hio
           have hh' := instItem_hits hy1 hinst hnt hh
           have hdh := within_hits hwd hh'
           have hf := hF.foot d hd a ha hdh
           rw [hsp1]
           exact ⟨fun hw => hf.1 (inWin_callee hF.al hm8 hdep ha hw), hf.2⟩
-      · exact nzOk_sound hF.nz hy1 (hall.2 v hv)
+      · exact nzOk_sound hF.nz hy1 (hall2 v hv)
+      · exact valOk_sound hy1 (hall3 p hp)
     · cases hok
   · cases hok
 
@@ -519,7 +581,7 @@ theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {
           rw [hl] at hio
           simp only [Bool.and_eq_true, decide_eq_true_eq] at hio
           have hb := AVal.frameOff?_some hfo
-          have hh' := instItem_hits hy1 hinst (by rw [hb]; simp) hh
+          have hh' := instItem_hits hy1 hinst (by simp [hb, AVal.isPtr]) hh
           unfold Item.Hits at hh'
           rw [hb, hl] at hh'
           simp only [AVal.eval, Len.eval] at hh'
@@ -527,7 +589,7 @@ theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {
           exact Or.inl (frameItem_keys (Dg := g.depth) hF.depth hF.al hm8 hdep hio.1.1 hio.1.2 ha hh').2
       | none =>
         rw [hfo] at hio
-        simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, List.any_eq_true] at hio
+        simp only [Bool.and_eq_true, List.any_eq_true] at hio
         obtain ⟨hnt, d, hd, hwd⟩ := hio
         exact Or.inr ⟨d, hd, within_hits hwd (instItem_hits hy1 hinst hnt hh)⟩
   refine ⟨⟨fun r => ?_, fun p hp => ?_⟩, by rw [hcode, hycode], fun a ha hnw => ?_, fun p hp => ?_⟩
@@ -565,7 +627,7 @@ theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {
             simp only [Bool.and_eq_true, decide_eq_true_eq] at hio
             simp only [Bool.or_eq_true, decide_eq_true_eq] at hc
             have hb := AVal.frameOff?_some hfo
-            have hh' := instItem_hits hy1 hinst (by rw [hb]; simp) hh
+            have hh' := instItem_hits hy1 hinst (by simp [hb, AVal.isPtr]) hh
             unfold Item.Hits at hh'
             rw [hb, hl] at hh'
             simp only [AVal.eval, Len.eval] at hh'
@@ -574,7 +636,7 @@ theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {
             exact slot_not_hits (by omega) (by omega) hsl.1 hio.1.1 hc hh'
         | none =>
           rw [hfo] at hio
-          simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, List.any_eq_true] at hio
+          simp only [Bool.and_eq_true, List.any_eq_true] at hio
           obtain ⟨hnt, d, hd, hwd⟩ := hio
           have := within_hits hwd (instItem_hits hy1 hinst hnt hh)
           exact (hF.foot d hd _ hkey.1 this).1 hkey.2
@@ -604,9 +666,9 @@ theorem tail_sound (hF : Facts env σ E s0) {A : AState} {x : MachineState} {g :
   | none => rw [hits] at hfoot; cases hfoot
   | some its =>
   rw [hits] at hfoot
-  simp only [Bool.and_eq_true, List.all_eq_true, bne_iff_ne, ne_eq, List.any_eq_true,
+  simp only [Bool.and_eq_true, List.all_eq_true, List.any_eq_true,
     Option.isNone_iff_eq_none] at hfoot
-  obtain ⟨hall, hnz⟩ := hfoot
+  obtain ⟨⟨hall, hnz⟩, hvals⟩ := hfoot
   have hdD := hF.depth
   -- Each callee item is covered by one of `f`'s.
   have hcov : ∀ it ∈ g.foot, ∀ a, it.Hits (regsOf x) a → ∃ d ∈ σ.foot, d.Hits E a := by
@@ -620,7 +682,8 @@ theorem tail_sound (hF : Facts env σ E s0) {A : AState} {x : MachineState} {g :
       (by omega) ha
     simpa using this (by simpa using hw)
   refine ⟨⟨hx.code, by rw [hx2]; exact Nat.le_trans hdep hdD, by rw [hx2]; exact hF.top,
-    by rw [hx2]; exact hF.al, fun a ha hp => St.prot hF hx ha hp, fun it hit a ha hh => ?_, fun v hv => ?_⟩, fun t ht => ?_⟩
+    by rw [hx2]; exact hF.al, fun a ha hp => St.prot hF hx ha hp, fun it hit a ha hh => ?_, fun v hv => ?_,
+    fun p hp => valOk_sound hx.holds.1 (hvals p hp)⟩, fun t ht => ?_⟩
   · obtain ⟨d, hd, hdh⟩ := hcov it hit a hh
     have hf := hF.foot d hd a ha hdh
     rw [hx2]
@@ -715,7 +778,7 @@ theorem frameItem_inWin {e : Word} {D mk l : Nat} (hD : D ≤ e.toNat) (hl : l �
 /-- An item `itemOk` accepts with `m = depth` is something the function may write, and its
     base is known. -/
 theorem itemOk_depth (hF : Facts env σ E s0) {it : Item} (h : itemOk σ σ.depth it = true) :
-    it.base ≠ .top ∧ ∀ a, it.Hits E a → Written σ E a := by
+    it.base.isPtr = true ∧ ∀ a, it.Hits E a → Written σ E a := by
   unfold itemOk at h
   cases hfo : it.base.frameOff? with
   | some k =>
@@ -727,7 +790,7 @@ theorem itemOk_depth (hF : Facts env σ E s0) {it : Item} (h : itemOk σ σ.dept
     | n l =>
       rw [hl] at h
       simp only [Bool.and_eq_true, decide_eq_true_eq] at h
-      refine ⟨by rw [hb]; simp, fun a ha => Or.inl ?_⟩
+      refine ⟨by simp [hb, AVal.isPtr], fun a ha => Or.inl ?_⟩
       unfold Item.Hits at ha
       rw [hb, hl] at ha
       simp only [AVal.eval, Len.eval] at ha
@@ -735,7 +798,7 @@ theorem itemOk_depth (hF : Facts env σ E s0) {it : Item} (h : itemOk σ σ.dept
       exact frameItem_inWin hF.depth h.1.1 h.1.2 ha
   | none =>
     rw [hfo] at h
-    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, List.any_eq_true] at h
+    simp only [Bool.and_eq_true, List.any_eq_true] at h
     obtain ⟨hnt, d, hd, hwd⟩ := h
     exact ⟨hnt, fun a ha => Or.inr ⟨d, hd, within_hits hwd ha⟩⟩
 
@@ -767,7 +830,7 @@ theorem slot_clear_items (hF : Facts env σ E s0) {p : Word × AVal}
       exact slot_not_hits (by omega) (by omega) hsl.1 hok.1.1 hc hh
   | none =>
     rw [hfo] at hok
-    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, List.any_eq_true] at hok
+    simp only [Bool.and_eq_true, List.any_eq_true] at hok
     obtain ⟨_, d, hd, hwd⟩ := hok
     intro hh
     exact (hF.foot d hd _ hkey.1 (within_hits hwd hh)).1 hkey.2
@@ -1056,6 +1119,10 @@ theorem act (h : ActHyp c anno C n P s0) : ∀ k ≤ n, ∀ x, c.At anno C s0 x 
             rw [ht] at hrs; simp only [AVal.Holds] at hrs
             exact jump_sound h hkn' ih' hstp hok hx.setPC
               (by show (x.getReg rs + signExtend12 off) &&& ~~~1#64 = _; rw [hrs])
+          · rename_i ts ht
+            rw [ht] at hrs; simp only [AVal.Holds] at hrs
+            obtain ⟨es', h1, hsub⟩ := allEdges_mem hstp hrs
+            exact jump_sound h hkn' ih' h1 (fun e he => hok e (hsub e he)) hx.setPC rfl
           · cases hstp
       · split at hstp
         · rename_i h1; subst h1
@@ -1064,6 +1131,11 @@ theorem act (h : ActHyp c anno C n P s0) : ∀ k ≤ n, ∀ x, c.At anno C s0 x 
           · rename_i t ht
             rw [ht] at hrs; simp only [AVal.Holds] at hrs
             exact call_sound' h hkn' ih' hstp hok hx (by simp [execInstrBr, hrs])
+          · rename_i ts ht
+            rw [ht] at hrs; simp only [AVal.Holds] at hrs
+            obtain ⟨es', h1, hsub⟩ := allEdges_mem hstp hrs
+            exact call_sound' h hkn' ih' h1 (fun e he => hok e (hsub e he)) hx
+              (by simp [execInstrBr])
           · cases hstp
         · split at hstp
           · -- An outlined fragment.
@@ -1129,6 +1201,17 @@ end Act
 
 /-! ## Soundness -/
 
+/-- The entry state describes the entry, given the `vals` premise. -/
+theorem holds_entryState {σ : Iface} {s : MachineState}
+    (hv : ∀ p ∈ σ.vals, s.getReg p.1 ∈ p.2) : σ.entryState.Holds (regsOf s) s := by
+  refine ⟨fun r => ?_, fun p hp => by simp [Iface.entryState] at hp⟩
+  by_cases h0 : r = .x0
+  · subst h0; simp [AState.get, AVal.Holds, MachineState.getReg]
+  · simp only [AState.get, h0, if_false, Iface.entryState, getD_map_allRegs]
+    cases hl : σ.vals.lookup r with
+    | none => simp [AVal.Holds, regsOf]
+    | some cs => exact hv (r, cs) (lookup_mem hl)
+
 /-- **The checker is sound.** If it accepts the annotation, and every callee in the table
     meets its interface for every budget below `n`, the function meets its own for `n`. -/
 theorem Ctx.sound {c : Ctx} {anno : Array (Option AState)} {C : Word → Option Instr} {n : Nat}
@@ -1147,11 +1230,11 @@ theorem Ctx.sound {c : Ctx} {anno : Array (Option AState)} {C : Word → Option 
   have hAct : ActHyp c anno C n P s := ⟨hv, hcode, htbl, hpre.1, hF, hk⟩
   refine act hAct n (Nat.le_refl _) s ⟨0, A, ?_, hA, ?_⟩
   · simp [Fn.idx?, hpc, ← hbase, hne]
-  · refine ⟨AState.holds_of_le h0 (AState.holds_entry (fun r _ => rfl)), hpre.1,
+  · refine ⟨AState.holds_of_le h0 (holds_entryState hF.vals), hpre.1,
       fun _ _ _ => rfl, fun p hp => ?_⟩
     simp only [AState.le, Bool.and_eq_true, List.all_eq_true, List.contains_iff_mem] at h0
     have := h0.2 p hp
-    simp [AState.entry] at this
+    simp [Iface.entryState] at this
 
 /-! ## Composition -/
 

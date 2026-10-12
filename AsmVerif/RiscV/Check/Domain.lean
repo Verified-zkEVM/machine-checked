@@ -100,7 +100,23 @@ structure Iface where
   foot : List Item := []
   nz : List AVal := []
   returns : Bool := true
+  /-- Registers whose entry value is one of the listed constants: a function pointer or a
+      vtable among candidates (the control-flow premise of an indirect call). -/
+  vals : List (Reg × List Word) := []
   deriving DecidableEq, Repr
+
+/-- The abstract state at entry: every register its own entry value, except those `vals`
+    restricts to a set of constants. -/
+def Iface.entryState (σ : Iface) : AState :=
+  { regs := allRegs.map fun r => match σ.vals.lookup r with
+      | some cs => .oneOf cs
+      | none => .lin r 0
+    slots := [] }
+
+/-- A value that can be a store's base or a footprint item's: entry-relative or constant. -/
+def _root_.AsmVerif.RiscV.Frame.AVal.isPtr : AVal → Bool
+  | .lin _ _ | .const _ => true
+  | _ => false
 
 /-! ## Frames
 
@@ -127,6 +143,7 @@ def loadVal (env : Env) (A : AState) (b : AVal) (isD : Bool) : AVal :=
     | some k => (A.slots.lookup k).getD .top
     | none => match b with
       | .const c => if env.protKey c then .const (env.init c) else .top
+      | .oneOf cs => if cs.all env.protKey then .oneOf (cs.map env.init) else .top
       | _ => .top
   else .top
 
@@ -146,7 +163,7 @@ def storeStep (σ : Iface) (A : AState) (rs1 rs2 : Reg) (off : BitVec 12) (w : W
         some { A with slots := new }
       else none
   | none =>
-      if b = .top then none
+      if !b.isPtr then none
       else if σ.foot.any (·.within { base := b, len := .n (wbytes w) }) then some A
       else none
 
@@ -175,11 +192,11 @@ def instLen (A : AState) : Len → Option Len
   | .reg r => match A.get r with
     | .const c => some (.n c.toNat)
     | .lin r' k => if k = 0 then some (.reg r') else none
-    | .top => none
+    | _ => none
   | .regPlus r c => match A.get r with
     | .const v => some (.n (v.toNat + c))
     | .lin r' k => if k = 0 then some (.regPlus r' c) else none
-    | .top => none
+    | _ => none
 
 def instItem (A : AState) (it : Item) : Option Item :=
   (instLen A it.len).map fun l => { base := instVal A it.base, len := l }
@@ -191,7 +208,7 @@ def itemOk (σ : Iface) (m : Nat) (it : Item) : Bool :=
   match it.base.frameOff?, it.len with
   | some k, .n l => decide (l ≤ negOff k) && decide (negOff k ≤ m) && decide (m ≤ σ.depth)
   | some _, _ => false
-  | none, _ => it.base != .top && σ.foot.any (·.within it)
+  | none, _ => it.base.isPtr && σ.foot.any (·.within it)
 
 /-- A frame slot `k` cannot be written by a callee item. -/
 def slotClear (k : Word) (it : Item) : Bool :=
@@ -205,8 +222,9 @@ def nzVal (σ : Iface) : AVal → Bool
   | .const c => c != 0
   | .lin r k => σ.nz.contains (.lin r k)
   | .top => false
+  | .oneOf cs => cs.all (· != 0)
 
-def nzOk (σ : Iface) (A : AState) (v : AVal) : Bool := nzVal σ (instVal A v)
+def nzOk (σ : Iface) (A : AState) (v : AVal) : Bool := v.isPtr && nzVal σ (instVal A v)
 
 /-- The callee-saved registers: `sp`, `gp`, `tp`, `s0`-`s11`. -/
 def savedRegs : List Reg :=
@@ -217,6 +235,14 @@ def savedRegs : List Reg :=
 def afterCall (A : AState) (m : Nat) (its : List Item) : AState :=
   { regs := allRegs.map (fun r => if savedRegs.contains r then A.get r else .top),
     slots := A.slots.filter fun p => decide (negOff p.1 ≤ m) && its.all (slotClear p.1) }
+
+/-- A callee's `vals` premise, discharged by the caller's value: a constant or a set inside
+    the candidates. -/
+def valOk (A : AState) (p : Reg × List Word) : Bool :=
+  match A.get p.1 with
+  | .const c => p.2.contains c
+  | .oneOf cs => cs.all p.2.contains
+  | _ => false
 
 /-- The stack pointer is `m` bytes below its entry value, `m` a multiple of 8. -/
 def spOff (A : AState) : Option Nat :=
@@ -234,7 +260,8 @@ def callOk (σ : Iface) (A : AState) (g : Iface) : Option (Nat × List Item) :=
       match g.foot.mapM (instItem A) with
       | none => none
       | some its =>
-        if its.all (itemOk σ m) && g.nz.all (nzOk σ A) then some (m, its) else none
+        if its.all (itemOk σ m) && g.nz.all (nzOk σ A) && g.vals.all (valOk A) then some (m, its)
+        else none
     else none
 
 def okExit (A : AState) : Bool :=
@@ -246,8 +273,8 @@ def tailOk (σ : Iface) (A : AState) (g : Iface) : Bool :=
   okExit A && decide (g.depth ≤ σ.depth) && (σ.returns || !g.returns) &&
   match g.foot.mapM (instItem A) with
   | none => false
-  | some its => its.all (fun it => it.base.frameOff?.isNone && it.base != .top &&
-      σ.foot.any (·.within it)) && g.nz.all (nzOk σ A)
+  | some its => its.all (fun it => it.base.frameOff?.isNone && it.base.isPtr &&
+      σ.foot.any (·.within it)) && g.nz.all (nzOk σ A) && g.vals.all (valOk A)
 
 /-! ## Syscalls
 
@@ -272,7 +299,7 @@ def lenPlus (v : AVal) (c : Nat) : Option Len :=
   match v with
   | .const n => some (.n (n.toNat + c))
   | .lin r k => if k = 0 then some (.regPlus r c) else none
-  | .top => none
+  | _ => none
 
 inductive SysOut where
   /-- No successor: a halt with a nonzero exit code, or a trap. -/
@@ -335,6 +362,10 @@ def Ctx.call (c : Ctx) (pc : Word) (A : AState) (tgt : Word) : Option (List Edge
         else none
       else some []
 
+/-- Every candidate target's edges. -/
+def allEdges (f : Word → Option (List Edge)) (ts : List Word) : Option (List Edge) :=
+  (ts.mapM f).map List.flatten
+
 /-- Abstractly run an outlined fragment (straight-line prologue or epilogue code) to its
     `jalr zero, 0(t0)`. -/
 def Ctx.runFrag (c : Ctx) (A : AState) (fbase : Word) : List (Option Instr) → Nat → Option AState
@@ -383,10 +414,12 @@ def Ctx.stepAt (c : Ctx) (pc : Word) (oi : Option Instr) (A : AState) : Option (
         if rs = .x1 ∧ off = 0 then (if c.σ.returns then some [.ret A] else none)
         else match A.get rs with
           | .const t => c.jump A ((t + signExtend12 off) &&& ~~~1#64)
+          | .oneOf ts => allEdges (fun t => c.jump A ((t + signExtend12 off) &&& ~~~1#64)) ts
           | _ => none
       else if rd = .x1 then
         match A.get rs with
         | .const t => c.call pc A ((t + signExtend12 off) &&& ~~~1#64)
+        | .oneOf ts => allEdges (fun t => c.call pc A ((t + signExtend12 off) &&& ~~~1#64)) ts
         | _ => none
       else if rd = .x5 ∧ rs = .x5 then c.outlined pc A off
       else none
@@ -427,7 +460,7 @@ def Ctx.instrOk (c : Ctx) (anno : Array (Option AState)) (i : Nat) : Bool :=
 def Ctx.valid (c : Ctx) (anno : Array (Option AState)) : Bool :=
   c.f.base == c.σ.entry &&
   (match Fn.annoAt anno 0 with
-    | some A => AState.entry.le A
+    | some A => c.σ.entryState.le A
     | none => false) &&
   (List.range c.f.prog.length).all (c.instrOk anno)
 
@@ -496,7 +529,7 @@ def Ctx.walk (c : Ctx) (anno : Array (Option AState)) :
 def Ctx.validFast (c : Ctx) (anno : Array (Option AState)) : Bool :=
   c.f.base == c.σ.entry &&
   (match Fn.annoAt anno 0 with
-    | some A => AState.entry.le A
+    | some A => c.σ.entryState.le A
     | none => false) &&
   anno.size == c.f.prog.length && c.walk anno 0 c.f.prog anno.toList
 

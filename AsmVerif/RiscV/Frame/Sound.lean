@@ -34,6 +34,7 @@ theorem frameOff?_some {a : AVal} {k : Word} (h : a.frameOff? = some k) : a = .l
     · cases h
   | const => cases h
   | top => cases h
+  | oneOf => cases h
 
 theorem holds_addK {E : Reg → Word} {a : AVal} {x d : Word} (h : a.Holds E x) :
     (a.addK d).Holds E (x + d) := by
@@ -101,14 +102,20 @@ theorem holds_set {E} {A : AState} {s : MachineState} {r : Reg} {v : AVal} {w : 
       exact h.1 r'
   · simpa [MachineState.getMem_setReg] using h.2 p hp
 
+theorem _root_.AsmVerif.RiscV.Frame.AVal.holds_of_le {E} {a b : AVal} {v : Word}
+    (hle : a.le b = true) (h : a.Holds E v) : b.Holds E v := by
+  unfold AVal.le at hle
+  simp only [Bool.or_eq_true, beq_iff_eq] at hle
+  rcases hle with (rfl | rfl) | hle
+  · trivial
+  · exact h
+  · cases a <;> cases b <;> simp_all [AVal.Holds, List.all_eq_true]
+
 theorem holds_of_le {E} {A B : AState} {s : MachineState} (hle : A.le B = true)
     (h : A.Holds E s) : B.Holds E s := by
-  simp only [le, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true, beq_iff_eq,
-    List.contains_iff_mem] at hle
-  refine ⟨fun r => ?_, fun p hp => h.2 p (hle.2 p hp)⟩
-  rcases hle.1 r (mem_allRegs r) with h1 | h1
-  · rw [h1]; trivial
-  · rw [h1]; exact h.1 r
+  simp only [le, Bool.and_eq_true, List.all_eq_true, List.contains_iff_mem] at hle
+  exact ⟨fun r => AVal.holds_of_le (hle.1 r (mem_allRegs r)) (h.1 r),
+    fun p hp => h.2 p (hle.2 p hp)⟩
 
 theorem holds_entry {E} {s : MachineState} (hE : ∀ r, r ≠ .x0 → s.getReg r = E r) :
     entry.Holds E s := by
@@ -152,8 +159,8 @@ theorem sub_alignToDword_lt (a : Word) : (a - alignToDword a).toNat < 8 := by
   rw [this, BitVec.toNat_and]
   exact Nat.lt_of_le_of_lt Nat.and_le_right (by decide)
 
-theorem lookup_mem {l : List (Word × AVal)} {k : Word} {v : AVal} (h : l.lookup k = some v) :
-    (k, v) ∈ l := by
+theorem lookup_mem {α β : Type} [BEq α] [LawfulBEq α] {l : List (α × β)} {k : α} {v : β}
+    (h : l.lookup k = some v) : (k, v) ∈ l := by
   induction l with
   | nil => simp at h
   | cons p l ih =>
@@ -271,6 +278,12 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
         · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
           exact h.1 rs2
         · exact keep p hp
+      | oneOf cs =>
+        simp only [hr2, List.mem_cons] at hp
+        rcases hp with rfl | hp
+        · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+          exact h.1 rs2
+        · exact keep p hp
   | none =>
     simp only [hk] at hreq hres ⊢
     by_cases hnt : b = .top
@@ -295,6 +308,7 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
         | lin r k => simp only [AVal.Holds] at hb; simpa [Req.Holds, hb] using hq
         | const c => simp only [AVal.Holds] at hb; simpa [Req.Holds, hb] using hq
         | top => exact absurd rfl hnt
+        | oneOf cs => simp only [AVal.Holds] at hb; exact hq _ hb
       rw [getMem_setMem, if_neg (Ne.symm hneq)]
       exact h.2 p hp.1
 
@@ -740,6 +754,7 @@ theorem outlined_sound {f : Fn} {anno} {E} {s s' : MachineState} {i k : Nat} {A 
   cases hx5 : A.get .x5 with
   | lin r k0 => rw [hx5] at hok0; cases hok0
   | top => rw [hx5] at hok0; cases hok0
+  | oneOf => rw [hx5] at hok0; cases hok0
   | const c =>
     rw [hx5] at hok0 h5
     simp only [AVal.Holds] at h5

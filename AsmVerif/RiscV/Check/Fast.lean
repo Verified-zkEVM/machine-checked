@@ -12,7 +12,7 @@ namespace AsmVerif.RiscV.Check
 open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
 
 theorem AState.le_refl (A : AState) : A.le A = true := by
-  simp [AState.le, List.all_eq_true]
+  simp [AState.le, AVal.le, List.all_eq_true]
 
 theorem edgeOkAt_imp {anno : Array (Option AState)} {i : Nat} {e : Edge}
     (h : edgeOkAt anno i (anno.toList[i + 1]?) e = true) : edgeOk anno e = true := by

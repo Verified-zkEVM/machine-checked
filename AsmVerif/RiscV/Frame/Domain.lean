@@ -58,6 +58,8 @@ inductive AVal where
   | lin (r : Reg) (k : Word)
   | const (c : Word)
   | top
+  /-- One of finitely many constants: a function pointer or vtable among candidates. -/
+  | oneOf (cs : List Word)
   deriving DecidableEq, Repr, Inhabited
 
 namespace AVal
@@ -66,6 +68,7 @@ def addK : AVal → Word → AVal
   | .lin r k, d => .lin r (k + d)
   | .const c, d => .const (c + d)
   | .top, _ => .top
+  | .oneOf cs, d => .oneOf (cs.map (· + d))
 
 /-- The frame offset of a frame address (`lin x2 k`). Matching on a specific register
     inside a pattern expands into Lean's 32-way case tree for `Reg`; testing it with `if`
@@ -74,11 +77,35 @@ def frameOff? : AVal → Option Word
   | .lin r k => if r = .x2 then some k else none
   | _ => none
 
+/-- `a` is at least as precise as `b`: every value `a` allows, `b` allows. -/
+def le (a b : AVal) : Bool :=
+  b == .top || b == a ||
+  match a, b with
+  | .const c, .oneOf cs => cs.contains c
+  | .oneOf as, .oneOf bs => as.all bs.contains
+  | _, _ => false
+
+/-- The largest value set `join` keeps; beyond it, `top` (a widening: loops terminate). -/
+def maxSet : Nat := 16
+
+def mkSet (cs : List Word) : AVal := if cs.length ≤ maxSet then .oneOf cs else .top
+
+/-- Least upper bound, up to the widening. -/
+def join (a b : AVal) : AVal :=
+  if a = b then a else
+  match a, b with
+  | .const x, .const y => mkSet [x, y]
+  | .const x, .oneOf ys => mkSet (if ys.contains x then ys else x :: ys)
+  | .oneOf xs, .const y => mkSet (if xs.contains y then xs else xs ++ [y])
+  | .oneOf xs, .oneOf ys => mkSet (xs ++ ys.filter (!xs.contains ·))
+  | _, _ => .top
+
 /-- `v` is a concretization of the abstract value, given the entry register file `E`. -/
 def Holds (E : Reg → Word) : AVal → Word → Prop
   | .lin r k, v => v = E r + k
   | .const c, v => v = c
   | .top, _ => True
+  | .oneOf cs, v => v ∈ cs
 
 end AVal
 
@@ -128,11 +155,11 @@ def entry : AState := { regs := allRegs.map (fun r => .lin r 0), slots := [] }
 
 /-- `A ≤ B`: every fact of `B` is a fact of `A`. -/
 def le (A B : AState) : Bool :=
-  allRegs.all (fun r => B.get r == .top || B.get r == A.get r) &&
+  allRegs.all (fun r => (A.get r).le (B.get r)) &&
   B.slots.all (fun p => A.slots.contains p)
 
 def join (A B : AState) : AState :=
-  { regs := allRegs.map (fun r => if A.get r = B.get r then A.get r else .top)
+  { regs := allRegs.map (fun r => (A.get r).join (B.get r))
     slots := A.slots.filter (fun p => B.slots.contains p) }
 
 def beq (A B : AState) : Bool := le A B && le B A
@@ -172,6 +199,7 @@ def Req.Holds (E : Reg → Word) (q : Req) : Prop :=
   | .lin r k => q.w.target (E r + k) ≠ E .x2 + q.sk
   | .const c => q.w.target c ≠ E .x2 + q.sk
   | .top => True   -- never generated; a `top` base is a residual
+  | .oneOf cs => ∀ c ∈ cs, q.w.target c ≠ E .x2 + q.sk
 
 /-! ## The transfer function on straight-line instructions -/
 

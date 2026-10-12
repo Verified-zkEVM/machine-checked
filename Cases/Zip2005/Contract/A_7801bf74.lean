@@ -13,11 +13,11 @@ namespace Cases.Zip2005.Contract.A_7801bf74
 
 open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
 
-def iface : Iface := { entry := 0x000000007801bf74#64, depth := 0, foot := [], nz := [], returns := true }
+def iface : Iface := { entry := 0x000000007801bf74#64, depth := 0, foot := [], nz := [], returns := true, vals := [(.x12, [0x0000000078013b80#64])] }
 
 def fn : Fn := { base := Cases.Zip2005.Image.F_7801bf74.base, prog := Cases.Zip2005.Image.F_7801bf74.prog, frags := [] }
 
 noncomputable def hints : List (Nat × AState) := [
-  (0, (.ofDiff [] []))]
+  (0, (.ofDiff [(.x12, (.oneOf [0x0000000078013b80#64]))] []))]
 
 end Cases.Zip2005.Contract.A_7801bf74

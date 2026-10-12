@@ -14,8 +14,16 @@
   the result as a sanity check, and the kernel re-runs it.
 
   A function gets no interface when its analysis meets something the checker does not
-  model: an indirect call or jump, a store through an unknown pointer, an `ecall`, a store
-  above its entry stack pointer, a callee without an interface, or recursion.
+  model: an indirect call or jump through an unknown target, a store through an unknown
+  pointer, an unmodelled `ecall`, a store above its entry stack pointer, a callee without an
+  interface, or recursion.
+
+  Indirect calls are resolved by value sets. A first, permissive pass over every function
+  (unknown callees havoc and return) collects the values each call site passes in the
+  argument registers; a register whose values, over every site, are rodata addresses or
+  function entries becomes a `vals` premise of the callee. With the premises the bottom-up
+  analysis runs again, and the passes repeat until the premises are stable. The kernel
+  checks that every caller discharges them.
 -/
 
 import RiscvZkvm.Interpreter
@@ -36,6 +44,8 @@ structure Need where
   nz : List AVal := []
   returns : Bool := false
   frags : List Word := []
+  /-- Call sites: the callee and the values passed in `a0`-`a7`. -/
+  sites : List (Word × List AVal) := []
 
 def Need.addItem (n : Need) (it : Item) : Need :=
   if n.items.contains it then n else { n with items := it :: n.items }
@@ -57,11 +67,22 @@ structure Ctx' where
   tbl : Std.HashMap Word Iface
   pending : Std.HashSet Word
   f : Fn
+  /-- The function's `vals` premises. -/
+  vals : List (Reg × List Word) := []
+  /-- Collecting call sites: unknown callees havoc and return, nothing is rejected for
+      want of a callee's premises. -/
+  permissive : Bool := false
 
 def Ctx'.lookup (c : Ctx') (pc tgt : Word) : M Iface := do
   match c.tbl[tgt]? with
   | some g => pure g
-  | none => if c.pending.contains tgt then throw (.blocked tgt) else bad pc s!"callee {tgt.toHex} has no interface"
+  | none =>
+    if c.permissive then pure { entry := tgt, depth := 0 }
+    else if c.pending.contains tgt then throw (.blocked tgt)
+    else bad pc s!"callee {tgt.toHex} has no interface"
+
+/-- The argument registers whose call-site values are collected. -/
+def argRegs : List Reg := [.x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17]
 
 def needDepth (d : Nat) : M Unit := modify fun n => { n with depth := max n.depth d }
 
@@ -80,7 +101,7 @@ def storeI (pc : Word) (A : AState) (rs1 rs2 : Reg) (off : BitVec 12) (w : Width
         pure { A with slots := new }
       else bad pc "store at or above the entry stack pointer"
   | none =>
-      if b = .top then bad pc "store through an unknown pointer"
+      if !b.isPtr then bad pc "store through an unknown pointer"
       else
         modify (·.addItem { base := b, len := .n (wbytes w) })
         pure A
@@ -109,6 +130,7 @@ def nzV (pc : Word) : AVal → M Unit
   | .const c => if c != 0 then pure () else bad pc "a value that must be nonzero is 0"
   | .lin r k => modify (·.addNz (.lin r k))
   | .top => bad pc "a value that must be nonzero is unknown"
+  | .oneOf cs => if cs.all (· != 0) then pure () else bad pc "a value that must be nonzero may be 0"
 
 def nzI (pc : Word) (A : AState) (v : AVal) : M Unit := nzV pc (instVal A v)
 
@@ -120,7 +142,7 @@ def sysItemI (pc : Word) (it : Item) : M Unit := do
     needDepth (negOff k)
   | some _, _ => bad pc "syscall writes a frame item of register length"
   | none, _ =>
-    if it.base == .top then bad pc "syscall writes through an unknown pointer"
+    if !it.base.isPtr then bad pc "syscall writes through an unknown pointer"
     modify (·.addItem it)
 
 /-- `ecall`, as `sysStep` classifies it. -/
@@ -143,28 +165,36 @@ def ecallI (pc : Word) (A : AState) : M (Option (AState × List Item)) := do
     else pure none
   | _ => bad pc "ecall with an unknown syscall number"
 
+/-- A callee's `vals` premise, discharged by the caller's value. -/
+def valI (pc : Word) (A : AState) (p : Reg × List Word) : M Unit :=
+  if valOk A p then pure ()
+  else bad pc s!"callee needs x{regIdx p.1} among {p.2.length} candidates"
+
 def tailI (pc : Word) (A : AState) (g : Iface) : M Unit := do
   if !okExit A then bad pc "tail call without the callee-saved registers restored"
   needDepth g.depth
   if g.returns then modify fun n => { n with returns := true }
   let its ← instItems pc A g
   for it in its do
-    if it.base.frameOff?.isSome || it.base == .top then
+    if it.base.frameOff?.isSome || !it.base.isPtr then
       bad pc "tail call passes a frame or unknown pointer the callee writes through"
     modify (·.addItem it)
   for v in g.nz do nzI pc A v
+  for p in g.vals do valI pc A p
 
 def Ctx'.jump (c : Ctx') (pc : Word) (A : AState) (tgt : Word) : M (List Edge) := do
   match c.f.idx? tgt with
   | some j => pure [.goto j A]
   | none =>
     let g ← c.lookup pc tgt
-    tailI pc A g
+    modify fun n => { n with sites := (tgt, argRegs.map A.get) :: n.sites }
+    if !c.permissive then tailI pc A g
     pure []
 
 def Ctx'.call (c : Ctx') (pc : Word) (A : AState) (tgt : Word) : M (List Edge) := do
   let g ← c.lookup pc tgt
   let A1 := A.set .x1 (.const (pc + 4))
+  modify fun n => { n with sites := (tgt, argRegs.map A1.get) :: n.sites }
   let some m := spOff A1 | bad pc "call with the stack pointer not a known 8-aligned frame offset"
   needDepth (m + g.depth)
   let its ← instItems pc A1 g
@@ -175,9 +205,10 @@ def Ctx'.call (c : Ctx') (pc : Word) (A : AState) (tgt : Word) : M (List Edge) :
         bad pc s!"callee writes a frame item outside the caller's frame above its stack pointer"
     | some _, _ => bad pc "callee writes a frame item of register length"
     | none, _ =>
-      if it.base == .top then bad pc "callee writes through a pointer the caller does not know"
+      if !it.base.isPtr then bad pc "callee writes through a pointer the caller does not know"
       modify (·.addItem it)
   for v in g.nz do nzI pc A1 v
+  if !c.permissive then for p in g.vals do valI pc A1 p
   if g.returns then
     if (pc + 4) &&& ~~~1#64 != pc + 4 then bad pc "misaligned return address"
     match c.f.idx? (pc + 4) with
@@ -232,10 +263,12 @@ def Ctx'.stepAt (c : Ctx') (pc : Word) (oi : Option Instr) (A : AState) : M (Lis
           else bad pc "ret without ra and the callee-saved registers restored"
         else match A.get rs with
           | .const t => c.jump pc A ((t + signExtend12 off) &&& ~~~1#64)
+          | .oneOf ts => return (← ts.mapM fun t => c.jump pc A ((t + signExtend12 off) &&& ~~~1#64)).flatten
           | _ => bad pc "indirect jump"
       else if rd = .x1 then
         match A.get rs with
         | .const t => c.call pc A ((t + signExtend12 off) &&& ~~~1#64)
+        | .oneOf ts => return (← ts.mapM fun t => c.call pc A ((t + signExtend12 off) &&& ~~~1#64)).flatten
         | _ => bad pc "indirect call"
       else if rd = .x5 ∧ rs = .x5 then c.outlined pc A off
       else bad pc "jalr with an unusual link register"
@@ -255,9 +288,10 @@ def Ctx'.stepAt (c : Ctx') (pc : Word) (oi : Option Instr) (A : AState) : M (Lis
     no successor, so that one run reports every problem; the function then gets no interface. -/
 def Ctx'.analyze (c : Ctx') : Except Why (Array (Option AState) × Need) := do
   let n := c.f.prog.length
-  let mut anno : Array (Option AState) := (List.replicate n none).toArray.set! 0 (some AState.entry)
+  let entry := ({ entry := c.f.base, depth := 0, vals := c.vals } : Iface).entryState
+  let mut anno : Array (Option AState) := (List.replicate n none).toArray.set! 0 (some entry)
   let mut work : List Nat := [0]
-  let mut fuel := 64 * n + 64
+  let mut fuel := 256 * n + 64
   let mut fails : List String := []
   while !work.isEmpty do
     if fuel = 0 then throw (.fail c.f.base "no fixpoint")
@@ -280,13 +314,14 @@ def Ctx'.analyze (c : Ctx') : Except Why (Array (Option AState) × Need) := do
         anno := a
         if ch then work := j :: work
       | .ret _ => pure ()
-  if !fails.isEmpty then throw (.fail c.f.base ("; ".intercalate fails))
+  if !fails.isEmpty && !c.permissive then throw (.fail c.f.base ("; ".intercalate fails))
   let mut need : Need := {}
   for i in List.range n do
     let some (some A) := anno[i]? | continue
     let some oi := c.f.prog[i]? | continue
-    let (_, nd) ← (c.stepAt (c.f.pcOf i) oi A).run need
-    need := nd
+    match (c.stepAt (c.f.pcOf i) oi A).run need with
+    | .ok (_, nd) => need := nd
+    | .error e => if c.permissive then continue else throw e
   return (anno, need)
 
 /-! ## Merging footprint items -/
@@ -313,17 +348,20 @@ def mergeItems (its : List Item) : List Item := Id.run do
     | .lin r _, .lin r' _ => regIdx r ≤ regIdx r'
     | _, _ => true) ++ rest.reverse
 
-def mkIface (entry : Word) (n : Need) : Iface :=
-  { entry, depth := n.depth, foot := mergeItems n.items, nz := n.nz.reverse, returns := n.returns }
+def mkIface (entry : Word) (n : Need) (vals : List (Reg × List Word)) : Iface :=
+  { entry, depth := n.depth, foot := mergeItems n.items, nz := n.nz.reverse, returns := n.returns,
+    vals }
 
 /-! ## Lean output -/
 
 def regName (r : Reg) : String := s!".x{regIdx r}"
 def word (w : Word) : String := s!"0x{w.toHex}#64"
+def fmtWords (cs : List Word) : String := "[" ++ ", ".intercalate (cs.map word) ++ "]"
 def fmtAVal : AVal → String
   | .lin r k => s!"(.lin {regName r} {word k})"
   | .const c => s!"(.const {word c})"
   | .top => ".top"
+  | .oneOf cs => s!"(.oneOf {fmtWords cs})"
 def fmtLen : Len → String
   | .n l => s!"(.n {l})"
   | .reg r => s!"(.reg {regName r})"
@@ -339,7 +377,8 @@ def fmtState (A : AState) : String :=
   else s!"some (.ofKnown {fmtList known} {slots})"
 def fmtIface (σ : Iface) : String :=
   s!"\{ entry := {word σ.entry}, depth := {σ.depth}, foot := {fmtList (σ.foot.map fmtItem)}, " ++
-  s!"nz := {fmtList (σ.nz.map fmtAVal)}, returns := {σ.returns} }"
+  s!"nz := {fmtList (σ.nz.map fmtAVal)}, returns := {σ.returns}, " ++
+  s!"vals := {fmtList (σ.vals.map fun (r, cs) => s!"({regName r}, {fmtWords cs})")} }"
 
 end Tools.Infer
 
@@ -430,7 +469,7 @@ structure Result where
   given : Option Given := none
 
 def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
-    IO (Array Result × List Iface) := do
+    IO (Array Result × List Iface × Std.HashMap Word (List (Reg × List Word))) := do
   let progOf (s : Sym) : Except String (List (Option Instr)) :=
     (wordsAt img s.addr (s.size / 4)).map (·.map decode)
   let mut frags : List (Word × List (Option Instr)) := []
@@ -442,27 +481,65 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
     if s.size % 4 != 0 || s.name.startsWith "OUTLINED_FUNCTION" then continue
     if let .ok prog := progOf s then
       fns := fns.push (s, { base := BitVec.ofNat 64 s.addr, prog, frags })
-  let mut done : Std.HashMap Word (Iface × Array (Option AState) × List Word) := {}
-  for g in given do done := done.insert g.σ.entry (g.σ, #[], [])
-  let mut failed : Std.HashMap Word String := {}
-  let mut pending : Std.HashSet Word := fns.foldl (fun acc (_, f) => acc.insert f.base) {}
-  for g in given do pending := pending.erase g.σ.entry
-  let mut changed := true
-  while changed do
-    changed := false
+  let isEntry : Std.HashSet Word := fns.foldl (fun acc (_, f) => acc.insert f.base) {}
+  let useful (c : Word) : Bool := env.protKey c || isEntry.contains c
+  let givenAt : Std.HashSet Word := given.foldl (fun acc g => acc.insert g.σ.entry) {}
+  -- Bottom-up, under the given `vals` premises.
+  let bottomUp (vals : Std.HashMap Word (List (Reg × List Word))) :
+      Std.HashMap Word (Iface × Array (Option AState) × List Word) × Std.HashMap Word String ×
+        Std.HashSet Word := Id.run do
+    let mut done : Std.HashMap Word (Iface × Array (Option AState) × List Word) := {}
+    for g in given do done := done.insert g.σ.entry (g.σ, #[], [])
+    let mut failed : Std.HashMap Word String := {}
+    let mut pending : Std.HashSet Word := fns.foldl (fun acc (_, f) => acc.insert f.base) {}
+    for g in given do pending := pending.erase g.σ.entry
+    let mut changed := true
+    while changed do
+      changed := false
+      for (_, f) in fns do
+        if !pending.contains f.base then continue
+        let tbl : Std.HashMap Word Iface := done.fold (fun acc k v => acc.insert k v.1) {}
+        let vs := vals.getD f.base []
+        match ({ env, tbl, pending := pending.erase f.base, f, vals := vs } : Ctx').analyze with
+        | .ok (anno, need) =>
+          done := done.insert f.base (mkIface f.base need vs, anno, need.frags)
+          pending := pending.erase f.base
+          changed := true
+        | .error (.fail pc msg) =>
+          failed := failed.insert f.base s!"{pc.toHex}: {msg}"
+          pending := pending.erase f.base
+          changed := true
+        | .error (.blocked _) => pure ()
+    return (done, failed, pending)
+  -- Call sites, permissively, under the given premises and the interfaces found so far.
+  let collect (vals : Std.HashMap Word (List (Reg × List Word))) (tbl : Std.HashMap Word Iface) :
+      Std.HashMap Word (List (Reg × List Word)) := Id.run do
+    let mut seen : Std.HashMap Word (List AVal) := {}
     for (_, f) in fns do
-      if !pending.contains f.base then continue
-      let tbl : Std.HashMap Word Iface := done.fold (fun acc k v => acc.insert k v.1) {}
-      match ({ env, tbl, pending := pending.erase f.base, f } : Ctx').analyze with
-      | .ok (anno, need) =>
-        done := done.insert f.base (mkIface f.base need, anno, need.frags)
-        pending := pending.erase f.base
-        changed := true
-      | .error (.fail pc msg) =>
-        failed := failed.insert f.base s!"{pc.toHex}: {msg}"
-        pending := pending.erase f.base
-        changed := true
-      | .error (.blocked _) => pure ()
+      let c : Ctx' := { env, tbl, pending := {}, f, vals := vals.getD f.base [], permissive := true }
+      if let .ok (_, need) := c.analyze then
+        for (tgt, vs) in need.sites do
+          seen := seen.insert tgt (match seen[tgt]? with
+            | some ws => (ws.zip vs).map fun (a, b) => a.join b
+            | none => vs)
+    let mut out : Std.HashMap Word (List (Reg × List Word)) := {}
+    for (tgt, vs) in seen.toList do
+      if givenAt.contains tgt then continue
+      let ps := (argRegs.zip vs).filterMap fun (r, v) => match v with
+        | .const c => if useful c then some (r, [c]) else none
+        | .oneOf cs => if cs.all useful then some (r, cs) else none
+        | _ => none
+      if !ps.isEmpty then out := out.insert tgt ps
+    return out
+  let mut vals : Std.HashMap Word (List (Reg × List Word)) := {}
+  let mut (done, failed, pending) := bottomUp vals
+  for _ in [0:6] do
+    let tbl0 : Std.HashMap Word Iface := done.fold (fun acc k v => acc.insert k v.1) {}
+    let vals' := collect vals tbl0
+    if vals'.toList.mergeSort (fun a b => a.1.toNat ≤ b.1.toNat) ==
+        vals.toList.mergeSort (fun a b => a.1.toNat ≤ b.1.toNat) then break
+    vals := vals'
+    (done, failed, pending) := bottomUp vals
   for b in pending do failed := failed.insert b "recursion (a cycle of calls)"
   let tbl : List Iface := (fns.toList.filterMap fun (_, f) => (done[f.base]?).map (·.1))
   let mut out : Array Result := #[]
@@ -478,7 +555,7 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
         if ok then .ok (σ, anno, used) else .error "inferred, but the checker rejects it"
       out := out.push { sym := s, func := f', status := st }
     | none => out := out.push { sym := s, func := f, status := .error (failed.getD f.base "?") }
-  return (out, tbl)
+  return (out, tbl, vals)
 
 /-! ## Emitting Lean -/
 
@@ -625,7 +702,7 @@ def main (args : List String) : IO UInt32 := do
       | .ok g => pure g
       | .error e => IO.eprintln s!"infer-contracts: {e}"; return 1
     | _ => pure []
-  let (res, tbl) ← run img syms env given
+  let (res, tbl, vals) ← run img syms env given
   let mut rows : Array String := #["addr\twords\tstatus\tdetail\tdepth\tfoot\tnz\treturns\tname"]
   let mut nOk := 0
   let mut words := 0
@@ -646,6 +723,9 @@ def main (args : List String) : IO UInt32 := do
     let n ← emit dir modPrefix imgPrefix env tbl res index
     IO.println s!"infer-contracts: emitted {n} functions to {dir}"
   IO.println s!"infer-contracts: {nOk} of {res.size} functions get an interface ({words} words)"
+  IO.println s!"infer-contracts: {vals.size} functions have candidate-set premises"
+  for (a, ps) in vals.toList do
+    IO.println s!"    {hex a.toNat 8}: {ps.map fun (r, cs) => (regIdx r, cs.map fun (c : Word) => hex c.toNat 8)}"
   let rs := reasons.toList.mergeSort (fun a b => a.2 ≥ b.2)
   for (k, v) in rs do IO.println s!"  {v}\t{k}"
   return 0
