@@ -265,6 +265,11 @@ structure Fn where
   base : Word
   prog : List (Option Instr)
   frags : List (Word × List (Option Instr)) := []
+  /-- Where an indirect jump (`jalr zero` through an unknown register) may land inside the
+      function. `none`: anywhere, and no premise. `some ts`: only at `ts` -- the frame
+      theorem then takes the control-flow premise that it does (`CfiOk`). Jump tables give
+      `ts` from relocations; a vtable tail call gives `some []` ("it leaves"). -/
+  jumps : Option (List Word) := none
 
 def Fn.pcOf (f : Fn) (i : Nat) : Word := f.base + BitVec.ofNat 64 (4 * i)
 
@@ -339,10 +344,11 @@ def Fn.outlinedStep (f : Fn) (pc : Word) (A : AState) (off : BitVec 12) : Option
       | _, _ => none
   | _ => none
 
-def Fn.step (f : Fn) (i : Nat) (A : AState) : Option Step :=
-  let pc := f.pcOf i
-  match f.instrAt? i with
-  | none => none
+/-- One instruction at `pc`. A word that does not decode (`none`) has no successor: the
+    image gives it no code, so `stepSp1` traps there. -/
+def Fn.stepAt (f : Fn) (pc : Word) (oi : Option Instr) (A : AState) : Option Step :=
+  match oi with
+  | none => some { edges := [] }
   | some ins =>
   match branchOff? ins with
   | some off => some { edges := f.target A (pc + 4) ++ f.target A (pc + signExtend13 off) }
@@ -366,6 +372,12 @@ def Fn.step (f : Fn) (i : Nat) (A : AState) : Option Step :=
       | none => none
       | some o => some { edges := f.target o.st (pc + 4), reqs := o.reqs, residual := o.residual }
 
+/-- Instruction `i` of the function. -/
+def Fn.step (f : Fn) (i : Nat) (A : AState) : Option Step :=
+  match f.prog[i]? with
+  | none => none
+  | some oi => f.stepAt (f.pcOf i) oi A
+
 /-! ## The fixpoint -/
 
 def okExit (A : AState) : Bool := A.get .x1 == .lin .x1 0 && A.get .x2 == .lin .x2 0
@@ -377,6 +389,12 @@ def joinAt (anno : Array (Option AState)) (j : Nat) (A : AState) : Array (Option
       let C := B.join A
       if C.beq B then (anno, false) else (anno.set! j (some C), true)
   | none => (anno, false)
+
+/-- The instructions an indirect jump may land on, as `Fn.jumps` says. -/
+def Fn.jumpTargets (f : Fn) : List Nat :=
+  match f.jumps with
+  | none => List.range f.prog.length
+  | some ts => ts.filterMap f.idx?
 
 /-- Kildall's worklist over instruction indices. Unreachable instructions stay `none`. -/
 def Fn.analyze (f : Fn) (fuel : Nat := 64 * f.prog.length + 64) : Option (Array (Option AState)) :=
@@ -398,7 +416,7 @@ where
                 (a, if ch then j :: acc.2 else acc.2)
             | .exit _ => acc
             | .anywhere B =>
-                (List.range f.prog.length).foldl (fun acc j =>
+                f.jumpTargets.foldl (fun acc j =>
                   let (a, ch) := joinAt acc.1 j B
                   (a, if ch then j :: acc.2 else acc.2)) acc) (anno, work)
           go fuel anno work
@@ -418,9 +436,15 @@ def Fn.edgeOk (f : Fn) (anno : Array (Option AState)) : Edge → Bool
       | none => false
   | .exit B => okExit B
   | .anywhere B => okExit B &&
-      (List.range f.prog.length).all fun j => match Fn.annoAt anno j with
-        | some C => B.le C
-        | none => false
+      match f.jumps with
+      | none => (List.range f.prog.length).all fun j => match Fn.annoAt anno j with
+          | some C => B.le C
+          | none => false
+      | some ts => ts.all fun t => match f.idx? t with
+          | some j => (match Fn.annoAt anno j with
+              | some C => B.le C
+              | none => false)
+          | none => true
 
 def Fn.instrOk (f : Fn) (anno : Array (Option AState)) (i : Nat) : Bool :=
   match Fn.annoAt anno i with
@@ -435,14 +459,61 @@ def Fn.valid (f : Fn) (anno : Array (Option AState)) : Bool :=
     | none => false) &&
   (List.range f.prog.length).all (f.instrOk anno)
 
-/-- Everything the reachable instructions owe, collected. -/
+/-! ### The same check, in one pass
+
+`Fn.valid` indexes the program and the annotation by position, which the kernel does in
+time linear in the index: quadratic overall, and most of the cost of checking a function.
+`Fn.validFast` walks both lists together; only jump edges index. `validFast_sound`
+(`Frame.Sound`) shows it implies `Fn.valid`. -/
+
+/-- `Fn.edgeOk` at instruction `i`, given the annotation of `i + 1` (`next`), so that the
+    common fall-through edge needs no lookup; "anywhere" is one pass over the list. -/
+def Fn.edgeOkAt (f : Fn) (anno : Array (Option AState)) (i : Nat)
+    (next : Option (Option AState)) : Edge → Bool
+  | .goto j B =>
+      if j = i + 1 then
+        match next with
+        | some (some C) => B.le C
+        | _ => false
+      else f.edgeOk anno (.goto j B)
+  | .exit B => okExit B
+  | .anywhere B => okExit B &&
+      match f.jumps with
+      | none => anno.toList.all fun
+          | some C => B.le C
+          | none => false
+      | some _ => f.edgeOk anno (.anywhere B)
+
+def Fn.walk (f : Fn) (anno : Array (Option AState)) :
+    Nat → List (Option Instr) → List (Option AState) → Bool
+  | i, oi :: ps, a :: as =>
+      (match a with
+        | none => true
+        | some A => match f.stepAt (f.pcOf i) oi A with
+          | none => false
+          | some st => st.edges.all (f.edgeOkAt anno i as.head?)) &&
+      f.walk anno (i + 1) ps as
+  | _, _, _ => true
+
+def Fn.validFast (f : Fn) (anno : Array (Option AState)) : Bool :=
+  (match Fn.annoAt anno 0 with
+    | some A => AState.entry.le A
+    | none => false) &&
+  anno.size == f.prog.length && f.walk anno 0 f.prog anno.toList
+
+/-- Everything the reachable instructions owe, collected in one walk. -/
+def Fn.collectFrom (f : Fn) (g : Step → List α) :
+    Nat → List (Option Instr) → List (Option AState) → List α
+  | i, oi :: ps, a :: as =>
+      (match a with
+        | none => []
+        | some A => match f.stepAt (f.pcOf i) oi A with
+          | none => []
+          | some st => g st) ++ f.collectFrom g (i + 1) ps as
+  | _, _, _ => []
+
 def Fn.collect (f : Fn) (anno : Array (Option AState)) (g : Step → List α) : List α :=
-  (List.range f.prog.length).flatMap fun i =>
-    match Fn.annoAt anno i with
-    | none => []
-    | some A => match f.step i A with
-      | none => []
-      | some st => g st
+  f.collectFrom g 0 f.prog anno.toList
 
 structure Report where
   ok : Bool

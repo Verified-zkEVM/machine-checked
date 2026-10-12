@@ -439,15 +439,30 @@ theorem target_sound {f : Fn} {anno} {E} {A : AState} {s : MachineState} {pc' : 
     exact Or.inr ⟨hj, okExit_holds hok h⟩
 
 theorem anywhere_sound {f : Fn} {anno} {E} {A : AState} {s : MachineState}
-    (hok : f.edgeOk anno (.anywhere A) = true) (h : A.Holds E s) : Lands f anno E s := by
-  simp only [Fn.edgeOk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hok
+    (hok : f.edgeOk anno (.anywhere A) = true) (h : A.Holds E s)
+    (hcfi : ∀ ts, f.jumps = some ts → (f.idx? s.pc).isSome → s.pc ∈ ts) : Lands f anno E s := by
+  simp only [Fn.edgeOk, Bool.and_eq_true] at hok
+  obtain ⟨hx, hall⟩ := hok
   cases hj : f.idx? s.pc with
+  | none => exact Or.inr ⟨hj, okExit_holds hx h⟩
   | some j =>
-    have := hok.2 j (Fn.idx?_some hj).2
-    cases hC : Fn.annoAt anno j with
-    | some C => rw [hC] at this; exact Or.inl ⟨j, C, hj, hC, AState.holds_of_le this h⟩
-    | none => rw [hC] at this; cases this
-  | none => exact Or.inr ⟨hj, okExit_holds hok.1 h⟩
+    cases hjs : f.jumps with
+    | none =>
+      rw [hjs] at hall
+      simp only [List.all_eq_true, List.mem_range] at hall
+      have := hall j (Fn.idx?_some hj).2
+      cases hC : Fn.annoAt anno j with
+      | some C => rw [hC] at this; exact Or.inl ⟨j, C, hj, hC, AState.holds_of_le this h⟩
+      | none => rw [hC] at this; cases this
+    | some ts =>
+      rw [hjs] at hall
+      simp only [List.all_eq_true] at hall
+      have := hall s.pc (hcfi ts hjs (by simp [hj]))
+      rw [hj] at this
+      dsimp only at this
+      cases hC : Fn.annoAt anno j with
+      | some C => rw [hC] at this; exact Or.inl ⟨j, C, hj, hC, AState.holds_of_le this h⟩
+      | none => rw [hC] at this; cases this
 
 theorem branch_exec {s : MachineState} {ins : Instr} {off : BitVec 13}
     (h : branchOff? ins = some off) :
@@ -463,6 +478,11 @@ theorem setReg_x0 (s : MachineState) (v : Word) : s.setReg .x0 v = s := rfl
 
 /-! ## One checked step -/
 
+theorem Fn.step_of_instrAt {f : Fn} {i : Nat} {A : AState} {ins : Instr}
+    (h : f.instrAt? i = some ins) : f.step i A = f.stepAt (f.pcOf i) (some ins) A := by
+  simp only [Fn.instrAt?, Option.join_eq_some_iff] at h
+  simp [Fn.step, h]
+
 /-- The premises over the entry registers, for every reachable instruction. -/
 def ReqOk (f : Fn) (anno : Array (Option AState)) (E : Reg → Word) : Prop :=
   ∀ i A st, Fn.annoAt anno i = some A → f.step i A = some st → ∀ q ∈ st.reqs, q.Holds E
@@ -474,6 +494,18 @@ def ResOk (f : Fn) (anno : Array (Option AState)) (E : Reg → Word) (s : Machin
     f.instrAt? i = some ins → st.residual ≠ [] →
     ∀ p ∈ A.slots, protects p = true → storeTarget s ins ≠ E .x2 + p.1
 
+/-- An indirect jump: `jalr zero` through a register, other than `ret`. -/
+def IsIndirect (ins : Instr) : Prop := ∃ rs off, ins = .JALR .x0 rs off ∧ ¬ (rs = .x1 ∧ off = 0)
+
+/-- The control-flow premise at one state: an indirect jump in `f` lands outside `f`, or
+    on one of `f.jumps`. Vacuous when `f.jumps = none`. -/
+def CfiOk (f : Fn) (s : MachineState) : Prop :=
+  ∀ ts, f.jumps = some ts → ∀ i ins s', f.idx? s.pc = some i → f.instrAt? i = some ins →
+    IsIndirect ins → stepSp1 s = some s' → (f.idx? s'.pc).isSome → s'.pc ∈ ts
+
+theorem cfiOk_none {f : Fn} (h : f.jumps = none) (s : MachineState) : CfiOk f s := by
+  intro ts hts; rw [h] at hts; cases hts
+
 theorem instrOk_of_valid {f : Fn} {anno} {i : Nat} (hv : f.valid anno = true)
     (hi : i < f.prog.length) : f.instrOk anno i = true := by
   simp only [Fn.valid, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hv
@@ -481,6 +513,7 @@ theorem instrOk_of_valid {f : Fn} {anno} {i : Nat} (hv : f.valid anno = true)
 
 theorem step_sound {f : Fn} {anno} {E} {s s' : MachineState} {i : Nat} {A : AState} {ins : Instr}
     (hv : f.valid anno = true) (hreq : ReqOk f anno E) (hres : ResOk f anno E s)
+    (hcfi : CfiOk f s)
     (hi : f.idx? s.pc = some i) (hA : Fn.annoAt anno i = some A) (h : A.Holds E s)
     (hc : CodeOk f s) (hins : f.instrAt? i = some ins)
     (hnc : ¬ IsCall ins) (hno : ¬ IsOutlined ins) (hnr : ins ≠ .JALR .x0 .x1 0)
@@ -497,8 +530,8 @@ theorem step_sound {f : Fn} {anno} {E} {s s' : MachineState} {i : Nat} {A : ASta
   simp only [List.all_eq_true] at hok
   have hreq' := hreq i A st hA hstp
   have hres' := hres i A st ins hi hA hstp hins
-  unfold Fn.step at hstp
-  rw [hins] at hstp
+  rw [Fn.step_of_instrAt hins] at hstp
+  unfold Fn.stepAt at hstp
   simp only at hstp
   rw [← hpc] at hstp
   split at hstp
@@ -545,6 +578,8 @@ theorem step_sound {f : Fn} {anno} {E} {s s' : MachineState} {i : Nat} {A : ASta
             exact target_sound hok (AState.holds_setPC h) (by rw [hrs]; rfl)
           · cases hstp
             exact anywhere_sound (hok _ (List.mem_singleton_self _)) (AState.holds_setPC h)
+              (fun ts hts hin => hcfi ts hts i _ _ hi hins
+                ⟨rs, off, rfl, by rintro ⟨rfl, rfl⟩; exact hnr rfl⟩ hst hin)
       · split at hstp
         · rename_i h1; subst h1; exact absurd (Or.inr ⟨rs, off, rfl⟩) hnc
         · split at hstp
@@ -580,7 +615,7 @@ theorem ret_sound {f : Fn} {anno} {E} {s s' : MachineState} {i : Nat} {A : AStat
   have hpc := (Fn.idx?_some hi).1
   have hfetch : s.code s.pc = some (.JALR .x0 .x1 0) := by rw [hpc]; exact hc.1 i _ hins
   have hstp : f.step i A = some { edges := [.exit A] } := by
-    simp [Fn.step, hins, branchOff?]
+    rw [Fn.step_of_instrAt hins]; simp [Fn.stepAt, branchOff?]
   have hok := edges_ok hv (Fn.idx?_some hi).2 hA hstp (.exit A) (List.mem_singleton_self _)
   have hex := stepSp1_exec hfetch (by simp) (by simp) (by simp) hst
   subst hex
@@ -603,7 +638,8 @@ theorem afterCall_holds {E} {A : AState} {s s' : MachineState} (h : A.Holds E s)
 theorem call_step {f : Fn} {i : Nat} {A : AState} {ins : Instr}
     (hins : f.instrAt? i = some ins) (hcall : IsCall ins) :
     f.step i A = some (f.callStep (f.pcOf i) A) := by
-  rcases hcall with ⟨off, rfl⟩ | ⟨rs, off, rfl⟩ <;> simp [Fn.step, hins, branchOff?]
+  rw [Fn.step_of_instrAt hins]
+  rcases hcall with ⟨off, rfl⟩ | ⟨rs, off, rfl⟩ <;> simp [Fn.stepAt, branchOff?]
 
 def Inv (f : Fn) (anno : Array (Option AState)) (E : Reg → Word) (s : MachineState) : Prop :=
   ∃ i A, f.idx? s.pc = some i ∧ Fn.annoAt anno i = some A ∧ A.Holds E s ∧ CodeOk f s
@@ -694,7 +730,7 @@ theorem outlined_sound {f : Fn} {anno} {E} {s s' : MachineState} {i k : Nat} {A 
   have hpc := (Fn.idx?_some hi).1
   have hfetch : s.code s.pc = some (.JALR .x5 .x5 off) := by rw [hpc]; exact hc.1 i _ hins
   have hstp0 : f.step i A = f.outlinedStep (f.pcOf i) A off := by
-    simp [Fn.step, hins, branchOff?]
+    rw [Fn.step_of_instrAt hins]; simp [Fn.stepAt, branchOff?]
   have hok0 := instrOk_of_valid hv (Fn.idx?_some hi).2
   unfold Fn.instrOk at hok0
   simp only [hA, hstp0] at hok0
@@ -766,6 +802,7 @@ theorem entry_inv {f : Fn} {anno} {E} {s0 : MachineState} (hv : f.valid anno = t
 
 theorem run_inv {f : Fn} {anno} {E} {s0 : MachineState} (hv : f.valid anno = true)
     (hreq : ReqOk f anno E) (hres : ∀ s, Run f anno E s0 s → ResOk f anno E s)
+    (hcfi : ∀ s, Run f anno E s0 s → CfiOk f s)
     (h0 : Inv f anno E s0) : ∀ s, Run f anno E s0 s → Inv f anno E s := by
   intro s hr
   induction hr with
@@ -773,7 +810,7 @@ theorem run_inv {f : Fn} {anno} {E} {s0 : MachineState} (hv : f.valid anno = tru
   | step hr hi hins hnc hno hnr hst hin ih =>
     obtain ⟨i', A, hi', hA, hH, hc⟩ := ih
     rw [hi] at hi'; cases hi'
-    obtain ⟨hl, hcode⟩ := step_sound hv hreq (hres _ hr) hi hA hH hc hins hnc hno hnr hst
+    obtain ⟨hl, hcode⟩ := step_sound hv hreq (hres _ hr) (hcfi _ hr) hi hA hH hc hins hnc hno hnr hst
     rcases hl with ⟨j, C, hj, hC, hHC⟩ | ⟨hn, _⟩
     · exact ⟨j, C, hj, hC, hHC, hc.of_code hcode⟩
     · rw [hn] at hin; cases hin
@@ -792,41 +829,164 @@ theorem run_inv {f : Fn} {anno} {E} {s0 : MachineState} (hv : f.valid anno = tru
     `f` -- ends with `ra` and `sp` at their entry values.
 
     It rests on: the checker accepting (`hv`); the premises over the entry registers
-    (`hreq`); the residual premise at stores through unknown pointers (`hres`); and, inside
-    `Run`, the call contract `CallRet` for every call whose return address is in `f`. -/
+    (`hreq`); the residual premise at stores through unknown pointers (`hres`); the
+    control-flow premise at indirect jumps (`hcfi`, vacuous unless `f.jumps` is given); and,
+    inside `Run`, the call contract `CallRet` for every call whose return address is in `f`. -/
 theorem integrity {f : Fn} {anno} {E} {s0 : MachineState} (hv : f.valid anno = true)
     (hreq : ReqOk f anno E) (hres : ∀ s, Run f anno E s0 s → ResOk f anno E s)
+    (hcfi : ∀ s, Run f anno E s0 s → CfiOk f s)
     (h0 : Inv f anno E s0) {s s' : MachineState} (hr : Run f anno E s0 s) {i : Nat} {ins : Instr}
     (hi : f.idx? s.pc = some i) (hins : f.instrAt? i = some ins)
     (hleave : ins = .JALR .x0 .x1 0 ∨ (¬ IsCall ins ∧ ¬ IsOutlined ins ∧ f.idx? s'.pc = none))
     (hst : stepSp1 s = some s') : s'.getReg .x1 = E .x1 ∧ s'.getReg .x2 = E .x2 := by
-  obtain ⟨i', A, hi', hA, hH, hc⟩ := run_inv hv hreq hres h0 s hr
+  obtain ⟨i', A, hi', hA, hH, hc⟩ := run_inv hv hreq hres hcfi h0 s hr
   rw [hi] at hi'; cases hi'
   rcases hleave with rfl | ⟨hnc, hno, hout⟩
   · exact ret_sound hv hi hA hH hc hins hst
   · by_cases hnr : ins = .JALR .x0 .x1 0
     · subst hnr; exact ret_sound hv hi hA hH hc hins hst
-    · obtain ⟨hl, _⟩ := step_sound hv hreq (hres _ hr) hi hA hH hc hins hnc hno hnr hst
+    · obtain ⟨hl, _⟩ := step_sound hv hreq (hres _ hr) (hcfi _ hr) hi hA hH hc hins hnc hno hnr hst
       rcases hl with ⟨j, _, hj, _⟩ | ⟨_, h1, h2⟩
       · rw [hout] at hj; cases hj
       · exact ⟨h1, h2⟩
+
+/-! ## The one-pass check implies the indexed one -/
+
+theorem Fn.annoAt_eq (anno : Array (Option AState)) (i : Nat) :
+    Fn.annoAt anno i = (anno.toList[i]?).join := by
+  simp [Fn.annoAt]
+
+theorem Fn.edgeOkAt_eq {f : Fn} {anno : Array (Option AState)} {i : Nat} {e : Edge}
+    (hsize : anno.size = f.prog.length) :
+    f.edgeOkAt anno i (anno.toList[i + 1]?) e = f.edgeOk anno e := by
+  cases e with
+  | goto j B =>
+    simp only [Fn.edgeOkAt]
+    split
+    · rename_i hj; subst hj
+      simp only [Fn.edgeOk, Fn.annoAt_eq]
+      cases anno.toList[i + 1]? with
+      | none => rfl
+      | some x => cases x <;> rfl
+    · rfl
+  | exit B => rfl
+  | anywhere B =>
+    cases hjs : f.jumps with
+    | some ts =>
+      simp only [Fn.edgeOkAt, Fn.edgeOk, hjs]
+      cases okExit B <;> rfl
+    | none =>
+    simp only [Fn.edgeOkAt, Fn.edgeOk, hjs]
+    congr 1
+    rw [Bool.eq_iff_iff]
+    simp only [List.all_eq_true, List.mem_range, Fn.annoAt_eq]
+    constructor
+    · intro h j hj
+      have hj' : j < anno.toList.length := by simpa [hsize] using hj
+      rw [List.getElem?_eq_getElem hj']
+      exact h _ (List.getElem_mem hj')
+    · intro h x hx
+      obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hx
+      have := h j (by simpa [hsize] using hj)
+      rwa [List.getElem?_eq_getElem hj] at this
+
+theorem Fn.walk_sound {f : Fn} {anno : Array (Option AState)}
+    (hsize : anno.size = f.prog.length) :
+    ∀ (ps : List (Option Instr)) (as : List (Option AState)) (i : Nat),
+      f.walk anno i ps as = true → ps = f.prog.drop i → as = anno.toList.drop i →
+      ∀ k, i ≤ k → k < f.prog.length → f.instrOk anno k = true
+  | [], _, i, _, hps, _, k, hik, hk => by
+    have : f.prog.length ≤ i := by simpa using hps.symm
+    omega
+  | _ :: _, [], i, _, hps, has, k, hik, hk => by
+    have h1 : anno.toList.length ≤ i := by simpa using has.symm
+    have h2 : i < f.prog.length := by
+      have := congrArg List.length hps; simp at this; omega
+    simp at h1; omega
+  | oi :: ps, a :: as, i, hw, hps, has, k, hik, hk => by
+    simp only [Fn.walk, Bool.and_eq_true] at hw
+    have hpi : f.prog[i]? = some oi := by
+      have := congrArg (·[0]?) hps; simpa using this.symm
+    have hai : anno.toList[i]? = some a := by
+      have := congrArg (·[0]?) has; simpa using this.symm
+    have hps' : ps = f.prog.drop (i + 1) := by
+      have := congrArg List.tail hps; simpa [List.tail_drop] using this
+    have has' : as = anno.toList.drop (i + 1) := by
+      have := congrArg List.tail has; simpa [List.tail_drop] using this
+    rcases Nat.eq_or_lt_of_le hik with rfl | hlt
+    · unfold Fn.instrOk
+      rw [Fn.annoAt_eq, hai]
+      have hnext : as.head? = anno.toList[i + 1]? := by
+        rw [has']; simp
+      cases a with
+      | none => rfl
+      | some A =>
+        have hw1 := hw.1
+        simp only [Option.join] at hw1 ⊢
+        simp only [Fn.step, hpi]
+        cases hst : f.stepAt (f.pcOf i) oi A with
+        | none => rw [hst] at hw1; cases hw1
+        | some st =>
+          rw [hst] at hw1
+          simp only [List.all_eq_true] at hw1
+          simp only [Option.bind_some, id_eq, hst, List.all_eq_true]
+          intro e he
+          have := hw1 e he
+          rwa [hnext, Fn.edgeOkAt_eq hsize] at this
+    · exact Fn.walk_sound hsize ps as (i + 1) hw.2 hps' has' k hlt hk
+
+/-- **The one-pass check suffices.** -/
+theorem Fn.validFast_sound {f : Fn} {anno : Array (Option AState)}
+    (h : f.validFast anno = true) : f.valid anno = true := by
+  simp only [Fn.validFast, Bool.and_eq_true, beq_iff_eq] at h
+  obtain ⟨⟨h0, hsize⟩, hw⟩ := h
+  simp only [Fn.valid, Bool.and_eq_true, List.all_eq_true, List.mem_range]
+  exact ⟨h0, fun k hk => Fn.walk_sound hsize _ _ 0 hw (by simp) (by simp) k (Nat.zero_le _) hk⟩
 
 /-! ## From the report to the premises -/
 
 theorem step_lt {f : Fn} {i : Nat} {A : AState} {st : Step} (h : f.step i A = some st) :
     i < f.prog.length := by
   unfold Fn.step at h
-  cases hi : f.instrAt? i with
+  cases hi : f.prog[i]? with
   | none => rw [hi] at h; cases h
-  | some _ =>
-    simp only [Fn.instrAt?, Option.join_eq_some_iff] at hi
-    exact (List.getElem?_eq_some_iff.mp hi).1
+  | some _ => exact (List.getElem?_eq_some_iff.mp hi).1
+
+theorem mem_collectFrom {f : Fn} {g : Step → List α} :
+    ∀ (ps : List (Option Instr)) (as : List (Option AState)) (i : Nat) {k : Nat} {A : AState}
+      {oi : Option Instr} {st : Step} {x : α},
+      ps[k - i]? = some oi → as[k - i]? = some (some A) → i ≤ k →
+      f.stepAt (f.pcOf k) oi A = some st → x ∈ g st → x ∈ f.collectFrom g i ps as
+  | [], _, _, _, _, _, _, _, hp, _, _, _, _ => by simp at hp
+  | _ :: _, [], _, _, _, _, _, _, _, ha, _, _, _ => by simp at ha
+  | oi' :: ps, a :: as, i, k, A, oi, st, x, hp, ha, hik, hst, hx => by
+    simp only [Fn.collectFrom, List.mem_append]
+    rcases Nat.eq_or_lt_of_le hik with rfl | hlt
+    · simp only [Nat.sub_self, List.getElem?_cons_zero, Option.some.injEq] at hp ha
+      subst hp; subst ha
+      left; simp only [hst]; exact hx
+    · right
+      refine mem_collectFrom ps as (i + 1) ?_ ?_ hlt hst hx
+      · have : k - i = (k - (i + 1)) + 1 := by omega
+        rw [this] at hp; simpa using hp
+      · have : k - i = (k - (i + 1)) + 1 := by omega
+        rw [this] at ha; simpa using ha
 
 theorem mem_collect {f : Fn} {anno} {g : Step → List α} {i : Nat} {A : AState} {st : Step}
     (hA : Fn.annoAt anno i = some A) (hst : f.step i A = some st) {x : α} (hx : x ∈ g st) :
     x ∈ f.collect anno g := by
-  simp only [Fn.collect, List.mem_flatMap, List.mem_range]
-  exact ⟨i, step_lt hst, by simp [hA, hst, hx]⟩
+  unfold Fn.step at hst
+  cases hp : f.prog[i]? with
+  | none => rw [hp] at hst; cases hst
+  | some oi =>
+    rw [hp] at hst
+    rw [Fn.annoAt_eq] at hA
+    have ha : anno.toList[i]? = some (some A) := by
+      cases h : anno.toList[i]? with
+      | none => rw [h] at hA; cases hA
+      | some y => rw [h] at hA; cases y <;> simp_all
+    exact mem_collectFrom f.prog anno.toList 0 (by simpa using hp) (by simpa using ha)
+      (Nat.zero_le _) hst hx
 
 /-- The premises over the entry registers are exactly the report's `reqs`. -/
 theorem reqOk_of_report {f : Fn} {anno} {E} (h : ∀ q ∈ f.collect anno (·.reqs), q.Holds E) :

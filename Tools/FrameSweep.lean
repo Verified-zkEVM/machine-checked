@@ -60,13 +60,13 @@ where
                 (a, if ch then j :: acc.2 else acc.2)
             | .exit _ => acc
             | .anywhere B =>
-                (List.range f.prog.length).foldl (fun acc j =>
+                f.jumpTargets.foldl (fun acc j =>
                   let (a, ch) := joinAt acc.1 j B
                   (a, if ch then j :: acc.2 else acc.2)) acc) (anno, work)
           go fuel anno work
       | _ => go fuel anno work
 
-def sweep (f : Fn) : Outcome :=
+def sweep1 (f : Fn) : Outcome :=
   match analyzeE f with
   | .error o => o
   | .ok anno =>
@@ -76,6 +76,15 @@ def sweep (f : Fn) : Outcome :=
       match (List.range f.prog.length).find? (fun i => !f.instrOk anno i) with
       | some i => .badEdge i (f.instrAt? i)
       | none => .badEdge 0 (f.instrAt? 0)
+
+/-- `sweep1`, and if that fails, again assuming every indirect jump leaves the function
+    (`jumps := some []`). The second result says whether that control-flow premise was used. -/
+def sweep (f : Fn) : Outcome × Bool :=
+  match sweep1 f with
+  | .ok q r n => (.ok q r n, false)
+  | o => match sweep1 { f with jumps := some [] } with
+    | .ok q r n => (.ok q r n, true)
+    | _ => (o, false)
 
 def main (args : List String) : IO UInt32 := do
   let [elfPath, nmPath, outPath] := args
@@ -91,7 +100,9 @@ def main (args : List String) : IO UInt32 := do
   for s in syms do
     if s.name.startsWith "OUTLINED_FUNCTION" then
       if let .ok p := progOf s then frags := (BitVec.ofNat 64 s.addr, p) :: frags
-  let mut rows : Array String := #["addr\twords\tstatus\tdetail\treqs\tresidual\tnoreturn\tname"]
+  let mut rows : Array String :=
+    #["addr\twords\tstatus\tdetail\treqs\tresidual\tnoreturn\tcfi\tname"]
+  let mut cfis := 0
   let mut tally : Std.HashMap String Nat := {}
   let mut reasons : Std.HashMap String Nat := {}
   let mut words := 0
@@ -102,7 +113,9 @@ def main (args : List String) : IO UInt32 := do
       | .error e => IO.eprintln s!"frame-sweep: {s.name}: {e}"; continue
     let f : Fn := { base := BitVec.ofNat 64 s.addr, prog, frags }
     let pcHex (i : Nat) := hex (s.addr + 4 * i) 8
-    let (status, detail, q, r, n) := match sweep f with
+    let (o, cfi) := sweep f
+    if cfi then cfis := cfis + 1
+    let (status, detail, q, r, n) := match o with
       | .ok q r n => ("ok", "", q, r, n)
       | .stuck i ins => ("stuck", s!"{pcHex i}: {stuckReason ins}", 0, 0, 0)
       | .noFixpoint => ("nofix", "", 0, 0, 0)
@@ -113,10 +126,13 @@ def main (args : List String) : IO UInt32 := do
       let key := if why.startsWith "unmodeled" then (why.splitOn " ").take 2 |> " ".intercalate else why
       reasons := reasons.insert key (reasons.getD key 0 + 1)
     if status == "ok" then words := words + prog.length
-    rows := rows.push s!"{hex s.addr 8}\t{prog.length}\t{status}\t{detail}\t{q}\t{r}\t{n}\t{s.name}"
+    let cfiCol := if cfi then "jumps-leave" else ""
+    rows := rows.push
+      s!"{hex s.addr 8}\t{prog.length}\t{status}\t{detail}\t{q}\t{r}\t{n}\t{cfiCol}\t{s.name}"
   IO.FS.writeFile outPath ("\n".intercalate rows.toList ++ "\n")
   IO.println s!"frame-sweep: {rows.size - 1} functions; {tally.toList}"
   IO.println s!"frame-sweep: {words} words in functions that check"
+  IO.println s!"frame-sweep: {cfis} of them need the control-flow premise (indirect jumps leave)"
   IO.println s!"frame-sweep: stuck because: {reasons.toList}"
   return 0
 

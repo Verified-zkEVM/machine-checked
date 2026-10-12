@@ -9,7 +9,7 @@ open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
 abbrev fn : Fn := Fns.padNext
 
 /-- The kernel re-checks the generated annotation. -/
-theorem valid : fn.valid anno = true := by decide +kernel
+theorem valid : fn.valid anno = true := Fn.validFast_sound (by decide +kernel)
 
 theorem residual_nil : fn.collect anno (·.residual) = [] := by decide +kernel
 
@@ -25,6 +25,7 @@ theorem integrity_of_run (E : Reg → Word) {s0 s s' : MachineState}
     (hleave : ins = .JALR .x0 .x1 0 ∨ (¬ IsCall ins ∧ ¬ IsOutlined ins ∧ fn.idx? s'.pc = none))
     (hst : stepSp1 s = some s') : s'.getReg .x1 = E .x1 ∧ s'.getReg .x2 = E .x2 :=
   integrity valid (reqOk_of_report hreq) (fun s _ => resOk_of_report residual_nil s)
-    (entry_inv valid (by decide +kernel) hpc hE hc) hr hi hins hleave hst
+    (fun s _ => cfiOk_none rfl s) (entry_inv valid (by decide +kernel) hpc hE hc)
+    hr hi hins hleave hst
 
 end Cases.Zip2005.Frame.PadNext

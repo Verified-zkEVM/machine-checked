@@ -53,6 +53,7 @@ def main : IO Unit := do
   emit "Memcpy" Fns.memcpy
   emit "PadNext" Fns.padNext
   emit "DefaultHook" Fns.defaultHook
+  emit "FmtWrite" Fns.fmtWrite
 
 end Cases.Zip2005.Frame.Gen
 

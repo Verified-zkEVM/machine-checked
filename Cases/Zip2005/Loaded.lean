@@ -14,6 +14,7 @@ import Cases.Zip2005.Image.Layout
 import Cases.Zip2005.Frame.Memcpy
 import Cases.Zip2005.Frame.PadNext
 import Cases.Zip2005.Frame.DefaultHook
+import Cases.Zip2005.Frame.FmtWrite
 import AsmVerif.RiscV.Frame.Image
 
 namespace Cases.Zip2005.Loaded
@@ -35,6 +36,7 @@ theorem code_of_run {input : List (BitVec 8)} {n : Nat} {s : MachineState}
 theorem memcpy_decode : decodeWords F_7801b4d8.words = F_7801b4d8.prog := by decide +kernel
 theorem padNext_decode : decodeWords F_78021720.words = F_78021720.prog := by decide +kernel
 theorem defaultHook_decode : decodeWords F_7803b6ac.words = F_7803b6ac.prog := by decide +kernel
+theorem fmtWrite_decode : decodeWords F_7803e6b4.words = F_7803e6b4.prog := by decide +kernel
 theorem outlined_decode : decodeWords F_7803c304.words = F_7803c304.prog := by decide +kernel
 
 theorem memcpy_codeOk {s : MachineState} (hs : s.code = image.codeAt) : CodeOk Fns.memcpy s :=
@@ -55,6 +57,11 @@ theorem defaultHook_codeOk {s : MachineState} (hs : s.code = image.codeAt) :
       rw [beq_iff_eq.mp hb]
       exact ⟨230, F_7803c304.words, rfl, outlined_decode⟩
     · cases h
+
+theorem fmtWrite_codeOk {s : MachineState} (hs : s.code = image.codeAt) :
+    CodeOk Fns.fmtWrite s :=
+  codeOk_of_image (k := 286) hs codeWF rfl fmtWrite_decode
+    (fun _ _ h => by simp [Fns.fmtWrite] at h)
 
 /-! ## Integrity, from the loaded guest
 
@@ -94,5 +101,16 @@ theorem defaultHook_integrity (hrun : stepsSp1 n (image.state input) = some s0)
     (hst : stepSp1 s = some s') : s'.getReg .x1 = E .x1 ∧ s'.getReg .x2 = E .x2 :=
   DefaultHook.integrity_of_run E hpc hE (defaultHook_codeOk (code_of_run hrun)) hreq hres hr hi
     hins hleave hst
+
+theorem fmtWrite_integrity (hrun : stepsSp1 n (image.state input) = some s0)
+    (hpc : s0.pc = Fns.fmtWrite.base) (hE : ∀ r, r ≠ .x0 → s0.getReg r = E r)
+    (hcfi : ∀ s, Run Fns.fmtWrite FmtWrite.anno E s0 s → CfiOk Fns.fmtWrite s)
+    (hr : Run Fns.fmtWrite FmtWrite.anno E s0 s) {i : Nat} {ins : Instr}
+    (hi : Fns.fmtWrite.idx? s.pc = some i) (hins : Fns.fmtWrite.instrAt? i = some ins)
+    (hleave : ins = .JALR .x0 .x1 0 ∨
+      (¬ IsCall ins ∧ ¬ IsOutlined ins ∧ Fns.fmtWrite.idx? s'.pc = none))
+    (hst : stepSp1 s = some s') : s'.getReg .x1 = E .x1 ∧ s'.getReg .x2 = E .x2 :=
+  FmtWrite.integrity_of_run E hpc hE (fmtWrite_codeOk (code_of_run hrun)) hcfi hr hi hins
+    hleave hst
 
 end Cases.Zip2005.Loaded

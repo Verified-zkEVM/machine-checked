@@ -335,3 +335,56 @@ Premises among the 290 that check:
 | Calls assumed not to return | 89 | 89 |
 
 This is the size of the obligation the whole-program layer has to discharge.
+
+---
+
+# Item 3: traps, indirect-jump targets, kernel cost (2026-10-12)
+
+**Kernel cost.** Checking a certificate used to index into literal lists by position, at O(i)
+per lookup. `Fn.validFast` instead walks the program and the annotation together, and
+`Fn.collect` gathers the premises in the same walk. `Fn.validFast_sound` turns the walk back
+into `Fn.valid`, so the theorems are unchanged.
+
+| Case file | Before | After |
+|---|---|---|
+| `Memcpy` (510 words) | 22.7 s / 6.5 GB | 3.3 s / 1.3 GB |
+| `PadNext` (471) | — | 3.1 s / 1.3 GB |
+| `DefaultHook` (80 + 11-word fragment) | — | 1.2 s / 0.7 GB |
+| `FmtWrite` (170, new) | — | 2.1 s / 1.0 GB |
+
+**Undecodable words trap.** `Fn.stepAt` gives a word that does not decode no successors.
+This matches `stepSp1`, which is undefined there. The three functions with `unimp` padding
+now check.
+
+**Indirect-jump targets (CFI).** `Fn.jumps : Option (List Word)` says where a `jalr zero`
+through an unknown register may land inside the function:
+
+- `none` (the default): anywhere, with no premise.
+- `some ts`: only on `ts`, outside the function, or at a non-instruction. The frame theorem
+  then takes the premise `hcfi : ∀ s, Run … s → CfiOk f s`, which says exactly that.
+
+`CfiOk` is vacuous when `jumps = none` (`cfiOk_none`), so the existing cases discharge it
+with `rfl`.
+
+The sweep tries `jumps := some []` ("indirect jumps leave the function") whenever the
+default fails. **298 of 304 functions now check** (41,388 words); 5 of them use that
+premise. Those 5 are the `core::fmt` functions whose vtable tail calls failed before.
+
+| | Functions | Total |
+|---|---|---|
+| No `Req` or residual | 164 | — |
+| `Req`s | 108 | 890 |
+| Residuals | 49 | 230 |
+| Calls assumed not to return | 89 | 89 |
+| Indirect jumps assumed to leave | 5 | 5 |
+
+The relocations of the `--emit-relocs` build back the premise: no address-materialising
+relocation (`R_RISCV_64`, `PCREL_HI20`, `HI20`, symbol plus addend) targets the interior of
+any of the 5. This is evidence from the linker's records, not a proof. A proof needs the
+whole-program layer: every value reaching the `jalr` is a function entry.
+
+`core::fmt::write` is now a kernel-checked case (`Cases/Zip2005/Frame/FmtWrite.lean`,
+`Loaded.fmtWrite_integrity`), with `hcfi` as its only premise.
+
+**Left:** the 6 `ecall` wrappers. Their fix needs an `sp1Ecall` lemma: only `t0`/`a0`,
+memory and `pc` change.
