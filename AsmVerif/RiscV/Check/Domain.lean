@@ -44,6 +44,18 @@ namespace AsmVerif.RiscV.Check
 
 open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
 
+/-- An abstract state given by how it differs from the entry state: the registers listed
+    take the given values, the others their entry values. The compact form certificates are
+    written in. -/
+def _root_.AsmVerif.RiscV.Frame.AState.ofDiff (regs : List (Reg × AVal))
+    (slots : List (Word × AVal)) : AState :=
+  { regs := allRegs.map fun r => (regs.lookup r).getD (.lin r 0), slots }
+
+/-- An abstract state given by its known registers; the others are unknown. -/
+def _root_.AsmVerif.RiscV.Frame.AState.ofKnown (regs : List (Reg × AVal))
+    (slots : List (Word × AVal)) : AState :=
+  { regs := allRegs.map fun r => (regs.lookup r).getD .top, slots }
+
 /-! ## Footprints -/
 
 inductive Len where
@@ -418,5 +430,74 @@ def Ctx.valid (c : Ctx) (anno : Array (Option AState)) : Bool :=
     | some A => AState.entry.le A
     | none => false) &&
   (List.range c.f.prog.length).all (c.instrOk anno)
+
+end AsmVerif.RiscV.Check
+
+namespace AsmVerif.RiscV.Check
+
+open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
+
+/-! ## Sparse certificates
+
+A certificate need only give a state where straight-line propagation from the previous
+instruction would not: at join points and loop heads. `Ctx.fill` recomputes the rest by
+running the checker's own step along fall-through edges. The checker then checks the
+filled annotation like any other, so nothing about `fill` needs to be trusted. -/
+
+def fallState (A : AState) (j : Nat) : List Edge → Option AState
+  | [] => none
+  | .goto j' B :: es => if j' = j then some B else fallState A j es
+  | .ret _ :: es => fallState A j es
+
+def Ctx.fillGo (c : Ctx) : Nat → List (Option Instr) → Option AState → List (Nat × AState) →
+    List (Option AState)
+  | _, [], _, _ => []
+  | i, oi :: ps, cur, hints =>
+    let (st, hints') := match hints with
+      | (j, A) :: hs => if j = i then (some A, hs) else (cur, hints)
+      | [] => (cur, [])
+    let next := match st with
+      | none => none
+      | some A => match c.stepAt (c.f.pcOf i) oi A with
+        | some es => fallState A (i + 1) es
+        | none => none
+    st :: c.fillGo (i + 1) ps next hints'
+
+def Ctx.fill (c : Ctx) (hints : List (Nat × AState)) : Array (Option AState) :=
+  (c.fillGo 0 c.f.prog none hints).toArray
+
+/-! ## The check in one pass
+
+`Ctx.valid` indexes program and annotation by position: quadratic in the kernel.
+`Ctx.validFast` walks both together; only jumps index. `validFast_sound` (`Check.Fast`)
+shows it implies `Ctx.valid`. -/
+
+def edgeOkAt (anno : Array (Option AState)) (i : Nat) (next : Option (Option AState)) :
+    Edge → Bool
+  | .goto j B =>
+      if j = i + 1 then
+        match next with
+        | some (some C) => B == C || B.le C
+        | _ => false
+      else edgeOk anno (.goto j B)
+  | .ret B => okExit B
+
+def Ctx.walk (c : Ctx) (anno : Array (Option AState)) :
+    Nat → List (Option Instr) → List (Option AState) → Bool
+  | i, oi :: ps, a :: as =>
+      (match a with
+        | none => true
+        | some A => match c.stepAt (c.f.pcOf i) oi A with
+          | none => false
+          | some es => es.all (edgeOkAt anno i as.head?)) &&
+      c.walk anno (i + 1) ps as
+  | _, _, _ => true
+
+def Ctx.validFast (c : Ctx) (anno : Array (Option AState)) : Bool :=
+  c.f.base == c.σ.entry &&
+  (match Fn.annoAt anno 0 with
+    | some A => AState.entry.le A
+    | none => false) &&
+  anno.size == c.f.prog.length && c.walk anno 0 c.f.prog anno.toList
 
 end AsmVerif.RiscV.Check

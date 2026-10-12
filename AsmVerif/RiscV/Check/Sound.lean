@@ -1155,6 +1155,16 @@ theorem Ctx.sound {c : Ctx} {anno : Array (Option AState)} {C : Word → Option 
 
 /-! ## Composition -/
 
+/-- A fact for every member of a list, as nested conjunctions: the form a generated proof
+    writes as `⟨h₁, h₂, …, trivial⟩`. -/
+theorem forall_mem_of_foldr {α : Type} {P : α → Prop} :
+    ∀ {l : List α}, l.foldr (fun a acc => P a ∧ acc) True → ∀ a ∈ l, P a
+  | [], _, a, ha => by simp at ha
+  | b :: l, h, a, ha => by
+    rcases List.mem_cons.mp ha with rfl | ha
+    · exact h.1
+    · exact forall_mem_of_foldr h.2 a ha
+
 /-- **Composition.** If every interface of a table follows, for each budget `n`, from the
     whole table for budgets below `n` (by the checker, or by any other proof), then every
     interface holds. Recursion is covered: the induction is on the budget. -/

@@ -8,3 +8,5 @@ import AsmVerif.RiscV.Check.Spec
 import AsmVerif.RiscV.Check.Arith
 import AsmVerif.RiscV.Check.Ecall
 import AsmVerif.RiscV.Check.Sound
+import AsmVerif.RiscV.Check.Image
+import AsmVerif.RiscV.Check.Fast
