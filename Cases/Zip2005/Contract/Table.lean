@@ -21,7 +21,9 @@ import Cases.Zip2005.Contract.A_7801f5a4
 import Cases.Zip2005.Contract.A_7802018c
 import Cases.Zip2005.Contract.A_78020ca0
 import Cases.Zip2005.Contract.A_780232f4
+import Cases.Zip2005.Contract.A_7802340c
 import Cases.Zip2005.Contract.A_780234cc
+import Cases.Zip2005.Contract.A_78023544
 import Cases.Zip2005.Contract.A_780237dc
 import Cases.Zip2005.Contract.A_78023a18
 import Cases.Zip2005.Contract.A_78023d7c
@@ -29,6 +31,7 @@ import Cases.Zip2005.Contract.A_78023ec4
 import Cases.Zip2005.Contract.A_78023f64
 import Cases.Zip2005.Contract.A_7802413c
 import Cases.Zip2005.Contract.A_78025164
+import Cases.Zip2005.Contract.A_78025654
 import Cases.Zip2005.Contract.A_78025854
 import Cases.Zip2005.Contract.A_78026258
 import Cases.Zip2005.Contract.A_78026878
@@ -67,6 +70,7 @@ import Cases.Zip2005.Contract.A_7803c5a8
 import Cases.Zip2005.Contract.A_7803c63c
 import Cases.Zip2005.Contract.A_7803ebc8
 import Cases.Zip2005.Contract.A_7803f54c
+import Cases.Zip2005.Runtime.Memset
 
 namespace Cases.Zip2005.Contract
 
@@ -93,7 +97,9 @@ def tbl : List Iface := [
   A_7802018c.iface,
   A_78020ca0.iface,
   A_780232f4.iface,
+  A_7802340c.iface,
   A_780234cc.iface,
+  A_78023544.iface,
   A_780237dc.iface,
   A_78023a18.iface,
   A_78023d7c.iface,
@@ -101,6 +107,7 @@ def tbl : List Iface := [
   A_78023f64.iface,
   A_7802413c.iface,
   A_78025164.iface,
+  A_78025654.iface,
   A_78025854.iface,
   A_78026258.iface,
   A_78026878.iface,
@@ -138,6 +145,7 @@ def tbl : List Iface := [
   A_7803c5a8.iface,
   A_7803c63c.iface,
   A_7803ebc8.iface,
-  A_7803f54c.iface]
+  A_7803f54c.iface,
+  Runtime.Memset.iface]
 
 end Cases.Zip2005.Contract

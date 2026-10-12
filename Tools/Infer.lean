@@ -4,7 +4,8 @@
   Infer an interface (`Check.Iface`) and a certificate (an annotation) for every function of
   an image, bottom-up over the call graph, and emit them as Lean for the kernel to check.
 
-      lake exe infer-contracts ELF NM OUT.tsv [LEANDIR MODPREFIX IMGPREFIX]
+      lake exe infer-contracts ELF NM OUT.tsv STACKTOP PROTLO PROTHI
+        [LEANDIR MODPREFIX IMGPREFIX LAYOUT [REGISTRY]]
 
   Untrusted. The abstract interpretation here mirrors `Check.Ctx.stepAt`, with the checks
   against the function's own interface replaced by *recording* what the interface must
@@ -356,12 +357,80 @@ def memAt (img : Elf64Image) (a : Nat) : Word :=
     let b (i : Nat) : Nat := if a - seg.vaddr + i < seg.data.size then (seg.data.get! (a - seg.vaddr + i)).toNat else 0
     BitVec.ofNat 64 ((List.range 8).foldr (fun i acc => acc * 256 + b i) 0)
 
+/-! ## Interfaces proved by hand
+
+A registry (TSV) of functions whose interface is a theorem proved outside the checker
+(`AsmVerif.RiscV.Exec`). Their callers are analysed against them, and the emitted table and
+composition use the hand proofs. Columns: address, Lean module, the interface's name, a
+term proving `∀ n, (∀ g ∈ tbl, ∀ m < n, g.HoldsN env C m) → iface.HoldsN env C n`, and the
+interface itself in a compact form:
+
+    depth=N foot=ITEM,ITEM nz=VAL,VAL ret=0|1
+
+with `ITEM := BASE:LEN`, `BASE := xN+HEX | #HEX`, `LEN := N | xN | xN+N`. The kernel checks
+that the Lean interface is the one callers were checked against: the table it builds is the
+Lean definition. -/
+
+structure Given where
+  addr : Nat
+  module : String
+  iface : String
+  proof : String
+  σ : Iface
+
+def parseReg? (s : String) : Option Reg := do
+  guard (s.startsWith "x")
+  let n ← (s.drop 1).toString.toNat?
+  allRegs[n]?
+
+def parseBase? (s : String) : Option AVal :=
+  if s.startsWith "#" then (parseHex? (s.drop 1).toString).map fun c => .const (BitVec.ofNat 64 c)
+  else match s.splitOn "+" with
+    | [r, k] => do pure (.lin (← parseReg? r) (BitVec.ofNat 64 (← parseHex? k)))
+    | _ => none
+
+def parseLen? (s : String) : Option Len :=
+  match s.toNat? with
+  | some n => some (.n n)
+  | none => match s.splitOn "+" with
+    | [r] => (parseReg? r).map .reg
+    | [r, c] => do pure (.regPlus (← parseReg? r) (← c.toNat?))
+    | _ => none
+
+def parseIface? (entry : Nat) (spec : String) : Option Iface := do
+  let mut σ : Iface := { entry := BitVec.ofNat 64 entry, depth := 0 }
+  for f in spec.splitOn " " do
+    match f.splitOn "=" with
+    | ["depth", d] => σ := { σ with depth := ← d.toNat? }
+    | ["foot", is] =>
+      let its ← (is.splitOn ",").filter (· != "") |>.mapM fun it => do
+        let [b, l] := it.splitOn ":" | none
+        pure ({ base := ← parseBase? b, len := ← parseLen? l } : Item)
+      σ := { σ with foot := its }
+    | ["nz", vs] => σ := { σ with nz := ← ((vs.splitOn ",").filter (· != "")).mapM parseBase? }
+    | ["ret", r] => σ := { σ with returns := r == "1" }
+    | [""] => pure ()
+    | _ => none
+  return σ
+
+def parseGiven (src : String) : Except String (List Given) := do
+  let mut out := []
+  for l in src.splitOn "\n" do
+    if l.trimAscii.isEmpty || l.startsWith "#" || l.startsWith "addr" then continue
+    let [a, m, i, p, spec] := l.splitOn "\t" | throw s!"bad registry line: {l}"
+    let some addr := parseHex? a | throw s!"bad address: {a}"
+    let some σ := parseIface? addr spec | throw s!"bad interface: {spec}"
+    out := out ++ [{ addr, module := m, iface := i, proof := p, σ }]
+  return out
+
 structure Result where
   sym : Sym
   func : Fn
   status : Except String (Iface × Array (Option AState) × List Word)
+  given : Option Given := none
 
-def run (img : Elf64Image) (syms : List Sym) (env : Env) : IO (Array Result × List Iface) := do
+def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
+    IO (Array Result × List Iface) := do
   let progOf (s : Sym) : Except String (List (Option Instr)) :=
     (wordsAt img s.addr (s.size / 4)).map (·.map decode)
   let mut frags : List (Word × List (Option Instr)) := []
@@ -374,8 +443,10 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) : IO (Array Result × L
     if let .ok prog := progOf s then
       fns := fns.push (s, { base := BitVec.ofNat 64 s.addr, prog, frags })
   let mut done : Std.HashMap Word (Iface × Array (Option AState) × List Word) := {}
+  for g in given do done := done.insert g.σ.entry (g.σ, #[], [])
   let mut failed : Std.HashMap Word String := {}
   let mut pending : Std.HashSet Word := fns.foldl (fun acc (_, f) => acc.insert f.base) {}
+  for g in given do pending := pending.erase g.σ.entry
   let mut changed := true
   while changed do
     changed := false
@@ -396,14 +467,17 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) : IO (Array Result × L
   let tbl : List Iface := (fns.toList.filterMap fun (_, f) => (done[f.base]?).map (·.1))
   let mut out : Array Result := #[]
   for (s, f) in fns do
+    if let some g := given.find? (·.addr == s.addr) then
+      out := out.push ⟨s, f, .ok (g.σ, #[], []), some g⟩
+      continue
     match done[f.base]? with
     | some (σ, anno, used) =>
       let f' := { f with frags := f.frags.filter fun (b, _) => used.contains b }
       let ok := ({ env, tbl, σ, f := f' } : Ctx).valid anno
       let st : Except String (Iface × Array (Option AState) × List Word) :=
         if ok then .ok (σ, anno, used) else .error "inferred, but the checker rejects it"
-      out := out.push ⟨s, f', st⟩
-    | none => out := out.push ⟨s, f, .error (failed.getD f.base "?")⟩
+      out := out.push { sym := s, func := f', status := st }
+    | none => out := out.push { sym := s, func := f, status := .error (failed.getD f.base "?") }
   return (out, tbl)
 
 /-! ## Emitting Lean -/
@@ -448,9 +522,14 @@ def hintsFor (c : Ctx) (anno : Array (Option AState)) : List (Nat × AState) := 
 def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res : Array Result)
     (index : Std.HashMap Nat Nat) : IO Nat := do
   IO.FS.createDirAll dir
-  let ok := res.filterMap fun r => match r.status with
-    | .ok (σ, anno, used) => some (r, σ, anno, used)
-    | .error _ => none
+  let ok := res.filterMap fun r => match r.status, r.given with
+    | .ok (σ, anno, used), none => some (r, σ, anno, used)
+    | _, _ => none
+  let gv := res.filterMap (·.given)
+  let tblNames := res.toList.filterMap fun r => match r.status, r.given with
+    | .ok _, some g => some g.iface
+    | .ok _, none => some s!"A_{hex r.sym.addr 8}.iface"
+    | _, _ => none
   let hdr (what : String) := s!"/-\n  DO NOT EDIT -- generated by `lake exe infer-contracts`.\n\n  {what}\n-/\n\n"
   let opens := "open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check\n\n"
   for (r, σ, anno, used) in ok do
@@ -477,10 +556,11 @@ def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res 
     hdr "The program's `Env` and the table of inferred interfaces." ++
     s!"import AsmVerif.RiscV.Check.Spec\nimport {imgPrefix}.Layout\n" ++
     String.join (ok.toList.map fun (r, _) => s!"import {modPrefix}.A_{hex r.sym.addr 8}\n") ++
+    String.join (gv.toList.map fun g => s!"import {g.module}\n") ++
     s!"\nnamespace {modPrefix}\n\n" ++ opens ++
     s!"noncomputable def env : Env :=\n  \{ stackTop := {env.stackTop}, prot := {protS}, init := {imgPrefix}.Layout.image.memAt }\n\n" ++
     "theorem env_wf : env.wf = true := by decide +kernel\n\n" ++
-    s!"def tbl : List Iface := [\n  " ++ ",\n  ".intercalate (ok.toList.map fun (r, _) => s!"A_{hex r.sym.addr 8}.iface") ++
+    s!"def tbl : List Iface := [\n  " ++ ",\n  ".intercalate tblNames ++
     s!"]\n\nend {modPrefix}\n"
   -- One proof module per function.
   for (r, _, _, used) in ok do
@@ -514,12 +594,16 @@ def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res 
   IO.FS.writeFile s!"{dir}/All.lean" <|
     hdr "Every interface of the table holds." ++
     String.join (ok.toList.map fun (r, _) => s!"import {modPrefix}.V_{hex r.sym.addr 8}\n") ++
+    String.join (gv.toList.map fun g => s!"import {g.module}\n") ++
     s!"\nnamespace {modPrefix}\n\n" ++ opens ++
     s!"theorem all : ∀ g ∈ tbl, g.Holds env {imgPrefix}.Layout.image.codeAt := by\n" ++
     s!"  apply table_sound\n" ++
     s!"  have : tbl.foldr (fun g acc => (∀ n, (∀ g' ∈ tbl, ∀ m < n, g'.HoldsN env {imgPrefix}.Layout.image.codeAt m) →\n" ++
     s!"      g.HoldsN env {imgPrefix}.Layout.image.codeAt n) ∧ acc) True :=\n    ⟨" ++
-    ", ".intercalate (ok.toList.map fun (r, _) => s!"V_{hex r.sym.addr 8}.holds") ++ ", trivial⟩\n" ++
+    ", ".intercalate (res.toList.filterMap fun r => match r.status, r.given with
+      | .ok _, some g => some s!"({g.proof})"
+      | .ok _, none => some s!"V_{hex r.sym.addr 8}.holds"
+      | _, _ => none) ++ ", trivial⟩\n" ++
     s!"  exact forall_mem_of_foldr this\n\nend {modPrefix}\n"
   return ok.size
 
@@ -536,7 +620,12 @@ def main (args : List String) : IO UInt32 := do
   let env : Env := { stackTop, prot := [(BitVec.ofNat 64 protLo, protHi - protLo)],
                      init := fun a => memAt img a.toNat }
   if !env.wf then IO.eprintln "infer-contracts: Env not well-formed"; return 1
-  let (res, tbl) ← run img syms env
+  let given ← match args.drop 10 with
+    | [regPath] => match parseGiven (← IO.FS.readFile regPath) with
+      | .ok g => pure g
+      | .error e => IO.eprintln s!"infer-contracts: {e}"; return 1
+    | _ => pure []
+  let (res, tbl) ← run img syms env given
   let mut rows : Array String := #["addr\twords\tstatus\tdetail\tdepth\tfoot\tnz\treturns\tname"]
   let mut nOk := 0
   let mut words := 0
@@ -545,13 +634,14 @@ def main (args : List String) : IO UInt32 := do
     match r.status with
     | .ok (σ, _, _) =>
       nOk := nOk + 1; words := words + r.func.prog.length
-      rows := rows.push s!"{hex r.sym.addr 8}\t{r.func.prog.length}\tok\t\t{σ.depth}\t{σ.foot.length}\t{σ.nz.length}\t{σ.returns}\t{r.sym.name}"
+      let how := if r.given.isSome then "proved" else "ok"
+      rows := rows.push s!"{hex r.sym.addr 8}\t{r.func.prog.length}\t{how}\t\t{σ.depth}\t{σ.foot.length}\t{σ.nz.length}\t{σ.returns}\t{r.sym.name}"
     | .error e =>
       let key := String.ofList (((e.splitOn ": ").drop 1 |> ": ".intercalate).toList.take 40)
       reasons := reasons.insert key (reasons.getD key 0 + 1)
       rows := rows.push s!"{hex r.sym.addr 8}\t{r.func.prog.length}\tfail\t{e}\t\t\t\t\t{r.sym.name}"
   IO.FS.writeFile outPath ("\n".intercalate rows.toList ++ "\n")
-  if let [dir, modPrefix, imgPrefix, layoutPath] := args.drop 6 then
+  if let [dir, modPrefix, imgPrefix, layoutPath] := (args.drop 6).take 4 then
     let index := layoutIndex (← IO.FS.readFile layoutPath)
     let n ← emit dir modPrefix imgPrefix env tbl res index
     IO.println s!"infer-contracts: emitted {n} functions to {dir}"

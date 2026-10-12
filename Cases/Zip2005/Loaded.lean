@@ -26,6 +26,18 @@ noncomputable abbrev image : Image := Layout.image
 /-- The code chunks are sorted, disjoint and in range. -/
 theorem codeWF : image.codeWF = true := by decide +kernel
 
+/-- The data chunks are sorted, disjoint, aligned and in range. -/
+theorem dataWF : image.dataWF = true := by decide +kernel
+
+/-- The doubleword `_start` loads its stack pointer from. -/
+theorem stackTop_word : image.memAt 0x780014b0#64 = 0x78000000#64 := by
+  have h := Image.memAt_chunk (k := 0) (c := Data_0.chunk) (j := 662) dataWF rfl
+    (by decide +kernel)
+  have ha : Data_0.chunk.base + BitVec.ofNat 64 (8 * 662) = 0x780014b0#64 := by decide +kernel
+  have hw : Data_0.chunk.wordAt 662 = 0x78000000#64 := by decide +kernel
+  rw [ha, hw] at h
+  exact h
+
 /-- Any state an SP1 run of the loaded guest reaches has the image's code. -/
 theorem code_of_run {input : List (BitVec 8)} {n : Nat} {s : MachineState}
     (h : stepsSp1 n (image.state input) = some s) : s.code = image.codeAt := by

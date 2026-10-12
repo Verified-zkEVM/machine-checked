@@ -19,7 +19,9 @@ import Cases.Zip2005.Contract.V_7801f5a4
 import Cases.Zip2005.Contract.V_7802018c
 import Cases.Zip2005.Contract.V_78020ca0
 import Cases.Zip2005.Contract.V_780232f4
+import Cases.Zip2005.Contract.V_7802340c
 import Cases.Zip2005.Contract.V_780234cc
+import Cases.Zip2005.Contract.V_78023544
 import Cases.Zip2005.Contract.V_780237dc
 import Cases.Zip2005.Contract.V_78023a18
 import Cases.Zip2005.Contract.V_78023d7c
@@ -27,6 +29,7 @@ import Cases.Zip2005.Contract.V_78023ec4
 import Cases.Zip2005.Contract.V_78023f64
 import Cases.Zip2005.Contract.V_7802413c
 import Cases.Zip2005.Contract.V_78025164
+import Cases.Zip2005.Contract.V_78025654
 import Cases.Zip2005.Contract.V_78025854
 import Cases.Zip2005.Contract.V_78026258
 import Cases.Zip2005.Contract.V_78026878
@@ -65,6 +68,7 @@ import Cases.Zip2005.Contract.V_7803c5a8
 import Cases.Zip2005.Contract.V_7803c63c
 import Cases.Zip2005.Contract.V_7803ebc8
 import Cases.Zip2005.Contract.V_7803f54c
+import Cases.Zip2005.Runtime.Memset
 
 namespace Cases.Zip2005.Contract
 
@@ -74,7 +78,7 @@ theorem all : ∀ g ∈ tbl, g.Holds env Cases.Zip2005.Image.Layout.image.codeAt
   apply table_sound
   have : tbl.foldr (fun g acc => (∀ n, (∀ g' ∈ tbl, ∀ m < n, g'.HoldsN env Cases.Zip2005.Image.Layout.image.codeAt m) →
       g.HoldsN env Cases.Zip2005.Image.Layout.image.codeAt n) ∧ acc) True :=
-    ⟨V_7801aec8.holds, V_7801aed0.holds, V_7801beac.holds, V_7801bf3c.holds, V_7801bf4c.holds, V_7801bf5c.holds, V_7801bf6c.holds, V_7801bf74.holds, V_7801ce90.holds, V_7801d360.holds, V_7801ddd8.holds, V_7801f5a4.holds, V_7802018c.holds, V_78020ca0.holds, V_780232f4.holds, V_780234cc.holds, V_780237dc.holds, V_78023a18.holds, V_78023d7c.holds, V_78023ec4.holds, V_78023f64.holds, V_7802413c.holds, V_78025164.holds, V_78025854.holds, V_78026258.holds, V_78026878.holds, V_78028298.holds, V_78028718.holds, V_78028b34.holds, V_78028ce8.holds, V_78028d04.holds, V_78029468.holds, V_780297c0.holds, V_78029ae8.holds, V_78029b18.holds, V_78029b64.holds, V_78029d94.holds, V_7802e2b4.holds, V_7802e5b4.holds, V_7802e8ec.holds, V_7802e9b8.holds, V_7802ed10.holds, V_7802f038.holds, V_780360c8.holds, V_780361e0.holds, V_7803a0fc.holds, V_7803b310.holds, V_7803b31c.holds, V_7803b364.holds, V_7803baa4.holds, V_7803bac0.holds, V_7803bbb0.holds, V_7803bce8.holds, V_7803be0c.holds, V_7803c2fc.holds, V_7803c4f4.holds, V_7803c59c.holds, V_7803c5a8.holds, V_7803c63c.holds, V_7803ebc8.holds, V_7803f54c.holds, trivial⟩
+    ⟨V_7801aec8.holds, V_7801aed0.holds, V_7801beac.holds, V_7801bf3c.holds, V_7801bf4c.holds, V_7801bf5c.holds, V_7801bf6c.holds, V_7801bf74.holds, V_7801ce90.holds, V_7801d360.holds, V_7801ddd8.holds, V_7801f5a4.holds, V_7802018c.holds, V_78020ca0.holds, V_780232f4.holds, V_7802340c.holds, V_780234cc.holds, V_78023544.holds, V_780237dc.holds, V_78023a18.holds, V_78023d7c.holds, V_78023ec4.holds, V_78023f64.holds, V_7802413c.holds, V_78025164.holds, V_78025654.holds, V_78025854.holds, V_78026258.holds, V_78026878.holds, V_78028298.holds, V_78028718.holds, V_78028b34.holds, V_78028ce8.holds, V_78028d04.holds, V_78029468.holds, V_780297c0.holds, V_78029ae8.holds, V_78029b18.holds, V_78029b64.holds, V_78029d94.holds, V_7802e2b4.holds, V_7802e5b4.holds, V_7802e8ec.holds, V_7802e9b8.holds, V_7802ed10.holds, V_7802f038.holds, V_780360c8.holds, V_780361e0.holds, V_7803a0fc.holds, V_7803b310.holds, V_7803b31c.holds, V_7803b364.holds, V_7803baa4.holds, V_7803bac0.holds, V_7803bbb0.holds, V_7803bce8.holds, V_7803be0c.holds, V_7803c2fc.holds, V_7803c4f4.holds, V_7803c59c.holds, V_7803c5a8.holds, V_7803c63c.holds, V_7803ebc8.holds, V_7803f54c.holds, (fun n _ => Runtime.Memset.holds env n), trivial⟩
   exact forall_mem_of_foldr this
 
 end Cases.Zip2005.Contract

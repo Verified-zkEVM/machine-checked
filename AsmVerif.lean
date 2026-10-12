@@ -10,3 +10,5 @@ import AsmVerif.RiscV.Check.Ecall
 import AsmVerif.RiscV.Check.Sound
 import AsmVerif.RiscV.Check.Image
 import AsmVerif.RiscV.Check.Fast
+import AsmVerif.RiscV.Exec.Basic
+import AsmVerif.RiscV.Exec.Tactic

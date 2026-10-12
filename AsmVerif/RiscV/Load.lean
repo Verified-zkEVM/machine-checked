@@ -182,4 +182,129 @@ theorem Image.codeAt_prog {img : Image} (hwf : img.codeWF = true) {k : Nat} {bas
   obtain ⟨_, rfl⟩ := hw
   exact hdw
 
+/-! ## Reading data back -/
+
+namespace DataChunk
+
+def lo (c : DataChunk) : Nat := c.base.toNat
+/-- Its doublewords, `.bss` included. -/
+def size (c : DataChunk) : Nat := c.words.length + c.zeros
+def hi (c : DataChunk) : Nat := c.base.toNat + 8 * c.size
+
+/-- The doubleword at `base + 8 j`: a stored word, then zeros. -/
+def wordAt (c : DataChunk) (j : Nat) : Word := c.words.getD j 0
+
+theorem word?_outside {c : DataChunk} (hhi : c.hi ≤ 2 ^ 64) {a : Word}
+    (h : a.toNat < c.lo ∨ c.hi ≤ a.toNat) : c.word? a = none := by
+  simp only [hi, lo, size] at hhi h
+  have hd : c.words.length + c.zeros ≤ (a - c.base).toNat / 8 := by
+    rw [BitVec.toNat_sub]
+    have := c.base.isLt
+    have := a.isLt
+    rcases h with h | h
+    · rw [show 2 ^ 64 - c.base.toNat + a.toNat = 2 ^ 64 - (c.base.toNat - a.toNat) by omega,
+        Nat.mod_eq_of_lt (by omega)]
+      omega
+    · rw [show 2 ^ 64 - c.base.toNat + a.toNat = 2 ^ 64 + (a.toNat - c.base.toNat) by omega,
+        Nat.add_mod_left, Nat.mod_eq_of_lt (by omega)]
+      omega
+  simp only [word?]
+  split
+  · rw [if_neg (by omega), if_neg (by omega)]
+  · rfl
+
+theorem word?_at {c : DataChunk} (hhi : c.hi ≤ 2 ^ 64) {j : Nat} (hj : j < c.size) :
+    c.word? (c.base + BitVec.ofNat 64 (8 * j)) = some (c.wordAt j) := by
+  simp only [hi, size] at hhi hj
+  have h8 : (BitVec.ofNat 64 (8 * j)).toNat = 8 * j := by
+    rw [BitVec.toNat_ofNat]; apply Nat.mod_eq_of_lt; omega
+  have hd : (c.base + BitVec.ofNat 64 (8 * j) - c.base).toNat = 8 * j := by
+    rw [BitVec.add_comm, BitVec.add_sub_cancel, h8]
+  simp only [word?, hd, wordAt]
+  rw [if_pos (by omega), show 8 * j / 8 = j by omega]
+  by_cases hw : j < c.words.length
+  · rw [if_pos hw, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hw]; rfl
+  · rw [if_neg hw, if_pos (by omega), List.getD_eq_getElem?_getD,
+      List.getElem?_eq_none (by omega)]; rfl
+
+end DataChunk
+
+/-- Data chunks in increasing address order and disjoint. -/
+def dataChain : List DataChunk → Bool
+  | c :: d :: rest => decide (c.hi ≤ d.lo) && dataChain (d :: rest)
+  | _ => true
+
+/-- The data chunks are sorted, disjoint, 8-aligned and below `2^64`. Checked once per image
+    by `decide`. -/
+def Image.dataWF (img : Image) : Bool :=
+  dataChain img.data && img.data.all (fun c => decide (c.lo % 8 = 0) && decide (c.hi ≤ 2 ^ 64))
+
+theorem DataChunk.lo_le_hi (c : DataChunk) : c.lo ≤ c.hi := by
+  simp [DataChunk.lo, DataChunk.hi]
+
+theorem dataChain_tail {c : DataChunk} {l : List DataChunk} (h : dataChain (c :: l) = true) :
+    dataChain l = true := by
+  cases l with
+  | nil => rfl
+  | cons d rest => simp only [dataChain, Bool.and_eq_true] at h; exact h.2
+
+theorem dataChain_before {c : DataChunk} {l : List DataChunk} (h : dataChain (c :: l) = true) :
+    ∀ d ∈ l, c.hi ≤ d.lo := by
+  induction l generalizing c with
+  | nil => simp
+  | cons d rest ih =>
+    simp only [dataChain, Bool.and_eq_true, decide_eq_true_eq] at h
+    intro e he
+    rcases List.mem_cons.mp he with rfl | he
+    · exact h.1
+    · have := ih h.2 e he
+      have := d.lo_le_hi
+      omega
+
+theorem findSome_data {l : List DataChunk} (hc : dataChain l = true)
+    (hb : ∀ d ∈ l, d.hi ≤ 2 ^ 64) {k : Nat} {c : DataChunk}
+    (hk : l[k]? = some c) {j : Nat} (hj : j < c.size) :
+    l.findSome? (·.word? (c.base + BitVec.ofNat 64 (8 * j))) = some (c.wordAt j) := by
+  induction l generalizing k with
+  | nil => simp at hk
+  | cons e rest ih =>
+    cases k with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hk
+      subst hk
+      rw [List.findSome?_cons, DataChunk.word?_at (hb e (List.mem_cons_self ..)) hj]
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at hk
+      have hcm : c ∈ rest := List.mem_of_getElem? hk
+      have hbefore := dataChain_before hc c hcm
+      have hhi := hb c (List.mem_cons_of_mem _ hcm)
+      simp only [DataChunk.hi, DataChunk.lo, DataChunk.size] at hbefore hhi hj
+      have ha : (c.base + BitVec.ofNat 64 (8 * j)).toNat = c.base.toNat + 8 * j := by
+        rw [BitVec.toNat_add, BitVec.toNat_ofNat]
+        rw [Nat.mod_eq_of_lt (a := 8 * j) (by omega)]
+        apply Nat.mod_eq_of_lt; omega
+      have hnone : e.word? (c.base + BitVec.ofNat 64 (8 * j)) = none := by
+        apply DataChunk.word?_outside (hb e (List.mem_cons_self ..))
+        right; simp only [DataChunk.hi, DataChunk.size] at hbefore ⊢; omega
+      rw [List.findSome?_cons, hnone]
+      exact ih (dataChain_tail hc) (fun d hd => hb d (List.mem_cons_of_mem _ hd)) hk
+
+/-- **Data read-back.** In a well-formed image, the doubleword at `base + 8 j` of the `k`-th
+    data chunk is its `j`-th word, or zero in its `.bss` tail. -/
+theorem Image.memAt_chunk {img : Image} (hwf : img.dataWF = true) {k : Nat} {c : DataChunk}
+    (hk : img.data[k]? = some c) {j : Nat} (hj : j < c.size) :
+    img.memAt (c.base + BitVec.ofNat 64 (8 * j)) = c.wordAt j := by
+  simp only [Image.dataWF, Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq] at hwf
+  simp [Image.memAt, findSome_data hwf.1 (fun d hd => (hwf.2 d hd).2) hk hj]
+
+/-- Outside every data chunk, the loaded memory reads zero. -/
+theorem Image.memAt_outside {img : Image} (hwf : img.dataWF = true) {a : Word}
+    (h : ∀ c ∈ img.data, a.toNat < c.lo ∨ c.hi ≤ a.toNat) : img.memAt a = 0 := by
+  simp only [Image.dataWF, Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq] at hwf
+  have : img.data.findSome? (·.word? a) = none := by
+    rw [List.findSome?_eq_none_iff]
+    intro c hc
+    exact DataChunk.word?_outside (hwf.2 c hc).2 (h c hc)
+  simp [Image.memAt, this]
+
 end AsmVerif.RiscV
