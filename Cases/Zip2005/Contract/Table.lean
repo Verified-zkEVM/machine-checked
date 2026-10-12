@@ -25,6 +25,7 @@ import Cases.Zip2005.Contract.A_7802340c
 import Cases.Zip2005.Contract.A_780234cc
 import Cases.Zip2005.Contract.A_78023544
 import Cases.Zip2005.Contract.A_780237dc
+import Cases.Zip2005.Contract.A_780239bc
 import Cases.Zip2005.Contract.A_78023a18
 import Cases.Zip2005.Contract.A_78023d7c
 import Cases.Zip2005.Contract.A_78023ec4
@@ -35,6 +36,7 @@ import Cases.Zip2005.Contract.A_78025654
 import Cases.Zip2005.Contract.A_78025854
 import Cases.Zip2005.Contract.A_78026258
 import Cases.Zip2005.Contract.A_78026878
+import Cases.Zip2005.Contract.A_78026b44
 import Cases.Zip2005.Contract.A_78028298
 import Cases.Zip2005.Contract.A_78028718
 import Cases.Zip2005.Contract.A_78028b34
@@ -52,6 +54,8 @@ import Cases.Zip2005.Contract.A_7802e8ec
 import Cases.Zip2005.Contract.A_7802e9b8
 import Cases.Zip2005.Contract.A_7802ed10
 import Cases.Zip2005.Contract.A_7802f038
+import Cases.Zip2005.Contract.A_78032c1c
+import Cases.Zip2005.Contract.A_78035fe0
 import Cases.Zip2005.Contract.A_780360c8
 import Cases.Zip2005.Contract.A_780361e0
 import Cases.Zip2005.Contract.A_7803a0fc
@@ -70,6 +74,7 @@ import Cases.Zip2005.Contract.A_7803c5a8
 import Cases.Zip2005.Contract.A_7803c63c
 import Cases.Zip2005.Contract.A_7803ebc8
 import Cases.Zip2005.Contract.A_7803f54c
+import Cases.Zip2005.Runtime.Memcpy
 import Cases.Zip2005.Runtime.Memset
 
 namespace Cases.Zip2005.Contract
@@ -84,6 +89,7 @@ theorem env_wf : env.wf = true := by decide +kernel
 def tbl : List Iface := [
   A_7801aec8.iface,
   A_7801aed0.iface,
+  Runtime.Memcpy.iface,
   A_7801beac.iface,
   A_7801bf3c.iface,
   A_7801bf4c.iface,
@@ -101,6 +107,7 @@ def tbl : List Iface := [
   A_780234cc.iface,
   A_78023544.iface,
   A_780237dc.iface,
+  A_780239bc.iface,
   A_78023a18.iface,
   A_78023d7c.iface,
   A_78023ec4.iface,
@@ -111,6 +118,7 @@ def tbl : List Iface := [
   A_78025854.iface,
   A_78026258.iface,
   A_78026878.iface,
+  A_78026b44.iface,
   A_78028298.iface,
   A_78028718.iface,
   A_78028b34.iface,
@@ -128,6 +136,8 @@ def tbl : List Iface := [
   A_7802e9b8.iface,
   A_7802ed10.iface,
   A_7802f038.iface,
+  A_78032c1c.iface,
+  A_78035fe0.iface,
   A_780360c8.iface,
   A_780361e0.iface,
   A_7803a0fc.iface,

@@ -18,6 +18,7 @@
 
 import Lean
 import AsmVerif.RiscV.Exec.Basic
+import AsmVerif.RiscV.Exec.Arith
 
 namespace AsmVerif.RiscV.Exec
 
@@ -75,10 +76,38 @@ def instrAtGoal (code : Expr) : TacticM Expr := do
 syntax (name := xstepTac) "xstep " term:max : tactic
 syntax (name := xstep1Tac) "xstep1 " term:max : tactic
 
-def runStep (code : Term) (one : Bool) : TacticM Unit := do
+def isLoadName (n : Name) : Bool :=
+  n == ``Instr.LB || n == ``Instr.LBU || n == ``Instr.LH || n == ``Instr.LHU ||
+  n == ``Instr.LW || n == ``Instr.LWU || n == ``Instr.LD
+
+def isBranchName (n : Name) : Bool :=
+  n == ``Instr.BEQ || n == ``Instr.BNE || n == ``Instr.BLT || n == ``Instr.BGE ||
+  n == ``Instr.BLTU || n == ``Instr.BGEU
+
+/-- The fetch proof for the instruction `iS` at the goal's state. -/
+def fetchStx (code : Term) : TacticM Term :=
+  `(fetchLit $code (by
+        simp only [MachineState.code_setReg, MachineState.code_setPC,
+          MachineState.code_setByte, MachineState.code_setMem, MachineState.code_setHalfword,
+          MachineState.code_setWord32]
+        assumption) (pc_setPC _ _) rfl (by decide))
+
+/-- A load whose value is not needed: the destination takes a fresh value. -/
+def runHavoc (code : Term) (one : Bool) (iS : Term) : TacticM Unit := do
+  let lem := if one then mkIdent ``safe_load1 else mkIdent ``safe_load
+  let f ← fetchStx code
+  evalTactic (← `(tactic| refine $lem (i := $iS) $f rfl ?_))
+  evalTactic (← `(tactic| intro _))
+  evalTactic (← `(tactic| simp only [pc_setPC, setPC_setPC, setReg_setPC, setMem_setPC,
+    setByte_setPC, setHalfword_setPC, setWord32_setPC, setReg_setReg_same]))
+  try evalTactic (← `(tactic| simp only [BitVec.reduceAdd])) catch _ => pure ()
+
+def runStep (code : Term) (one : Bool) (havoc : Bool := false) : TacticM Unit := do
   let codeE ← elabTerm code none
   let i ← instrAtGoal codeE
   let iS ← Term.exprToSyntax i
+  if havoc && (i.getAppFn.constName?.map isLoadName).getD false then
+    return ← runHavoc code one iS
   let lem := if one then mkIdent ``safe_step1 else mkIdent ``safe_step
   evalTactic (← `(tactic|
     refine $lem (i := $iS) (fetchLit $code (by
@@ -87,21 +116,29 @@ def runStep (code : Term) (one : Bool) : TacticM Unit := do
           MachineState.code_setWord32]
         assumption) (pc_setPC _ _) rfl (by decide))
       (by decide) (by decide) (by intro _ _ h; cases h) ?_))
-  evalTactic (← `(tactic| intro _))
-  let isBranch := match i.getAppFn.constName? with
-    | some n => n == ``Instr.BEQ || n == ``Instr.BNE || n == ``Instr.BLT || n == ``Instr.BGE ||
-        n == ``Instr.BLTU || n == ``Instr.BGEU
-    | none => false
+  -- The memory check is not kept: its state term is large and proofs here do not use it.
+  evalTactic (← `(tactic| intro hm; clear hm))
+  let isBranch := (i.getAppFn.constName?.map isBranchName).getD false
   -- In stages: `simp` folding `pc + imm` while it rewrites the `pc` builds a proof the
   -- kernel cannot check.
   let simpStep ← `(tactic| (
-    simp only [pc_setPC, getReg_setReg, MachineState.getReg_setPC, getReg_setByte, AsmVerif.RiscV.Frame.getReg_setMem, getReg_x0,
-      reduceCtorEq, ne_eq, not_false_eq_true, and_true, and_false, if_true, if_false]
+    simp only [pc_setPC, setPC_setPC, setReg_setPC, setMem_setPC, setByte_setPC,
+      setHalfword_setPC, setWord32_setPC, setReg_setReg_same,
+      AsmVerif.RiscV.Frame.setReg_x0, getReg_setReg,
+      MachineState.getReg_setPC, getReg_setByte, getReg_setWord32, getReg_setHalfword,
+      AsmVerif.RiscV.Frame.getReg_setMem, getReg_x0,
+      reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false,
+      false_and, true_and, if_true, if_false]
     try simp only [signExtend12, signExtend13, BitVec.reduceSignExtend]
-    try simp only [BitVec.reduceAdd, BitVec.add_zero]))
+    try simp only [BitVec.reduceAdd, BitVec.add_zero, BitVec.reduceAnd, BitVec.reduceNot]))
   let simpHb ← `(tactic|
-    simp only [pc_setPC, getReg_setReg, MachineState.getReg_setPC, getReg_setByte, AsmVerif.RiscV.Frame.getReg_setMem, getReg_x0,
-      reduceCtorEq, ne_eq, not_false_eq_true, and_true, and_false, if_true, if_false]
+    simp only [pc_setPC, setPC_setPC, setReg_setPC, setMem_setPC, setByte_setPC,
+      setHalfword_setPC, setWord32_setPC, setReg_setReg_same,
+      AsmVerif.RiscV.Frame.setReg_x0, getReg_setReg,
+      MachineState.getReg_setPC, getReg_setByte, getReg_setWord32, getReg_setHalfword,
+      AsmVerif.RiscV.Frame.getReg_setMem, getReg_x0,
+      reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false,
+      false_and, true_and, if_true, if_false]
       at $(mkIdent `hb):ident)
   evalTactic (← `(tactic| dsimp only [execInstrBr]))
   if isBranch then
@@ -123,5 +160,75 @@ def runStep (code : Term) (one : Bool) : TacticM Unit := do
 
 @[tactic xstepTac] def evalXstep : Tactic := fun stx => runStep ⟨stx[1]⟩ false
 @[tactic xstep1Tac] def evalXstep1 : Tactic := fun stx => runStep ⟨stx[1]⟩ true
+
+/-- `xrun code`: step straight-line instructions, loads with fresh values, up to (not
+    including) the next branch, jump or `ecall`, or the pc given by `to p`. Stops at a
+    branch so the proof can split it with `xstep`. `xrun1` spends one unit of budget on its
+    first step. -/
+syntax (name := xrunTac) "xrun " term:max (" to " term:max)? : tactic
+syntax (name := xrun1Tac) "xrun1 " term:max (" to " term:max)? : tactic
+
+/-- The goal state's pc, if it is a literal. -/
+def goalPC? : TacticM (Option Nat) := do
+  let ty ← whnfR (← instantiateMVars (← (← getMainGoal).getType))
+  match ty.getAppFnArgs with
+  | (``SafeN, #[_, _, x]) => bvLit? (← mkAppM ``MachineState.pc #[x])
+  | _ => return none
+
+partial def runStraight (code : Term) (stop : Option Nat) (one : Bool) : TacticM Unit := do
+  let codeE ← elabTerm code none
+  let some i ← (try some <$> instrAtGoal codeE catch _ => pure none) | return
+  let some n := i.getAppFn.constName? | return
+  if let some p := stop then
+    if (← goalPC?) == some p then return
+  if isBranchName n || n == ``Instr.JAL || n == ``Instr.JALR || n == ``Instr.ECALL ||
+     n == ``Instr.EBREAK then return
+  runStep code one (havoc := true)
+  runStraight code stop false
+
+def stopOf (stx : Syntax) : TacticM (Option Nat) := do
+  if stx[2].isNone then return none
+  let e ← elabTerm stx[2][1] (some (mkApp (mkConst ``BitVec) (mkNatLit 64)))
+  bvLit? e
+
+@[tactic xrunTac] def evalXrun : Tactic := fun stx => do
+  runStraight ⟨stx[1]⟩ (← stopOf stx) false
+
+@[tactic xrun1Tac] def evalXrun1 : Tactic := fun stx => do
+  runStraight ⟨stx[1]⟩ (← stopOf stx) true
+
+/-- `xload code`: one load with a fresh value. -/
+syntax (name := xloadTac) "xload " term:max : tactic
+@[tactic xloadTac] def evalXload : Tactic := fun stx => runStep ⟨stx[1]⟩ false (havoc := true)
+
+/-- Discharge a `Frame` goal through register writes and `pc` updates, down to a hypothesis;
+    each store leaves its footprint obligation as a goal, in program order. -/
+macro "xframe" : tactic => `(tactic|
+  repeat (first | with_reducible assumption | with_reducible refine Frame.setPC ?_ _ |
+    with_reducible refine Frame.setReg ?_ (by decide) (by decide) _ |
+    with_reducible refine Frame.setByte ?_ ?_ _ | with_reducible refine Frame.setMem ?_ ?_ _ |
+    with_reducible refine Frame.setWord32 ?_ ?_ _ |
+    with_reducible refine Frame.setHalfword ?_ ?_ _))
+
+/-- Resolve register reads through a state's writes. -/
+macro "xregs" : tactic => `(tactic|
+  simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setByte, getReg_setWord32,
+    getReg_setHalfword, AsmVerif.RiscV.Frame.getReg_setMem, AsmVerif.RiscV.Frame.setReg_x0,
+    reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false, false_and,
+    true_and, if_true, if_false])
+
+/-- `xret code hk`: a `ret` at the goal's state, to the continuation `hk`; leaves the frame
+    as a goal. -/
+syntax (name := xretTac) "xret " term:max term:max : tactic
+@[tactic xretTac] def evalXret : Tactic := fun stx => do
+  let code : Term := ⟨stx[1]⟩
+  let hk : Term := ⟨stx[2]⟩
+  let codeTy ← whnfR (← inferType (← elabTerm code none))
+  let cE ← match codeTy.getAppFnArgs with
+    | (``CodeAt, #[_, c]) => pure c
+    | _ => throwError "xret: expected `CodeAt f C`"
+  let cS ← Term.exprToSyntax cE
+  let f ← fetchStx code
+  evalTactic (← `(tactic| refine safe_ret (C := $cS) (by rfl) ?_ $f $hk))
 
 end AsmVerif.RiscV.Exec

@@ -9,6 +9,8 @@ import AsmVerif.RiscV.Check.Image
 import Cases.Zip2005.Loaded
 
 
+set_option maxRecDepth 100000
+
 namespace Cases.Zip2005.Runtime.Memset
 
 open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
@@ -26,18 +28,16 @@ theorem decode : decodeWords F_7803f57c.words = F_7803f57c.prog := by decide +ke
 theorem code : CodeAt fn C :=
   codeAt_of_image (k := 306) Loaded.codeWF rfl decode (fun _ _ h => by simp [fn] at h)
 
-theorem hits_align {b x : Word} {l : Nat} (h : (x - b).toNat < l) :
-    Hits b l (alignToDword x) := by
-  have h8 := sub_alignToDword_lt x
-  generalize alignToDword x = k at *
-  unfold Hits
-  by_cases hc : (k - b).toNat < l
-  · exact Or.inl hc
-  · right; refine ⟨by omega, ?_⟩; bv_omega
-
 theorem written_of {s0 : MachineState} {a : Word}
     (h : Hits (s0.getReg .x10) (s0.getReg .x12).toNat a) : Written iface (regsOf s0) a :=
   Or.inr ⟨_, List.mem_singleton_self _, by simpa [Item.Hits, AVal.eval, Len.eval, regsOf] using h⟩
+
+/-- A store's footprint obligation, at an address `a0 + o` with `o < n`. -/
+macro "xw" h:ident : tactic => `(tactic| (
+  intro _
+  apply written_of
+  simp only [$h:ident]
+  first | ((with_reducible apply hits_align); bv_omega) | (left; bv_omega)))
 
 /-- The byte loop at `0x7803f5f0`: `r > 0` bytes left, at offset `o`. -/
 def Bt (s0 s : MachineState) : Prop :=
@@ -85,15 +85,6 @@ def Tl (s0 s : MachineState) : Prop :=
   s.pc = 0x7803f5e4#64 ∧ ∃ q m : Nat, q + m % 8 = (s0.getReg .x12).toNat ∧ m < 2 ^ 64 ∧
     s.getReg .x13 = s0.getReg .x10 + BitVec.ofNat 64 q ∧ s.getReg .x12 = BitVec.ofNat 64 m
 
-/-- Apply the frame lemmas for register writes and `pc` updates. -/
-macro "xframe" : tactic => `(tactic|
-  repeat (first | assumption | refine Frame.setPC ?_ _ |
-    refine Frame.setReg ?_ (by decide) (by decide) _))
-
-macro "xregs" : tactic => `(tactic|
-  simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setByte, getReg_setMem,
-    reduceCtorEq, ne_eq, not_false_eq_true, and_true, and_false, if_true, if_false])
-
 theorem bt {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) (h : Bt s0 s)
     (hk : ∀ t, Post iface s0 t → SafeN k P t)
     (IH : ∀ t, Frame iface C s0 t → Bt s0 t → SafeN k P t) : SafeN (k + 1) P s := by
@@ -101,11 +92,6 @@ theorem bt {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) 
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
   rw [← setPC_self hpc]
-  have hF1 := (hF.setPC 0x7803f5f0#64).setByte (a := s.getReg .x13) (fun _ => by
-    apply written_of
-    rw [h13]
-    apply hits_align
-    bv_omega) (BitVec.truncate 8 (s.getReg .x11))
   xstep1 code
   xstep code
   xstep code
@@ -114,18 +100,15 @@ theorem bt {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) 
     have hr1 : r - 1 ≠ 0 := by
       simp only [bne_iff_ne, ne_eq] at hb
       intro h0; apply hb; bv_omega
-    refine IH _ ((((((hF1.setPC _).setReg (by decide) (by decide) _).setPC _).setReg
-      (by decide) (by decide) _).setPC _).setPC _) ⟨rfl, o + 1, r - 1, by omega, by omega, ?_, ?_⟩
+    refine IH _ (by xframe <;> xw h13) ⟨rfl, o + 1, r - 1, by omega, by omega, ?_, ?_⟩
     · simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setByte, reduceCtorEq,
         ne_eq, not_false_eq_true, and_true, if_true, h13]
       bv_omega
     · simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setByte, reduceCtorEq,
         ne_eq, not_false_eq_true, and_true, if_true, if_false, h12]
       bv_omega
-  · refine safe_ret rfl ((((((hF1.setPC _).setReg (by decide) (by decide) _).setPC _).setReg
-      (by decide) (by decide) _).setPC _).setPC _)
-      (fetchLit code (by simp only [MachineState.code_setReg, MachineState.code_setPC,
-        MachineState.code_setByte]; exact hcode) (pc_setPC _ _) rfl (by decide)) hk
+  · xret code hk
+    xframe <;> xw h13
 
 
 theorem tl {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) (h : Tl s0 s)
@@ -137,9 +120,7 @@ theorem tl {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) 
   xstep1 code
   xstep code
   xstep code
-  · refine safe_ret (C := C) rfl ?_
-      (fetchLit code (by simp only [MachineState.code_setReg, MachineState.code_setPC]; exact hcode)
-        (pc_setPC _ _) rfl (by decide)) hk
+  · xret code hk
     xframe
   · have h7 := and_7 (s.getReg .x12)
     rw [h12, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hm64] at h7
@@ -158,11 +139,6 @@ theorem dw {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) 
   have hn := (s0.getReg .x12).isLt
   have hoe : oe h (s0.getReg .x12).toNat ≤ (s0.getReg .x12).toNat := by unfold oe; omega
   rw [← setPC_self hpc]
-  have hF1 := (hF.setPC 0x7803f5d8#64).setMem (k := s.getReg .x14) (fun _ => by
-    apply written_of
-    rw [h14]
-    left
-    bv_omega) (s.getReg .x15)
   xstep1 code
   xstep code
   xstep code
@@ -173,11 +149,11 @@ theorem dw {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) 
       rcases Nat.lt_or_eq_of_le this with h' | h'
       · exact h'
       · rw [← h'] at hb; exfalso; bv_omega
-    refine IH _ (by xframe) (Or.inl ⟨rfl, h, o + 8, hh, hn16, ho', by omega, ?_, ?_, ?_⟩)
+    refine IH _ (by xframe <;> xw h14) (Or.inl ⟨rfl, h, o + 8, hh, hn16, ho', by omega, ?_, ?_, ?_⟩)
     · xregs; rw [h14]; bv_omega
     · xregs; exact h13
     · xregs; exact h12
-  · refine IH _ (by xframe) (Or.inr ⟨rfl, oe h (s0.getReg .x12).toNat,
+  · refine IH _ (by xframe <;> xw h14) (Or.inr ⟨rfl, oe h (s0.getReg .x12).toNat,
       (s0.getReg .x12).toNat - h, by unfold oe; omega, by omega, ?_, ?_⟩)
     · xregs; exact h13
     · xregs; exact h12
@@ -226,11 +202,6 @@ theorem head {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s
   obtain ⟨hpc, h, i, hi, hh, hn16, h16, h15, h14, h13, h12⟩ := h
   have hcode := hF.code
   rw [← setPC_self hpc]
-  have hF1 := (hF.setPC 0x7803f59c#64).setByte (a := s.getReg .x16) (fun _ => by
-    apply written_of
-    rw [h16]
-    apply hits_align
-    bv_omega) (BitVec.truncate 8 (s.getReg .x11))
   xstep1 code
   xstep code
   xstep code
@@ -240,13 +211,13 @@ theorem head {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s
     have hi1 : i + 1 < h := by
       have : h - i - 1 ≠ 0 := by intro h0; apply hb; bv_omega
       omega
-    refine IH _ (by xframe) (Or.inl ⟨rfl, h, i + 1, hi1, hh, hn16, ?_, ?_, ?_, ?_, ?_⟩)
+    refine IH _ (by xframe <;> xw h16) (Or.inl ⟨rfl, h, i + 1, hi1, hh, hn16, ?_, ?_, ?_, ?_, ?_⟩)
     · xregs; rw [h16]; bv_omega
     · xregs; rw [h15]; bv_omega
     · xregs; exact h14
     · xregs; exact h13
     · xregs; exact h12
-  · refine IH _ (by xframe) (Or.inr ⟨rfl, h, hh, hn16, ?_, ?_, ?_⟩)
+  · refine IH _ (by xframe <;> xw h16) (Or.inr ⟨rfl, h, hh, hn16, ?_, ?_, ?_⟩)
     · xregs; exact h13
     · xregs; exact h14
     · xregs; exact h12
@@ -269,9 +240,7 @@ theorem entry {s0 : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s0
       · xregs; bv_omega
       · xregs; simp
     · xstep code
-      refine safe_ret (C := C) rfl ?_
-        (fetchLit code (by simp only [MachineState.code_setReg, MachineState.code_setPC]; exact hcode)
-          (pc_setPC _ _) rfl (by decide)) hk
+      xret code hk
       xframe
   · simp only [BitVec.ult_iff_lt, BitVec.lt_def, Nat.not_lt] at hb
     have hn16 : 16 ≤ (s0.getReg .x12).toNat := hb

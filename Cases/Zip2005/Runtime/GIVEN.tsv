@@ -1,2 +1,3 @@
 addr	module	iface	proof	interface
 7803f57c	Cases.Zip2005.Runtime.Memset	Runtime.Memset.iface	fun n _ => Runtime.Memset.holds env n	depth=0 foot=x10+0:x12 ret=1
+7801b4d8	Cases.Zip2005.Runtime.Memcpy	Runtime.Memcpy.iface	fun n _ => Runtime.Memcpy.holds env rfl (by decide) n	depth=0 foot=x10+0:x12 ret=1

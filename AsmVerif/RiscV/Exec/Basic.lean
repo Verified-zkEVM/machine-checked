@@ -85,6 +85,28 @@ theorem safe_step1 {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
   · rw [if_neg hm] at hs
     exact SafeN.stuck hs (fun ha => absurd ha (not_accepted_of_code hf he))
 
+/-- A load whose value does not matter: the destination register takes an arbitrary value.
+    Keeping it abstract keeps the state small. -/
+theorem safe_load {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
+    (hf : s.code s.pc = some i) {rd rs : Reg} {off : BitVec 12} {isD : Bool}
+    (hl : loadOf i = some (rd, rs, off, isD))
+    (h : ∀ v, SafeN k P ((s.setReg rd v).setPC (s.pc + 4))) : SafeN k P s := by
+  have hne : i ≠ .ECALL ∧ i ≠ .EBREAK ∧ ∀ c r, i ≠ .CSRS c r := by
+    cases i <;> simp [loadOf] at hl <;> exact ⟨Instr.noConfusion, Instr.noConfusion, fun _ _ h => Instr.noConfusion h⟩
+  refine safe_step hf hne.1 hne.2.1 hne.2.2 fun _ => ?_
+  obtain ⟨w, hw, _⟩ := loadOf_shape (s := s) hl
+  rw [hw]; exact h w
+
+theorem safe_load1 {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
+    (hf : s.code s.pc = some i) {rd rs : Reg} {off : BitVec 12} {isD : Bool}
+    (hl : loadOf i = some (rd, rs, off, isD))
+    (h : ∀ v, SafeN k P ((s.setReg rd v).setPC (s.pc + 4))) : SafeN (k + 1) P s := by
+  have hne : i ≠ .ECALL ∧ i ≠ .EBREAK ∧ ∀ c r, i ≠ .CSRS c r := by
+    cases i <;> simp [loadOf] at hl <;> exact ⟨Instr.noConfusion, Instr.noConfusion, fun _ _ h => Instr.noConfusion h⟩
+  refine safe_step1 hf hne.1 hne.2.1 hne.2.2 fun _ => ?_
+  obtain ⟨w, hw, _⟩ := loadOf_shape (s := s) hl
+  rw [hw]; exact h w
+
 /-- What SP1's memory check gives an access of `w` bytes at `a`: the address is below
     SP1's memory bound, and naturally aligned. -/
 theorem memOk_addr {s : MachineState} {i : Instr} {a : Word} {w : Nat} {st : Bool}
@@ -97,6 +119,39 @@ theorem memOk_addr {s : MachineState} {i : Instr} {a : Word} {w : Nat} {st : Boo
 
 @[simp] theorem pc_setPC (s : MachineState) (v : Word) : (s.setPC v).pc = v := rfl
 
+/-! State normal form: one `setPC` outermost, register writes collapsed.
+
+These are proved by `cases s` rather than `rfl` on purpose: `simp` applies a `rfl` lemma as a
+definitional change, and the kernel then re-checks it by unfolding the whole state term, which
+on a long straight-line run recurses too deep. -/
+
+theorem setPC_setPC (s : MachineState) (a b : Word) : (s.setPC a).setPC b = s.setPC b := by
+  cases s; rfl
+
+theorem setReg_setPC (s : MachineState) (a : Word) (r : Reg) (v : Word) :
+    (s.setPC a).setReg r v = (s.setReg r v).setPC a := by
+  cases r <;> rfl
+
+theorem setMem_setPC (s : MachineState) (a x v : Word) :
+    (s.setPC a).setMem x v = (s.setMem x v).setPC a := by
+  cases s; rfl
+
+theorem setByte_setPC (s : MachineState) (a x : Word) (b : BitVec 8) :
+    (s.setPC a).setByte x b = (s.setByte x b).setPC a := by
+  cases s; rfl
+
+theorem setHalfword_setPC (s : MachineState) (a x : Word) (b : BitVec 16) :
+    (s.setPC a).setHalfword x b = (s.setHalfword x b).setPC a := by
+  cases s; rfl
+
+theorem setWord32_setPC (s : MachineState) (a x : Word) (b : BitVec 32) :
+    (s.setPC a).setWord32 x b = (s.setWord32 x b).setPC a := by
+  cases s; rfl
+
+theorem setReg_setReg_same (s : MachineState) (r : Reg) (a b : Word) :
+    (s.setReg r a).setReg r b = s.setReg r b := by
+  cases r <;> simp only [MachineState.setReg] <;> congr 1 <;> funext r' <;> split <;> rfl
+
 theorem setPC_self {s : MachineState} {p : Word} (h : s.pc = p) : s.setPC p = s := by
   subst h; rfl
 
@@ -108,6 +163,14 @@ theorem getReg_setReg (s : MachineState) (r r' : Reg) (v : Word) :
 
 @[simp] theorem getReg_setByte (s : MachineState) (a : Word) (b : BitVec 8) (r : Reg) :
     (s.setByte a b).getReg r = s.getReg r := by
+  cases r <;> rfl
+
+@[simp] theorem getReg_setWord32 (s : MachineState) (a : Word) (b : BitVec 32) (r : Reg) :
+    (s.setWord32 a b).getReg r = s.getReg r := by
+  cases r <;> rfl
+
+@[simp] theorem getReg_setHalfword (s : MachineState) (a : Word) (b : BitVec 16) (r : Reg) :
+    (s.setHalfword a b).getReg r = s.getReg r := by
   cases r <;> rfl
 
 /-! ## Fetching from the function's code -/
@@ -171,6 +234,16 @@ theorem setMem (h : Frame σ C s0 s) {k : Word} (hk : Aligned k → Written σ (
 theorem setByte (h : Frame σ C s0 s) {a : Word}
     (hk : Aligned (alignToDword a) → Written σ (regsOf s0) (alignToDword a)) (b : BitVec 8) :
     Frame σ C s0 (s.setByte a b) :=
+  h.setMem hk _
+
+theorem setWord32 (h : Frame σ C s0 s) {a : Word}
+    (hk : Aligned (alignToDword a) → Written σ (regsOf s0) (alignToDword a)) (b : BitVec 32) :
+    Frame σ C s0 (s.setWord32 a b) :=
+  h.setMem hk _
+
+theorem setHalfword (h : Frame σ C s0 s) {a : Word}
+    (hk : Aligned (alignToDword a) → Written σ (regsOf s0) (alignToDword a)) (b : BitVec 16) :
+    Frame σ C s0 (s.setHalfword a b) :=
   h.setMem hk _
 
 end Frame
