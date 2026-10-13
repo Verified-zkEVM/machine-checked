@@ -11,7 +11,9 @@
     * .text      0x78016938  size 0x28cdc   (code)
     * .data      0x78040618  size 0x8        (one initialised static)
     * .bss       0x78040620  size 0x8360     (zero-initialised statics, up to `_end`)
-    * heap       0x78048980  up to 0x1C00000000 (the TLSF arena)
+    * heap       0x78048980  up to 0x1C00000000 (the TLSF arena; `__start` hands
+                 `Heap::init` exactly `[_end, 7 << 34)`)
+    * beyond     0x1C00000000 up to SP1_MAX_MEMORY (unused by the image)
 
   `.rodata` and `.eh_frame` are one contiguous protected region `[0x78000190, 0x78015938)`,
   the `Env.prot` the checker runs against. The statics `.data`/`.bss` are `[0x78040618,
@@ -37,8 +39,8 @@ def text : Region := { base := 0x78016938, len := 0x28cdc }
 /-- The mutable statics, `.data` and `.bss` together, up to `_end`. -/
 def statics : Region := { base := 0x78040618, len := 0x8368 }
 
-/-- The heap arena, up to the top of SP1's addressable memory. -/
-def heap : Region := { base := 0x78048980, len := 0x1F87FB7680 }
+/-- The heap arena: what `__start` gives `Heap::init`, `[_end, 7 << 34)`. -/
+def heap : Region := { base := 0x78048980, len := 0x1B87FB7680 }
 
 /-- The layout, in address order. -/
 def all : List Region := [stack, rodata, text, statics, heap]
@@ -52,8 +54,8 @@ theorem all_ok : Region.pairwiseOk all = true := by decide
 /-- Every region ends at or below SP1's memory bound. -/
 theorem all_within : all.all (fun r => decide (r.hi ≤ SP1_MAX_MEMORY)) = true := by decide
 
-/-- The heap ends exactly at the memory bound. -/
-theorem heap_top : heap.hi = SP1_MAX_MEMORY := by decide
+/-- The heap ends at `7 << 34`, the bound `__start` passes to `Heap::init`, below SP1's. -/
+theorem heap_top : heap.hi = 7 <<< 34 ∧ heap.hi < SP1_MAX_MEMORY := by decide
 
 /-- The statics lie directly below the heap, with no gap. -/
 theorem statics_abuts_heap : statics.hi = heap.base.toNat := by decide
