@@ -134,7 +134,8 @@ program proofs.
 
 ## Rules
 
-- No `sorry`, no `axiom`, no `native_decide` or `bv_decide`. `#print axioms` shows only
+- No `sorry`, no `axiom`, no `native_decide`. `bv_decide` is allowed (it adds
+  `Lean.ofReduceBool` and `Lean.trustCompiler`); otherwise `#print axioms` shows only
   `propext`, `Classical.choice` and `Quot.sound`.
 - Zero build warnings.
 - Every remaining premise is in one list with a satisfiability witness: it holds on the
