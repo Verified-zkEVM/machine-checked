@@ -173,8 +173,11 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   a struct in the frame to a used heap block (`Rep`, `Live`). The checker's interfaces
   cannot state that, since their footprints are frame, entry-relative and constant regions.
   It is the per-caller heap reasoning that C4 already set below this goal's line.
-  What does not need it: the tail (`sys_panic` under `Owned.env`, from `SysWrite.holds` and
-  `Halt.holds`) and the `read_vec_raw` panic hand-off (`ReadVec.Panic`).
+  What does not need it: the `read_vec_raw` panic hand-off (`ReadVec.Panic`) and the tail.
+  **Tail done:** `Runtime.SysPanic.holds` checks `sys_write` and `sys_panic` against
+  `Owned.env` with a table of `SysWrite.holds` and `Halt.holds`. `sys_panic` does not
+  return. The next link up, `zkvm_set_abort_message`, calls the payload's `get`, which is
+  the `String` path above.
 
 **E/F (later).** A specification format for program logic, and the port of zip-2005's
 program proofs.
