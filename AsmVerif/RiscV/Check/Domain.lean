@@ -468,11 +468,16 @@ def pathCells : AVal → List Word → List (AVal × AVal)
 /-- The writer a structural writer wraps: the sub-writer, its pointer and its kind. -/
 def subEntry (env : Env) (ref : Option (AVal × Word)) (e : AVal × AVal) :
     Option (Sub × AVal × AVal) :=
-  match (kindConst env ref e.2).bind env.model.sub with
+  match (kindConst env ref e.2).bind env.model.kinds with
   | none => none
-  | some s => match e.1.path s.dp, e.1.path s.kp with
-    | some d', some k' => some (s, d', k')
-    | _, _ => none
+  | some kd =>
+    if kd.pure then
+      match kd.sub with
+      | none => none
+      | some s => match e.1.path s.dp, e.1.path s.kp with
+        | some d', some k' => some (s, d', k')
+        | _, _ => none
+    else none
 
 /-- A writer, and the one it wraps if its kind is structural. -/
 def addEntry (env : Env) (ref : Option (AVal × Word)) (kn : Kn) (e : AVal × AVal) : Kn :=
@@ -518,14 +523,22 @@ def passEntry (env : Env) (σ : Iface) (kn : Kn) (ref : Option (AVal × Word)) (
   | some e => some ([e], [])
   | none => match k, m with
     | .const K, some m =>
-      match env.model.sub K with
-      | some s =>
-        match framePath A m its d s.dp, framePath A m its d s.kp with
-        | some (d2, fs1), some (k2, fs2) =>
-          match kn.strs.find? (matchEntry env ref · (d2, k2)) with
-          | some e => if inCands env σ kn k2 s.kinds then some ([e], fs1 ++ fs2) else none
-          | none => none
-        | _, _ => none
+      match env.model.kinds K with
+      | some kd =>
+        if kd.pure then
+          match kd.sub with
+          | some s =>
+            match framePath A m its d s.dp, framePath A m its d s.kp with
+            | some (d2, fs1), some (k2, fs2) =>
+              match kn.strs.find? (matchEntry env ref · (d2, k2)) with
+              | some e => if inCands env σ kn k2 s.kinds then some ([e], fs1 ++ fs2) else none
+              | none => none
+            | _, _ => none
+          -- a unit: nothing to pass, as long as it is a frame address
+          | none => match d.frameOff? with
+            | some f => if negOff f % 8 = 0 then some ([], []) else none
+            | none => none
+        else none
       | none => none
     | _, _ => none
 

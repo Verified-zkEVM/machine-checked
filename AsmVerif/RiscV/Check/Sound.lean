@@ -1010,25 +1010,33 @@ def IsSub (env : Env) (ref : Option (AVal × Word)) (e' e : AVal × AVal) : Prop
 
 theorem subEntry_some {env : Env} {ref : Option (AVal × Word)} {e : AVal × AVal} {s : Sub}
     {d' k' : AVal} (h : subEntry env ref e = some (s, d', k')) :
-    ∃ K, kindConst env ref e.2 = some K ∧ env.model.sub K = some s ∧
-      e.1.path s.dp = some d' ∧ e.1.path s.kp = some k' := by
+    ∃ K kd, kindConst env ref e.2 = some K ∧ env.model.kinds K = some kd ∧ kd.pure = true ∧
+      kd.sub = some s ∧ e.1.path s.dp = some d' ∧ e.1.path s.kp = some k' := by
   unfold subEntry at h
-  cases hks : (kindConst env ref e.2).bind env.model.sub with
+  cases hks : (kindConst env ref e.2).bind env.model.kinds with
   | none => rw [hks] at h; cases h
-  | some s' =>
+  | some kd =>
     rw [hks] at h
     simp only at h
-    obtain ⟨K, hK, hs⟩ := Option.bind_eq_some_iff.mp hks
-    cases hd : e.1.path s'.dp with
-    | none => rw [hd] at h; cases h
-    | some d'' =>
-      cases hk : e.1.path s'.kp with
-      | none => rw [hd, hk] at h; cases h
-      | some k'' =>
-        rw [hd, hk] at h
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl, rfl⟩ := h
-        exact ⟨K, hK, hs, hd, hk⟩
+    obtain ⟨K, hK, hkd⟩ := Option.bind_eq_some_iff.mp hks
+    split at h
+    · rename_i hpu
+      cases hsub : kd.sub with
+      | none => rw [hsub] at h; cases h
+      | some s' =>
+        rw [hsub] at h
+        simp only at h
+        cases hd : e.1.path s'.dp with
+        | none => rw [hd] at h; cases h
+        | some d'' =>
+          cases hk : e.1.path s'.kp with
+          | none => rw [hd, hk] at h; cases h
+          | some k'' =>
+            rw [hd, hk] at h
+            simp only [Option.some.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, rfl, rfl⟩ := h
+            exact ⟨K, kd, hK, hkd, hpu, hsub, hd, hk⟩
+    · cases h
 
 structure KnOk (env : Env) (σ : Iface) (E : Ent) (s0 : MachineState) (M : Word → Word)
     (ref : Option (AVal × Word)) (kn : Kn) : Prop where
@@ -1057,8 +1065,9 @@ theorem St.entryOk (hF : Facts env σ E s0) {C} {A : AState} {x : MachineState}
 /-- What a structural writer wraps, as of `M`: a writer too; its pointer and kind are the
     paths' contents, which are stable keys, and the paths' keys are not its own. -/
 theorem sub_entryOk (hF : Facts env σ E s0) {M : Word → Word} {ref : Option (AVal × Word)}
-    (hrf : RefOk E ref) {e : AVal × AVal} (he : EntryOk env σ E s0 M e) {K : Word} {s : Sub}
-    (hK : kindConst env ref e.2 = some K) (hs : env.model.sub K = some s) {d' k' : AVal}
+    (hrf : RefOk E ref) {e : AVal × AVal} (he : EntryOk env σ E s0 M e) {K : Word} {kd : Kind}
+    {s : Sub} (hK : kindConst env ref e.2 = some K) (hkd : env.model.kinds K = some kd)
+    (hs : kd.sub = some s) {d' k' : AVal}
     (hd : e.1.path s.dp = some d') (hk : e.1.path s.kp = some k') :
     pathKeys M (e.1.eval E) s.dp = pathKeys E.mem (e.1.eval E) s.dp ∧
     pathKeys M (e.1.eval E) s.kp = pathKeys E.mem (e.1.eval E) s.kp ∧
@@ -1069,14 +1078,15 @@ theorem sub_entryOk (hF : Facts env σ E s0) {M : Word → Word} {ref : Option (
   obtain ⟨hp1, hp2, hw, hhit, hst⟩ := he
   have hK' := kindConst_eval hF hrf hp2 hK
   rw [hK'] at hw hhit hst
-  have hsub := env.model.sub_elim hs hw
+  have hsub := Model.sub_elim hkd hs hw
   obtain ⟨hw', hkind, hkeys⟩ := hsub
+  have hal : ∀ b ∈ s.keys M (e.1.eval E), Aligned b := fun b hb => (hkeys b hb).1
   -- The paths' keys are stable, hence as at entry.
   have hkey : ∀ a ∈ s.keys M (e.1.eval E), Aligned a ∧ ¬ Written σ E a ∧ ¬ env.InOwn a ∧
       M a = s0.getMem a := by
     intro a ha
-    have hst' := hst a ((env.model.stable_struct hs a).mpr (Or.inl ha))
-    exact ⟨(hkeys a ha).1, (hhit a (env.model.stable_hit ((env.model.stable_struct hs a).mpr (Or.inl ha)))).1,
+    have hst' := hst a (Model.stable_of_keys hkd hs hal ha)
+    exact ⟨(hkeys a ha).1, (hhit a (Model.stable_hit (Model.stable_of_keys hkd hs hal ha))).1,
       hst'.2.1, hst'.2.2⟩
   have hdp : ∀ b ∈ pathKeys M (e.1.eval E) s.dp, E.mem b = M b := fun b hb => by
     rw [hF.emem, (hkey b (by simp [Sub.keys, hb])).2.2.2]
@@ -1098,9 +1108,9 @@ theorem sub_entryOk (hF : Facts env σ E s0) {M : Word → Word} {ref : Option (
     fun w hw => ?_, fun a ha => ?_⟩
   · rw [hd'e, hk'e]; exact hw'
   · rw [hd'e, hk'e] at ha
-    exact hhit a ((env.model.hit_struct hs a).mpr (Or.inr ha))
+    exact hhit a (Model.hit_of_sub hkd hs hal ha)
   · rw [hd'e, hk'e] at ha
-    exact hst a ((env.model.stable_struct hs a).mpr (Or.inr ha))
+    exact hst a (Model.stable_of_sub hkd hs hal ha)
   · rw [holds_det hk'p hw hk'h]; exact hkind
   · refine ⟨(hkey a ha).1, (hkey a ha).2.1, (hkey a ha).2.2.1, (hkey a ha).2.2.2, ?_⟩
     rw [hd'e, hk'e]; exact (hkeys a ha).2
@@ -1153,9 +1163,9 @@ theorem addEntry_ok (hF : Facts env σ E s0) {M : Word → Word} {ref : Option (
   | none => exact knOk_cons hkn he
   | some x =>
     obtain ⟨s, d', k'⟩ := x
-    obtain ⟨K, hK, hs, hd, hk⟩ := subEntry_some hse
+    obtain ⟨K, kd, hK, hkd, _, hs, hd, hk⟩ := subEntry_some hse
     simp only
-    obtain ⟨hpd, hpk, hd'e, hk'e, he', hkinds, hkeys⟩ := sub_entryOk hF hrf he hK hs hd hk
+    obtain ⟨hpd, hpk, hd'e, hk'e, he', hkinds, hkeys⟩ := sub_entryOk hF hrf he hK hkd hs hd hk
     have hp : e.1.Holds E (e.1.eval E) := holds_self he.1
     have hcd : ∀ a ∈ pathKeys E.mem (e.1.eval E) s.dp, M a = E.mem a := fun a ha => by
       rw [← hpd] at ha
@@ -1498,7 +1508,7 @@ theorem framePath_sound {A : AState} {y : MachineState} (hy : RegsHold E A y)
       · cases h
 
 /-- What passing a callee writer establishes: it is one the caller has, or a structural
-    writer built in the caller's frame around one the caller has. -/
+    writer built in the caller's frame around one the caller has, or a unit in the frame. -/
 theorem passEntry_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf : RefOk E ref)
     {kn : Kn} {A1 : AState} {y : MachineState} (hkn : KnOk env σ E s0 y.getMem ref kn)
     (hy1 : RegsHold E A1 y) (hm1 : MemOk σ E A1 y.getMem)
@@ -1507,13 +1517,16 @@ theorem passEntry_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (
     (h : passEntry env σ kn ref A1 mo its d' k' = some (es, fs)) :
     d'.isPtr = true ∧ k'.isPtr = true ∧
     ((∃ e ∈ kn.strs, es = [e] ∧ fs = [] ∧ e.1 = d' ∧ e.2.eval E = k'.eval E) ∨
-     (∃ e ∈ kn.strs, ∃ m K s, mo = some m ∧ es = [e] ∧ k' = .const K ∧ env.model.sub K = some s ∧
+     (∃ e ∈ kn.strs, ∃ m K kd s, mo = some m ∧ es = [e] ∧ k' = .const K ∧
+        env.model.kinds K = some kd ∧ kd.pure = true ∧ kd.sub = some s ∧
         e.1.eval E = derefM y.getMem (d'.eval E) s.dp ∧
         e.2.eval E = derefM y.getMem (d'.eval E) s.kp ∧
         (∀ a ∈ s.keys y.getMem (d'.eval E), ∃ f ∈ fs, a = E .x2 + f) ∧
         (∀ f ∈ fs, (8 ≤ negOff f ∧ negOff f ≤ σ.depth ∧ negOff f % 8 = 0) ∧ negOff f ≤ m ∧
           ∀ it ∈ its, slotClear f it = true) ∧
-        SubOk env.model.writerOk env.model.hit (d'.eval E) y.getMem s)) := by
+        env.model.SubOk (d'.eval E) y.getMem s) ∨
+     (∃ K kd, es = [] ∧ fs = [] ∧ k' = .const K ∧ env.model.kinds K = some kd ∧ kd.pure = true ∧
+        kd.sub = none ∧ Aligned (d'.eval E))) := by
   unfold passEntry at h
   cases hfind : kn.strs.find? (matchEntry env ref · (d', k')) with
   | some e =>
@@ -1531,9 +1544,34 @@ theorem passEntry_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (
     simp only at h
     split at h
     · rename_i K m
-      cases hs : env.model.sub K with
-      | none => rw [hs] at h; cases h
-      | some s =>
+      cases hkd : env.model.kinds K with
+      | none => rw [hkd] at h; cases h
+      | some kd =>
+      rw [hkd] at h
+      simp only at h
+      split at h
+      · rename_i hpu
+        cases hs : kd.sub with
+        | none =>
+          rw [hs] at h
+          simp only at h
+          cases hfo : d'.frameOff? with
+          | none => rw [hfo] at h; cases h
+          | some f =>
+            rw [hfo] at h
+            simp only at h
+            split at h
+            · rename_i hf8
+              simp only [Option.some.injEq, Prod.mk.injEq] at h
+              obtain ⟨rfl, rfl⟩ := h
+              have hd := AVal.frameOff?_some hfo
+              refine ⟨by rw [hd]; rfl, rfl, Or.inr (Or.inr ⟨K, kd, rfl, rfl, rfl, hkd, hpu, hs, ?_⟩)⟩
+              rw [hd]
+              simp only [AVal.eval]
+              rw [add_frame]
+              exact aligned_sub hF.al hf8
+            · cases h
+        | some s =>
         rw [hs] at h
         simp only at h
         cases hd2 : framePath A1 m its d' s.dp with
@@ -1592,8 +1630,8 @@ theorem passEntry_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (
             rcases List.mem_append.mp hf with hf | hf
             · exact hf1 f hf
             · exact hf2 f hf
-          refine ⟨hd'p, rfl, Or.inr ⟨e, hmem, m, K, s, rfl, rfl, rfl, hs, by rw [← h1, hd2e],
-            by rw [← h3, hk2e], hkeyf, hfsl, ?_, ?_, fun a ha => ?_⟩⟩
+          refine ⟨hd'p, rfl, Or.inr (Or.inl ⟨e, hmem, m, K, kd, s, rfl, rfl, rfl, hkd, hpu, hs,
+            by rw [← h1, hd2e], by rw [← h3, hk2e], hkeyf, hfsl, ?_, ?_, fun a ha => ?_⟩)⟩
           · rw [← hd2e, ← hk2e, h1, h3]; exact hp.2.2.1
           · exact inCands_sound hF hkn.roots hw2 hcands
           · obtain ⟨f, hf, rfl⟩ := hkeyf a ha
@@ -1602,6 +1640,7 @@ theorem passEntry_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (
             rw [← hd2e, ← hk2e, h1, h3] at hh
             exact (hp.2.2.2.1 _ hh).1 (Or.inl hkey.2)
         · cases h
+      · cases h
     · cases h
 
 theorem mapM_some_mem_rev {f : α → Option β} :
@@ -1627,8 +1666,13 @@ theorem mapM_some_mem_rev {f : α → Option β} :
 def Stands (env : Env) (E : Ent) (M : Word → Word) (fs : List Word) (e : AVal × AVal)
     (K q : Word) : Prop :=
   (e.1.eval E = q ∧ e.2.eval E = K) ∨
-  ∃ s, env.model.sub K = some s ∧ e.1.eval E = derefM M q s.dp ∧ e.2.eval E = derefM M q s.kp ∧
-    (∀ a ∈ s.keys M q, ∃ f ∈ fs, a = E .x2 + f) ∧ SubOk env.model.writerOk env.model.hit q M s
+  ∃ kd s, env.model.kinds K = some kd ∧ kd.pure = true ∧ kd.sub = some s ∧
+    e.1.eval E = derefM M q s.dp ∧ e.2.eval E = derefM M q s.kp ∧
+    (∀ a ∈ s.keys M q, ∃ f ∈ fs, a = E .x2 + f) ∧ env.model.SubOk q M s
+
+/-- A callee writer of a unit kind: nothing stands for it, and it has no keys. -/
+def UnitW (env : Env) (K q : Word) : Prop :=
+  ∃ kd, env.model.kinds K = some kd ∧ kd.pure = true ∧ kd.sub = none ∧ Aligned q
 
 /-- What `strsOk` establishes: the writers passed are the caller's; every slot a callee
     writer is built from is in the frame, at or above the callee's stack pointer and clear
@@ -1643,8 +1687,9 @@ theorem strsOk_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf
     (∀ p ∈ passed, p ∈ kn.strs) ∧
     (∀ f ∈ fs, ∃ m, mo = some m ∧ (8 ≤ negOff f ∧ negOff f ≤ σ.depth ∧ negOff f % 8 = 0) ∧
       negOff f ≤ m ∧ ∀ it ∈ its, slotClear f it = true) ∧
-    (∀ eg ∈ g.strs, ∃ e ∈ passed,
-      Stands env E y.getMem fs e (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y))) ∧
+    (∀ eg ∈ g.strs, (∃ e ∈ passed,
+      Stands env E y.getMem fs e (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y))) ∨
+      UnitW env (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y))) ∧
     (∀ e ∈ passed, ∃ eg ∈ g.strs,
       Stands env E y.getMem fs e (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y))) ∧
     (g.strs = [] ∨ ∀ e ∈ σ.strs, recov env ref kn passed 2 e = true) := by
@@ -1664,48 +1709,59 @@ theorem strsOk_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf
         (instVal σ kn A1 eg.2) = some (es, fs') →
         (∀ f ∈ fs', ∃ m, mo = some m ∧ (8 ≤ negOff f ∧ negOff f ≤ σ.depth ∧ negOff f % 8 = 0) ∧
           negOff f ≤ m ∧ ∀ it ∈ its, slotClear f it = true) ∧
-        ∃ e ∈ kn.strs, es = [e] ∧ ∀ fsA, (∀ f ∈ fs', f ∈ fsA) →
-          Stands env E y.getMem fsA e (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y)) := by
+        ((∃ e ∈ kn.strs, es = [e] ∧ ∀ fsA, (∀ f ∈ fs', f ∈ fsA) →
+          Stands env E y.getMem fsA e (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y))) ∨
+         (es = [] ∧ UnitW env (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y)))) := by
       intro eg _ es fs' hpe
       obtain ⟨hd'p, hk'p, hcase⟩ := passEntry_sound hF hrf hkn hy1 hm1 hsl hpe
       have hd'e := instVal_eval hy1 hm1 hkn.cells hd'p
       have hk'e := instVal_eval hy1 hm1 hkn.cells hk'p
       rcases hcase with ⟨e, hmem, rfl, rfl, h1, h3⟩ |
-        ⟨e, hmem, m, K, s, rfl, rfl, hK, hs, h1, h3, hkeys, hfsl, hsub⟩
-      · exact ⟨fun f hf => by simp at hf, e, hmem, rfl, fun _ _ =>
-          Or.inl ⟨by rw [h1, hd'e], by rw [h3, hk'e]⟩⟩
-      · refine ⟨fun f hf => ⟨m, rfl, hfsl f hf⟩, e, hmem, rfl, fun fsA hfsA =>
-          Or.inr ⟨s, ?_, ?_, ?_, ?_, ?_⟩⟩
-        · rw [← hk'e, hK]; exact hs
+        ⟨e, hmem, m, K, kd, s, rfl, rfl, hK, hkd, hpu, hs, h1, h3, hkeys, hfsl, hsub⟩ |
+        ⟨K, kd, rfl, rfl, hK, hkd, hpu, hs, hal⟩
+      · exact ⟨fun f hf => by simp at hf, Or.inl ⟨e, hmem, rfl, fun _ _ =>
+          Or.inl ⟨by rw [h1, hd'e], by rw [h3, hk'e]⟩⟩⟩
+      · refine ⟨fun f hf => ⟨m, rfl, hfsl f hf⟩, Or.inl ⟨e, hmem, rfl, fun fsA hfsA =>
+          Or.inr ⟨kd, s, ?_, hpu, hs, ?_, ?_, ?_, ?_⟩⟩⟩
+        · rw [← hk'e, hK]; exact hkd
         · rw [← hd'e]; exact h1
         · rw [← hd'e]; exact h3
         · rw [← hd'e]; exact fun a ha => let ⟨f, hf, ha⟩ := hkeys a ha; ⟨f, hfsA f hf, ha⟩
         · rw [← hd'e]; exact hsub
+      · refine ⟨fun f hf => by simp at hf, Or.inr ⟨rfl, kd, ?_, hpu, hs, ?_⟩⟩
+        · rw [← hk'e, hK]; exact hkd
+        · rw [← hd'e]; exact hal
     have hfsA : ∀ q ∈ ps, ∀ f ∈ q.2, f ∈ (ps.map (·.2)).flatten := fun q hq f hf =>
       List.mem_flatten.mpr ⟨q.2, List.mem_map.mpr ⟨q, hq, rfl⟩, hf⟩
     refine ⟨fun p hp => ?_, fun f hf => ?_, fun eg heg => ?_, fun e he => ?_, ?_⟩
     · obtain ⟨es, hes, hp⟩ := List.mem_flatten.mp hp
       obtain ⟨⟨es', fs'⟩, hin, rfl⟩ := List.mem_map.mp hes
       obtain ⟨eg, heg, hpe⟩ := mapM_some_mem_rev hps _ hin
-      obtain ⟨_, e, hmem, rfl, _⟩ := key eg heg _ _ hpe
-      simp only [List.mem_singleton] at hp
-      subst hp
-      exact hmem
+      obtain ⟨_, hk⟩ := key eg heg _ _ hpe
+      rcases hk with ⟨e, hmem, rfl, _⟩ | ⟨rfl, _⟩
+      · simp only [List.mem_singleton] at hp
+        subst hp
+        exact hmem
+      · simp at hp
     · obtain ⟨fs', hfs', hf⟩ := List.mem_flatten.mp hf
       obtain ⟨⟨es', fs''⟩, hin, rfl⟩ := List.mem_map.mp hfs'
       obtain ⟨eg, heg, hpe⟩ := mapM_some_mem_rev hps _ hin
       exact (key eg heg _ _ hpe).1 f hf
     · obtain ⟨⟨es, fs'⟩, hin, hpe⟩ := mapM_some_mem hps eg heg
-      obtain ⟨_, e, _, rfl, hst⟩ := key eg heg _ _ hpe
-      exact ⟨e, List.mem_flatten.mpr ⟨[e], List.mem_map.mpr ⟨([e], fs'), hin, rfl⟩, by simp⟩,
-        hst _ (hfsA _ hin)⟩
+      obtain ⟨_, hk⟩ := key eg heg _ _ hpe
+      rcases hk with ⟨e, _, rfl, hst⟩ | ⟨rfl, hu⟩
+      · exact Or.inl ⟨e, List.mem_flatten.mpr ⟨[e], List.mem_map.mpr ⟨([e], fs'), hin, rfl⟩, by simp⟩,
+          hst _ (hfsA _ hin)⟩
+      · exact Or.inr hu
     · obtain ⟨es, hes, hp⟩ := List.mem_flatten.mp he
       obtain ⟨⟨es', fs'⟩, hin, rfl⟩ := List.mem_map.mp hes
       obtain ⟨eg, heg, hpe⟩ := mapM_some_mem_rev hps _ hin
-      obtain ⟨_, e', _, rfl, hst⟩ := key eg heg _ _ hpe
-      simp only [List.mem_singleton] at hp
-      subst hp
-      exact ⟨eg, heg, hst _ (hfsA _ hin)⟩
+      obtain ⟨_, hk⟩ := key eg heg _ _ hpe
+      rcases hk with ⟨e', _, rfl, hst⟩ | ⟨rfl, _⟩
+      · simp only [List.mem_singleton] at hp
+        subst hp
+        exact ⟨eg, heg, hst _ (hfsA _ hin)⟩
+      · simp at hp
     · simp only [Bool.or_eq_true, List.isEmpty_iff, List.all_eq_true] at hall
       exact hall
   · cases hok
@@ -1724,20 +1780,31 @@ theorem stands_pre (hF : Facts env σ E s0) {e : AVal × AVal} (he : EntryOk env
     (∀ a, env.model.hit K q M a → ¬ Written g (regsOf y) a ∧ ¬ env.InProt a) ∧
     (∀ a, env.model.stable K q M a → Aligned a ∧ ¬ env.InOwn a) := by
   obtain ⟨_, _, hw, hhit, hst⟩ := he
-  rcases h with ⟨rfl, rfl⟩ | ⟨s, hs, hd, hk, hkeys, hsub⟩
-  · exact ⟨hw, fun a ha => ⟨fun hwg => (hhit a ha).1 (hW a (env.model.hit_aligned ha) hwg),
+  rcases h with ⟨rfl, rfl⟩ | ⟨kd, s, hkd, hpu, hs, hd, hk, hkeys, hsub⟩
+  · exact ⟨hw, fun a ha => ⟨fun hwg => (hhit a ha).1 (hW a (Model.hit_aligned ha) hwg),
       (hhit a ha).2.1⟩, fun a ha => ⟨(hst a ha).1, (hst a ha).2.1⟩⟩
   · rw [hd, hk] at hw hhit hst
-    refine ⟨env.model.sub_intro hs hsub, fun a ha => ?_, fun a ha => ?_⟩
-    · rcases (env.model.hit_struct hs a).mp ha with ha | ha
+    have hal : ∀ b ∈ s.keys M q, Aligned b := fun b hb => (hsub.2.2 b hb).1
+    refine ⟨Model.sub_intro_pure hkd hpu hs (Model.aligned_of_sub hkd hs hal) hsub,
+      fun a ha => ?_, fun a ha => ?_⟩
+    · rcases (Model.hit_struct_pure hkd hpu hs hal a).mp ha with ha | ha
       · obtain ⟨f, hf, rfl⟩ := hkeys a ha
         exact ⟨hslot f hf, not_prot_of_inWin hF.wf hF.top hF.depth (slot_facts hF (hfs f hf)).2⟩
-      · exact ⟨fun hwg => (hhit a ha).1 (hW a (env.model.hit_aligned ha) hwg), (hhit a ha).2.1⟩
-    · rcases (env.model.stable_struct hs a).mp ha with ha | ha
+      · exact ⟨fun hwg => (hhit a ha).1 (hW a (Model.hit_aligned ha) hwg), (hhit a ha).2.1⟩
+    · rcases (Model.stable_struct_pure hkd hpu hs hal a).mp ha with ha | ha
       · obtain ⟨f, hf, rfl⟩ := hkeys a ha
         exact ⟨(slot_facts hF (hfs f hf)).1,
           not_own_of_inWin hF.wf hF.top hF.depth (slot_facts hF (hfs f hf)).2⟩
       · exact ⟨(hst a ha).1, (hst a ha).2.1⟩
+
+/-- A unit writer: the callee's precondition for it is trivial. -/
+theorem stands_pre_unit {K q : Word} (h : UnitW env K q) {g : Iface} {y : MachineState} :
+    env.model.writerOk K q M ∧
+    (∀ a, env.model.hit K q M a → ¬ Written g (regsOf y) a ∧ ¬ env.InProt a) ∧
+    (∀ a, env.model.stable K q M a → Aligned a ∧ ¬ env.InOwn a) := by
+  obtain ⟨kd, hkd, hpu, hs, hal⟩ := h
+  exact ⟨Model.unit_writerOk hkd hpu hs hal, fun a ha => (Model.unit_no_hit hkd hpu hs ha).elim,
+    fun a ha => (Model.unit_no_hit hkd hpu hs (Model.stable_hit ha)).elim⟩
 
 /-- A key of a callee's writer: a slot its structural writer is built from (then a stable
     key of that writer), or a key of the caller's writer standing for it. -/
@@ -1745,34 +1812,37 @@ theorem stands_hit {e : AVal × AVal} {K q : Word} (h : Stands env E M fs e K q)
     (ha : env.model.hit K q M a) :
     (env.model.stable K q M a ∧ ∃ f ∈ fs, a = E .x2 + f) ∨
     env.model.hit (e.2.eval E) (e.1.eval E) M a := by
-  rcases h with ⟨rfl, rfl⟩ | ⟨s, hs, hd, hk, hkeys, _⟩
+  rcases h with ⟨rfl, rfl⟩ | ⟨kd, s, hkd, hpu, hs, hd, hk, hkeys, hsub⟩
   · exact Or.inr ha
-  · rcases (env.model.hit_struct hs a).mp ha with ha | ha
-    · exact Or.inl ⟨(env.model.stable_struct hs a).mpr (Or.inl ha), hkeys a ha⟩
+  · have hal : ∀ b ∈ s.keys M q, Aligned b := fun b hb => (hsub.2.2 b hb).1
+    rcases (Model.hit_struct_pure hkd hpu hs hal a).mp ha with ha | ha
+    · exact Or.inl ⟨Model.stable_of_keys hkd hs hal ha, hkeys a ha⟩
     · rw [hd, hk]; exact Or.inr ha
 
 /-- A callee writer kept is the caller's writer standing for it kept. -/
 theorem stands_keeps {e : AVal × AVal} {K q : Word} (h : Stands env E M fs e K q)
     {t : Word → Word} (hk : env.model.Keeps K q M t) :
     env.model.Keeps (e.2.eval E) (e.1.eval E) M t := by
-  rcases h with ⟨rfl, rfl⟩ | ⟨s, hs, hd, hk', hkeys, hsub⟩
+  rcases h with ⟨rfl, rfl⟩ | ⟨kd, s, hkd, hpu, hs, hd, hk', hkeys, hsub⟩
   · exact hk
   · rw [hd, hk']
+    have halM : ∀ b ∈ s.keys M q, Aligned b := fun b hb => (hsub.2.2 b hb).1
     -- The paths' keys are stable: the wrapped writer's pointer and kind are as they were.
     have hpres : ∀ b ∈ s.keys M q, t b = M b := fun b hb =>
-      hk.2.2 b ((env.model.stable_struct hs b).mpr (Or.inl hb))
+      hk.2.2 b (Model.stable_of_keys hkd hs halM hb)
     have hdd : derefM t q s.dp = derefM M q s.dp :=
       derefM_congr fun b hb => hpres b (by simp [Sub.keys, hb])
     have hdk : derefM t q s.kp = derefM M q s.kp :=
       derefM_congr fun b hb => hpres b (by simp [Sub.keys, hb])
-    have hsub' := env.model.sub_elim hs hk.1
-    simp only [SubOk] at hsub'
+    have hsub' := Model.sub_elim hkd hs hk.1
+    simp only [Model.SubOk] at hsub'
     rw [hdd, hdk] at hsub'
+    have halT : ∀ b ∈ s.keys t q, Aligned b := fun b hb => (hsub'.2.2 b hb).1
     refine ⟨hsub'.1, fun a ha => ?_,
-      fun a ha => hk.2.2 a ((env.model.stable_struct hs a).mpr (Or.inr ha))⟩
-    have ha' : env.model.hit K q t a := by
-      rw [env.model.hit_struct hs a, hdd, hdk]; exact Or.inr ha
-    rcases (env.model.hit_struct hs a).mp (hk.2.1 a ha') with hk1 | hk1
+      fun a ha => hk.2.2 a (Model.stable_of_sub hkd hs halM ha)⟩
+    have ha' : env.model.hit K q t a :=
+      Model.hit_of_sub hkd hs halT (by rw [hdd, hdk]; exact ha)
+    rcases (Model.hit_struct_pure hkd hpu hs halM a).mp (hk.2.1 a ha') with hk1 | hk1
     · have hkt : a ∈ s.keys t q := by
         simp only [Sub.keys, List.mem_append] at hk1 ⊢
         rw [pathKeys_congr (fun b hb => hpres b (by simp [Sub.keys, hb])),
@@ -1804,8 +1874,8 @@ theorem recov_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf 
     rw [hse] at h
     simp only [Bool.and_eq_true, List.all_eq_true] at h
     obtain ⟨hrec, hsubs⟩ := h
-    obtain ⟨K, hK, hs, hd, hk⟩ := subEntry_some hse
-    obtain ⟨_, _, hd2e, hk2e, he2, _, hkeys⟩ := sub_entryOk hF hrf he hK hs hd hk
+    obtain ⟨K, kd, hK, hkd, hpu, hs, hd, hk⟩ := subEntry_some hse
+    obtain ⟨_, _, hd2e, hk2e, he2, _, hkeys⟩ := sub_entryOk hF hrf he hK hkd hs hd hk
     have ih := recov_sound hF hrf hkn hgiven hmemg fuel (d2, k2) he2 hrec
     have hK' := kindConst_eval hF hrf he.2.1 hK
     -- Every writer passed is the one `e` wraps.
@@ -1833,20 +1903,25 @@ theorem recov_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf 
         pathKeys_congr (fun b hb => hpres b (by simp [Sub.keys, hb]))]
     simp only at ih
     rw [hd2e, hk2e] at ih
-    have hsubM := env.model.sub_elim hs (by rw [← hK']; exact he.2.2.1)
+    have hsubM := Model.sub_elim hkd hs (by rw [← hK']; exact he.2.2.1)
+    have halM : ∀ b ∈ s.keys M (e.1.eval E), Aligned b := fun b hb => (hsubM.2.2 b hb).1
+    have halT : ∀ b ∈ s.keys t (e.1.eval E), Aligned b := fun b hb =>
+      halM b (by rw [← hkeyst]; exact hb)
+    obtain ⟨_, _, halp, _⟩ := Model.writerOk_kind he.2.2.1
     rw [hK']
-    refine ⟨env.model.sub_intro hs ⟨?_, ?_, fun a ha => ?_⟩, fun a ha => ?_, fun a ha => ?_⟩
+    refine ⟨Model.sub_intro_pure hkd hpu hs halp ⟨?_, ?_, fun a ha => ?_⟩, fun a ha => ?_,
+      fun a ha => ?_⟩
     · rw [hdd, hdk]; exact ih.1
     · rw [hdk]; exact hsubM.2.1
     · rw [hkeyst] at ha
       rw [hdd, hdk]
       exact ⟨(hsubM.2.2 a ha).1, fun hh => (hsubM.2.2 a ha).2 (ih.2.1 a hh)⟩
-    · rcases (env.model.hit_struct hs a).mp ha with ha | ha
+    · rcases (Model.hit_struct_pure hkd hpu hs halT a).mp ha with ha | ha
       · rw [hkeyst] at ha
-        exact (env.model.hit_struct hs a).mpr (Or.inl ha)
+        exact Model.hit_of_keys hkd hs halM ha
       · rw [hdd, hdk] at ha
-        exact (env.model.hit_struct hs a).mpr (Or.inr (ih.2.1 a ha))
-    · rcases (env.model.stable_struct hs a).mp ha with ha | ha
+        exact Model.hit_of_sub hkd hs halM (ih.2.1 a ha)
+    · rcases (Model.stable_struct_pure hkd hpu hs halM a).mp ha with ha | ha
       · exact hpres a ha
       · exact ih.2.2 a ha
 
@@ -1892,17 +1967,19 @@ theorem callOk_some {A1 : AState} {g : Iface} {ref : Option (AVal × Word)} {m :
     from, or a key of a caller writer passed. -/
 theorem strHit_call {M : Word → Word} {fs : List Word} {passed : List (AVal × AVal)}
     {g : Iface} {y : MachineState}
-    (hst : ∀ eg ∈ g.strs, ∃ e ∈ passed,
-      Stands env E M fs e (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y)))
+    (hst : ∀ eg ∈ g.strs, (∃ e ∈ passed,
+      Stands env E M fs e (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y))) ∨
+      UnitW env (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y)))
     {a : Word} (h : StrHit env g (regsOf y) M a) :
     (∃ eg ∈ g.strs, env.model.stable (eg.2.eval (regsOf y)) (eg.1.eval (regsOf y)) M a ∧
       ∃ f ∈ fs, a = E .x2 + f) ∨
     ∃ e ∈ passed, env.model.hit (e.2.eval E) (e.1.eval E) M a := by
   obtain ⟨eg, heg, hh⟩ := h
-  obtain ⟨e, he, hs⟩ := hst eg heg
-  rcases stands_hit hs hh with ⟨h1, h2⟩ | h1
-  · exact Or.inl ⟨eg, heg, h1, h2⟩
-  · exact Or.inr ⟨e, he, h1⟩
+  rcases hst eg heg with ⟨e, he, hs⟩ | ⟨kd, hkd, hpu, hsn, _⟩
+  · rcases stands_hit hs hh with ⟨h1, h2⟩ | h1
+    · exact Or.inl ⟨eg, heg, h1, h2⟩
+    · exact Or.inr ⟨e, he, h1⟩
+  · exact (Model.unit_no_hit hkd hpu hsn hh).elim
 
 /-- What a checked call site gives the callee: its precondition. -/
 theorem call_pre (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf : RefOk E ref)
@@ -1980,8 +2057,9 @@ theorem call_pre (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf : R
   · exact valOk_sound hF hkn.roots hy1 (hall3 p hp)
   · rw [hyx]; exact hx.inv
   · refine ⟨fun eg heg => ?_, fun c hc hsh => ?_⟩
-    · obtain ⟨e, he, hst⟩ := hstands eg heg
-      exact stands_pre hF (hkn.strs e (hpassed e he)) hst hfs' hW hslot
+    · rcases hstands eg heg with ⟨e, he, hst⟩ | hu
+      · exact stands_pre hF (hkn.strs e (hpassed e he)) hst hfs' hW hslot
+      · exact stands_pre_unit hu
     · -- A cell of the callee is not a key of a writer it was given.
       obtain ⟨_, hcell⟩ := hcellOk c hc
       rcases strHit_call hstands hsh with ⟨_, _, _, f', hf', hf'a⟩ | ⟨e, he, hh⟩
@@ -2085,7 +2163,7 @@ theorem call_post (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf : 
         have hp := St.entryOk hF hx he
         rw [← hyx] at hp
         refine hpstrs.2 _ _ hp.2.2.1 fun a ha =>
-          ⟨fun hw => (hp.2.2.2.1 a ha).1 (hwr a (env.model.hit_aligned ha) hw), fun hs => ?_⟩
+          ⟨fun hw => (hp.2.2.2.1 a ha).1 (hwr a (Model.hit_aligned ha) hw), fun hs => ?_⟩
         obtain ⟨eg, heg, _⟩ := hs
         rw [hg] at heg; simp at heg
       · exact recov_sound hF hrf hkn hgiven hmemg 2 e (hyx ▸ St.entryOk hF hx he) (hrecov e he)
@@ -2094,7 +2172,7 @@ theorem call_post (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf : 
       have hw' : env.model.writerOk k p y.getMem := by rw [hyx]; exact h1.1
       refine hpstrs.2 k p hw' fun a ha => ?_
       have ha0 : env.model.hit k p s0.getMem a := h1.2.1 a (hyx ▸ ha)
-      refine ⟨fun hwg => (hh a ha0).1 (hwr a (env.model.hit_aligned ha) hwg), fun hs => ?_⟩
+      refine ⟨fun hwg => (hh a ha0).1 (hwr a (Model.hit_aligned ha) hwg), fun hs => ?_⟩
       rcases hsh a hs with ⟨_, _, _, hw⟩ | ⟨_, hs', _⟩
       · exact (hh a ha0).1 hw
       · exact (hh a ha0).2 hs'
@@ -2160,9 +2238,10 @@ theorem tail_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf :
     exact ⟨fun hw => hf.1 (hwin a ha hw), hf.2⟩
   · exact nzOk_sound hF.nz hx.holds.1 hm hkn.cells (hnz v hv)
   · refine ⟨fun eg heg => ?_, fun c hc hs => ?_⟩
-    · obtain ⟨e, he, hst⟩ := hstands eg heg
-      exact stands_pre hF (hkn.strs e (hpassed e he)) hst (fun f hf => (hfs0 f hf).elim) hW
-        (fun f hf => (hfs0 f hf).elim)
+    · rcases hstands eg heg with ⟨e, he, hst⟩ | hu
+      · exact stands_pre hF (hkn.strs e (hpassed e he)) hst (fun f hf => (hfs0 f hf).elim) hW
+          (fun f hf => (hfs0 f hf).elim)
+      · exact stands_pre_unit hu
     · obtain ⟨_, hcell⟩ := hcellOk c hc
       obtain ⟨hnw, hsh', _⟩ := hsh _ hs
       rcases hcell with ⟨f, _, hsf, hca⟩ | ⟨c', hc', hca⟩
@@ -2197,7 +2276,7 @@ theorem tail_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf :
       · rcases hrecov with hg | hrecov
         · have hp := St.entryOk hF hx he
           refine hpstrs.2 _ _ hp.2.2.1 fun a ha =>
-            ⟨fun hw => (hp.2.2.2.1 a ha).1 (hW a (env.model.hit_aligned ha) hw), fun hs => ?_⟩
+            ⟨fun hw => (hp.2.2.2.1 a ha).1 (hW a (Model.hit_aligned ha) hw), fun hs => ?_⟩
           obtain ⟨eg, heg, _⟩ := hs
           rw [hg] at heg; simp at heg
         · exact recov_sound hF hrf hkn hgiven hmemg 2 e (St.entryOk hF hx he) (hrecov e he)
@@ -2205,7 +2284,7 @@ theorem tail_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf :
         refine h1.trans ?_
         refine hpstrs.2 k p h1.1 fun a ha => ?_
         have ha0 := h1.2.1 a ha
-        refine ⟨fun hwg => (hh a ha0).1 (hW a (env.model.hit_aligned ha) hwg), fun hs => ?_⟩
+        refine ⟨fun hwg => (hh a ha0).1 (hW a (Model.hit_aligned ha) hwg), fun hs => ?_⟩
         obtain ⟨_, hs', _⟩ := hsh a hs
         exact (hh a ha0).2 hs'
 

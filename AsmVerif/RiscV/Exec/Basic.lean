@@ -47,9 +47,9 @@ theorem Post.of_ret {env : Env} {σ : Iface} {s t : MachineState}
   ⟨h.1, h.2.1, h.2.2.1, fun a ha hnw _ _ => h.2.2.2.1 a ha hnw, h.2.2.2.2,
     Env.Inv_congr (fun a ha ho => h.2.2.2.1 a ha (hown a ha ho)) hinv.1,
     fun e he => Model.Keeps.of_congr (hinv.2.1 e he).1 fun a hh =>
-      h.2.2.2.1 a (env.model.hit_aligned hh) ((hinv.2.1 e he).2.1 a hh).1,
+      h.2.2.2.1 a (Model.hit_aligned hh) ((hinv.2.1 e he).2.1 a hh).1,
     fun _ _ hw hh => Model.Keeps.of_congr hw fun a ha =>
-      h.2.2.2.1 a (env.model.hit_aligned ha) (hh a ha).1⟩
+      h.2.2.2.1 a (Model.hit_aligned ha) (hh a ha).1⟩
 
 /-- An interface with an empty window writes no owned key: its footprint avoids them. -/
 theorem Pre.own_not_written {env : Env} {C : Word → Option Instr} {σ : Iface}

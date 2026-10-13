@@ -48,15 +48,18 @@ theorem Post.keeps_prot (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : P
 /-! ## The trivial model: no writers -/
 
 theorem StrHit.trivial (hm : env.model = Model.trivial) {E : Ent} {m : Word → Word} {a : Word} :
-    ¬ StrHit env σ E m a := fun ⟨_, _, h⟩ => by rw [hm] at h; exact h
+    ¬ StrHit env σ E m a := fun ⟨_, _, h⟩ => by rw [hm] at h; exact Model.trivial_hit h
 
-theorem StrsPre.trivial (hm : env.model = Model.trivial) {E : Ent} {m : Word → Word} :
-    StrsPre env σ E m := by
-  unfold StrsPre StrHit; rw [hm]; simp [Model.trivial]
+theorem StrsPre.trivial (hm : env.model = Model.trivial) (hs : σ.strs = []) {E : Ent}
+    {m : Word → Word} : StrsPre env σ E m := by
+  unfold StrsPre
+  refine ⟨fun e he => (by rw [hs] at he; cases he), fun c _ => StrHit.trivial hm⟩
 
-theorem StrsPost.trivial (hm : env.model = Model.trivial) {E : Ent} {m m' : Word → Word} :
-    StrsPost env σ E m m' := by
-  unfold StrsPost Model.Keeps StrHit; rw [hm]; simp [Model.trivial]
+theorem StrsPost.trivial (hm : env.model = Model.trivial) (hs : σ.strs = []) {E : Ent}
+    {m m' : Word → Word} : StrsPost env σ E m m' := by
+  unfold StrsPost
+  refine ⟨fun e he => (by rw [hs] at he; cases he), fun k p hw _ => ?_⟩
+  rw [hm] at hw; exact (Model.trivial_writerOk hw).elim
 
 /-- Protected memory holds its load values at a verified call's return. -/
 theorem Post.prot_init (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : Post env σ s t)
