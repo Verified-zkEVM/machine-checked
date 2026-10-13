@@ -5,7 +5,10 @@
   an image, bottom-up over the call graph, and emit them as Lean for the kernel to check.
 
       lake exe infer-contracts ELF NM OUT.tsv STACKTOP PROTLO PROTHI
-        [LEANDIR MODPREFIX IMGPREFIX LAYOUT [REGISTRY]]
+        [LEANDIR MODPREFIX IMGPREFIX LAYOUT [REGISTRY [CFI [STATICS]]]]
+
+  REGISTRY lists hand-proved interfaces, CFI the control-flow premises, STATICS the statics
+  the `Env` protects (address, length, name: their load values are constants).
 
   Untrusted. The abstract interpretation here mirrors `Check.Ctx.stepAt`, with the checks
   against the function's own interface replaced by *recording* what the interface must
@@ -653,6 +656,16 @@ def parseGiven (src : String) : Except String (List Given) := do
     out := out ++ [{ addr, module := m, iface := i, proof := p, σ }]
   return out
 
+/-- A constant footprint item shares a doubleword key with a protected region: a precondition
+    that says it does not would be false. -/
+def hitsProt (env : Env) (it : Item) : Bool :=
+  match it.base, it.len with
+  | .const c, .n l =>
+    l > 0 && env.prot.any fun (b, pl) =>
+      let lo := max (c.toNat / 8 * 8) (b.toNat / 8 * 8)
+      pl > 0 && decide (lo < min (c.toNat + l) (b.toNat + pl))
+  | _, _ => false
+
 /-- What the call sites give a function: the joined value of each argument register and
     wanted cell. -/
 abbrev Raw := List (Reg × AVal) × List (Cell × AVal)
@@ -724,7 +737,12 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
             | .error (.blocked _) => break
           match res with
           | .ok (anno, need', cells') =>
-            done := done.insert f.base (mkIface f.base need' p.vals cells', anno, need'.frags)
+            let σ := mkIface f.base need' p.vals cells'
+            match σ.foot.find? (hitsProt env) with
+            | some it =>
+              failed := failed.insert f.base
+                s!"footprint {fmtItem it} writes a protected region (its precondition would be unsatisfiable)"
+            | none => done := done.insert f.base (σ, anno, need'.frags)
           | .error e => failed := failed.insert f.base e
           pending := pending.erase f.base
           changed := true
@@ -1007,7 +1025,7 @@ def main (args : List String) : IO UInt32 := do
     | .ok img => pure img
     | .error e => IO.eprintln s!"infer-contracts: {e}"; return 1
   let syms := parseNm (← IO.FS.readFile nmPath)
-  let cfi ← match args.drop 11 with
+  let cfi ← match (args.drop 11).take 1 with
     | [cfiPath] => do
       let mut out : List (Word × List Word) := []
       for l in (← IO.FS.readFile cfiPath).splitOn "\n" do
@@ -1020,7 +1038,18 @@ def main (args : List String) : IO UInt32 := do
         out := out ++ [(BitVec.ofNat 64 a, ts)]
       pure out
     | _ => pure []
-  let env : Env := { stackTop, prot := [(BitVec.ofNat 64 protLo, protHi - protLo)],
+  let statics ← match args.drop 12 with
+    | [path] => do
+      let mut out : List (Word × Nat) := []
+      for l in (← IO.FS.readFile path).splitOn "\n" do
+        if l.trimAscii.isEmpty || l.startsWith "#" || l.startsWith "addr" then continue
+        let a :: n :: _ := l.splitOn "\t" | throw <| IO.userError s!"bad STATICS line: {l}"
+        let (some a, some n) := (parseHex? a, parseHex? n)
+          | throw <| IO.userError s!"bad STATICS line: {l}"
+        out := out ++ [(BitVec.ofNat 64 a, n)]
+      pure out
+    | _ => pure []
+  let env : Env := { stackTop, prot := (BitVec.ofNat 64 protLo, protHi - protLo) :: statics,
                      init := fun a => memAt img a.toNat, cfi }
   if !env.wf then IO.eprintln "infer-contracts: Env not well-formed"; return 1
   let given ← match (args.drop 10).take 1 with

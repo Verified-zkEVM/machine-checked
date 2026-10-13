@@ -75,11 +75,22 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
 
 **C. Memory: layout, read-only data, statics**
 - C1. Regions from the layout (stack, `.rodata`, `.data`/`.bss`, heap arena, input
-  window), with disjointness theorems.
+  window), with disjointness theorems. **Done.** `Check.Region` (non-wrapping intervals,
+  `Disjoint`, `pairwiseOk`, `mem_hits`); `Cases.Zip2005.Regions` names stack, rodata/eh_frame,
+  text, statics and heap from the loaded image and proves them pairwise disjoint and within
+  `SP1_MAX_MEMORY` by `decide`. (The input window is not a memory region in SP1: hints
+  arrive through `HINT_READ` into memory the guest allocates.)
 - C2. Memory read-back (`memAt`), the data counterpart of `codeAt_prog`.
 - C3. Read-only data stays constant. Statics that a footprint does not cover keep their
   load values. `StaticsOk` holds at `main`'s entry and is preserved by the specifications
-  that keep it.
+  that keep it. **Done for the protected statics.** `Check.Statics`: every precondition puts
+  the `Env`'s protected keys outside what the function may write, so a verified call returns
+  with them unchanged and at their load values (`Post.regionOk`, `Pre.regionOk`); at load a
+  region holds the image's values by definition. zip-2005 protects `std::alloc::HOOK` and
+  `std::panicking::HOOK` (`Runtime/STATICS.tsv`; Infer refuses a footprint that would write a
+  protected region, since its precondition would be unsatisfiable); `Cases.Zip2005.Statics`
+  proves both zero at load (`.bss`), at every verified entry and return (`HooksUnset`). The
+  statics the guest does write (allocator, hasher, panic counts) are D's business.
 - C4. Constant loads from `.rodata` and indirect-call targets resolved from them. Where
   this resolves a candidate list, it turns `CfiOk` into a theorem. **Done.** Loads through a
   protected address or a set of them yield the initial contents; interfaces carry `cells`

@@ -6,6 +6,7 @@ import AsmVerif.RiscV.Load
 import AsmVerif.RiscV.Check.Domain
 import AsmVerif.RiscV.Check.Spec
 import AsmVerif.RiscV.Check.Region
+import AsmVerif.RiscV.Check.Statics
 import AsmVerif.RiscV.Check.Arith
 import AsmVerif.RiscV.Check.Ecall
 import AsmVerif.RiscV.Check.Sound

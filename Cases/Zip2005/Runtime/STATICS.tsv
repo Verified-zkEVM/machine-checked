@@ -1,0 +1,6 @@
+# Statics the Env protects: their load values are constants (phase C3).
+# A static is listed only if the guest never writes it; Infer refuses any interface whose
+# footprint would, so a wrong entry costs coverage, not soundness.
+addr	len	name
+78048920	8	std::alloc::HOOK (set only by set_alloc_error_hook, never called)
+78048948	18	std::panicking::HOOK (set only by set_hook/take_hook, never called)
