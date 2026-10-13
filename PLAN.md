@@ -203,9 +203,43 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   vtable slots) are now one mechanism (`cands`/`root?`), and an indirect call is checked
   per candidate under the refinement that fixes its target, so a callee's kind can be the
   constant the vtable determines. `Model.trivial` (no writers) is the default; the zip-2005
-  table is unchanged under it. What remains for zip-2005 is the model itself: the `String`
-  and `PadAdapter` kinds over `Tlsf.Rep`, the leaf proofs (`write_str`, `write_char`,
-  `finish_grow`) and the roots that discharge `pwhIface.Holds`.
+  table is unchanged under it.
+
+  **E2, typed stores (in progress).** The leaves of the `String` path (`write_str`,
+  `write_char`, `do_reserve_and_handle`, `finish_grow`, the payload's `get`, the stderr
+  adapter's `write_fmt`, and the digit buffers of `fmt::num`) store at `ptr + len` and at
+  `frame + i`, under bounds the code establishes by branching. The checker gets what it
+  needs to check them, generically, instead of hand proofs per image:
+  - *Symbols and facts.* `AVal.sym` is a value the activation knows only through facts;
+    `AState.facts` is a list of linear inequalities over ℕ (`Term` over values, with
+    nonnegative coefficients on both sides) and model atoms (`live ptr cap`). A symbol is
+    made at an instruction and killed wherever it is remade (loops). Facts come from
+    branches (`bltu` etc. are ℕ comparisons), from ALU steps when wrap is excluded
+    (`add` with a bound, `sub` with `b ≤ a`, constant folding), from the kinds' invariants
+    and from callees' postconditions. A branch the facts refute is pruned.
+  - *Certificates.* Entailments are checked, not found: a certificate is a Farkas
+    combination (nonnegative multipliers, coefficientwise comparison), a case split on a
+    linear fact, or a model rule applied to atoms; the kernel checks it per instruction,
+    `Infer` finds it by Fourier–Motzkin.
+  - *Kinds.* A model is a table of kinds: doubleword fields, which of them are stable, an
+    invariant (facts over the field values), an optional buffer (pointer and capacity
+    fields; such a writer's keys include the heap), and the structural wrapper of the
+    writer layer. `writerOk`/`hit`/`stable` are defined from the table (inductively, for
+    wrappers); the writer layer's axioms become theorems. A writer's current field values
+    are tracked (`AState.wmem`): entry cells at entry, fresh symbols with the invariant
+    after a call lent the writer. A writer is introduced in the frame by storing constants
+    satisfying its invariant.
+  - *Typed stores.* A store or callee item at a symbolic address is accepted inside a
+    writer's buffer (`ptr ≤ a ∧ a + n ≤ ptr + cap`, by certificate; the key is a hit key,
+    and `Env.Ok` says buffer keys keep the invariant) or inside the frame window below `sp`
+    (then only the slots in the proved range are forgotten).
+  - *Interfaces.* `pre`: facts over entry values; `post`: a disjunction of fact lists over
+    exit registers, entry values and item contents at exit; `heap`: the callee may change
+    the heap's structure (atoms die). The allocator's hand proofs get such interfaces;
+    `fmt::write` and the `Display` impls need none beyond writers.
+  Order: the kind table and atoms (stage 3), symbols and writer fields (stage 1), facts,
+  certificates and typed stores (stage 2); then the zip-2005 model, the allocator
+  interfaces, regeneration, and the roots that discharge `pwhIface.Holds`.
 
 **E/F (later).** A specification format for program logic, and the port of zip-2005's
 program proofs.
