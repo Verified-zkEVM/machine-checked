@@ -55,14 +55,14 @@ def flBm (self : Word) : Word := self + 0x8208#64
 def ctlSize : Nat := 0x8210
 
 /-- **The heap is well formed.** -/
-structure Rep (self base : Word) (m : Word → Word) (bs : List Blk)
+structure Rep (ctl base : Word) (m : Word → Word) (bs : List Blk)
     (L : Word → Word → List Word) : Prop where
-  lock : m self = 0
+  lock : m ctl = 0
   chain : Chain m base 0 bs
   /-- The arena lies above the control block, below `2^40`, and does not wrap. -/
-  layout : self.toNat + ctlSize ≤ base.toNat ∧ base &&& 31#64 = 0#64 ∧
+  layout : ctl.toNat + ctlSize ≤ base.toNat ∧ base &&& 31#64 = 0#64 ∧
     ∀ b ∈ bs, b.a.toNat + b.sz.toNat < 2 ^ 40
-  heads : ∀ f s, f < 64#64 → s < 64#64 → m (headAddr self f s) = (L f s).headD 0
+  heads : ∀ f s, f < 64#64 → s < 64#64 → m (headAddr ctl f s) = (L f s).headD 0
   links : ∀ f s, Dll m 0 (L f s)
   /-- Every free block is filed in its class, and only free blocks are. -/
   filed : ∀ b ∈ bs, b.used = false → b.a ∈ L (flOf b.sz) (slOf b.sz)
@@ -72,9 +72,9 @@ structure Rep (self base : Word) (m : Word → Word) (bs : List Blk)
   range : ∀ f s, (L f s ≠ []) → f < 64#64 ∧ s < 64#64
   nodup : ∀ f s, (L f s).Nodup
   slbm : ∀ f s, f < 64#64 → s < 64#64 →
-    (m (slBm self f)).getLsbD s.toNat = !(L f s).isEmpty
+    (m (slBm ctl f)).getLsbD s.toNat = !(L f s).isEmpty
   flbm : ∀ f, f < 64#64 →
-    (m (flBm self)).getLsbD f.toNat = !(m (slBm self f) == 0)
+    (m (flBm ctl)).getLsbD f.toNat = !(m (slBm ctl f) == 0)
 
 /-- The heap at `self`, with arena from `base`, is well formed. -/
 def HeapOk (self base : Word) (m : Word → Word) : Prop :=
