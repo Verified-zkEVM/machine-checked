@@ -115,7 +115,13 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   memory (the image plus the run's 31 stores) and the input stream; corollaries give the
   protected regions, `HooksUnset` and the heap's one free block.
 - D2. Syscall wrappers: `syscall_halt` (rejects for a nonzero code), `syscall_write`,
-  `read_vec_raw`, and the precompile wrappers.
+  `read_vec_raw`, and the precompile wrappers. **`syscall_write` and `syscall_halt` done**,
+  against an owning `Env`: `Env.own`/`Env.inv` (owned statics and a module invariant, in
+  every `Pre` and `Post`; interfaces proved without them lift by `Iface.HoldsN.lift`).
+  zip-2005 owns the hasher's tag and position (`Owned.env`: `Some`, position below 64; it
+  holds at `MainEntry`). `Runtime.SysWrite.holds` keeps the invariant;
+  `Runtime.Halt.holds` never accepts with a nonzero code. Open: `read_vec_raw` (a hint
+  read into a bump-allocated buffer, so D4) and the precompile wrappers.
 - D3. libc: `memcpy`, `memset` (and `memmove`, `memcmp` if reachable), with footprints for
   every length.
 - D4. The allocator: `HeapOk` and TLSF `alloc`/`dealloc`/`realloc` against it.
