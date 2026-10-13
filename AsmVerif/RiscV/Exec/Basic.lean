@@ -288,4 +288,22 @@ theorem safe_ret {σ : Iface} {C : Word → Option Instr} {s0 s : MachineState}
   · have h0 : signExtend12 0#12 = 0 := by decide
     simp [execInstrBr, MachineState.setPC, h.ra, MachineState.setReg, h0]
 
+/-! ## System calls -/
+
+/-- An `ecall` that is not a halt, with what its successor keeps: safe if every such
+    successor is. -/
+theorem safe_ecall {G : MachineState → Prop} {k : Nat} {P : Prop} {x : MachineState}
+    {kept : Bool} {rs : List (Word × Nat)} (h5 : x.getReg .x5 ≠ 0)
+    (hnext : ∀ y, stepSp1 x = some y → SysNext x y kept rs)
+    (h : ∀ y, SysNext x y kept rs → SafeN G k P y) : SafeN G k P x := by
+  cases hs : stepSp1 x with
+  | none => exact SafeN.stuck hs (fun ha => absurd ha.2.1 h5)
+  | some y => exact SafeN.of_step (fun ha => h5 ha.2.1) hs (h y (hnext y hs))
+
+/-- A halt with a nonzero exit code does not accept: the run ends there, safely. -/
+theorem safe_halt {G : MachineState → Prop} {k : Nat} {P : Prop} {x : MachineState}
+    (hf : x.code x.pc = some .ECALL) (h5 : x.getReg .x5 = 0) (h10 : x.getReg .x10 ≠ 0) :
+    SafeN G k P x :=
+  SafeN.stuck (stepSp1_halt hf h5) (fun ha => absurd ha.2.2 h10)
+
 end AsmVerif.RiscV.Exec
