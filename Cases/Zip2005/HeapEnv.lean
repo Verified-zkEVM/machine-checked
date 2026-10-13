@@ -49,6 +49,9 @@ noncomputable def env : Env :=
 
 theorem env_wf : env.wf = true := by decide +kernel
 
+/-- The trivial model: no heap. -/
+theorem env_ok : env.Ok := ⟨fun _ h => h.elim, fun _ _ _ _ h => h.elim⟩
+
 theorem env_inv (m : Word → Word) : env.inv m = (Owned.HasherOk m ∧ HeapOk m) := rfl
 
 theorem env_plain : env.plain = Contract.env := rfl
@@ -186,8 +189,10 @@ theorem Pre.toOwned {C : Word → Option Instr} {σ : Iface} {s : MachineState}
     hpre.2.2.2.2.2.2.1, hpre.2.2.2.2.2.2.2.1,
     fun c hc => let h := hpre.2.2.2.2.2.2.2.2.1 c hc; ⟨h.1, h.2.1, fun ho => h.2.2.1 (inOwn_of_owned ho), h.2.2.2⟩,
     (Owned.inv_iff).mpr (inv_iff.mp hpre.2.2.2.2.2.2.2.2.2.1).1,
-    fun e he => let h := hpre.2.2.2.2.2.2.2.2.2.2.1 e he;
-      ⟨h.1, h.2.1, fun a hs => ⟨(h.2.2 a hs).1, fun ho => (h.2.2 a hs).2 (inOwn_of_owned ho)⟩⟩,
+    ⟨fun e he => let h := hpre.2.2.2.2.2.2.2.2.2.2.1.1 e he;
+      ⟨h.1, h.2.1, fun a hs => ⟨(h.2.2.1 a hs).1, fun ho => (h.2.2.1 a hs).2 (inOwn_of_owned ho)⟩,
+        fun a hs => ⟨(h.2.2.2 a hs).1, fun ho => (h.2.2.2 a hs).2 (inOwn_of_owned ho)⟩⟩,
+     hpre.2.2.2.2.2.2.2.2.2.2.1.2⟩,
     hpre.2.2.2.2.2.2.2.2.2.2.2⟩
 
 /-- A return under `Owned.env` is one under this `Env`: the function wrote no heap key (its
@@ -196,7 +201,10 @@ theorem Post.toHeap {C : Word → Option Instr} {σ : Iface} {s t : MachineState
     (hpre : Pre env C σ s) (h : Post Owned.env σ s t) : Post env σ s t := by
   refine ⟨h.1, h.2.1, h.2.2.1,
     fun a ha hnw ho hns => h.2.2.2.1 a ha hnw (fun ho' => ho (inOwn_of_owned ho')) hns,
-    h.2.2.2.2.1, inv_iff.mpr ⟨(Owned.inv_iff).mp h.2.2.2.2.2.1, ?_⟩, h.2.2.2.2.2.2⟩
+    h.2.2.2.2.1, inv_iff.mpr ⟨(Owned.inv_iff).mp h.2.2.2.2.2.1, ?_⟩,
+    ⟨h.2.2.2.2.2.2.1.1, fun hh k p hw hhit hf hs => h.2.2.2.2.2.2.1.2 hh k p hw hhit
+      (fun a ha ho => hf a ha (inOwn_of_owned ho)) (fun a ha ho => hs a ha (inOwn_of_owned ho))⟩,
+    h.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2⟩
   obtain ⟨bs, L, hrep⟩ := (inv_iff.mp hpre.2.2.2.2.2.2.2.2.2.1).2
   obtain ⟨hl, hs⟩ := Tlsf.rep_iff.mp hrep
   have hkeep : ∀ a, Aligned a → env.InOwn a → ¬ Owned.env.InOwn a → t.getMem a = s.getMem a :=

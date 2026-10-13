@@ -364,23 +364,64 @@ def axOk (env : Env) (σ : Iface) : Fact AVal → Bool
 def thy (env : Env) (σ : Iface) : Thy AVal := { rules := env.model.rules, ax := axOk env σ }
 
 
-/-- Forget everything that mentions symbol `j` of instruction `i`: before it is remade. -/
+/-- Something of the state mentions symbol `j` of instruction `i`. -/
+def _root_.AsmVerif.RiscV.Frame.AState.mentionsSym (A : AState) (i j : Nat) : Bool :=
+  A.regs.any (·.mentions i j) || A.slots.any (·.2.mentions i j) ||
+  A.facts.any (·.mentionsSym i j) || A.wmem.any (fun p => p.1.mentions i j || p.2.mentions i j)
+
+/-- Forget everything that mentions symbol `j` of instruction `i`: before it is remade.
+    The state is left as it is when nothing does: rebuilding every register at every
+    instruction would make the kernel's terms grow with the path. -/
 def _root_.AsmVerif.RiscV.Frame.AState.kill (i j : Nat) (A : AState) : AState :=
-  { regs := A.regs.map fun v => if v.mentions i j then .top else v
-    slots := A.slots.filter fun p => !p.2.mentions i j
-    facts := A.facts.filter fun f => !f.mentionsSym i j
-    wmem := A.wmem.filter fun p => !(p.1.mentions i j || p.2.mentions i j)
-    fw := A.fw }
+  if A.mentionsSym i j then
+    { regs := A.regs.map fun v => if v.mentions i j then .top else v
+      slots := A.slots.filter fun p => !p.2.mentions i j
+      facts := A.facts.filter fun f => !f.mentionsSym i j
+      wmem := A.wmem.filter fun p => !(p.1.mentions i j || p.2.mentions i j)
+      fw := A.fw }
+  else A
+
+/-- Something of the state mentions a symbol of instruction `i`. -/
+def _root_.AsmVerif.RiscV.Frame.AState.mentionsAt (A : AState) (i : Nat) : Bool :=
+  A.regs.any (·.mentionsAt i) || A.slots.any (·.2.mentionsAt i) ||
+  A.facts.any (·.mentionsAt i) || A.wmem.any (fun p => p.1.mentionsAt i || p.2.mentionsAt i)
 
 /-- Forget everything that mentions a symbol of instruction `i`: before they are remade. -/
 def _root_.AsmVerif.RiscV.Frame.AState.killAll (i : Nat) (A : AState) : AState :=
-  { regs := A.regs.map fun v => if v.mentionsAt i then .top else v
-    slots := A.slots.filter fun p => !p.2.mentionsAt i
-    facts := A.facts.filter fun f => !f.mentionsAt i
-    wmem := A.wmem.filter fun p => !(p.1.mentionsAt i || p.2.mentionsAt i)
-    fw := A.fw }
+  if A.mentionsAt i then
+    { regs := A.regs.map fun v => if v.mentionsAt i then .top else v
+      slots := A.slots.filter fun p => !p.2.mentionsAt i
+      facts := A.facts.filter fun f => !f.mentionsAt i
+      wmem := A.wmem.filter fun p => !(p.1.mentionsAt i || p.2.mentionsAt i)
+      fw := A.fw }
+  else A
 
 def _root_.AsmVerif.RiscV.Frame.AState.addFacts (A : AState) (fs : List (Fact AVal)) : AState := { A with facts := A.facts ++ fs }
+
+/-- The symbols something of the state holds: a register, a slot, a tracked field or a
+    frame writer mentions them. -/
+def _root_.AsmVerif.RiscV.Frame.AState.liveSyms (A : AState) : List (Nat × Nat) :=
+  let sym (v : AVal) : List (Nat × Nat) := match v with
+    | .sym i j _ => [(i, j)]
+    | _ => []
+  A.regs.flatMap sym ++ A.slots.flatMap (sym ·.2) ++
+  A.wmem.flatMap (fun p => sym p.1 ++ sym p.2) ++ A.fw.flatMap (fun p => sym p.1 ++ sym p.2)
+
+/-- Forget the facts about symbols nothing holds: they bear on nothing any more, and
+    keeping them would grow the facts with the path. What a certificate derives from them
+    before they die stays. -/
+def _root_.AsmVerif.RiscV.Frame.AState.gc (A : AState) : AState :=
+  let live := A.liveSyms
+  { A with facts := A.facts.filter fun f => !f.any fun v => match v with
+      | .sym i j _ => !live.contains (i, j)
+      | _ => false }
+
+/-- Facts beyond this many are collected: often enough to bound them, seldom enough to be
+    cheap. -/
+def gcLimit : Nat := 64
+
+def _root_.AsmVerif.RiscV.Frame.AState.gcIf (A : AState) : AState :=
+  if gcLimit < A.facts.length then A.gc else A
 
 /-- Replace the symbols made at `j`. -/
 def _root_.AsmVerif.RiscV.Frame.AState.subst (j : Nat) (θ : List (Nat × AVal)) (A : AState) : AState :=
@@ -1183,10 +1224,11 @@ def Ctx.saturate (c : Ctx) (key : Word × Word) (A : AState) : AState :=
   | none => A
 
 /-- A jump from `pc` to `tgt`: pruned if the facts on the edge are contradictory; inside
-    the function; or a tail call (under a refinement, for an indirect one). -/
+    the function; or a tail call (under a refinement, for an indirect one). The facts are
+    collected (`AState.gcIf`) when they have grown. -/
 def Ctx.jump (c : Ctx) (pc : Word) (A : AState) (tgt : Word) (ref : Option (AVal × Word) := none) :
     Option (List Edge) :=
-  let A := c.saturate (pc, tgt) A
+  let A := (c.saturate (pc, tgt) A).gcIf
   if A.facts.contains falseFact then some [] else
   match c.f.idx? tgt with
   | some j => some [.goto j A]
@@ -1207,7 +1249,7 @@ def Ctx.call (c : Ctx) (pc : Word) (A : AState) (tgt : Word) (ref : Option (AVal
         if (pc + 4) &&& ~~~1#64 = pc + 4 then
           match c.f.idx? (pc + 4) with
           | some j => some [.goto j (afterCall c.env c.σ (closure c.env c.σ ref) pc
-              (A.set .x1 (.const (pc + 4))) co g)]
+              (A.set .x1 (.const (pc + 4))) co g).gcIf]
           | none => none
         else none
       else some []
@@ -1246,7 +1288,7 @@ def Ctx.outlined (c : Ctx) (pc : Word) (A : AState) (off : BitVec 12) : Option (
           match c.runFrag (A.set .x5 (.const (pc + 4))) tgt fp 0 with
           | some B =>
               if B.get .x5 = .const (pc + 4) ∧ (pc + 4) &&& ~~~1#64 = pc + 4 then
-                some [.goto j B]
+                some [.goto j B.gcIf]
               else none
           | none => none
       | _, _ => none
@@ -1394,6 +1436,10 @@ def Ctx.fillGo (c : Ctx) : Nat → List (Option Instr) → List AState → List 
 
 def Ctx.fill (c : Ctx) (hints : List (Nat × List AState)) : Array (List AState) :=
   (c.fillGo 0 c.f.prog [] hints).toArray
+
+/-- `fill`, with one state per hint. -/
+def Ctx.fill1 (c : Ctx) (hints : List (Nat × AState)) : Array (List AState) :=
+  c.fill (hints.map fun p => (p.1, [p.2]))
 
 /-! ## The check in one pass
 

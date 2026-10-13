@@ -38,6 +38,9 @@ noncomputable def env : Env :=
 
 theorem env_wf : env.wf = true := by decide +kernel
 
+/-- The trivial model: no heap. -/
+theorem env_ok : env.Ok := ⟨fun _ h => h.elim, fun _ _ _ _ h => h.elim⟩
+
 theorem env_plain : env.plain = Contract.env := rfl
 
 theorem tag_own : env.InOwn tagKey := ⟨(tagKey, 8), by simp [env], Or.inl (by decide)⟩

@@ -261,15 +261,17 @@ theorem aluStep_fw {pc : Word} {A B : AState} {i : Instr} (h : aluStep pc A i = 
             obtain ⟨_, o', args'⟩ := roa'
             rw [hop'] at h
             simp only at h
-            split at h <;> (obtain rfl := Option.some.inj h; rfl)
-          | none => rw [hop'] at h; obtain rfl := Option.some.inj h; rfl
+            split at h <;> (obtain rfl := Option.some.inj h; exact AState.kill_fw _ _ _)
+          | none => rw [hop'] at h; obtain rfl := Option.some.inj h; exact AState.kill_fw _ _ _
 
 theorem loadStep_fw {env : Env} {σ : Iface} {kn : Kn} {pc : Word} {A : AState} {i : Instr}
     {rd rs : Reg} {off : BitVec 12} {isD : Bool} :
     (loadStep env σ kn pc A i rd rs off isD).fw = A.fw := by
   unfold loadStep
   dsimp only
-  split <;> rfl
+  split
+  · rfl
+  · exact AState.kill_fw _ _ _
 
 theorem fieldStore_fw {env : Env} {σ : Iface} {A B : AState} {b : AVal} {w : Width} {v : AVal}
     (h : fieldStore env σ A b w v = some B) : B.fw = A.fw := by
@@ -500,9 +502,12 @@ theorem jump_sound (h : ActHyp c anno C n G P s0) {k : Nat} (hk : k < n)
   have hsf := hF.symFree
   unfold Ctx.jump at hj
   simp only at hj
-  have hz' := saturate_sound hF rfl rfl hz (pc, tgt)
-  have hfw' : fwOk c.env c.σ (c.saturate (pc, tgt) A) = true := by
-    rw [fwOk_congr (Ctx.saturate_fw c _ A)]; exact hfw
+  have hz' := (saturate_sound hF rfl rfl hz (pc, tgt)).gcIf
+  have hfw' : fwOk c.env c.σ (c.saturate (pc, tgt) A).gcIf = true := by
+    rw [fwOk_congr (show (c.saturate (pc, tgt) A).gcIf.fw = A.fw by
+      unfold AState.gcIf; split <;> exact Ctx.saturate_fw c _ A)]
+    exact hfw
+  generalize hX : (c.saturate (pc, tgt) A).gcIf = X at hj hz' hfw'
   split at hj
   · -- pruned: the facts are contradictory, so the state is unreachable
     rename_i hfalse
@@ -616,6 +621,7 @@ theorem call_sound' (h : ActHyp c anno C n G P s0) {k : Nat} (hk : k < n)
   refine h.tbl g hmem k hk G h.cfi P y (by rw [hy, hent]; rfl) hpre (fun t ht => ?_)
   obtain ⟨V', hst⟩ := call_post (pc := pc) hF hrf hrs hx1 hfw1 hok ht
   rw [Ent.withSym_withSym] at hst
+  replace hst := hst.gcIf
   split at hcall
   · rename_i hret
     split at hcall
@@ -850,6 +856,7 @@ theorem act (h : ActHyp c anno C n G P s0) : ∀ k ≤ n, ∀ x, c.At anno C s0 
                 · simp only [execInstrBr]; exact (hx.setReg (by simp [AVal.Holds])).setPC
                 · have h5' := hz'.holds.1 .x5
                   rw [hcond.1] at h5'; simp only [AVal.Holds] at h5'
+                  replace hz' := hz'.gcIf
                   rcases hle with rfl | hle
                   · exact ih' z' ⟨j, _, V', by rw [hpc', h5', hcond.2]; exact hj, hD, hz'⟩
                   have hzD := St.ofLeAt hsf hz' hle

@@ -17,9 +17,9 @@ open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
 
 open Cases.Zip2005.Contract
 
-noncomputable abbrev ctx : Ctx := ⟨env, tbl, A_78026878.iface, A_78026878.fn⟩
+noncomputable abbrev ctx : Ctx := { env, tbl, σ := A_78026878.iface, f := A_78026878.fn }
 
-noncomputable def anno : Array (Option AState) := ctx.fill A_78026878.hints
+noncomputable def anno : Array (List AState) := ctx.fill A_78026878.hints
 
 theorem valid : ctx.valid anno = true := Ctx.validFast_sound (by decide +kernel)
 
@@ -31,6 +31,6 @@ theorem code : CodeAt A_78026878.fn Cases.Zip2005.Image.Layout.image.codeAt :=
 
 theorem holds (n : Nat) (h : ∀ g ∈ tbl, ∀ m < n, g.HoldsN env Cases.Zip2005.Image.Layout.image.codeAt m) :
     A_78026878.iface.HoldsN env Cases.Zip2005.Image.Layout.image.codeAt n :=
-  Ctx.sound (c := ctx) valid code (by decide +kernel) env_wf h
+  Ctx.sound (c := ctx) valid code (by decide +kernel) env_wf env_ok h
 
 end Cases.Zip2005.Contract.V_78026878

@@ -873,10 +873,11 @@ def Inv (s0 s : MachineState) : Prop :=
 /-- **memcpy**, for every length: writes only `[a0, a0 + a2)`, keeps `ra`, `sp` and the
     callee-saved registers, and returns. It reads its jump table from `.rodata`, so the
     `Env` must protect it with the image's contents. -/
-theorem holds (env : Env) (hinit : env.init = Layout.image.memAt)
+theorem holds (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
     (hprot : (0x78000190#64, 0x157a8) ∈ env.prot) : iface.Holds env C := by
   intro n
-  apply holdsN_of_inv Inv (fun _ hpre => Pre.own_not_written rfl hpre)
+  apply holdsN_of_inv Inv hok (fun _ hpre => Pre.own_not_written rfl hpre)
+    (fun _ _ _ _ _ h => by simp [iface] at h)
   · intro s0 hpc hpre
     exact ⟨Frame.entry hpre.1, Or.inl ⟨rfl, hpc⟩⟩
   · intro G s0 P k _ hpre _ hk IH s ⟨hF, hs⟩

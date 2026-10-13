@@ -116,8 +116,8 @@ theorem _root_.AsmVerif.RiscV.Frame.AVal.holds_of_le {E} {a b : AVal} {v : Word}
 theorem holds_of_le {E} {A B : AState} {s : MachineState} (hle : A.le B = true)
     (h : A.Holds E s) : B.Holds E s := by
   simp only [le, Bool.and_eq_true, List.all_eq_true, List.contains_iff_mem] at hle
-  exact ⟨fun r => AVal.holds_of_le (hle.1 r (mem_allRegs r)) (h.1 r),
-    fun p hp => h.2 p (hle.2 p hp)⟩
+  exact ⟨fun r => AVal.holds_of_le (hle.1.1.1.1 r (mem_allRegs r)) (h.1 r),
+    fun p hp => h.2 p (hle.1.1.1.2 p hp)⟩
 
 theorem holds_entry {E} {s : MachineState} (hE : ∀ r, r ≠ .x0 → s.getReg r = E r) :
     entry.Holds E s := by

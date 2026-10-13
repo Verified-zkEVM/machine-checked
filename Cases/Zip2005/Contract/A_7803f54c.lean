@@ -13,13 +13,14 @@ namespace Cases.Zip2005.Contract.A_7803f54c
 
 open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
 
-def iface : Iface := { entry := 0x000000007803f54c#64, depth := 0, foot := [], nz := [], returns := true, vals := [], cells := [], strs := [] }
+def iface : Iface := { entry := 0x000000007803f54c#64, depth := 0, foot := [], nz := [], returns := true, vals := [], cells := [], strs := [], pre := [], post := [], heap := false }
 
 def fn : Fn := { base := Cases.Zip2005.Image.F_7803f54c.base, prog := Cases.Zip2005.Image.F_7803f54c.prog, frags := [] }
 
-noncomputable def hints : List (Nat × AState) := [
-  (0, (.ofDiff [] [])),
-  (1, (.ofDiff [(.x0, (.const 0x0000000000000000#64)), (.x10, .top), (.x11, .top), (.x12, .top), (.x13, .top), (.x14, .top)] [])),
-  (10, (.ofDiff [(.x0, (.const 0x0000000000000000#64)), (.x10, .top), (.x11, .top), (.x12, .top), (.x13, .top), (.x14, .top)] []))]
+noncomputable def hints : List (Nat × List AState) := [
+  (0, [(.ofDiff [] [])]),
+  (1, [(.ofDiff [(.x0, (.const 0x0000000000000000#64)), (.x10, .top), (.x11, .top), (.x12, .top), (.x13, .top), (.x14, .top)] [])]),
+  (8, [(.ofDiff [(.x0, (.const 0x0000000000000000#64)), (.x10, .top), (.x11, .top), (.x12, .top), (.x13, .top), (.x14, .top)] [])]),
+  (10, [(.ofDiff [(.x0, (.const 0x0000000000000000#64)), (.x10, .top), (.x11, .top), (.x12, .top), (.x13, (.sym 2013525328 0 0x0000000000000000#64)), (.x14, (.sym 2013525332 0 0x0000000000000000#64))] [] [(.le ⟨[((.sym 2013525328 0 0x0000000000000000#64), 1)], 0⟩ ⟨[], 255⟩), (.le ⟨[((.sym 2013525332 0 0x0000000000000000#64), 1)], 0⟩ ⟨[], 255⟩)] [] [])])]
 
 end Cases.Zip2005.Contract.A_7803f54c

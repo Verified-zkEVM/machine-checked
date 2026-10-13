@@ -87,6 +87,9 @@ noncomputable def env : Env :=
 
 theorem env_wf : env.wf = true := by decide +kernel
 
+/-- The trivial model: no heap. -/
+theorem env_ok : env.Ok := ⟨fun _ h => h.elim, fun _ _ _ _ h => h.elim⟩
+
 def tbl : List Iface := [
   A_7801aec8.iface,
   A_7801aed0.iface,

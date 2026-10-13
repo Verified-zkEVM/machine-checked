@@ -391,7 +391,7 @@ theorem prologue_mem {s0 : MachineState} (hsp : 0x60 ≤ (s0.getReg .x2).toNat) 
   slot_lt hsp hc (by omega) e.symm
 
 /-- **`__rust_realloc` (`0x7801bd38`)**: `alloc` the new size, copy, `dealloc` the old block. -/
-theorem spec (env : Env) (hinit : env.init = Layout.image.memAt)
+theorem spec (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
     (hprot : (0x78000190#64, 0x157a8) ∈ env.prot)
     {G : MachineState → Prop} (hG : ∀ x, G x → env.Cfi x) {P : Prop} {n : Nat}
     {s0 : MachineState} {base : Word} {bs : List Tlsf.Blk} {L : Word → Word → List Word}
@@ -588,10 +588,11 @@ theorem spec (env : Env) (hinit : env.init = Layout.image.memAt)
     have hymem : ∀ v a, (((((y.setReg .x10 (y.getReg .x19)).setReg .x11 (y.getReg .x18)).setReg .x12
         (y.getReg .x20)).setReg .x1 0x7801bda0#64).setPC v).getMem a = t1.getMem a :=
       fun v a => by simp [qm]
-    refine Memcpy.holds env hinit hprot n G hG P _ rfl
+    refine Memcpy.holds env hok hinit hprot n G hG P _ rfl
       ⟨by simp [hcy], Nat.zero_le _, ?_, ?_, fun a _ hp' => ?_, fun it hit a _ hh => ?_,
         by simp [Memcpy.iface], by simp [Memcpy.iface], by simp [Memcpy.iface],
-        Env.Inv_congr (fun a _ ho => ?_) hInv, by simp [StrsPre, Memcpy.iface]⟩ ?_
+        Env.Inv_congr (fun a _ ho => ?_) hInv, by simp [StrsPre, Memcpy.iface],
+        by simp [Memcpy.iface]⟩ ?_
     · xregs; rw [hy.sp, BitVec.toNat_add]; simp; omega
     · xregs; rw [hy.sp]; exact al_add hal (by decide)
     · rw [hymem _ a, hA a (hEN a (.inr hp')) (.inl (hEnvS a (.inr hp')))]; exact hprotM a ‹_› hp'

@@ -191,11 +191,15 @@ def entry : AState := { regs := allRegs.map (fun r => .lin r 0), slots := [] }
 /-- `A ≤ B`: every fact of `B` is a fact of `A`. -/
 def le (A B : AState) : Bool :=
   allRegs.all (fun r => (A.get r).le (B.get r)) &&
-  B.slots.all (fun p => A.slots.contains p)
+  B.slots.all (fun p => A.slots.contains p) &&
+  B.facts.all A.facts.contains && B.wmem.all A.wmem.contains && B.fw.all A.fw.contains
 
 def join (A B : AState) : AState :=
   { regs := allRegs.map (fun r => (A.get r).join (B.get r))
-    slots := A.slots.filter (fun p => B.slots.contains p) }
+    slots := A.slots.filter (fun p => B.slots.contains p)
+    facts := A.facts.filter B.facts.contains
+    wmem := A.wmem.filter B.wmem.contains
+    fw := A.fw.filter B.fw.contains }
 
 def beq (A B : AState) : Bool := le A B && le B A
 

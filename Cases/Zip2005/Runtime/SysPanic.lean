@@ -37,11 +37,11 @@ def fn : Fn := { base := Image.F_7801bf7c.base, prog := Image.F_7801bf7c.prog, f
 
 def tbl : List Iface := [SysWrite.iface, Halt.iface, writeIface]
 
-noncomputable abbrev wctx : Ctx := ⟨Owned.env, tbl, writeIface, writeFn⟩
-noncomputable abbrev ctx : Ctx := ⟨Owned.env, tbl, iface, fn⟩
+noncomputable abbrev wctx : Ctx := { env := Owned.env, tbl, σ := writeIface, f := writeFn }
+noncomputable abbrev ctx : Ctx := { env := Owned.env, tbl, σ := iface, f := fn }
 
-noncomputable def wanno : Array (Option AState) := wctx.fill [(0, .ofDiff [] [])]
-noncomputable def anno : Array (Option AState) := ctx.fill [(0, .ofDiff [] [])]
+noncomputable def wanno : Array (List AState) := wctx.fill1 [(0, .ofDiff [] [])]
+noncomputable def anno : Array (List AState) := ctx.fill1 [(0, .ofDiff [] [])]
 
 theorem wvalid : wctx.valid wanno = true := Ctx.validFast_sound (by decide +kernel)
 theorem valid : ctx.valid anno = true := Ctx.validFast_sound (by decide +kernel)
@@ -60,11 +60,11 @@ theorem tbl_holds : ∀ g ∈ tbl, g.Holds Owned.env C := by
   rcases hg with rfl | rfl | rfl
   · exact SysWrite.holds n
   · exact Halt.holds n
-  · exact Ctx.sound (c := wctx) wvalid wcode (by decide) Owned.env_wf h
+  · exact Ctx.sound (c := wctx) wvalid wcode (by decide) Owned.env_wf Owned.env_ok h
 
 /-- **`sys_panic`** never returns: it writes the message to stderr and halts with code 1,
     which never accepts. -/
 theorem holds : iface.Holds Owned.env C := fun n =>
-  Ctx.sound (c := ctx) valid code (by decide) Owned.env_wf fun g hg m _ => tbl_holds g hg m
+  Ctx.sound (c := ctx) valid code (by decide) Owned.env_wf Owned.env_ok fun g hg m _ => tbl_holds g hg m
 
 end Cases.Zip2005.Runtime.SysPanic

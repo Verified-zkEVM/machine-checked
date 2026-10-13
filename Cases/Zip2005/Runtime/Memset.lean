@@ -282,9 +282,10 @@ def Inv (s0 s : MachineState) : Prop :=
 /-- **memset**, for every length: writes only `[a0, a0 + a2)`, keeps `ra`, `sp` and the
     callee-saved registers, and returns. Under any `Env`: it reads no memory and calls
     nothing. -/
-theorem holds (env : Env) : iface.Holds env C := by
+theorem holds (env : Env) (hok : env.Ok) : iface.Holds env C := by
   intro n
-  apply holdsN_of_inv Inv (fun _ hpre => Pre.own_not_written rfl hpre)
+  apply holdsN_of_inv Inv hok (fun _ hpre => Pre.own_not_written rfl hpre)
+    (fun _ _ _ _ _ h => by simp [iface] at h)
   · intro s0 hpc hpre
     exact ⟨Frame.entry hpre.1, Or.inl ⟨rfl, hpc⟩⟩
   · intro G s0 P k _ _ _ hk IH s ⟨hF, hs⟩

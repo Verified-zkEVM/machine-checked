@@ -13,12 +13,12 @@ namespace Cases.Zip2005.Contract.A_7801d360
 
 open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
 
-def iface : Iface := { entry := 0x000000007801d360#64, depth := 321, foot := [{ base := (.lin .x10 0x0000000000000000#64), len := (.n 40) }], nz := [], returns := true, vals := [], cells := [], strs := [] }
+def iface : Iface := { entry := 0x000000007801d360#64, depth := 321, foot := [{ base := (.lin .x10 0x0000000000000000#64), len := (.n 40) }], nz := [], returns := true, vals := [], cells := [], strs := [], pre := [], post := [], heap := false }
 
 def fn : Fn := { base := Cases.Zip2005.Image.F_7801d360.base, prog := Cases.Zip2005.Image.F_7801d360.prog, frags := [] }
 
-noncomputable def hints : List (Nat × AState) := [
-  (0, (.ofDiff [] [])),
-  (24, (.ofKnown [(.x2, (.lin .x2 0xffffffffffffffc0#64)), (.x3, (.lin .x3 0x0000000000000000#64)), (.x4, (.lin .x4 0x0000000000000000#64)), (.x8, (.lin .x10 0x0000000000000000#64)), (.x9, (.lin .x9 0x0000000000000000#64)), (.x10, (.const 0x0000000000000001#64)), (.x18, (.lin .x18 0x0000000000000000#64)), (.x19, (.lin .x19 0x0000000000000000#64)), (.x20, (.lin .x20 0x0000000000000000#64)), (.x21, (.lin .x21 0x0000000000000000#64)), (.x22, (.lin .x22 0x0000000000000000#64)), (.x23, (.lin .x23 0x0000000000000000#64)), (.x24, (.lin .x24 0x0000000000000000#64)), (.x25, (.lin .x25 0x0000000000000000#64)), (.x26, (.lin .x26 0x0000000000000000#64)), (.x27, (.lin .x27 0x0000000000000000#64))] [(0xfffffffffffffff0#64, (.lin .x8 0x0000000000000000#64)), (0xfffffffffffffff8#64, (.lin .x1 0x0000000000000000#64))]))]
+noncomputable def hints : List (Nat × List AState) := [
+  (0, [(.ofDiff [] [])]),
+  (24, [(.ofKnown [(.x2, (.lin .x2 0xffffffffffffffc0#64)), (.x3, (.lin .x3 0x0000000000000000#64)), (.x4, (.lin .x4 0x0000000000000000#64)), (.x8, (.lin .x10 0x0000000000000000#64)), (.x9, (.lin .x9 0x0000000000000000#64)), (.x10, (.const 0x0000000000000001#64)), (.x11, (.sym 2013385600 0 0x0000000000000000#64)), (.x18, (.lin .x18 0x0000000000000000#64)), (.x19, (.lin .x19 0x0000000000000000#64)), (.x20, (.lin .x20 0x0000000000000000#64)), (.x21, (.lin .x21 0x0000000000000000#64)), (.x22, (.lin .x22 0x0000000000000000#64)), (.x23, (.lin .x23 0x0000000000000000#64)), (.x24, (.lin .x24 0x0000000000000000#64)), (.x25, (.lin .x25 0x0000000000000000#64)), (.x26, (.lin .x26 0x0000000000000000#64)), (.x27, (.lin .x27 0x0000000000000000#64))] [(0xfffffffffffffff0#64, (.lin .x8 0x0000000000000000#64)), (0xfffffffffffffff8#64, (.lin .x1 0x0000000000000000#64))] [(.le ⟨[((.sym 2013385600 0 0x0000000000000000#64), 1)], 0⟩ ⟨[], 255⟩)] [] [])])]
 
 end Cases.Zip2005.Contract.A_7801d360

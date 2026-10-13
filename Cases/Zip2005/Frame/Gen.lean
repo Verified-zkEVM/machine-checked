@@ -28,6 +28,7 @@ def fmtAVal : AVal → String
   | .top => ".top"
   | .oneOf cs => s!"(.oneOf [{", ".intercalate (cs.map word)}])"
   | .cell r ks k => s!"(.cell {regName r} [{", ".intercalate (ks.map word)}] {word k})"
+  | .sym i j k => s!"(.sym {i} {j} {word k})"
 
 def fmtState (A : AState) : String :=
   let regs := ", ".intercalate (A.regs.map fmtAVal)

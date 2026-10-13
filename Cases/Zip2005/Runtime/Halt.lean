@@ -129,11 +129,12 @@ macro "xh" : tactic => `(tactic|
 theorem H.pre {sp e : Word} {y : MachineState} {g : Iface} (h : H sp e y)
     (hal : Aligned sp) (hd : g.depth ≤ sp.toNat) (ht : sp.toNat ≤ 0x78000000)
     (hnz : g.nz = []) (hvals : g.vals = []) (hcells : g.cells = []) (hstrs : g.strs = [])
+    (hpre : g.pre = [])
     (hfoot : ∀ it ∈ g.foot, ∀ a, Aligned a → it.Hits (regsOf y) a →
       ¬ InWin sp g.depth a ∧ a.toNat + 8 ≤ 0x78000190) : Pre Contract.env C g y := by
   refine ⟨h.code, by rw [h.sp]; exact hd, by rw [h.sp]; exact ht, by rw [h.sp]; exact hal,
     h.prot, fun it hit a ha hh => ?_, by simp [hnz], by simp [hvals], by simp [hcells], trivial,
-    StrsPre.trivial rfl hstrs⟩
+    StrsPre.trivial rfl hstrs, by simp [hpre]⟩
   have := hfoot it hit a ha hh
   exact ⟨by rw [h.sp]; exact this.1, not_prot_low this.2,
     fun ⟨_, hR, _⟩ => by simp [Contract.env] at hR⟩
@@ -191,7 +192,7 @@ theorem call_compress {G : MachineState → Prop} (hG : ∀ x, G x → Owned.env
     (k : ∀ t, H sp e t → t.pc = y.getReg .x1 &&& ~~~1#64 → SafeN G n P t) : SafeN G n P y := by
   have hpre : Pre Contract.env C Contract.A_780361e0.iface y := by
     refine h.pre hs.al (by simp [Contract.A_780361e0.iface]; exact hs.lo) (by have := hs.hi; omega)
-      (by rfl) (by rfl) (by rfl) (by rfl) ?_
+      (by rfl) (by rfl) (by rfl) (by rfl) (by rfl) ?_
     intro it hit a _ hh
     simp only [Contract.A_780361e0.iface, List.mem_singleton] at hit
     subst hit
@@ -215,7 +216,7 @@ theorem call_memcpy {G : MachineState → Prop} (hG : ∀ x, G x → Owned.env.C
     (k : ∀ t, H sp e t → t.pc = y.getReg .x1 &&& ~~~1#64 → SafeN G n P t) : SafeN G n P y := by
   have hpre : Pre Contract.env C Memcpy.iface y := by
     refine h.pre hs.al (by simp [Memcpy.iface]) (by have := hs.hi; omega) (by rfl) (by rfl)
-      (by rfl) (by rfl) ?_
+      (by rfl) (by rfl) (by rfl) ?_
     intro it hit a _ hh
     simp only [Memcpy.iface, List.mem_singleton] at hit
     subst hit
@@ -226,7 +227,8 @@ theorem call_memcpy {G : MachineState → Prop} (hG : ∀ x, G x → Owned.env.C
     refine ⟨by simp [InWin, Hits, Memcpy.iface], ?_⟩
     unfold Hits at hh
     rcases hh with hh | ⟨_, hh⟩ <;> bv_omega
-  exact Runtime.Memcpy.holds Contract.env rfl (by decide) n G (SysWrite.cfi_plain hG) P y hpc hpre
+  exact Runtime.Memcpy.holds Contract.env Contract.env_ok rfl (by decide) n G (SysWrite.cfi_plain hG)
+    P y hpc hpre
     (fun t ht => k t (h.post hpre ht) ht.2.1)
 
 /-- `memset` of the rest of the last block: from `sp + 0x31 + b`, `b ^^^ 63` bytes, `b < 256`. -/
@@ -240,7 +242,7 @@ theorem call_memset {G : MachineState → Prop} (hG : ∀ x, G x → Owned.env.C
     exact Nat.xor_lt_two_pow (n := 8) hb (by decide)
   have hpre : Pre Contract.env C Memset.iface y := by
     refine h.pre hs.al (by simp [Memset.iface]) (by have := hs.hi; omega) (by rfl) (by rfl)
-      (by rfl) (by rfl) ?_
+      (by rfl) (by rfl) (by rfl) ?_
     intro it hit a _ hh
     simp only [Memset.iface, List.mem_singleton] at hit
     subst hit
@@ -251,7 +253,7 @@ theorem call_memset {G : MachineState → Prop} (hG : ∀ x, G x → Owned.env.C
     refine ⟨by simp [InWin, Hits, Memset.iface], ?_⟩
     unfold Hits at hh
     rcases hh with hh | ⟨_, hh⟩ <;> bv_omega
-  exact Runtime.Memset.holds Contract.env n G (SysWrite.cfi_plain hG) P y hpc hpre
+  exact Runtime.Memset.holds Contract.env Contract.env_ok n G (SysWrite.cfi_plain hG) P y hpc hpre
     (fun t ht => k t (h.post hpre ht) ht.2.1)
 
 /-- At `0x7801b108`: the last block's compression, then the commits and the halt. -/

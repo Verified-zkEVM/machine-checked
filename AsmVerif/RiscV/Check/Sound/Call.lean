@@ -1693,9 +1693,9 @@ theorem call_post (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf : 
   have hy' : RegsHold E' A' y := hx'.holds.1
   have hm' := St.memOk hF' hx'
   have hw' := hx'.wmemOk
-  have hA'fw : A'.fw = A1.fw := by rw [← hA']; rfl
+  have hA'fw : A'.fw = A1.fw := by rw [← hA']; exact AState.killAll_fw _ _
   have hA'slots : ∀ p ∈ A'.slots, p ∈ A1.slots := fun p hp => by
-    rw [← hA'] at hp; exact (List.mem_filter.mp hp).1
+    rw [← hA'] at hp; exact (AState.killAll_slots hp).1
   -- Symbol-free values evaluate as before.
   have hevE : ∀ v : AVal, v.symFree = true → v.eval E' = v.eval E := fun v hv => by
     rw [← hE']; exact AVal.eval_withSym hv

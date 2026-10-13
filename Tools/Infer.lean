@@ -60,6 +60,8 @@ structure Need where
   wantRegs : List Reg := []
   /-- Writers a callee needs that the function has not got: it must be lent them. -/
   strs : List (AVal × AVal) := []
+  /-- A callee changes the heap's structure. -/
+  heap : Bool := false
   sites : List Site := []
 
 def Need.addItem (n : Need) (it : Item) : Need :=
@@ -105,6 +107,10 @@ structure Ctx' where
   cells : List Cell := []
   /-- The writers the function is lent. -/
   strs : List (AVal × AVal) := []
+  /-- The depth and heap flag found so far: what the checker's after-call states depend
+      on (`slotOk`). -/
+  depth : Nat := 0
+  heap : Bool := false
   /-- Collecting call sites: unknown callees havoc and return, nothing is rejected for
       want of a callee's premises. -/
   permissive : Bool := false
@@ -112,8 +118,8 @@ structure Ctx' where
 /-- The premises so far, as the interface the checker's candidate and writer logic reads.
     Discovering, the cells are those with candidates: any other may still become one. -/
 def Ctx'.σ (c : Ctx') : Iface :=
-  { entry := c.f.base, depth := 0, vals := c.vals,
-    cells := if c.discover then c.cvals else c.cells, strs := c.strs }
+  { entry := c.f.base, depth := c.depth, vals := c.vals,
+    cells := if c.discover then c.cvals else c.cells, strs := c.strs, heap := c.heap }
 
 /-- What the function knows of its writers, under a refinement. -/
 def Ctx'.kn (c : Ctx') (ref : Option (AVal × Word)) : Kn := closure c.env c.σ ref
@@ -249,18 +255,25 @@ def storeI (pc : Word) (A : AState) (rs1 rs2 : Reg) (off : BitVec 12) (w : Width
       else bad pc "store at or above the entry stack pointer"
   | none =>
       if !b.isPtr then bad pc "store through an unknown pointer"
+      else if !b.symFree then bad pc "store through a symbolic pointer"
       else
         demand b
         modify (·.addItem { base := b, len := .n (wbytes w) })
         pure A
 
+/-- `plainStep`, recording: the ALU step is the checker's own; a load's value is found here
+    (recording the cells), then handled as `loadStep` does. -/
 def Ctx'.plainI (c : Ctx') (kn : Kn) (pc : Word) (A : AState) (i : Instr) : M AState := do
-  match aluResult pc A i with
-  | some (rd, v) => pure (A.set rd v)
+  match aluStep pc A i with
+  | some B => pure B
   | none =>
   match loadOf i with
   | some (rd, rs, off, isD) =>
-    pure (A.set rd (← c.loadI kn A ((A.get rs).addK (signExtend12 off)) isD))
+    let v ← c.loadI kn A ((A.get rs).addK (signExtend12 off)) isD
+    if v != .top then pure (A.set rd v) else
+    let A := A.kill pc.toNat 0
+    let s := AVal.sym pc.toNat 0 0
+    pure ((A.set rd s).addFacts (loadBound i s))
   | none =>
   match storeOf i with
   | some (rs1, rs2, off, w) => storeI pc A rs1 rs2 off w
@@ -275,6 +288,7 @@ def nzV (pc : Word) : AVal → M Unit
   | .lin r k => modify (·.addNz (.lin r k))
   | .cell r ks k => do demand (.cell r ks k); modify (·.addNz (.cell r ks k))
   | .top => bad pc "a value that must be nonzero is unknown"
+  | .sym .. => bad pc "a value that must be nonzero is symbolic"
   | .oneOf cs => if cs.all (· != 0) then pure () else bad pc "a value that must be nonzero may be 0"
 
 def Ctx'.nzI (c : Ctx') (kn : Kn) (pc : Word) (A : AState) (v : AVal) : M Unit := do
@@ -362,7 +376,7 @@ def Ctx'.soft (c : Ctx') (x : M Unit) : M Unit := c.softD () x
 /-! ### Writers -/
 
 /-- A value in the function's own terms: a writer's pointer or kind at its entry. -/
-def entryVal (v : AVal) : Bool := v.isPtr && v.frameOff?.isNone
+def entryVal (v : AVal) : Bool := v.isPtr && v.frameOff?.isNone && v.symFree
 
 /-- A callee's writer, as `passEntry` will match it. Discovering, one the function has not
     got (directly, or the one a structural writer built in its frame wraps) becomes a writer
@@ -391,9 +405,9 @@ def Ctx'.passI (c : Ctx') (kn : Kn) (ref : Option (AVal × Word)) (pc : Word) (A
     else bad pc "a callee's writer is not one the caller has"
 
 /-- `strsOk`: the callee's writers are the caller's, and the caller's are recovered. The
-    frame slots the callee's writers are built from. -/
+    writers lent, and the frame slots the callee's writers are built from. -/
 def Ctx'.strsI (c : Ctx') (kn : Kn) (ref : Option (AVal × Word)) (pc : Word) (A : AState)
-    (m : Option Nat) (its : List Item) (g : Iface) : M (List Word) := do
+    (m : Option Nat) (its : List Item) (g : Iface) : M (List (AVal × AVal) × List Word) := do
   let mut passed : List (AVal × AVal) := []
   let mut fs : List Word := []
   for e in g.strs do
@@ -404,7 +418,13 @@ def Ctx'.strsI (c : Ctx') (kn : Kn) (ref : Option (AVal × Word)) (pc : Word) (A
     for e in c.σ.strs do
       if !recov c.env ref kn passed 2 e then
         bad pc "a writer of the caller is not recovered after the call"
-  pure fs
+  pure (passed, fs)
+
+/-- A callee's `pre` facts, as `preOk` will check them; its heap flag, recorded. -/
+def Ctx'.factsI (c : Ctx') (kn : Kn) (pc : Word) (A : AState) (g : Iface) : M Unit := do
+  if g.heap then modify fun n => { n with heap := true }
+  for f in g.pre do
+    if !preOk c.σ kn A f then bad pc "a callee's precondition fact is not among the facts"
 
 /-! ### Control flow -/
 
@@ -426,9 +446,17 @@ def Ctx'.tailChecks (c : Ctx') (pc : Word) (A : AState) (g : Iface)
   for p in g.vals do c.soft (c.valI kn pc A p)
   for cl in g.cells do c.soft (c.cellI kn pc A [] none its cl)
   c.soft (discard <| c.strsI kn ref pc A none its g)
+  c.soft (c.factsI kn pc A g)
+  for e in c.σ.strs do
+    if !writerOkNow c.env c.σ kn ref A 4 e then
+      bad pc "a writer of the function is not well-typed at the tail call"
+  if !c.σ.strs.isEmpty && g.heap && g.strs.isEmpty then
+    bad pc "tail call to a heap-changing callee that takes none of the function's writers"
 
 def Ctx'.jump (c : Ctx') (pc : Word) (A : AState) (tgt : Word)
     (ref : Option (AVal × Word) := none) : M (List Edge) := do
+  let A := A.gcIf
+  if A.facts.contains falseFact then return []
   match c.f.idx? tgt with
   | some j => pure [.goto j A]
   | none =>
@@ -455,14 +483,15 @@ def Ctx'.call (c : Ctx') (pc : Word) (A : AState) (tgt : Word)
     | none, _ =>
       if !it.base.isPtr then bad pc "callee writes through a pointer the caller does not know"
       modify (·.addItem it)
-  let fs ← c.softD [] (c.strsI kn ref pc A1 (some m) its g)
+  let (lent, fs) ← c.softD ([], []) (c.strsI kn ref pc A1 (some m) its g)
   for v in g.nz do c.nzI kn pc A1 v
   for p in g.vals do c.soft (c.valI kn pc A1 p)
   for cl in g.cells do c.soft (c.cellI kn pc A1 fs (some m) its cl)
+  c.soft (c.factsI kn pc A1 g)
   if g.returns then
     if (pc + 4) &&& ~~~1#64 != pc + 4 then bad pc "misaligned return address"
     match c.f.idx? (pc + 4) with
-    | some j => pure [.goto j (afterCall A m its)]
+    | some j => pure [.goto j (afterCall c.env c.σ kn pc A1 ⟨m, its, lent⟩ g).gcIf]
     | none => bad pc "returning call at the end of the function"
   else pure []
 
@@ -497,7 +526,7 @@ def Ctx'.outlined (c : Ctx') (pc : Word) (A : AState) (off : BitVec 12) : M (Lis
       | some fp, some j =>
           modify fun n => if n.frags.contains tgt then n else { n with frags := tgt :: n.frags }
           let B ← c.runFrag pc (A.set .x5 (.const (pc + 4))) tgt fp 0
-          if B.get .x5 = .const (pc + 4) ∧ (pc + 4) &&& ~~~1#64 = pc + 4 then pure [.goto j B]
+          if B.get .x5 = .const (pc + 4) ∧ (pc + 4) &&& ~~~1#64 = pc + 4 then pure [.goto j B.gcIf]
           else bad pc "fragment does not return through t0"
       | none, _ => bad pc s!"outlined call to unknown fragment {tgt.toHex}"
       | _, none => bad pc "outlined call at the end of the function"
@@ -509,8 +538,9 @@ def Ctx'.stepAt (c : Ctx') (pc : Word) (oi : Option Instr) (A : AState) : M (Lis
   | some ins =>
   match branchOff? ins with
   | some off => do
-      let e1 ← c.jump pc A (pc + 4)
-      let e2 ← c.jump pc A (pc + signExtend13 off)
+      let (ft, ff) := branchFacts A ins
+      let e1 ← c.jump pc (A.addFacts ff) (pc + 4)
+      let e2 ← c.jump pc (A.addFacts ft) (pc + signExtend13 off)
       pure (e1 ++ e2)
   | none =>
   match ins with
@@ -554,7 +584,7 @@ def Ctx'.stepAt (c : Ctx') (pc : Word) (oi : Option Instr) (A : AState) : M (Lis
     no successor, so that one run reports every problem; the function then gets no interface. -/
 def Ctx'.analyze (c : Ctx') : Except Why (Array (Option AState) × Need) := do
   let n := c.f.prog.length
-  let entry := ({ entry := c.f.base, depth := 0, vals := c.vals } : Iface).entryState
+  let entry := c.σ.entryState c.env
   let mut anno : Array (Option AState) := (List.replicate n none).toArray.set! 0 (some entry)
   let mut work : List Nat := [0]
   let mut fuel := 256 * n + 64
@@ -635,32 +665,57 @@ def mergeCells (cs : List Cell) : List Cell := Id.run do
 def mkIface (entry : Word) (n : Need) (vals : List (Reg × List Word)) (cells : List Cell)
     (strs : List (AVal × AVal)) : Iface :=
   { entry, depth := n.depth, foot := mergeItems n.items, nz := n.nz.reverse, returns := n.returns,
-    vals, cells, strs }
+    vals, cells, strs, heap := n.heap }
 
 /-! ## Lean output -/
 
 def regName (r : Reg) : String := s!".x{regIdx r}"
 def word (w : Word) : String := s!"0x{w.toHex}#64"
 def fmtWords (cs : List Word) : String := "[" ++ ", ".intercalate (cs.map word) ++ "]"
+def fmtList (xs : List String) : String := "[" ++ ", ".intercalate xs ++ "]"
 def fmtAVal : AVal → String
   | .lin r k => s!"(.lin {regName r} {word k})"
   | .const c => s!"(.const {word c})"
   | .top => ".top"
   | .oneOf cs => s!"(.oneOf {fmtWords cs})"
   | .cell r ks k => s!"(.cell {regName r} {fmtWords ks} {word k})"
+  | .sym i j k => s!"(.sym {i} {j} {word k})"
+def fmtLin (t : LinTerm AVal) : String :=
+  "⟨" ++ fmtList (t.coeffs.map fun (v, n) => s!"({fmtAVal v}, {n})") ++ s!", {t.const}⟩"
+def fmtOp : Op → String
+  | .add => ".add" | .sub => ".sub" | .and => ".and" | .or => ".or" | .xor => ".xor"
+  | .sltu => ".sltu" | .slt => ".slt" | .mul => ".mul" | .mulhu => ".mulhu" | .divu => ".divu"
+  | .remu => ".remu" | .shl c => s!"(.shl {c})" | .shr c => s!"(.shr {c})" | .sra c => s!"(.sra {c})"
+  | .addw => ".addw" | .subw => ".subw" | .shlw c => s!"(.shlw {c})" | .shrw c => s!"(.shrw {c})"
+def fmtFact : Fact AVal → String
+  | .le l r => s!"(.le {fmtLin l} {fmtLin r})"
+  | .op o x args => s!"(.op {fmtOp o} {fmtAVal x} {fmtList (args.map fmtAVal)})"
+  | .atom i args => s!"(.atom {i} {fmtList (args.map fmtAVal)})"
+def fmtPVal : PVal → String
+  | .ent v => s!"(.ent {fmtAVal v})"
+  | .ret r => s!"(.ret {regName r})"
+  | .out a => s!"(.out {fmtAVal a})"
+def fmtPLin (t : LinTerm PVal) : String :=
+  "⟨" ++ fmtList (t.coeffs.map fun (v, n) => s!"({fmtPVal v}, {n})") ++ s!", {t.const}⟩"
+def fmtPFact : Fact PVal → String
+  | .le l r => s!"(.le {fmtPLin l} {fmtPLin r})"
+  | .op o x args => s!"(.op {fmtOp o} {fmtPVal x} {fmtList (args.map fmtPVal)})"
+  | .atom i args => s!"(.atom {i} {fmtList (args.map fmtPVal)})"
 def fmtLen : Len → String
   | .n l => s!"(.n {l})"
   | .reg r => s!"(.reg {regName r})"
   | .regPlus r c => s!"(.regPlus {regName r} {c})"
 def fmtItem (it : Item) : String := s!"\{ base := {fmtAVal it.base}, len := {fmtLen it.len} }"
-def fmtList (xs : List String) : String := "[" ++ ", ".intercalate xs ++ "]"
 def fmtState (A : AState) : String :=
   let regs := allRegs.map fun r => (r, A.regs.getD (regIdx r) .top)
   let diff := regs.filterMap fun (r, v) => if v == .lin r 0 then none else some s!"({regName r}, {fmtAVal v})"
   let known := regs.filterMap fun (r, v) => if v == .top then none else some s!"({regName r}, {fmtAVal v})"
   let slots := fmtList (A.slots.map fun (k, v) => s!"({word k}, {fmtAVal v})")
-  if diff.length ≤ known.length then s!"some (.ofDiff {fmtList diff} {slots})"
-  else s!"some (.ofKnown {fmtList known} {slots})"
+  let pairs (ps : List (AVal × AVal)) := fmtList (ps.map fun (a, b) => s!"({fmtAVal a}, {fmtAVal b})")
+  let extra := if A.facts.isEmpty && A.wmem.isEmpty && A.fw.isEmpty then "" else
+    s!" {fmtList (A.facts.map fmtFact)} {pairs A.wmem} {pairs A.fw}"
+  if diff.length ≤ known.length then s!"(.ofDiff {fmtList diff} {slots}{extra})"
+  else s!"(.ofKnown {fmtList known} {slots}{extra})"
 def fmtCell (c : Cell) : String :=
   let vs := match c.vals with
     | some cs => s!"some {fmtWords cs}"
@@ -671,7 +726,8 @@ def fmtIface (σ : Iface) : String :=
   s!"nz := {fmtList (σ.nz.map fmtAVal)}, returns := {σ.returns}, " ++
   s!"vals := {fmtList (σ.vals.map fun (r, cs) => s!"({regName r}, {fmtWords cs})")}, " ++
   s!"cells := {fmtList (σ.cells.map fmtCell)}, " ++
-  s!"strs := {fmtList (σ.strs.map fun (d, k) => s!"({fmtAVal d}, {fmtAVal k})")} }"
+  s!"strs := {fmtList (σ.strs.map fun (d, k) => s!"({fmtAVal d}, {fmtAVal k})")}, " ++
+  s!"pre := {fmtList (σ.pre.map fmtFact)}, post := {fmtList (σ.post.map fmtPFact)}, heap := {σ.heap} }"
 
 end Tools.Infer
 
@@ -746,6 +802,7 @@ def parseIface? (entry : Nat) (spec : String) : Option Iface := do
         pure ((← parseBase? d), (← parseBase? k))
       σ := { σ with strs }
     | ["ret", r] => σ := { σ with returns := r == "1" }
+    | ["heap", h] => σ := { σ with heap := h == "1" }
     | [""] => pure ()
     | _ => none
   return σ
@@ -837,15 +894,20 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
         match disc with
         | .ok (_, need) =>
           let mut cells := mergeCells need.cells
+          let mut depth := need.depth
+          let mut heap := need.heap
           let mut res : Except String (Array (Option AState) × Need × List Cell) :=
             .error "no exact run"
-          for _ in [0:3] do
-            match ({ c with discover := false, cells } : Ctx').analyze with
+          for _ in [0:4] do
+            match ({ c with discover := false, cells, depth, heap } : Ctx').analyze with
             | .ok (anno, need') =>
               res := .ok (anno, need', cells)
               let used := mergeCells need'.cells
-              if used.length == cells.length then break
+              if used.length == cells.length && need'.depth == depth && need'.heap == heap then
+                break
               cells := used
+              depth := need'.depth
+              heap := need'.heap
             | .error (.fail pc msg _) =>
               if let .ok _ := res then break
               res := .error s!"{pc.toHex}: exact run: {msg}"
@@ -876,7 +938,8 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
     let ctxOf (f : Fn) : Ctx' :=
       let p := prem.getD f.base {}
       { env, tbl, pending := {}, f, vals := p.vals, cvals := p.cvals, permissive := true,
-        strs := ((tbl[f.base]?).map (·.strs)).getD [] }
+        strs := ((tbl[f.base]?).map (·.strs)).getD [],
+        depth := ((tbl[f.base]?).map (·.depth)).getD 0, heap := ((tbl[f.base]?).map (·.heap)).getD false }
     let mut wants : Std.HashMap Word (List Cell × List Reg) := {}
     let mut sites : Array (Word × Site) := #[]
     for (_, f) in fns do
@@ -1004,7 +1067,7 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
     match done[f.base]? with
     | some (σ, anno, used) =>
       let f' := { f with frags := f.frags.filter fun (b, _) => used.contains b }
-      let ok := ({ env, tbl, σ, f := f' } : Ctx).valid anno
+      let ok := ({ env, tbl, σ, f := f' } : Ctx).valid (anno.map Option.toList)
       let st : Except String (Iface × Array (Option AState) × List Word) :=
         if ok then .ok (σ, anno, used) else .error "inferred, but the checker rejects it"
       out := out.push { sym := s, func := f', status := st }
@@ -1034,20 +1097,28 @@ def layoutIndex (layout : String) : Std.HashMap Nat Nat := Id.run do
         idx := idx + 1
   return out
 
-/-- The states a sparse certificate must give: where fall-through propagation does not
-    already produce the annotation's state. -/
-def hintsFor (c : Ctx) (anno : Array (Option AState)) : List (Nat × AState) := Id.run do
-  let mut out : Array (Nat × AState) := #[]
-  let mut prev : Option AState := none
+/-- The states a sparse certificate must give: the analysis's states at the targets of
+    jumps (where its join happens), where fall-through propagation does not already produce
+    them. Elsewhere the checker's own fall-through state stands: at least as precise as the
+    analysis's (which is a join over every visit: a constant and a symbol join to `⊤`, where
+    the checker, stepping the final state, keeps the symbol). -/
+def hintsFor (c : Ctx) (anno : Array (Option AState)) : List (Nat × List AState) := Id.run do
+  let step (i : Nat) (A : AState) : List Edge := match c.f.prog[i]? with
+    | some oi => (c.stepAt (c.f.pcOf i) oi A).getD []
+    | none => []
+  let mut targets : Std.HashSet Nat := {}
   for i in List.range anno.size do
-    let a := anno[i]!
-    if a != prev then
-      if let some A := a then out := out.push (i, A)
-    prev := match a, c.f.prog[i]? with
-      | some A, some oi => match c.stepAt (c.f.pcOf i) oi A with
-        | some es => fallState A (i + 1) es
-        | none => none
-      | _, _ => none
+    if let some A := anno[i]! then
+      for e in step i A do
+        if let .goto j _ := e then
+          if j != i + 1 then targets := targets.insert j
+  let mut out : Array (Nat × List AState) := #[]
+  let mut prev : List AState := []
+  for i in List.range anno.size do
+    let a := (anno[i]!).toList
+    let cur := if a != prev && (prev.isEmpty || targets.contains i) then a else prev
+    if cur != prev then out := out.push (i, cur)
+    prev := cur.flatMap fun A => fallStates (i + 1) (step i A)
   return out.toList
 
 def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res : Array Result)
@@ -1069,18 +1140,36 @@ def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res 
     let frags := fmtList (used.map fun b => s!"({imgPrefix}.F_{hex b.toNat 8}.base, {imgPrefix}.F_{hex b.toNat 8}.prog)")
     let c : Ctx := { env, tbl, σ, f := r.func }
     let hints := hintsFor c anno
-    if (c.fill hints).toList != anno.toList then
-      throw <| IO.userError s!"{a}: the sparse certificate does not fill back to the annotation"
-    if !c.validFast anno then throw <| IO.userError s!"{a}: validFast rejects the annotation"
-    let body := ",\n  ".intercalate (hints.map fun (i, A) =>
-      s!"({i}, {(fmtState A).drop 5 |>.toString})")
+    -- `INFER_HINTS=addr`: why each hint is needed.
+    if (← IO.getEnv "INFER_HINTS") == some a then
+      let mut prev : List AState := []
+      for i in List.range anno.size do
+        let st := (anno[i]!).toList
+        if st != prev then
+          match st, prev with
+          | [A], [B] =>
+            let rs := allRegs.filter fun r => A.get r != B.get r
+            IO.println <| s!"hint {i}: regs {rs.map fun r => s!"{regName r}: {fmtAVal (B.get r)} -> {fmtAVal (A.get r)}"}" ++
+              (if A.slots != B.slots then s!" slots {B.slots.length} -> {A.slots.length}" else "") ++
+              (if A.facts != B.facts then s!" facts {B.facts.map fmtFact} -> {A.facts.map fmtFact}" else "") ++
+              (if A.wmem != B.wmem then " wmem" else "") ++ (if A.fw != B.fw then " fw" else "")
+          | _, _ => IO.println s!"hint {i}: {st.length} states, fall-through {prev.length}"
+        prev := st.flatMap fun A => match c.f.prog[i]? with
+          | some oi => match c.stepAt (c.f.pcOf i) oi A with
+            | some es => fallStates (i + 1) es
+            | none => []
+          | none => []
+    let annoL := c.fill hints
+    if !c.validFast annoL then throw <| IO.userError s!"{a}: validFast rejects the filled certificate"
+    let body := ",\n  ".intercalate (hints.map fun (i, As) =>
+      s!"({i}, {fmtList (As.map fmtState)})")
     IO.FS.writeFile s!"{dir}/A_{a}.lean" <|
       hdr s!"`{r.sym.name}`: its interface and certificate." ++
       s!"import AsmVerif.RiscV.Check.Domain\nimport {imgPrefix}.F_{a}\n" ++ String.join fragImports ++
       s!"\nset_option maxRecDepth 200000\n\nnamespace {modPrefix}.A_{a}\n\n" ++ opens ++
       s!"def iface : Iface := {fmtIface σ}\n\n" ++
       s!"def fn : Fn := \{ base := {imgPrefix}.F_{a}.base, prog := {imgPrefix}.F_{a}.prog, frags := {frags} }\n\n" ++
-      s!"noncomputable def hints : List (Nat × AState) := [\n  {body}]\n\nend {modPrefix}.A_{a}\n"
+      s!"noncomputable def hints : List (Nat × List AState) := [\n  {body}]\n\nend {modPrefix}.A_{a}\n"
   -- The table.
   let protS := fmtList (env.prot.map fun (b, l) => s!"({word b}, {l})")
   let cfiS := fmtList (env.cfi.map fun (p, ts) => s!"({word p}, {fmtWords ts})")
@@ -1092,6 +1181,8 @@ def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res 
     s!"\nnamespace {modPrefix}\n\n" ++ opens ++
     s!"noncomputable def env : Env :=\n  \{ stackTop := {env.stackTop}, prot := {protS}, init := {imgPrefix}.Layout.image.memAt,\n    cfi := {cfiS} }\n\n" ++
     "theorem env_wf : env.wf = true := by decide +kernel\n\n" ++
+    "/-- The trivial model: no heap. -/\n" ++
+    "theorem env_ok : env.Ok := ⟨fun _ h => h.elim, fun _ _ _ _ h => h.elim⟩\n\n" ++
     s!"def tbl : List Iface := [\n  " ++ ",\n  ".intercalate tblNames ++
     s!"]\n\nend {modPrefix}\n"
   -- One proof module per function.
@@ -1112,15 +1203,15 @@ def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res 
       s!"import AsmVerif.RiscV.Check.Image\nimport AsmVerif.RiscV.Check.Fast\nimport Cases.Zip2005.Loaded\nimport {modPrefix}.Table\n\n" ++
       "set_option maxRecDepth 200000\n\n" ++
       s!"namespace {modPrefix}.V_{a}\n\n" ++ opens ++ s!"open {modPrefix}\n\n" ++
-      s!"noncomputable abbrev ctx : Ctx := ⟨env, tbl, A_{a}.iface, A_{a}.fn⟩\n\n" ++
-      s!"noncomputable def anno : Array (Option AState) := ctx.fill A_{a}.hints\n\n" ++
+      s!"noncomputable abbrev ctx : Ctx := \{ env, tbl, σ := A_{a}.iface, f := A_{a}.fn }\n\n" ++
+      s!"noncomputable def anno : Array (List AState) := ctx.fill A_{a}.hints\n\n" ++
       s!"theorem valid : ctx.valid anno = true := Ctx.validFast_sound (by decide +kernel)\n\n" ++
       s!"theorem decode : decodeWords {imgPrefix}.F_{a}.words = {imgPrefix}.F_{a}.prog := by decide +kernel\n\n" ++
       fragDecodes ++
       s!"theorem code : CodeAt A_{a}.fn {imgPrefix}.Layout.image.codeAt :=\n  codeAt_of_image (k := {k}) Cases.Zip2005.Loaded.codeWF rfl decode\n  {fragProof}\n\n" ++
       s!"theorem holds (n : Nat) (h : ∀ g ∈ tbl, ∀ m < n, g.HoldsN env {imgPrefix}.Layout.image.codeAt m) :\n" ++
       s!"    A_{a}.iface.HoldsN env {imgPrefix}.Layout.image.codeAt n :=\n" ++
-      s!"  Ctx.sound (c := ctx) valid code (by decide +kernel) env_wf h\n\n" ++
+      s!"  Ctx.sound (c := ctx) valid code (by decide +kernel) env_wf env_ok h\n\n" ++
       s!"end {modPrefix}.V_{a}\n"
   -- Assembly.
   IO.FS.writeFile s!"{dir}/All.lean" <|

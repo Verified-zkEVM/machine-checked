@@ -71,17 +71,17 @@ def fn_c3e8 : Fn := { base := Image.F_7803c3e8.base, prog := Image.F_7803c3e8.pr
 def fn_b67c : Fn := { base := Image.F_7803b67c.base, prog := Image.F_7803b67c.prog, frags := [] }
 def fn_de40 : Fn := { base := Image.F_7803de40.base, prog := Image.F_7803de40.prog, frags := [] }
 
-noncomputable abbrev ctx_c400 : Ctx := ⟨Owned.env, tbl, iface_c400, fn_c400⟩
-noncomputable abbrev ctx_c3e8 : Ctx := ⟨Owned.env, tbl, iface_c3e8, fn_c3e8⟩
-noncomputable abbrev ctx_b67c : Ctx := ⟨Owned.env, tbl, iface_b67c, fn_b67c⟩
-noncomputable abbrev ctx_de40 : Ctx := ⟨Owned.env, tbl, iface_de40, fn_de40⟩
+noncomputable abbrev ctx_c400 : Ctx := { env := Owned.env, tbl, σ := iface_c400, f := fn_c400 }
+noncomputable abbrev ctx_c3e8 : Ctx := { env := Owned.env, tbl, σ := iface_c3e8, f := fn_c3e8 }
+noncomputable abbrev ctx_b67c : Ctx := { env := Owned.env, tbl, σ := iface_b67c, f := fn_b67c }
+noncomputable abbrev ctx_de40 : Ctx := { env := Owned.env, tbl, σ := iface_de40, f := fn_de40 }
 
-noncomputable def anno_c400 : Array (Option AState) := (ctx_c400).fill [
+noncomputable def anno_c400 : Array (List AState) := (ctx_c400).fill1 [
   (0, (.ofDiff [] [])),
   (21, (.ofDiff [(.x2, (.lin .x2 0xffffffffffffffd0#64)), (.x8, (.lin .x2 0x0000000000000000#64)), (.x11, .top), (.x12, .top), (.x13, .top)] [(0xfffffffffffffff0#64, (.lin .x8 0x0000000000000000#64)), (0xfffffffffffffff8#64, (.lin .x1 0x0000000000000000#64))]))]
-noncomputable def anno_c3e8 : Array (Option AState) := (ctx_c3e8).fill [(0, .ofDiff [] [])]
-noncomputable def anno_b67c : Array (Option AState) := (ctx_b67c).fill [(0, .ofDiff [] [])]
-noncomputable def anno_de40 : Array (Option AState) := (ctx_de40).fill [(0, .ofDiff [] [])]
+noncomputable def anno_c3e8 : Array (List AState) := (ctx_c3e8).fill1 [(0, .ofDiff [] [])]
+noncomputable def anno_b67c : Array (List AState) := (ctx_b67c).fill1 [(0, .ofDiff [] [])]
+noncomputable def anno_de40 : Array (List AState) := (ctx_de40).fill1 [(0, .ofDiff [] [])]
 
 theorem valid_c400 : (ctx_c400).valid (anno_c400) = true := Ctx.validFast_sound (by decide +kernel)
 theorem valid_c3e8 : (ctx_c3e8).valid (anno_c3e8) = true := Ctx.validFast_sound (by decide +kernel)
@@ -98,22 +98,22 @@ theorem code_de40 : CodeAt fn_de40 C :=
   codeAt_of_image (k := 279) Loaded.codeWF rfl (by decide +kernel) (fun _ _ h => by simp [fn_de40] at h)
 
 def fn_de20 : Fn := { base := Image.F_7803de20.base, prog := Image.F_7803de20.prog, frags := [] }
-noncomputable abbrev ctx_de20 : Ctx := ⟨Owned.env, tbl, iface_de20, fn_de20⟩
-noncomputable def anno_de20 : Array (Option AState) := ctx_de20.fill [
+noncomputable abbrev ctx_de20 : Ctx := { env := Owned.env, tbl, σ := iface_de20, f := fn_de20 }
+noncomputable def anno_de20 : Array (List AState) := ctx_de20.fill1 [
   (0, (.ofDiff [(.x10, (.oneOf [0x00000000780012a8#64, 0x00000000780011b0#64, 0x0000000078001138#64, 0x00000000780014b8#64, 0x00000000780119f8#64, 0x0000000078011b20#64, 0x00000000780137d0#64, 0x00000000780138f8#64, 0x0000000078013920#64, 0x0000000078014330#64]))] []))]
 theorem valid_de20 : ctx_de20.valid anno_de20 = true := Ctx.validFast_sound (by decide +kernel)
 theorem code_de20 : CodeAt fn_de20 C :=
   codeAt_of_image (k := 278) Loaded.codeWF rfl (by decide +kernel) (fun _ _ h => by simp [fn_de20] at h)
 def fn_dcdc : Fn := { base := Image.F_7803dcdc.base, prog := Image.F_7803dcdc.prog, frags := [] }
-noncomputable abbrev ctx_dcdc : Ctx := ⟨Owned.env, tbl, iface_dcdc, fn_dcdc⟩
-noncomputable def anno_dcdc : Array (Option AState) := ctx_dcdc.fill [
+noncomputable abbrev ctx_dcdc : Ctx := { env := Owned.env, tbl, σ := iface_dcdc, f := fn_dcdc }
+noncomputable def anno_dcdc : Array (List AState) := ctx_dcdc.fill1 [
   (0, (.ofDiff [(.x12, (.oneOf [0x00000000780119b0#64, 0x0000000078013678#64, 0x0000000078013648#64, 0x0000000078014318#64]))] []))]
 theorem valid_dcdc : ctx_dcdc.valid anno_dcdc = true := Ctx.validFast_sound (by decide +kernel)
 theorem code_dcdc : CodeAt fn_dcdc C :=
   codeAt_of_image (k := 276) Loaded.codeWF rfl (by decide +kernel) (fun _ _ h => by simp [fn_dcdc] at h)
 def fn_dd28 : Fn := { base := Image.F_7803dd28.base, prog := Image.F_7803dd28.prog, frags := [] }
-noncomputable abbrev ctx_dd28 : Ctx := ⟨Owned.env, tbl, iface_dd28, fn_dd28⟩
-noncomputable def anno_dd28 : Array (Option AState) := ctx_dd28.fill [
+noncomputable abbrev ctx_dd28 : Ctx := { env := Owned.env, tbl, σ := iface_dd28, f := fn_dd28 }
+noncomputable def anno_dd28 : Array (List AState) := ctx_dd28.fill1 [
   (0, (.ofDiff [(.x12, (.oneOf [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64])), (.x14, (.oneOf [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64]))] [])),
   (36, (.ofDiff [(.x2, (.lin .x2 0xffffffffffffff70#64)), (.x8, (.lin .x2 0x0000000000000000#64)), (.x10, .top), (.x11, .top), (.x12, (.const 0x00000000780142f8#64)), (.x14, (.oneOf [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64]))] [(0xffffffffffffff88#64, (.oneOf [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64])), (0xffffffffffffff80#64, (.lin .x13 0x0000000000000000#64)), (0xffffffffffffff78#64, (.oneOf [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64])), (0xffffffffffffff70#64, (.lin .x11 0x0000000000000000#64)), (0xfffffffffffffff0#64, (.lin .x8 0x0000000000000000#64)), (0xfffffffffffffff8#64, (.lin .x1 0x0000000000000000#64))])),
   (58, (.ofDiff [(.x0, (.const 0x0000000000000000#64)), (.x2, (.lin .x2 0xffffffffffffff70#64)), (.x8, (.lin .x2 0x0000000000000000#64)), (.x10, (.oneOf [0x0000000078000685#64, 0x000000007800076b#64])), (.x11, (.oneOf [0x000000007803ea08#64, 0x000000007803ea18#64])), (.x12, .top), (.x13, (.oneOf [0x000000007803ea30#64, 0x000000007803ea08#64])), (.x14, .top), (.x15, .top)] [(0xffffffffffffffd8#64, (.const 0x000000007803ea08#64)), (0xffffffffffffffb8#64, (.const 0x000000007803ea18#64)), (0xffffffffffffffb0#64, (.lin .x2 0xffffffffffffff90#64)), (0xffffffffffffff88#64, (.oneOf [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64])), (0xffffffffffffff80#64, (.lin .x13 0x0000000000000000#64)), (0xffffffffffffff78#64, (.oneOf [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64])), (0xffffffffffffff70#64, (.lin .x11 0x0000000000000000#64)), (0xfffffffffffffff0#64, (.lin .x8 0x0000000000000000#64)), (0xfffffffffffffff8#64, (.lin .x1 0x0000000000000000#64))]))]
@@ -131,13 +131,13 @@ theorem tbl_holds (hpwh : pwhIface.Holds Owned.env C) : ∀ g ∈ tbl, g.Holds O
   simp only [tbl, List.mem_cons, List.mem_nil_iff, or_false] at hg
   rcases hg with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact hpwh n
-  · exact Ctx.sound (c := ctx_c400) valid_c400 code_c400 (by decide) Owned.env_wf h
-  · exact Ctx.sound (c := ctx_c3e8) valid_c3e8 code_c3e8 (by decide) Owned.env_wf h
-  · exact Ctx.sound (c := ctx_b67c) valid_b67c code_b67c (by decide) Owned.env_wf h
-  · exact Ctx.sound (c := ctx_de40) valid_de40 code_de40 (by decide) Owned.env_wf h
-  · exact Ctx.sound (c := ctx_de20) valid_de20 code_de20 (by decide) Owned.env_wf h
-  · exact Ctx.sound (c := ctx_dcdc) valid_dcdc code_dcdc (by decide) Owned.env_wf h
-  · exact Ctx.sound (c := ctx_dd28) valid_dd28 code_dd28 (by decide) Owned.env_wf h
+  · exact Ctx.sound (c := ctx_c400) valid_c400 code_c400 (by decide) Owned.env_wf Owned.env_ok h
+  · exact Ctx.sound (c := ctx_c3e8) valid_c3e8 code_c3e8 (by decide) Owned.env_wf Owned.env_ok h
+  · exact Ctx.sound (c := ctx_b67c) valid_b67c code_b67c (by decide) Owned.env_wf Owned.env_ok h
+  · exact Ctx.sound (c := ctx_de40) valid_de40 code_de40 (by decide) Owned.env_wf Owned.env_ok h
+  · exact Ctx.sound (c := ctx_de20) valid_de20 code_de20 (by decide) Owned.env_wf Owned.env_ok h
+  · exact Ctx.sound (c := ctx_dcdc) valid_dcdc code_dcdc (by decide) Owned.env_wf Owned.env_ok h
+  · exact Ctx.sound (c := ctx_dd28) valid_dd28 code_dd28 (by decide) Owned.env_wf Owned.env_ok h
 
 /-- **D5 for `panic_fmt`**: given the phase-E premise, `core::panicking::panic_fmt`
     (`0x7803de40`) never accepts — no accepting halt is reachable from its entry under its

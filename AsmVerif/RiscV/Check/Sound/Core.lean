@@ -413,6 +413,19 @@ theorem St.addFacts {C} {A : AState} {x : MachineState} (h : St env σ C E s0 A 
     · exact h.facts f hf
     · exact hfs f hf, h.wmem, h.strs⟩
 
+/-- Fewer facts. -/
+theorem St.gc {C} {A : AState} {x : MachineState} (h : St env σ C E s0 A x) :
+    St env σ C E s0 A.gc x :=
+  ⟨h.holds, h.code, h.mem, h.heap, h.inv, h.slots,
+    fun f hf => h.facts f (List.mem_filter.mp hf).1, h.wmem, h.strs⟩
+
+theorem St.gcIf {C} {A : AState} {x : MachineState} (h : St env σ C E s0 A x) :
+    St env σ C E s0 A.gcIf x := by
+  unfold AState.gcIf
+  split
+  · exact h.gc
+  · exact h
+
 /-- The frame writers are not part of the invariant: the check of them is separate. -/
 theorem St.setFw {C} {A : AState} {x : MachineState} (h : St env σ C E s0 A x)
     (fw : List (AVal × AVal)) : St env σ C E s0 { A with fw := fw } x :=
@@ -892,14 +905,69 @@ theorem Facts.withSym {s0 : MachineState} (hF : Facts env σ E s0) :
   · rw [Fact.holds_withSym (hp.2.2.2 f hf)]; exact hF.pre f hf
 
 omit hsf in
-theorem AState.get_kill (A : AState) (i j : Nat) (r : Reg) :
-    (A.kill i j).get r = if (A.get r).mentions i j then .top else A.get r := by
+/-- A register of a state nothing of which mentions the symbol. -/
+theorem AState.get_not_mentions (A : AState) {i j : Nat} (hm : ¬ A.mentionsSym i j = true)
+    (r : Reg) : (A.get r).mentions i j = false := by
+  simp only [AState.mentionsSym, Bool.or_eq_true, List.any_eq_true, not_or] at hm
   by_cases h0 : r = .x0
   · subst h0; simp [AState.get, AVal.mentions]
-  · simp only [AState.get, h0, if_false, AState.kill, List.getD_eq_getElem?_getD, List.getElem?_map]
-    cases A.regs[regIdx r]? with
-    | none => simp [AVal.mentions]
-    | some v => simp
+  · simp only [AState.get, h0, if_false]
+    cases hv : A.regs[regIdx r]? with
+    | none => simp [List.getD_eq_getElem?_getD, hv, AVal.mentions]
+    | some v =>
+      rw [List.getD_eq_getElem?_getD, hv, Option.getD_some]
+      exact Bool.eq_false_iff.mpr fun h => hm.1.1.1 ⟨v, List.mem_of_getElem? hv, h⟩
+
+omit hsf in
+theorem AState.get_kill (A : AState) (i j : Nat) (r : Reg) :
+    (A.kill i j).get r = if (A.get r).mentions i j then .top else A.get r := by
+  unfold AState.kill
+  split
+  · by_cases h0 : r = .x0
+    · subst h0; simp [AState.get, AVal.mentions]
+    · simp only [AState.get, h0, if_false, List.getD_eq_getElem?_getD, List.getElem?_map]
+      cases A.regs[regIdx r]? with
+      | none => simp [AVal.mentions]
+      | some v => simp
+  · rename_i hm
+    rw [AState.get_not_mentions A hm r]; rfl
+
+omit hsf in
+theorem AState.kill_slots {A : AState} {i j : Nat} {p : Word × AVal} (hp : p ∈ (A.kill i j).slots) :
+    p ∈ A.slots ∧ p.2.mentions i j = false := by
+  unfold AState.kill at hp
+  split at hp
+  · have := List.mem_filter.mp hp
+    simpa using this
+  · rename_i hm
+    simp only [AState.mentionsSym, Bool.or_eq_true, List.any_eq_true, not_or] at hm
+    exact ⟨hp, Bool.eq_false_iff.mpr fun h => hm.1.1.2 ⟨p, hp, h⟩⟩
+
+omit hsf in
+theorem AState.kill_facts {A : AState} {i j : Nat} {f : Fact AVal} (hf : f ∈ (A.kill i j).facts) :
+    f ∈ A.facts ∧ f.mentionsSym i j = false := by
+  unfold AState.kill at hf
+  split at hf
+  · have := List.mem_filter.mp hf
+    simpa using this
+  · rename_i hm
+    simp only [AState.mentionsSym, Bool.or_eq_true, List.any_eq_true, not_or] at hm
+    exact ⟨hf, Bool.eq_false_iff.mpr fun h => hm.1.2 ⟨f, hf, h⟩⟩
+
+omit hsf in
+theorem AState.kill_wmem {A : AState} {i j : Nat} {p : AVal × AVal} (hp : p ∈ (A.kill i j).wmem) :
+    p ∈ A.wmem ∧ (p.1.mentions i j || p.2.mentions i j) = false := by
+  unfold AState.kill at hp
+  split at hp
+  · have := List.mem_filter.mp hp
+    simpa using this
+  · rename_i hm
+    simp only [AState.mentionsSym, Bool.or_eq_true, List.any_eq_true, not_or] at hm
+    exact ⟨hp, Bool.eq_false_iff.mpr fun h => hm.2 ⟨p, hp, by simpa using h⟩⟩
+
+omit hsf in
+theorem AState.kill_fw (A : AState) (i j : Nat) : (A.kill i j).fw = A.fw := by
+  unfold AState.kill; split <;> rfl
 
 omit hsf in
 /-- Forgetting what mentions a symbol keeps the invariant. -/
@@ -910,10 +978,10 @@ theorem St.kill {C : Word → Option Instr} {s0 : MachineState} {A : AState} {x 
   · rw [AState.get_kill]; split
     · trivial
     · exact h.holds.1 r
-  · exact h.holds.2 p (List.mem_filter.mp hp).1
-  · exact h.slots p (List.mem_filter.mp hp).1
-  · exact h.facts f (List.mem_filter.mp hf).1
-  · exact h.wmem p (List.mem_filter.mp hp).1
+  · exact h.holds.2 p (AState.kill_slots hp).1
+  · exact h.slots p (AState.kill_slots hp).1
+  · exact h.facts f (AState.kill_facts hf).1
+  · exact h.wmem p (AState.kill_wmem hp).1
 
 omit hsf in
 theorem AVal.holds_agree {V' : Nat → Nat → Word} {i j : Nat}
@@ -954,20 +1022,19 @@ theorem St.resym {C : Word → Option Instr} {s0 : MachineState} {A : AState} {x
     split at this
     · rename_i hm; rw [if_pos hm]; trivial
     · rename_i hm; rw [if_neg hm]; rw [AVal.holds_agree hV (by simpa using hm)]; exact this
-  · have hp' := (List.mem_filter.mp hp).2
-    simp only [Bool.not_eq_eq_eq_not, Bool.not_true] at hp'
+  · have hp' := (AState.kill_slots hp).2
     rw [show (E.withSym V') .x2 = E .x2 from rfl, AVal.holds_agree hV hp']
     exact h.holds.2 p hp
   · intro a ha hnw hno hns
     rw [Written_withSym hsf] at hnw
     rw [StrHit_withSym hsf] at hns
     exact h.mem a ha hnw hno hns
-  · have hf' := (List.mem_filter.mp hf).2
-    simp only [Bool.not_eq_eq_eq_not, Bool.not_true, Fact.mentionsSym] at hf'
+  · have hf' := (AState.kill_facts hf).2
+    simp only [Fact.mentionsSym] at hf'
     rw [← Fact.holds_congr _ (fun v : AVal => v.mentions i j) (fun v hv => (AVal.eval_agree hV hv).symm) hf']
     exact h.facts f hf
-  · have hp' := (List.mem_filter.mp hp).2
-    simp only [Bool.not_eq_eq_eq_not, Bool.not_true, Bool.or_eq_false_iff] at hp'
+  · have hp' := (AState.kill_wmem hp).2
+    simp only [Bool.or_eq_false_iff] at hp'
     obtain ⟨h1, h2, h3⟩ := h.wmem p hp
     rw [AVal.eval_agree hV hp'.1, FieldKey_withSym hsf, AVal.holds_agree hV hp'.2]
     exact ⟨h1, h2, h3⟩
@@ -976,15 +1043,68 @@ theorem St.resym {C : Word → Option Instr} {s0 : MachineState} {A : AState} {x
 /-! ### Forgetting an instruction's symbols -/
 
 omit hsf in
-theorem AState.get_killAll (A : AState) (i : Nat) (r : Reg) :
-    (A.killAll i).get r = if (A.get r).mentionsAt i then .top else A.get r := by
+theorem AState.get_not_mentionsAt (A : AState) {i : Nat} (hm : ¬ A.mentionsAt i = true)
+    (r : Reg) : (A.get r).mentionsAt i = false := by
+  simp only [AState.mentionsAt, Bool.or_eq_true, List.any_eq_true, not_or] at hm
   by_cases h0 : r = .x0
   · subst h0; simp [AState.get, AVal.mentionsAt]
-  · simp only [AState.get, h0, if_false, AState.killAll, List.getD_eq_getElem?_getD,
-      List.getElem?_map]
-    cases A.regs[regIdx r]? with
-    | none => simp [AVal.mentionsAt]
-    | some v => simp
+  · simp only [AState.get, h0, if_false]
+    cases hv : A.regs[regIdx r]? with
+    | none => simp [List.getD_eq_getElem?_getD, hv, AVal.mentionsAt]
+    | some v =>
+      rw [List.getD_eq_getElem?_getD, hv, Option.getD_some]
+      exact Bool.eq_false_iff.mpr fun h => hm.1.1.1 ⟨v, List.mem_of_getElem? hv, h⟩
+
+omit hsf in
+theorem AState.get_killAll (A : AState) (i : Nat) (r : Reg) :
+    (A.killAll i).get r = if (A.get r).mentionsAt i then .top else A.get r := by
+  unfold AState.killAll
+  split
+  · by_cases h0 : r = .x0
+    · subst h0; simp [AState.get, AVal.mentionsAt]
+    · simp only [AState.get, h0, if_false, List.getD_eq_getElem?_getD, List.getElem?_map]
+      cases A.regs[regIdx r]? with
+      | none => simp [AVal.mentionsAt]
+      | some v => simp
+  · rename_i hm
+    rw [AState.get_not_mentionsAt A hm r]; rfl
+
+omit hsf in
+theorem AState.killAll_slots {A : AState} {i : Nat} {p : Word × AVal} (hp : p ∈ (A.killAll i).slots) :
+    p ∈ A.slots ∧ p.2.mentionsAt i = false := by
+  unfold AState.killAll at hp
+  split at hp
+  · have := List.mem_filter.mp hp
+    simpa using this
+  · rename_i hm
+    simp only [AState.mentionsAt, Bool.or_eq_true, List.any_eq_true, not_or] at hm
+    exact ⟨hp, Bool.eq_false_iff.mpr fun h => hm.1.1.2 ⟨p, hp, h⟩⟩
+
+omit hsf in
+theorem AState.killAll_facts {A : AState} {i : Nat} {f : Fact AVal} (hf : f ∈ (A.killAll i).facts) :
+    f ∈ A.facts ∧ f.mentionsAt i = false := by
+  unfold AState.killAll at hf
+  split at hf
+  · have := List.mem_filter.mp hf
+    simpa using this
+  · rename_i hm
+    simp only [AState.mentionsAt, Bool.or_eq_true, List.any_eq_true, not_or] at hm
+    exact ⟨hf, Bool.eq_false_iff.mpr fun h => hm.1.2 ⟨f, hf, h⟩⟩
+
+omit hsf in
+theorem AState.killAll_wmem {A : AState} {i : Nat} {p : AVal × AVal} (hp : p ∈ (A.killAll i).wmem) :
+    p ∈ A.wmem ∧ (p.1.mentionsAt i || p.2.mentionsAt i) = false := by
+  unfold AState.killAll at hp
+  split at hp
+  · have := List.mem_filter.mp hp
+    simpa using this
+  · rename_i hm
+    simp only [AState.mentionsAt, Bool.or_eq_true, List.any_eq_true, not_or] at hm
+    exact ⟨hp, Bool.eq_false_iff.mpr fun h => hm.2 ⟨p, hp, by simpa using h⟩⟩
+
+omit hsf in
+theorem AState.killAll_fw (A : AState) (i : Nat) : (A.killAll i).fw = A.fw := by
+  unfold AState.killAll; split <;> rfl
 
 omit hsf in
 theorem St.killAll {C : Word → Option Instr} {s0 : MachineState} {A : AState} {x : MachineState}
@@ -994,10 +1114,10 @@ theorem St.killAll {C : Word → Option Instr} {s0 : MachineState} {A : AState} 
   · rw [AState.get_killAll]; split
     · trivial
     · exact h.holds.1 r
-  · exact h.holds.2 p (List.mem_filter.mp hp).1
-  · exact h.slots p (List.mem_filter.mp hp).1
-  · exact h.facts f (List.mem_filter.mp hf).1
-  · exact h.wmem p (List.mem_filter.mp hp).1
+  · exact h.holds.2 p (AState.killAll_slots hp).1
+  · exact h.slots p (AState.killAll_slots hp).1
+  · exact h.facts f (AState.killAll_facts hf).1
+  · exact h.wmem p (AState.killAll_wmem hp).1
 
 omit hsf in
 theorem AVal.holds_agreeAt {V' : Nat → Nat → Word} {i : Nat}
@@ -1038,21 +1158,20 @@ theorem St.resymAll {C : Word → Option Instr} {s0 : MachineState} {A : AState}
     split at this
     · rename_i hm; rw [if_pos hm]; trivial
     · rename_i hm; rw [if_neg hm]; rw [AVal.holds_agreeAt hV (by simpa using hm)]; exact this
-  · have hp' := (List.mem_filter.mp hp).2
-    simp only [Bool.not_eq_eq_eq_not, Bool.not_true] at hp'
+  · have hp' := (AState.killAll_slots hp).2
     rw [show (E.withSym V') .x2 = E .x2 from rfl, AVal.holds_agreeAt hV hp']
     exact h.holds.2 p hp
   · intro a ha hnw hno hns
     rw [Written_withSym hsf] at hnw
     rw [StrHit_withSym hsf] at hns
     exact h.mem a ha hnw hno hns
-  · have hf' := (List.mem_filter.mp hf).2
-    simp only [Bool.not_eq_eq_eq_not, Bool.not_true, Fact.mentionsAt] at hf'
+  · have hf' := (AState.killAll_facts hf).2
+    simp only [Fact.mentionsAt] at hf'
     rw [← Fact.holds_congr _ (fun v : AVal => v.mentionsAt i)
       (fun v hv => (AVal.eval_agreeAt hV hv).symm) hf']
     exact h.facts f hf
-  · have hp' := (List.mem_filter.mp hp).2
-    simp only [Bool.not_eq_eq_eq_not, Bool.not_true, Bool.or_eq_false_iff] at hp'
+  · have hp' := (AState.killAll_wmem hp).2
+    simp only [Bool.or_eq_false_iff] at hp'
     obtain ⟨h1, h2, h3⟩ := h.wmem p hp
     rw [AVal.eval_agreeAt hV hp'.1, FieldKey_withSym hsf, AVal.holds_agreeAt hV hp'.2]
     exact ⟨h1, h2, h3⟩
