@@ -161,6 +161,21 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   formats to stderr), then `rust_panic`, then `__rust_start_panic`, then
   `zkvm_set_abort_message`, then `sys_panic`, ending at `syscall_halt` with a nonzero code.
 
+  **Blocked on heap-typed specifications (phase E).** Every panic runs the payload's `get`
+  (`FormatStringPayload::get`, `0x7803c154`). It starts an empty `String` in its frame and
+  calls `core::fmt::write` with `String`'s `Write` vtable. The writes (`write_str`,
+  `write_char`) grow the buffer through `finish_grow`, `__rust_alloc` and `__rust_realloc`,
+  and store into the heap block at `ptr + len`. A sound "never accepts" needs memory safety
+  of that path. Otherwise a store could hit allocator metadata or a saved `ra`, and no
+  argument about the halt sites survives a wild return. That needs a `fmt::write`
+  specification that is generic in its writer: each `write_str`, and each argument's
+  `Display` (writing through the `Formatter`), keeps a "valid `String`" invariant that ties
+  a struct in the frame to a used heap block (`Rep`, `Live`). The checker's interfaces
+  cannot state that, since their footprints are frame, entry-relative and constant regions.
+  It is the per-caller heap reasoning that C4 already set below this goal's line.
+  What does not need it: the tail (`sys_panic` under `Owned.env`, from `SysWrite.holds` and
+  `Halt.holds`) and the `read_vec_raw` panic hand-off (`ReadVec.Panic`).
+
 **E/F (later).** A specification format for program logic, and the port of zip-2005's
 program proofs.
 
