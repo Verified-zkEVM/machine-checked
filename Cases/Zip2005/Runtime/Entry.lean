@@ -11,15 +11,13 @@
   words of `.rodata`, `memset` of the 73-byte buffer) and calls `main`.
 
   So the proof runs the executor on literal states (`xs`: one step, the untaken side of a
-  literal branch discharged by `decide`), reading `.bss` as zero (`bss0`), and uses
-  `memset`'s interface for its loop. `MainEntry` is what `main` gets: code, `ra`, `sp`,
-  `gp`, and every doubleword outside the hasher's buffer — the image's, with the 21 stores
-  of `stores`. In particular the protected statics and `.rodata` hold their load values, and
-  the heap is one free block covering the arena.
+  literal branch discharged by `decide`), reading `.bss` as zero (`bss0`); `memset` too is
+  run on its literal arguments. `MainEntry` is what `main` gets: code, `ra`, `sp`, `gp`, and
+  all of memory — the image's, with the 31 stores of `stores`. In particular the protected
+  statics and `.rodata` hold their load values, the heap is one free block covering the
+  arena, and the hasher is `Some`, at position zero.
 
-  What `main` does not get: the hasher buffer's contents (`memset`'s interface states its
-  footprint, not that it zeroes), and the machine's non-memory fields across that call
-  (`Post` does not carry the input stream).
+  The input stream reaches `main` untouched.
 -/
 
 import AsmVerif.RiscV.Exec.Tactic
@@ -94,7 +92,9 @@ macro "xn" : tactic => `(tactic| (
     BitVec.reduceNot, BitVec.reduceHShiftLeft, BitVec.reduceHShiftRight, BitVec.reduceShiftLeft,
     BitVec.reduceUShiftRight, BitVec.reduceSShiftRight, BitVec.reduceMul, BitVec.reduceNeg,
     BitVec.reduceExtractLsb', BitVec.reduceSetWidth, BitVec.reduceShiftLeftZeroExtend,
-    BitVec.reduceToNat, BitVec.truncate_eq_setWidth, Nat.reduceMod, signExtend12, signExtend13] at *
+    BitVec.reduceToNat, BitVec.truncate_eq_setWidth, Nat.reduceMod, Nat.reduceMul,
+    signExtend12, signExtend13, rv64_mulhu, MachineState.setByte, replaceByte, alignToDword,
+    byteOffset] at *
   try simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
     getMem_load, getReg_load, Loaded.stackTop_word, BitVec.reduceEq, if_true, if_false, reduceIte] at *
   try simp (disch := decide) only [bss0] at *))
@@ -111,8 +111,19 @@ macro "xs " c:term:max : tactic => `(tactic| (
 /-- The doublewords the entry run writes before `main`, latest first: `__start`'s and
     `Heap::init`'s stack slots; `INNER_HEAP`'s lock, its one free-list head and both bitmap
     words; the arena's one free block (header, links, end sentinel); the public-values
-    hasher's state word and its four initial words from `.rodata`. -/
+    hasher's `Some` tag, its four initial words from `.rodata`, and its zeroed buffer and
+    position. -/
 noncomputable def stores : List (Word × Word) := [
+  (0x780488a0#64, 0x0#64),
+  (0x78048898#64, 0x0#64),
+  (0x78048890#64, 0x0#64),
+  (0x78048888#64, 0x0#64),
+  (0x78048880#64, 0x0#64),
+  (0x78048878#64, 0x0#64),
+  (0x78048870#64, 0x0#64),
+  (0x78048868#64, 0x0#64),
+  (0x78048860#64, 0x0#64),
+  (0x78048858#64, 0x0#64),
   (0x78048850#64, Layout.image.memAt 0x780003d8#64),
   (0x78048848#64, Layout.image.memAt 0x780002c0#64),
   (0x78048840#64, Layout.image.memAt 0x78000318#64),
@@ -135,16 +146,16 @@ noncomputable def stores : List (Word × Word) := [
   (0x77ffffe8#64, 0x7801be44#64),
   (0x77fffff8#64, 0x7801bcec#64)]
 
-/-- Memory at `main`'s entry, outside the hasher's buffer: the image, with the run's stores. -/
+/-- Memory at `main`'s entry: the image, with the run's stores. -/
 noncomputable def initMem (a : Word) : Word := (stores.lookup a).getD (Layout.image.memAt a)
 
-/-- `main`'s entry state: the code is the image's, `ra` returns into `__start` (which halts
-    with `main`'s result), `sp` and `gp` are `_start`'s, and every doubleword outside the
-    hasher's zeroed buffer `[0x78048858, 0x780488a1)` holds `initMem`. -/
-def MainEntry (t : MachineState) : Prop :=
+/-- `main`'s entry state, for input `input`: the code is the image's, `ra` returns into
+    `__start` (which halts with `main`'s result), `sp` and `gp` are `_start`'s, memory is
+    `initMem`, and the input stream is untouched. -/
+def MainEntry (input : List (BitVec 8)) (t : MachineState) : Prop :=
   t.pc = 0x78019ff4#64 ∧ t.code = C ∧ t.getReg .x1 = 0x7801bea0#64 ∧
     t.getReg .x2 = 0x77fffff0#64 ∧ t.getReg .x3 = 0x78000800#64 ∧
-    ∀ a, Aligned a → ¬ Hits 0x78048858#64 0x49 a → t.getMem a = initMem a
+    (∀ a, t.getMem a = initMem a) ∧ t.privateInput = input
 
 /-! ## The protected regions are not written -/
 
@@ -174,76 +185,26 @@ theorem lookup_none {a : Word} {l : List (Word × Word)} (h : ∀ p ∈ l, a ≠
     simp only [List.lookup, hne]
     exact ih fun q hq => h q (List.mem_cons_of_mem _ hq)
 
+/-- Near a protected region, as a test. -/
+def nearProt (a : Word) : Bool :=
+  (decide (0x78000190 < a.toNat + 8) && decide (a.toNat < 0x78015938)) ||
+    (decide (0x78048920 < a.toNat + 8) && decide (a.toNat < 0x78048928)) ||
+    (decide (0x78048948 < a.toNat + 8) && decide (a.toNat < 0x78048960))
+
+theorem stores_far : (stores.map Prod.fst).all (fun k => !nearProt k) = true := by
+  decide +kernel
+
 /-- No store of the run reaches a protected key. -/
 theorem stores_not_prot {a : Word} (hp : Contract.env.InProt a) : stores.lookup a = none := by
-  have hr := prot_range hp
+  have hr : nearProt a = true := by
+    have := prot_range hp
+    simp only [nearProt, Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq]
+    omega
   apply lookup_none
-  intro p hp'
-  simp only [stores, List.mem_cons, List.mem_nil_iff, or_false] at hp'
-  rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  · intro h; rw [h] at hr; revert hr; decide
-
-/-- `Contract.env` owns no statics. -/
-theorem not_own {a : Word} : ¬ Contract.env.InOwn a := fun ⟨_, hR, _⟩ => by
-  simp [Contract.env] at hR
-
-/-! ## The `memset` call -/
-
-theorem memset_pre {s : MachineState} (hcode : s.code = C) (h2 : s.getReg .x2 = 0x77fffff0#64)
-    (h10 : s.getReg .x10 = 0x78048858#64) (h12 : s.getReg .x12 = 0x49#64)
-    (hmem : ∀ a, s.getMem a = initMem a) : Pre Contract.env C Memset.iface s := by
-  refine ⟨hcode, Nat.zero_le _, by rw [h2]; decide, by unfold Aligned; rw [h2]; decide, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · intro a _ hp
-    rw [hmem, initMem, stores_not_prot hp]
-    rfl
-  · intro it hit a _ hh
-    simp only [Memset.iface, List.mem_singleton] at hit
-    subst hit
-    simp only [Item.Hits, AVal.eval, Len.eval, regsOf, h10, h12] at hh
-    refine ⟨by simp [InWin, Hits, Memset.iface], fun hp => ?_, not_own⟩
-    have hr := prot_range hp
-    have := a.isLt
-    simp only [Hits] at hh
-    bv_omega
-  · simp [Memset.iface]
-  · simp [Memset.iface]
-  · simp [Memset.iface]
-  · trivial
-
-theorem memset_post {s t : MachineState} (h10 : s.getReg .x10 = 0x78048858#64)
-    (h12 : s.getReg .x12 = 0x49#64) (hpost : Post Contract.env Memset.iface s t) {a : Word} (ha : Aligned a)
-    (hh : ¬ Hits 0x78048858#64 0x49 a) : t.getMem a = s.getMem a := by
-  refine hpost.2.2.2.1 a ha ?_ not_own
-  rintro (hw | ⟨it, hit, hh'⟩)
-  · simp [InWin, Hits, Memset.iface] at hw
-  · simp only [Memset.iface, List.mem_singleton] at hit
-    subst hit
-    simp only [Item.Hits, AVal.eval, Len.eval, regsOf, h10, h12] at hh'
-    exact hh (by simpa using hh')
-
-/-- From `__start`'s call of `memset` (the hasher's buffer) to `main`'s entry. -/
-theorem after_memset {G : MachineState → Prop} (hG : ∀ x, G x → Contract.env.Cfi x) {P : Prop}
-    {n : Nat} (hk : ∀ t, MainEntry t → SafeN G n P t) {s : MachineState}
-    (hpc : s.pc = 0x7803f57c#64) (hcode : s.code = C) (h1 : s.getReg .x1 = 0x7801be98#64)
-    (h2 : s.getReg .x2 = 0x77fffff0#64) (h3 : s.getReg .x3 = 0x78000800#64)
-    (h10 : s.getReg .x10 = 0x78048858#64) (h12 : s.getReg .x12 = 0x49#64)
-    (hmem : ∀ a, s.getMem a = initMem a) : SafeN G n P s := by
-  apply Runtime.Memset.holds Contract.env n G hG P s hpc (memset_pre hcode h2 h10 h12 hmem)
-  intro t ht
-  have htpc : t.pc = 0x7801be98#64 := by rw [ht.2.1, h1]; decide
-  have htc : t.code = C := ht.2.2.2.2.1.trans hcode
-  have ht2 : t.getReg .x2 = 0x77fffff0#64 := (ht.2.2.1 .x2 (by simp [savedRegs])).trans h2
-  have ht3 : t.getReg .x3 = 0x78000800#64 := (ht.2.2.1 .x3 (by simp [savedRegs])).trans h3
-  rw [← setPC_self htpc]
-  xs startF_code
-  xs startF_code
-  refine hk _ ⟨rfl, by simpa using htc, ?_, ?_, ?_, fun a ha hh => ?_⟩
-  · xregs
-  · xregs; exact ht2
-  · xregs; exact ht3
-  · simp only [MachineState.getMem_setReg, MachineState.getMem_setPC]
-    rw [memset_post h10 h12 ht ha hh, hmem]
+  intro p hp' he
+  have := List.all_eq_true.mp stores_far p.1 (List.mem_map_of_mem hp')
+  rw [← he, hr] at this
+  cases this
 
 /-! ## D1: from the loaded image to `main` -/
 
@@ -252,8 +213,7 @@ theorem after_memset {G : MachineState → Prop} (hG : ∀ x, G x → Contract.e
     and enters `main` in `MainEntry`. Whatever is safe from every such entry is safe from
     the load. -/
 theorem entry (input : List (BitVec 8)) {G : MachineState → Prop}
-    (hG : ∀ x, G x → Contract.env.Cfi x) {P : Prop} {n : Nat}
-    (hk : ∀ t, MainEntry t → SafeN G n P t) : SafeN G n P (Layout.image.state input) := by
+    {P : Prop} {n : Nat} (hk : ∀ t, MainEntry input t → SafeN G n P t) : SafeN G n P (Layout.image.state input) := by
   have hcode : (Layout.image.state input).code = C := rfl
   have hpc : (Layout.image.state input).pc = 0x7801bcd0#64 := rfl
   rw [← setPC_self hpc]
@@ -261,11 +221,15 @@ theorem entry (input : List (BitVec 8)) {G : MachineState → Prop}
   iterate 4 xs startF_code
   iterate 11 xs initF_code
   repeat (first | xs heapInitF_code | xs dumpF_code | xs startF_code)
-  refine after_memset hG hk rfl ?_ ?_ ?_ ?_ ?_ ?_ ?_
+  repeat (first | xs Memset.code | xs startF_code)
+  refine hk _ ⟨rfl, ?_, ?_, ?_, ?_, fun a => ?_, ?_⟩
   · simp only [MachineState.code_setReg, MachineState.code_setPC, MachineState.code_setMem]
     exact hcode
   all_goals try xregs
-  intro a
+  rotate_left
+  · simp only [MachineState.privateInput_setReg, MachineState.privateInput_setMem,
+      MachineState.privateInput_setPC]
+    rfl
   simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
     getMem_load, initMem, stores, lookup_cons_getD, List.lookup_nil, Option.getD_none]
   rfl
@@ -273,29 +237,27 @@ theorem entry (input : List (BitVec 8)) {G : MachineState → Prop}
 /-! ## What `MainEntry` gives -/
 
 /-- `.rodata` and the protected statics hold their load values at `main`'s entry. -/
-theorem MainEntry.prot {t : MachineState} (h : MainEntry t) {a : Word} (ha : Aligned a)
+theorem MainEntry.prot {input : List (BitVec 8)} {t : MachineState} (h : MainEntry input t) {a : Word}
     (hp : Contract.env.InProt a) : t.getMem a = Contract.env.init a := by
-  have hr := prot_range hp
-  have := a.isLt
-  rw [h.2.2.2.2.2 a ha (by simp only [Hits]; bv_omega), initMem, stores_not_prot hp]
+  rw [h.2.2.2.2.2.1 a, initMem, stores_not_prot hp]
   rfl
 
 /-- Neither hook is installed at `main`'s entry (C3's `HooksUnset`). -/
-theorem MainEntry.hooksUnset {t : MachineState} (h : MainEntry t) : Statics.HooksUnset t :=
-  ⟨fun _ hal hm => (h.prot hal (Env.inProt_of_mem Statics.allocHook_prot hm)).trans
+theorem MainEntry.hooksUnset {input : List (BitVec 8)} {t : MachineState} (h : MainEntry input t) : Statics.HooksUnset t :=
+  ⟨fun _ hal hm => (h.prot (Env.inProt_of_mem Statics.allocHook_prot hm)).trans
       (Statics.allocHook_zero hal hm),
-   fun _ hal hm => (h.prot hal (Env.inProt_of_mem Statics.panicHook_prot hm)).trans
+   fun _ hal hm => (h.prot (Env.inProt_of_mem Statics.panicHook_prot hm)).trans
       (Statics.panicHook_zero hal hm)⟩
 
 /-- The arena's one free block: its header holds its size, `0x1b87fb7660` bytes, and the
     end sentinel `0x23` points back at it; its size class's list head is the block. -/
-theorem MainEntry.heap {t : MachineState} (h : MainEntry t) :
+theorem MainEntry.heap {input : List (BitVec 8)} {t : MachineState} (h : MainEntry input t) :
     t.getMem 0x78048980#64 = 0x1b87fb7660#64 ∧ t.getMem 0x1bffffffe0#64 = 0x23#64 ∧
     t.getMem 0x1bffffffe8#64 = 0x78048980#64 ∧ t.getMem 0x78044598#64 = 0x78048980#64 ∧
     t.getMem 0x78040620#64 = 0#64 := by
-  have hm := h.2.2.2.2.2
+  have hm := h.2.2.2.2.2.1
   refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;>
-  · rw [hm _ (by unfold Aligned; decide) (by simp only [Hits]; decide)]
+  · rw [hm]
     rfl
 
 end Cases.Zip2005.Runtime.Entry

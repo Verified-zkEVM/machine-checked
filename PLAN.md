@@ -109,13 +109,11 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
 - D0. Port zip-2005's symbolic executor to step-indexed `SafeN` and make it generic.
 - D1. Entry: from `image.state` to `main`'s entry, with stack, heap and statics as
   `main`'s specification needs them. **Done.** `Runtime.Entry.entry`: from the loaded state,
-  `SafeN` at every `MainEntry` state gives `SafeN` at load. The path is all constants, so the
-  executor runs it on literal states (`_start`, `__start`, the allocator's `init`,
-  `Heap::init` inlined; `memset` through its interface). `MainEntry` fixes code, `ra`, `sp`,
-  `gp` and every doubleword outside the hasher buffer (the image plus the run's 21 stores);
-  corollaries give the protected regions, `HooksUnset` and the heap's one free block. Gaps:
-  the hasher buffer's contents (`memset`'s interface states no contents) and the input
-  stream across a verified call (`Post` covers registers and memory only).
+  `SafeN` at every `MainEntry input` state gives `SafeN` at load. The path is all constants,
+  so the executor runs it on literal states (`_start`, `__start`, the allocator's `init`,
+  `Heap::init` and `memset` inlined). `MainEntry` fixes code, `ra`, `sp`, `gp`, all of
+  memory (the image plus the run's 31 stores) and the input stream; corollaries give the
+  protected regions, `HooksUnset` and the heap's one free block.
 - D2. Syscall wrappers: `syscall_halt` (rejects for a nonzero code), `syscall_write`,
   `read_vec_raw`, and the precompile wrappers.
 - D3. libc: `memcpy`, `memset` (and `memmove`, `memcmp` if reachable), with footprints for

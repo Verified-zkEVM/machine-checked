@@ -70,4 +70,50 @@ theorem Pre.regionOk {R : Region} (hR : (R.base, R.len) ∈ env.prot) (hpre : Pr
     RegionOk R env.init s :=
   fun a ha hm => hpre.2.2.2.2.1 a ha (Env.inProt_of_mem hR hm)
 
+/-! ## Owned statics: lifting interfaces that do not touch them -/
+
+/-- The same program without owned statics: nothing owned, nothing to keep. -/
+def Env.plain (env : Env) : Env := { env with own := [], inv := fun _ => True }
+
+theorem Env.plain_not_own (env : Env) {a : Word} : ¬ env.plain.InOwn a := fun ⟨_, hR, _⟩ => by
+  simp [Env.plain] at hR
+
+theorem Env.plain_wf {env : Env} (hwf : env.wf = true) : env.plain.wf = true := by
+  simp only [Env.wf, Bool.and_eq_true] at hwf ⊢
+  exact ⟨hwf.1, by simp [Env.plain]⟩
+
+/-- A precondition for the owning `Env` is one for the plain one. -/
+theorem Pre.plain (hpre : Pre env C σ s) : Pre env.plain C σ s :=
+  ⟨hpre.1, hpre.2.1, hpre.2.2.1, hpre.2.2.2.1, hpre.2.2.2.2.1,
+    fun it hit a ha hh => ⟨(hpre.2.2.2.2.2.1 it hit a ha hh).1,
+      (hpre.2.2.2.2.2.1 it hit a ha hh).2.1, Env.plain_not_own env⟩,
+    hpre.2.2.2.2.2.2.1, hpre.2.2.2.2.2.2.2.1,
+    fun c hc => let h := hpre.2.2.2.2.2.2.2.2.1 c hc; ⟨h.1, h.2.1, Env.plain_not_own env, h.2.2.2⟩,
+    trivial⟩
+
+/-- What a function entered under the owning `Env`'s precondition may write is not owned. -/
+theorem Pre.not_written_own (hwf : env.wf = true) (hpre : Pre env C σ s) {a : Word}
+    (ha : Aligned a) (ho : env.InOwn a) : ¬ Written σ (regsOf s) a := by
+  rintro (hw | ⟨it, hit, hh⟩)
+  · exact not_own_of_inWin hwf hpre.2.2.1 hpre.2.1 hw ho
+  · exact (hpre.2.2.2.2.2.1 it hit a ha hh).2.2 ho
+
+/-- A return under the plain `Env` is one under the owning `Env`: the function wrote no
+    owned key, so the invariant still holds. -/
+theorem Post.lift (hwf : env.wf = true) (hpre : Pre env C σ s) (h : Post env.plain σ s t) :
+    Post env σ s t :=
+  ⟨h.1, h.2.1, h.2.2.1, fun a ha hnw _ => h.2.2.2.1 a ha hnw (Env.plain_not_own env),
+    h.2.2.2.2.1, Env.Inv_congr (fun a ha ho =>
+      h.2.2.2.1 a ha (Pre.not_written_own hwf hpre ha ho) (Env.plain_not_own env))
+      hpre.2.2.2.2.2.2.2.2.2⟩
+
+/-- **Lifting.** An interface proved without owned statics holds with them: its footprint
+    and window avoid them (the owning precondition says so), so it keeps the invariant.
+    Only functions that write owned statics need proofs against the invariant. -/
+theorem Iface.HoldsN.lift {n : Nat} (hwf : env.wf = true) (h : σ.HoldsN env.plain C n) :
+    σ.HoldsN env C n :=
+  fun G hG P s hpc hpre hk =>
+    h G (fun x hx => by simpa [Env.Cfi, Env.plain] using hG x hx) P s hpc hpre.plain
+      (fun t ht => hk t (Post.lift hwf hpre ht))
+
 end AsmVerif.RiscV.Check
