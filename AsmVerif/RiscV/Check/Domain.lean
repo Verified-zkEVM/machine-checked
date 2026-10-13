@@ -17,25 +17,36 @@
       register.
     * `nz`: values that must be nonzero at entry (an exit code that reaches `HALT`).
     * `returns`: whether it can return at all.
+    * `strs`: the writers it is lent (`Check.Model`); `pre`, `post`: facts it needs at
+      entry and gives at return; `heap`: whether it may change the heap's structure.
 
   Running from its entry in a state that satisfies the precondition, it does not accept,
   and if it returns it does so to `ra` with `sp`, `gp`, `tp`, `s0`-`s11` restored and
-  memory outside window and footprint unchanged.
+  memory outside window, footprint and writers unchanged.
 
   ## The checker
 
-  It reuses `Frame`'s abstract states (entry-register-relative values, frame slots). The
-  differences from `Frame` are what a store and a call owe:
+  It reuses `Frame`'s abstract states (entry-register-relative values, frame slots), with
+  *symbols* for values known only through *facts* (`Check.Fact`): a value an instruction
+  computes from unknowns is a fresh symbol with the fact that it is that operation's
+  result; a branch adds the comparison it decided; certificates in the context derive
+  more. A symbol is named by the instruction that made it and killed wherever it is
+  remade (loops). At a jump, the target annotation's symbols named by the target are its
+  own: they stand for whatever the source state has in their place.
 
-    * a store through `sp` must land in the window; any other store must be covered by a
-      footprint item. Nothing else: the precondition says footprint items avoid the window,
-      so no store can hit a frame slot; and they avoid the `Env`'s protected regions, so
-      those keep their load-time contents;
+  What a store and a call owe:
+
+    * a store through `sp` must land in the window; a store elsewhere must be covered by a
+      footprint item, be a field of a writer the function has (the field's new content is
+      tracked, `wmem`), or land in a writer's buffer (`ptr ≤ a`, `a + n ≤ ptr + cap` by the
+      facts; `Env.Ok` says such keys keep the module invariant);
     * a call instantiates the callee's interface with the caller's abstract registers. Its
       window must fit under the caller's, its footprint items must be covered by the
-      caller's (or lie in the caller's frame, above the callee's stack pointer), and its
-      `nz` values must be nonzero constants or the caller's own `nz`. Slots outside
-      everything the callee may write survive the call.
+      caller's (or lie in the caller's frame, above the callee's stack pointer), its `nz`
+      values must be nonzero constants or the caller's own `nz`, its `pre` facts must be
+      among the caller's, and its writers must be ones the caller has, well-typed now.
+      After the call the callee's return registers and the fields of the writers it was
+      lent are fresh symbols, with the callee's `post` facts and the writers' invariants.
 -/
 
 import AsmVerif.RiscV.Check.Model
@@ -48,13 +59,76 @@ open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
     take the given values, the others their entry values. The compact form certificates are
     written in. -/
 def _root_.AsmVerif.RiscV.Frame.AState.ofDiff (regs : List (Reg × AVal))
-    (slots : List (Word × AVal)) : AState :=
-  { regs := allRegs.map fun r => (regs.lookup r).getD (.lin r 0), slots }
+    (slots : List (Word × AVal)) (facts : List (Fact AVal) := []) (wmem : List (AVal × AVal) := [])
+    (fw : List (AVal × AVal) := []) : AState :=
+  { regs := allRegs.map fun r => (regs.lookup r).getD (.lin r 0), slots, facts, wmem, fw }
 
 /-- An abstract state given by its known registers; the others are unknown. -/
 def _root_.AsmVerif.RiscV.Frame.AState.ofKnown (regs : List (Reg × AVal))
-    (slots : List (Word × AVal)) : AState :=
-  { regs := allRegs.map fun r => (regs.lookup r).getD .top, slots }
+    (slots : List (Word × AVal)) (facts : List (Fact AVal) := []) (wmem : List (AVal × AVal) := [])
+    (fw : List (AVal × AVal) := []) : AState :=
+  { regs := allRegs.map fun r => (regs.lookup r).getD .top, slots, facts, wmem, fw }
+
+/-! ## Values -/
+
+
+/-- A value with one concretization: entry-relative, loaded through an entry pointer,
+    constant, or a symbol. -/
+def _root_.AsmVerif.RiscV.Frame.AVal.isPtr : AVal → Bool
+  | .lin _ _ | .const _ | .cell _ _ _ | .sym _ _ _ => true
+  | _ => false
+
+/-- Symbol `j` of instruction `i`, at any offset. -/
+def _root_.AsmVerif.RiscV.Frame.AVal.mentions (i j : Nat) : AVal → Bool
+  | .sym i' j' _ => i == i' && j == j'
+  | _ => false
+
+/-- Any symbol of instruction `i`. -/
+def _root_.AsmVerif.RiscV.Frame.AVal.mentionsAt (i : Nat) : AVal → Bool
+  | .sym i' _ _ => i == i'
+  | _ => false
+
+def _root_.AsmVerif.RiscV.Frame.AVal.symFree : AVal → Bool
+  | .sym _ _ _ => false
+  | _ => true
+
+/-- The value without its offset, and the offset. -/
+def _root_.AsmVerif.RiscV.Frame.AVal.base : AVal → AVal × Word
+  | .lin r k => (.lin r 0, k)
+  | .const c => (.const 0, c)
+  | .cell r ks k => (.cell r ks 0, k)
+  | .sym i j k => (.sym i j 0, k)
+  | v => (v, 0)
+
+/-- Replace the symbols made at `j` by `θ`, keeping offsets. -/
+def _root_.AsmVerif.RiscV.Frame.AVal.substSym (j : Nat) (θ : List (Nat × AVal)) : AVal → AVal
+  | .sym i k off =>
+    if i = j then
+      match θ.lookup k with
+      | some v => v.addK off
+      | none => .sym i k off
+    else .sym i k off
+  | v => v
+
+def _root_.AsmVerif.RiscV.Frame.AVal.constVal : AVal → Word
+  | .const c => c
+  | _ => 0
+
+def _root_.AsmVerif.RiscV.Frame.AVal.isConst : AVal → Bool
+  | .const _ => true
+  | _ => false
+
+
+/-- A value as a linear term: constants by their value. -/
+def LinTerm.ofVal : AVal → LinTerm AVal
+  | .const c => LinTerm.ofNat c.toNat
+  | v => LinTerm.var v
+
+def Fact.mentionsSym (i j : Nat) (f : Fact AVal) : Bool := f.any (·.mentions i j)
+def Fact.mentionsAt (i : Nat) (f : Fact AVal) : Bool := f.any (·.mentionsAt i)
+def Fact.symFree (f : Fact AVal) : Bool := !f.any (fun v => !v.symFree)
+def Fact.substSym (j : Nat) (θ : List (Nat × AVal)) (f : Fact AVal) : Fact AVal :=
+  f.map (AVal.substSym j θ)
 
 /-! ## Footprints -/
 
@@ -120,6 +194,14 @@ structure Cell where
   vals : Option (List Word) := none
   deriving DecidableEq, Repr
 
+/-- A variable of a postcondition: an entry value, the exit value of a register, or the
+    doubleword at an entry-relative address at exit. -/
+inductive PVal where
+  | ent (v : AVal)
+  | ret (r : Reg)
+  | out (a : AVal)
+  deriving DecidableEq, Repr, Inhabited
+
 structure Iface where
   entry : Word
   depth : Nat
@@ -134,21 +216,13 @@ structure Iface where
   /-- The writers the function is lent: each a pointer and a kind (`Env.model`), in terms
       of the entry registers. At entry they are well-typed; at return they are again. -/
   strs : List (AVal × AVal) := []
+  /-- Facts over the entry values the function needs. -/
+  pre : List (Fact AVal) := []
+  /-- Facts it gives at return. -/
+  post : List (Fact PVal) := []
+  /-- Whether it may change the heap's structure (allocate or free). -/
+  heap : Bool := false
   deriving DecidableEq, Repr
-
-/-- The abstract state at entry: every register its own entry value, except those `vals`
-    restricts to a set of constants. -/
-def Iface.entryState (σ : Iface) : AState :=
-  { regs := allRegs.map fun r => match σ.vals.lookup r with
-      | some cs => .oneOf cs
-      | none => .lin r 0
-    slots := [] }
-
-/-- A value that can be a store's base or a footprint item's: entry-relative, loaded through
-    an entry pointer, or constant. -/
-def _root_.AsmVerif.RiscV.Frame.AVal.isPtr : AVal → Bool
-  | .lin _ _ | .const _ | .cell _ _ _ => true
-  | _ => false
 
 /-- The value of a declared cell: the symbolic load. Its candidates, if declared, are
     found from it (`cands`): the value keeps saying where it came from. -/
@@ -202,6 +276,7 @@ def root? (σ : Iface) : AVal → Option (AVal × List Word)
   | .const c => some (.const c, [c])
   | .oneOf cs => some (.oneOf cs, cs)
   | .top => none
+  | .sym _ _ _ => none
 
 /-- Follow a path of loads through protected memory. -/
 def derefProt (env : Env) : Word → List Word → Option Word
@@ -272,6 +347,73 @@ def wbytes : Width → Nat
 def winOk (D : Nat) (k : Word) (w : Width) : Bool :=
   decide (wbytes w ≤ negOff k) && decide (negOff k ≤ D)
 
+/-! ## Facts and symbols -/
+
+/-- The facts true of the values by what they are: a constant's value, the offset of a
+    value from its base, and a frame address's distance from the top of the stack. -/
+def axOk (env : Env) (σ : Iface) : Fact AVal → Bool
+  | .le ⟨[(.const c, 1)], 0⟩ ⟨[], n⟩ => n == c.toNat
+  | .le ⟨[], n⟩ ⟨[(.const c, 1)], 0⟩ => n == c.toNat
+  | .le ⟨[(.lin .x2 k, 1)], m⟩ ⟨[], n⟩ =>
+      m == negOff k && decide (negOff k ≤ σ.depth) && n == env.stackTop
+  | .op .add v [b, .const off] => v.isPtr && (b, off) == v.base
+  | .le l r => l == r
+  | _ => false
+
+/-- The theory certificates run in: the model's rules and the axioms. -/
+def thy (env : Env) (σ : Iface) : Thy AVal := { rules := env.model.rules, ax := axOk env σ }
+
+
+/-- Forget everything that mentions symbol `j` of instruction `i`: before it is remade. -/
+def _root_.AsmVerif.RiscV.Frame.AState.kill (i j : Nat) (A : AState) : AState :=
+  { regs := A.regs.map fun v => if v.mentions i j then .top else v
+    slots := A.slots.filter fun p => !p.2.mentions i j
+    facts := A.facts.filter fun f => !f.mentionsSym i j
+    wmem := A.wmem.filter fun p => !(p.1.mentions i j || p.2.mentions i j)
+    fw := A.fw }
+
+/-- Forget everything that mentions a symbol of instruction `i`: before they are remade. -/
+def _root_.AsmVerif.RiscV.Frame.AState.killAll (i : Nat) (A : AState) : AState :=
+  { regs := A.regs.map fun v => if v.mentionsAt i then .top else v
+    slots := A.slots.filter fun p => !p.2.mentionsAt i
+    facts := A.facts.filter fun f => !f.mentionsAt i
+    wmem := A.wmem.filter fun p => !(p.1.mentionsAt i || p.2.mentionsAt i)
+    fw := A.fw }
+
+def _root_.AsmVerif.RiscV.Frame.AState.addFacts (A : AState) (fs : List (Fact AVal)) : AState := { A with facts := A.facts ++ fs }
+
+/-- Replace the symbols made at `j`. -/
+def _root_.AsmVerif.RiscV.Frame.AState.subst (j : Nat) (θ : List (Nat × AVal)) (A : AState) : AState :=
+  { regs := A.regs.map (AVal.substSym j θ)
+    slots := A.slots.map fun p => (p.1, p.2.substSym j θ)
+    facts := A.facts.map (·.substSym j θ)
+    wmem := A.wmem.map fun p => (p.1.substSym j θ, p.2.substSym j θ)
+    fw := A.fw }
+
+
+/-- What the symbols made at `j` in `C` stand for in `B`: the value `B` has where `C` has
+    the symbol, in a register or a slot. -/
+def phiOf (j : Nat) (B C : AState) : List (Nat × AVal) :=
+  (allRegs.filterMap fun r => match C.get r with
+    | .sym i k off => if i = j ∧ (B.get r).isPtr then some (k, (B.get r).addK (0 - off)) else none
+    | _ => none) ++
+  C.slots.filterMap fun p => match p.2 with
+    | .sym i k off =>
+      if i = j then (B.slots.lookup p.1).bind fun v =>
+        if v.isPtr then some (k, v.addK (0 - off)) else none
+      else none
+    | _ => none
+
+/-- `B ≤ C` as the state at instruction `j`: every fact of `C`, its symbols standing for
+    what `B` has in their place, is a fact of `B`. -/
+def leAt (j : Nat) (B C : AState) : Bool :=
+  let C := C.subst j (phiOf j B C)
+  allRegs.all (fun r => (B.get r).le (C.get r)) &&
+  C.slots.all (fun p => B.slots.contains p) &&
+  C.facts.all B.facts.contains &&
+  C.wmem.all (fun p => B.wmem.any fun q => q.1 == p.1 && q.2.le p.2) &&
+  C.fw.all B.fw.contains
+
 /-! ## Straight-line instructions -/
 
 /-- The value a load produces: a frame slot, a protected doubleword, or unknown. -/
@@ -287,17 +429,206 @@ def loadVal (env : Env) (σ : Iface) (kn : Kn) (A : AState) (b : AVal) (isD : Bo
         | none => match kn.cells.lookup b with
           -- a stable doubleword of one of the function's writers
           | some v => v
-          -- a load through a value with candidates, all protected: the symbolic load, whose
-          -- candidates follow
-          | none => match cands env σ kn b with
-            | some cs => if cs.all env.protKey then b.cellOf.getD .top else .top
-            | none => .top
+          | none => match A.wmem.lookup b with
+            -- a field of a writer, as last stored
+            | some v => v
+            -- a load through a value with candidates, all protected: the symbolic load, whose
+            -- candidates follow
+            | none => match cands env σ kn b with
+              | some cs => if cs.all env.protKey then b.cellOf.getD .top else .top
+              | none => .top
   else .top
 
-/-- A store: through the frame (slots updated), or covered by the footprint. `none` if
-    neither. -/
-def storeStep (σ : Iface) (A : AState) (rs1 rs2 : Reg) (off : BitVec 12) (w : Width) :
+/-- What a narrow unsigned load is bounded by. -/
+def loadBound (i : Instr) (s : AVal) : List (Fact AVal) :=
+  match i with
+  | .LBU _ _ _ => [.le (.var s) (.ofNat 255)]
+  | .LHU _ _ _ => [.le (.var s) (.ofNat 65535)]
+  | .LWU _ _ _ => [.le (.var s) (.ofNat (2 ^ 32 - 1))]
+  | _ => []
+
+/-- The operation an ALU instruction computes, with its operands in `A`. -/
+def aluOp (A : AState) : Instr → Option (Reg × Op × List AVal)
+  | .ADD rd rs1 rs2 => some (rd, .add, [A.get rs1, A.get rs2])
+  | .ADDI rd rs imm => some (rd, .add, [A.get rs, .const (signExtend12 imm)])
+  | .SUB rd rs1 rs2 => some (rd, .sub, [A.get rs1, A.get rs2])
+  | .AND rd rs1 rs2 => some (rd, .and, [A.get rs1, A.get rs2])
+  | .ANDI rd rs imm => some (rd, .and, [A.get rs, .const (signExtend12 imm)])
+  | .OR rd rs1 rs2 => some (rd, .or, [A.get rs1, A.get rs2])
+  | .ORI rd rs imm => some (rd, .or, [A.get rs, .const (signExtend12 imm)])
+  | .XOR rd rs1 rs2 => some (rd, .xor, [A.get rs1, A.get rs2])
+  | .XORI rd rs imm => some (rd, .xor, [A.get rs, .const (signExtend12 imm)])
+  | .SLTU rd rs1 rs2 => some (rd, .sltu, [A.get rs1, A.get rs2])
+  | .SLTIU rd rs imm => some (rd, .sltu, [A.get rs, .const (signExtend12 imm)])
+  | .SLT rd rs1 rs2 => some (rd, .slt, [A.get rs1, A.get rs2])
+  | .SLTI rd rs imm => some (rd, .slt, [A.get rs, .const (signExtend12 imm)])
+  | .SLLI rd rs sh => some (rd, .shl sh.toNat, [A.get rs])
+  | .SRLI rd rs sh => some (rd, .shr sh.toNat, [A.get rs])
+  | .SRAI rd rs sh => some (rd, .sra sh.toNat, [A.get rs])
+  | .SLL rd rs1 rs2 => match A.get rs2 with
+    | .const c => some (rd, .shl (c.toNat % 64), [A.get rs1])
+    | _ => none
+  | .SRL rd rs1 rs2 => match A.get rs2 with
+    | .const c => some (rd, .shr (c.toNat % 64), [A.get rs1])
+    | _ => none
+  | .SRA rd rs1 rs2 => match A.get rs2 with
+    | .const c => some (rd, .sra (c.toNat % 64), [A.get rs1])
+    | _ => none
+  | .MUL rd rs1 rs2 => some (rd, .mul, [A.get rs1, A.get rs2])
+  | .MULHU rd rs1 rs2 => some (rd, .mulhu, [A.get rs1, A.get rs2])
+  | .DIVU rd rs1 rs2 => some (rd, .divu, [A.get rs1, A.get rs2])
+  | .REMU rd rs1 rs2 => some (rd, .remu, [A.get rs1, A.get rs2])
+  | .ADDIW rd rs imm => some (rd, .addw, [A.get rs, .const (signExtend12 imm)])
+  | .SUBW rd rs1 rs2 => some (rd, .subw, [A.get rs1, A.get rs2])
+  | .SLLIW rd rs sh => some (rd, .shlw sh.toNat, [A.get rs])
+  | .SRLIW rd rs sh => some (rd, .shrw sh.toNat, [A.get rs])
+  | .SRLW rd rs1 rs2 => match A.get rs2 with
+    | .const c => some (rd, .shrw (c.toNat % 32), [A.get rs1])
+    | _ => none
+  | _ => none
+
+/-- An ALU instruction: `Frame`'s value if it has one; else the operation on constants;
+    else a fresh symbol with the operation as a fact, if the operands are known. -/
+def aluStep (pc : Word) (A : AState) (i : Instr) : Option AState :=
+  match aluResult pc A i with
+  | none => none
+  | some (rd, v) =>
+    if v != .top then some (A.set rd v) else
+    match aluOp A i with
+    | none => some (A.set rd .top)
+    | some (_, o, args) =>
+      if args.all AVal.isConst then some (A.set rd (.const (o.eval (args.map AVal.constVal))))
+      else
+        let A := A.kill pc.toNat 0
+        match aluOp A i with
+        | some (_, o, args) =>
+          if args.all AVal.isPtr then
+            let s := AVal.sym pc.toNat 0 0
+            some ((A.set rd s).addFacts [.op o s args])
+          else some (A.set rd .top)
+        | none => some (A.set rd .top)
+
+/-- A load: its value if known, else a fresh symbol, bounded if the load is narrow. -/
+def loadStep (env : Env) (σ : Iface) (kn : Kn) (pc : Word) (A : AState) (i : Instr) (rd rs : Reg)
+    (off : BitVec 12) (isD : Bool) : AState :=
+  let v := loadVal env σ kn A ((A.get rs).addK (signExtend12 off)) isD
+  if v != .top then A.set rd v else
+  let A := A.kill pc.toNat 0
+  let s := AVal.sym pc.toNat 0 0
+  (A.set rd s).addFacts (loadBound i s)
+
+/-! ### Writers' fields -/
+
+/-- The kind a constant denotes. -/
+def kindOf (env : Env) : AVal → Option Kind
+  | .const K => env.model.kinds K
+  | _ => none
+
+/-- The kind a value denotes, under the refinement. -/
+def kindConst (env : Env) (ref : Option (AVal × Word)) (k : AVal) : Option Word :=
+  match k with
+  | .const c => some c
+  | k => ref.bind fun rf => refineVal env rf k
+
+/-- The current content of the writer's field at `addr`: a slot, or a tracked field. -/
+def fieldAt (A : AState) (addr : AVal) : Option AVal :=
+  match addr.frameOff? with
+  | some f => A.slots.lookup f
+  | none => A.wmem.lookup addr
+
+/-- The current values of the writer's fields, if all known. -/
+def writerFields (A : AState) (d : AVal) (kd : Kind) : Option (List AVal) :=
+  kd.fields.mapM fun off => (fieldAt A (d.addK off)).bind fun v => if v.isPtr then some v else none
+
+/-- A kind's invariant over a writer's pointer and field values. -/
+def instInv (kd : Kind) (d : AVal) (vals : List AVal) : List (Fact AVal) :=
+  kd.inv.map (·.map fun j => if j = 0 then d else vals.getD (j - 1) .top)
+
+/-- The kinds a writer's kind value may denote: the constant, the refinement's, or the
+    candidates. -/
+def writerKinds (env : Env) (σ : Iface) (kn : Kn) (ref : Option (AVal × Word)) (k : AVal) :
+    Option (List Word) :=
+  match k with
+  | .const K => some [K]
+  | _ => match kindConst env ref k with
+    | some K => some [K]
+    | none => cands env σ kn k
+
+/-- The writer is well-typed now: for each kind it may have, a structural kind wraps a
+    writer the function has that is well-typed now; a unit needs nothing; any other kind
+    has its fields known and its invariant among the facts. -/
+def writerOkNow (env : Env) (σ : Iface) (kn : Kn) (ref : Option (AVal × Word)) (A : AState) :
+    Nat → AVal × AVal → Bool
+  | 0, _ => false
+  | fuel + 1, e =>
+    match writerKinds env σ kn ref e.2 with
+    | none => false
+    | some Ks => Ks.all fun K => match env.model.kinds K with
+      | none => false
+      | some kd =>
+        if kd.pure then
+          match kd.sub with
+          | none => true
+          | some s => match e.1.path s.dp, e.1.path s.kp with
+            | some d', some k' =>
+              kn.strs.contains (d', k') && writerOkNow env σ kn ref A fuel (d', k')
+            | _, _ => false
+        else kd.sub.isNone && match writerFields A e.1 kd with
+          | some vals => (instInv kd e.1 vals).all A.facts.contains
+          | none => false
+
+/-- A frame slot: aligned, within the window. -/
+def slotOk (σ : Iface) (f : Word) : Bool :=
+  decide (negOff f % 8 = 0) && decide (8 ≤ negOff f) && decide (negOff f ≤ σ.depth)
+
+/-- A frame address, aligned, within the window. -/
+def frameAddrOk (σ : Iface) (d : AVal) : Bool :=
+  match d.frameOff? with
+  | some f => slotOk σ f
+  | none => false
+
+/-- The frame writers of a state are frame addresses of non-structural kinds. -/
+def fwOk (env : Env) (σ : Iface) (A : AState) : Bool :=
+  A.fw.all fun e => frameAddrOk σ e.1 && match kindOf env e.2 with
+    | some kd => !kd.pure && kd.sub.isNone
+    | none => false
+
+/-! ### Stores -/
+
+/-- A store at a writer's field: the field's new content is tracked; every other tracked
+    field that may be the same doubleword is forgotten (the writers' pointers may alias). -/
+def fieldStore (env : Env) (σ : Iface) (A : AState) (b : AVal) (w : Width) (v : AVal) :
     Option AState :=
+  if w != .d ∨ σ.strs.length > 1 then none else
+  if σ.strs.any (fun e => match kindOf env e.2 with
+      | some kd => !kd.pure && kd.sub.isNone && e.1.isPtr && e.1.base.1 == b.base.1 &&
+          kd.fields.contains (b.base.2 - e.1.base.2) && !kd.stable.contains (b.base.2 - e.1.base.2)
+      | none => false) then
+    let kept := A.wmem.filter fun p => p.1 != b && p.1.base.1 == b.base.1
+    some { A with wmem := if v.isPtr then (b, v) :: kept else kept }
+  else none
+
+/-- A store into the buffer of the writer `e`: `ptr ≤ a` and `a + n ≤ ptr + cap` are among
+    the facts, the writer well-typed now. -/
+def bufStore (env : Env) (σ : Iface) (kn : Kn) (A : AState) (b : AVal) (w : Width)
+    (e : AVal × AVal) : Bool :=
+  (kn.strs.contains e || A.fw.contains e) && writerOkNow env σ kn none A 4 e &&
+  match kindOf env e.2 with
+  | some kd => match kd.buf, writerFields A e.1 kd with
+    | some (pi, ci), some vals =>
+      match vals[pi]?, vals[ci]? with
+      | some ptr, some cap =>
+        A.facts.contains (.le (LinTerm.ofVal ptr) (LinTerm.ofVal b)) &&
+        A.facts.contains (.le (LinTerm.ofVal b + LinTerm.ofNat (wbytes w))
+          (LinTerm.ofVal ptr + LinTerm.ofVal cap))
+      | _, _ => false
+    | _, _ => false
+  | none => false
+
+/-- A store: through the frame (slots updated), covered by the footprint, at a writer's
+    field, or into a writer's buffer (the writer named by the hint). `none` if none. -/
+def storeStep (env : Env) (σ : Iface) (kn : Kn) (A : AState) (rs1 rs2 : Reg) (off : BitVec 12)
+    (w : Width) (wtr : Option (AVal × AVal)) : Option AState :=
   let b := (A.get rs1).addK (signExtend12 off)
   match b.frameOff? with
   | some k =>
@@ -312,34 +643,57 @@ def storeStep (σ : Iface) (A : AState) (rs1 rs2 : Reg) (off : BitVec 12) (w : W
   | none =>
       if !b.isPtr then none
       else if σ.foot.any (·.within { base := b, len := .n (wbytes w) }) then some A
-      else none
+      else match fieldStore env σ A b w (A.get rs2) with
+        | some B => some B
+        | none => match wtr with
+          | some e => if bufStore env σ kn A b w e then some A else none
+          | none => none
 
-def plainStep (env : Env) (σ : Iface) (kn : Kn) (pc : Word) (A : AState) (i : Instr) :
-    Option AState :=
-  match aluResult pc A i with
-  | some (rd, v) => some (A.set rd v)
+def plainStep (env : Env) (σ : Iface) (kn : Kn) (pc : Word) (A : AState) (i : Instr)
+    (wtr : Option (AVal × AVal) := none) : Option AState :=
+  match aluStep pc A i with
+  | some B => some B
   | none =>
   match loadOf i with
-  | some (rd, rs, off, isD) =>
-      some (A.set rd (loadVal env σ kn A ((A.get rs).addK (signExtend12 off)) isD))
+  | some (rd, rs, off, isD) => some (loadStep env σ kn pc A i rd rs off isD)
   | none =>
   match storeOf i with
-  | some (rs1, rs2, off, w) => storeStep σ A rs1 rs2 off w
+  | some (rs1, rs2, off, w) => storeStep env σ kn A rs1 rs2 off w wtr
   | none =>
   match i with
   | .NOP | .FENCE => some A
   | _ => none
 
+/-! ### Branches -/
+
+/-- The facts a conditional branch decides: when taken, and when not. -/
+def branchFacts (A : AState) : Instr → List (Fact AVal) × List (Fact AVal)
+  | .BLTU rs1 rs2 _ => cmp (A.get rs1) (A.get rs2) fun u v =>
+      ([.le (u + .ofNat 1) v], [.le v u])
+  | .BGEU rs1 rs2 _ => cmp (A.get rs1) (A.get rs2) fun u v =>
+      ([.le v u], [.le (u + .ofNat 1) v])
+  | .BEQ rs1 rs2 _ => cmp (A.get rs1) (A.get rs2) fun u v =>
+      ([.le u v, .le v u], [])
+  | .BNE rs1 rs2 _ => cmp (A.get rs1) (A.get rs2) fun u v =>
+      ([], [.le u v, .le v u])
+  | _ => ([], [])
+where
+  cmp (a b : AVal) (k : LinTerm AVal → LinTerm AVal → List (Fact AVal) × List (Fact AVal)) :
+      List (Fact AVal) × List (Fact AVal) :=
+    if a.isPtr && b.isPtr then k (LinTerm.ofVal a) (LinTerm.ofVal b) else ([], [])
+
 /-! ## Calls -/
 
 /-- The current contents of a doubleword the caller knows: a frame slot, one of its cells,
-    or a stable doubleword of a writer it was lent. -/
+    a stable doubleword of a writer it was lent, or a tracked field. -/
 def contentAt (σ : Iface) (kn : Kn) (A : AState) (a : AVal) : Option AVal :=
   match a.frameOff? with
   | some f => A.slots.lookup f
   | none => match cellAt σ a with
     | some v => some v
-    | none => kn.cells.lookup a
+    | none => match kn.cells.lookup a with
+      | some v => some v
+      | none => A.wmem.lookup a
 
 /-- Follow a callee's path of loads from a caller value. -/
 def instPath (σ : Iface) (kn : Kn) (A : AState) : AVal → List Word → Option AVal
@@ -350,6 +704,7 @@ def instPath (σ : Iface) (kn : Kn) (A : AState) : AVal → List Word → Option
 def instVal (σ : Iface) (kn : Kn) (A : AState) : AVal → AVal
   | .lin r k => (A.get r).addK k
   | .cell r ks d => ((instPath σ kn A (A.get r) ks).map (·.addK d)).getD .top
+  | .sym _ _ _ => .top
   | v => v
 
 def instLen (A : AState) : Len → Option Len
@@ -389,20 +744,20 @@ def nzVal (σ : Iface) : AVal → Bool
   | .top => false
   | .oneOf cs => cs.all (· != 0)
   | .cell r ks k => σ.nz.contains (.cell r ks k)
+  | .sym _ _ _ => false
 
 /-- A callee's `nz` value, in the caller's terms, is nonzero. `σ` is the caller. -/
 def nzOk (σ : Iface) (kn : Kn) (A : AState) (v : AVal) : Bool :=
   v.isPtr && nzVal σ (instVal σ kn A v)
 
+/-- A callee's `pre` fact, in the caller's terms, is among the caller's facts. -/
+def preOk (σ : Iface) (kn : Kn) (A : AState) (f : Fact AVal) : Bool :=
+  f.symFree && (f.map (instVal σ kn A)).any (fun v => !v.isPtr) == false &&
+  A.facts.contains (f.map (instVal σ kn A))
+
 /-- The callee-saved registers: `sp`, `gp`, `tp`, `s0`-`s11`. -/
 def savedRegs : List Reg :=
   [.x2, .x3, .x4, .x8, .x9, .x18, .x19, .x20, .x21, .x22, .x23, .x24, .x25, .x26, .x27]
-
-/-- The state after a call returns: callee-saved registers kept, the slots it cannot
-    write. -/
-def afterCall (A : AState) (m : Nat) (its : List Item) : AState :=
-  { regs := allRegs.map (fun r => if savedRegs.contains r then A.get r else .top),
-    slots := A.slots.filter fun p => decide (negOff p.1 ≤ m) && its.all (slotClear p.1) }
 
 /-- A callee's `vals` premise, discharged by the caller's value: its candidates are among
     the callee's. -/
@@ -447,16 +802,11 @@ def spOff (A : AState) : Option Nat :=
 /-! ### Writers
 
 A callee's writer, in the caller's terms, must be one the caller has (`Kn.strs`: lent to
-it, or wrapped by one lent to it, its kind refined), or a structural writer the caller
-builds in its frame around one it has (`passEntry`). After the call, every writer of the
-caller must be *recovered*: given back by the callee, or wrapping one given back
-(`recov`); or the callee has no writers, and gives back every writer it was not lent. -/
-
-/-- The kind a value denotes, under the refinement. -/
-def kindConst (env : Env) (ref : Option (AVal × Word)) (k : AVal) : Option Word :=
-  match k with
-  | .const c => some c
-  | k => ref.bind fun rf => refineVal env rf k
+it, or wrapped by one lent to it, its kind refined; or built in its frame, `AState.fw`), or
+a structural writer the caller builds in its frame around one it has (`passEntry`); it
+must be well-typed now. After the call, every writer of the caller must be *recovered*:
+given back by the callee, or wrapping one given back (`recov`); or the callee has no
+writers, and gives back every writer it was not lent. -/
 
 /-- The stable doublewords along a path from a value: address, content. -/
 def pathCells : AVal → List Word → List (AVal × AVal)
@@ -514,13 +864,18 @@ def framePath (A : AState) (m : Nat) (its : List Item) : AVal → List Word →
       else none
     | none => none
 
-/-- A callee writer `(d, k)`, in the caller's terms: the caller's writers it stands on,
-    and the frame slots it is built from. Directly one of them, or a structural writer
-    built in the caller's frame around one of them. -/
+/-- The frame slots a frame writer's fields are in. -/
+def fieldSlots (d : AVal) (kd : Kind) : List Word :=
+  kd.fields.filterMap fun off => (d.addK off).frameOff?
+
+/-- A callee writer `(d, k)`, in the caller's terms: the caller's writers it is lent (whose
+    fields it may change), and the frame slots it is built from. Directly one of the
+    caller's, well-typed now; a frame writer of the caller; or a structural writer built in
+    the caller's frame around one of them. -/
 def passEntry (env : Env) (σ : Iface) (kn : Kn) (ref : Option (AVal × Word)) (A : AState)
     (m : Option Nat) (its : List Item) (d k : AVal) : Option (List (AVal × AVal) × List Word) :=
   match kn.strs.find? (matchEntry env ref · (d, k)) with
-  | some e => some ([e], [])
+  | some e => if writerOkNow env σ kn ref A 4 e then some ([e], []) else none
   | none => match k, m with
     | .const K, some m =>
       match env.model.kinds K with
@@ -531,14 +886,23 @@ def passEntry (env : Env) (σ : Iface) (kn : Kn) (ref : Option (AVal × Word)) (
             match framePath A m its d s.dp, framePath A m its d s.kp with
             | some (d2, fs1), some (k2, fs2) =>
               match kn.strs.find? (matchEntry env ref · (d2, k2)) with
-              | some e => if inCands env σ kn k2 s.kinds then some ([e], fs1 ++ fs2) else none
+              | some e =>
+                if inCands env σ kn k2 s.kinds && writerOkNow env σ kn ref A 4 e then
+                  some ([e], fs1 ++ fs2)
+                else none
               | none => none
             | _, _ => none
           -- a unit: nothing to pass, as long as it is a frame address
           | none => match d.frameOff? with
             | some f => if negOff f % 8 = 0 then some ([], []) else none
             | none => none
-        else none
+        else
+          -- a frame writer of the caller: its fields are slots the callee may change
+          if A.fw.contains (d, k) && writerOkNow env σ kn ref A 4 (d, k) then
+            let fs := fieldSlots d kd
+            if fs.all (fun f => negOff f ≤ m && its.all (slotClear f)) then some ([(d, k)], fs)
+            else none
+          else none
       | none => none
     | _, _ => none
 
@@ -555,7 +919,7 @@ def recov (env : Env) (ref : Option (AVal × Word)) (kn : Kn) (passed : List (AV
     | none => false
 
 /-- The callee's writers are the caller's, and the caller's are recovered: the writers
-    passed, and the frame slots the callee's writers are built from. -/
+    lent, and the frame slots the callee's writers are built from. -/
 def strsOk (env : Env) (σ : Iface) (kn : Kn) (ref : Option (AVal × Word)) (A : AState)
     (m : Option Nat) (its : List Item) (g : Iface) : Option (List (AVal × AVal) × List Word) :=
   match g.strs.mapM fun e =>
@@ -567,39 +931,175 @@ def strsOk (env : Env) (σ : Iface) (kn : Kn) (ref : Option (AVal × Word)) (A :
       some (passed, (ps.map (·.2)).flatten)
     else none
 
+/-- What a call established: the callee's stack pointer offset, its items in the caller's
+    terms, and the caller's writers it was lent. -/
+structure CallOut where
+  m : Nat
+  its : List Item
+  lent : List (AVal × AVal)
+
 /-- A call to `g` from a state `A`, under a refinement `ref` of the state: the callee's
-    precondition, instantiated. Returns the items it may write, in the caller's terms. -/
+    precondition, instantiated. -/
 def callOk (env : Env) (σ : Iface) (A : AState) (g : Iface) (ref : Option (AVal × Word)) :
-    Option (Nat × List Item) :=
+    Option CallOut :=
   let kn := closure env σ ref
   match spOff A with
   | none => none
   | some m =>
-    if m + g.depth ≤ σ.depth then
+    if m + g.depth ≤ σ.depth && (!g.heap || σ.heap) then
       match g.foot.mapM (instItem σ kn A) with
       | none => none
       | some its =>
         match strsOk env σ kn ref A (some m) its g with
         | none => none
-        | some (_, fs) =>
+        | some (lent, fs) =>
           if its.all (itemOk σ m) && g.nz.all (nzOk σ kn A) && g.vals.all (valOk env σ kn A) &&
-              g.cells.all (cellOk env σ kn fs A (some m) its) then some (m, its)
+              g.cells.all (cellOk env σ kn fs A (some m) its) && g.pre.all (preOk σ kn A) then
+            some ⟨m, its, lent⟩
           else none
     else none
+
+/-! ### After a call
+
+The callee-saved registers are kept, and the slots the callee cannot write. The return
+registers, the fields of the writers lent, and the doublewords the callee's `post` names
+are fresh symbols; the lent writers' invariants and the `post` facts, instantiated, are
+added. Atoms survive unless the callee may change the heap. Tracked fields of writers not
+lent are forgotten: the writers' pointers may alias. -/
+
+/-- The symbols a call makes, in order: `a0`, `a1`, the lent writers' fields, the `post`'s
+    `out` doublewords. Each with where it goes. -/
+inductive FreshAt where
+  | reg (r : Reg)
+  | slot (f : Word)
+  | field (a : AVal)
+  deriving DecidableEq, Repr
+
+def outAddrs (g : Iface) : List AVal :=
+  (g.post.flatMap fun f => match f with
+    | .le l r => (l.coeffs.map (·.1)) ++ (r.coeffs.map (·.1))
+    | .op _ x args => x :: args
+    | .atom _ args => args).filterMap (fun v => match v with
+      | .out a => some a
+      | _ => none) |>.eraseDups
+
+/-- The fresh symbols of a call at `pc`: targets, in order. A field in the frame window is
+    a slot; any other is a tracked field. An `out` doubleword is named only in the window. -/
+def freshList (env : Env) (σ : Iface) (kn : Kn) (A : AState) (g : Iface) (lent : List (AVal × AVal)) :
+    List FreshAt :=
+  [.reg .x10, .reg .x11] ++
+  (lent.flatMap fun e => match kindOf env e.2 with
+    | some kd => kd.fields.map fun off => match (e.1.addK off).frameOff? with
+      | some f => if slotOk σ f then .slot f else .field (e.1.addK off)
+      | none => .field (e.1.addK off)
+    | none => []) ++
+  (outAddrs g).filterMap fun a => match (instVal σ kn A a).frameOff? with
+    | some f => if slotOk σ f then some (.slot f) else none
+    | none => none
+
+/-- The fresh symbol standing for a target, if any. -/
+def freshFor (n : Nat) (fl : List FreshAt) (t : FreshAt) : Option AVal :=
+  (fl.idxOf? t).map fun j => .sym n j 0
+
+/-- The symbol standing for a target: `.top` if none. -/
+def freshOf (n : Nat) (fl : List FreshAt) (t : FreshAt) : AVal := (freshFor n fl t).getD .top
+
+/-- A `post` variable in the caller's terms, after the call. -/
+def postVar (σ : Iface) (kn : Kn) (A : AState) (n : Nat) (fl : List FreshAt) : PVal → Option AVal
+  | .ent v => let w := instVal σ kn A v; if w.isPtr then some w else none
+  | .ret r => freshFor n fl (.reg r)
+  | .out a => match (instVal σ kn A a).frameOff? with
+    | some f => freshFor n fl (.slot f)
+    | none => none
+
+/-- A `post` fact in the caller's terms, if all its variables are nameable. -/
+def instPost (σ : Iface) (kn : Kn) (A : AState) (n : Nat) (fl : List FreshAt) (f : Fact PVal) :
+    Option (Fact AVal) :=
+  let g := f.map fun p => (postVar σ kn A n fl p).getD .top
+  if g.any (fun v => !v.isPtr) then none else some g
+
+/-- The registers after a call: the return registers fresh, the callee-saved ones kept. -/
+def callRegs (n : Nat) (fl : List FreshAt) (A : AState) : List AVal :=
+  allRegs.map fun r =>
+    if r = .x10 ∨ r = .x11 then freshOf n fl (.reg r)
+    else if savedRegs.contains r then A.get r else .top
+
+/-- The slots after a call: those the callee cannot write, with the fresh ones in place. -/
+def callSlots (n : Nat) (fl : List FreshAt) (co : CallOut) (A : AState) : List (Word × AVal) :=
+  fl.foldl (fun sl t => match t with
+    | .slot f => (f, freshOf n fl t) :: sl.filter (·.1 != f)
+    | _ => sl)
+    (A.slots.filter fun p => decide (negOff p.1 ≤ co.m) && co.its.all (slotClear p.1))
+
+/-- The tracked fields a call makes. -/
+def callFresh (n : Nat) (fl : List FreshAt) : List (AVal × AVal) :=
+  fl.filterMap fun t => match t with
+    | .field a => some (a, freshOf n fl t)
+    | _ => none
+
+/-- The tracked fields after a call: the fresh ones; the old ones survive only if every
+    writer lent is one built in the frame, which no other writer can alias. -/
+def callWmem (n : Nat) (fl : List FreshAt) (kn : Kn) (co : CallOut) (A : AState) :
+    List (AVal × AVal) :=
+  let fresh' := callFresh n fl
+  if co.lent.all (fun e => A.fw.contains e && !kn.strs.contains e) then
+    fresh' ++ A.wmem.filter (fun p => !(fresh'.any (·.1 == p.1))) else fresh'
+
+/-- The lent writers' invariants over their fields after the call. -/
+def callInvs (env : Env) (co : CallOut) (A : AState) : List (Fact AVal) :=
+  co.lent.flatMap fun e => match kindOf env e.2 with
+    | some kd => match writerFields A e.1 kd with
+      | some vals => instInv kd e.1 vals
+      | none => []
+    | none => []
+
+/-- The state after a call at `pc` returns. The call's symbols are first forgotten (a
+    loop may run it again). -/
+def afterCall (env : Env) (σ : Iface) (kn : Kn) (pc : Word) (A : AState) (co : CallOut) (g : Iface) :
+    AState :=
+  let n := pc.toNat
+  let A := A.killAll n
+  let fl := freshList env σ kn A g co.lent
+  let slots := callSlots n fl co A
+  let wmem := callWmem n fl kn co A
+  let posts := g.post.filterMap (instPost σ kn A n fl)
+  let facts := (if g.heap then A.facts.filter (fun f => match f with
+      | .atom i _ => env.model.fixed i
+      | _ => true)
+    else A.facts) ++ callInvs env co { A with slots, wmem } ++ posts
+  { regs := callRegs n fl A, slots, facts, wmem, fw := A.fw }
 
 def okExit (A : AState) : Bool :=
   A.get .x1 == .lin .x1 0 && savedRegs.all fun r => A.get r == .lin r 0
 
+/-- A `post` variable at the function's own return. -/
+def retVar (σ : Iface) (kn : Kn) (A : AState) : PVal → Option AVal
+  | .ent v => if v.isPtr && v.symFree then some v else none
+  | .ret r => let v := A.get r; if v.isPtr then some v else none
+  | .out a => if a.isPtr && a.symFree then (contentAt σ kn A a).bind fun v =>
+      if v.isPtr then some v else none else none
+
+/-- At return: every writer the function has is well-typed, and its `post` facts hold. -/
+def retOk (env : Env) (σ : Iface) (kn : Kn) (A : AState) : Bool :=
+  σ.strs.all (writerOkNow env σ kn none A 4) &&
+  σ.post.all fun f => match f.mapM (retVar σ kn A) with
+    | some g => A.facts.contains g
+    | none => false
+
 /-- A tail call: `f` leaves for `g` with every callee-saved register and `ra` restored, and
-    `g`'s footprint covered by `f`'s. -/
+    `g`'s footprint covered by `f`'s; `f` promises no `post` facts, its writers are well-typed
+    now, and if it has any, `g` either takes writers or leaves the heap's structure alone. -/
 def tailOk (env : Env) (σ : Iface) (A : AState) (g : Iface) (ref : Option (AVal × Word)) : Bool :=
   let kn := closure env σ ref
-  okExit A && decide (g.depth ≤ σ.depth) && (σ.returns || !g.returns) &&
+  okExit A && decide (g.depth ≤ σ.depth) && (σ.returns || !g.returns) && (!g.heap || σ.heap) &&
+  σ.post.isEmpty && σ.strs.all (writerOkNow env σ kn ref A 4) &&
+  (σ.strs.isEmpty || !g.heap || !g.strs.isEmpty) &&
   match g.foot.mapM (instItem σ kn A) with
   | none => false
   | some its => its.all (fun it => it.base.frameOff?.isNone && it.base.isPtr &&
       σ.foot.any (·.within it)) && g.nz.all (nzOk σ kn A) && g.vals.all (valOk env σ kn A) &&
-      g.cells.all (cellOk env σ kn [] A none its) && (strsOk env σ kn ref A none its g).isSome
+      g.cells.all (cellOk env σ kn [] A none its) && g.pre.all (preOk σ kn A) &&
+      (strsOk env σ kn ref A none its g).isSome
 
 /-! ## Syscalls
 
@@ -653,23 +1153,44 @@ inductive Edge where
   | goto (j : Nat) (A : AState)
   | ret (A : AState)
 
-/-- What the checker needs besides the function: its interface, its callees', and the
-    program's `Env`. -/
+/-- What the checker needs besides the function: its interface, its callees', the
+    program's `Env`, and the certificates: at `(pc, pc)` the proofs to run before the
+    instruction at `pc`, at `(pc, tgt)` those to run on the edge from `pc` to `tgt`; and
+    the writer whose buffer the store at `pc` writes. -/
 structure Ctx where
   env : Env
   tbl : List Iface
   σ : Iface
   f : Fn
+  certs : List ((Word × Word) × List (Proof AVal)) := []
+  wtr : List (Word × (AVal × AVal)) := []
+  /-- The writers built in the frame: at `pc`, the writer is in place (its fields are
+      slots, its invariant among the facts). -/
+  fws : List (Word × (AVal × AVal)) := []
 
 def Ctx.lookup (c : Ctx) (pc : Word) : Option Iface := c.tbl.find? (·.entry == pc)
 
-/-- A jump to `pc`: inside the function, or a tail call (under a refinement, for an
-    indirect one). -/
-def Ctx.jump (c : Ctx) (A : AState) (pc : Word) (ref : Option (AVal × Word) := none) :
+/-- The frame writer declared at `pc`, added. -/
+def Ctx.withFw (c : Ctx) (pc : Word) (A : AState) : AState :=
+  match c.fws.lookup pc with
+  | some e => { A with fw := e :: A.fw }
+  | none => A
+
+/-- Run the certificate at `key`. -/
+def Ctx.saturate (c : Ctx) (key : Word × Word) (A : AState) : AState :=
+  match c.certs.lookup key with
+  | some pfs => { A with facts := Proof.runAll (thy c.env c.σ) A.facts pfs }
+  | none => A
+
+/-- A jump from `pc` to `tgt`: pruned if the facts on the edge are contradictory; inside
+    the function; or a tail call (under a refinement, for an indirect one). -/
+def Ctx.jump (c : Ctx) (pc : Word) (A : AState) (tgt : Word) (ref : Option (AVal × Word) := none) :
     Option (List Edge) :=
-  match c.f.idx? pc with
+  let A := c.saturate (pc, tgt) A
+  if A.facts.contains falseFact then some [] else
+  match c.f.idx? tgt with
   | some j => some [.goto j A]
-  | none => match c.lookup pc with
+  | none => match c.lookup tgt with
     | some g => if tailOk c.env c.σ A g ref then some [] else none
     | none => none
 
@@ -681,11 +1202,12 @@ def Ctx.call (c : Ctx) (pc : Word) (A : AState) (tgt : Word) (ref : Option (AVal
   | none => none
   | some g => match callOk c.env c.σ (A.set .x1 (.const (pc + 4))) g ref with
     | none => none
-    | some (m, its) =>
+    | some co =>
       if g.returns then
         if (pc + 4) &&& ~~~1#64 = pc + 4 then
           match c.f.idx? (pc + 4) with
-          | some j => some [.goto j (afterCall A m its)]
+          | some j => some [.goto j (afterCall c.env c.σ (closure c.env c.σ ref) pc
+              (A.set .x1 (.const (pc + 4))) co g)]
           | none => none
         else none
       else some []
@@ -736,24 +1258,28 @@ def Ctx.stepAt (c : Ctx) (pc : Word) (oi : Option Instr) (A : AState) : Option (
   match oi with
   | none => some []
   | some ins =>
+  let A := c.withFw pc (c.saturate (pc, pc) A)
+  if !fwOk c.env c.σ A then none else
   match branchOff? ins with
   | some off => do
-      let e1 ← c.jump A (pc + 4)
-      let e2 ← c.jump A (pc + signExtend13 off)
+      let (ft, ff) := branchFacts A ins
+      let e1 ← c.jump pc (A.addFacts ff) (pc + 4)
+      let e2 ← c.jump pc (A.addFacts ft) (pc + signExtend13 off)
       pure (e1 ++ e2)
   | none =>
   match ins with
   | .JAL rd off =>
-      if rd = .x0 then c.jump A (pc + signExtend21 off)
+      if rd = .x0 then c.jump pc A (pc + signExtend21 off)
       else if rd = .x1 then c.call pc A (pc + signExtend21 off)
       else none
   | .JALR rd rs off =>
       if rd = .x0 then
-        if rs = .x1 ∧ off = 0 then (if c.σ.returns then some [.ret A] else none)
-        else match fanOut c.env c.σ (A.get rs) off (fun ref t => c.jump A t ref) with
+        if rs = .x1 ∧ off = 0 then
+          (if c.σ.returns && retOk c.env c.σ (closure c.env c.σ none) A then some [.ret A] else none)
+        else match fanOut c.env c.σ (A.get rs) off (fun ref t => c.jump pc A t ref) with
           | some es => some es
           -- an unresolved target: the candidates of the control-flow premise, if listed
-          | none => (c.env.cfi.lookup pc).bind (allEdges fun t => c.jump A t)
+          | none => (c.env.cfi.lookup pc).bind (allEdges fun t => c.jump pc A t)
       else if rd = .x1 then
         match fanOut c.env c.σ (A.get rs) off (fun ref t => c.call pc A t ref) with
         | some es => some es
@@ -766,40 +1292,74 @@ def Ctx.stepAt (c : Ctx) (pc : Word) (oi : Option Instr) (A : AState) : Option (
       | some .stop => some []
       | some (.next B its) =>
           if its.all (itemOk c.σ c.σ.depth) then
-            c.jump { B with slots := B.slots.filter fun p => its.all (slotClear p.1) } (pc + 4)
+            c.jump pc { B with slots := B.slots.filter fun p => its.all (slotClear p.1) } (pc + 4)
           else none
       | none => none
-  | ins => (plainStep c.env c.σ (closure c.env c.σ none) pc A ins).bind fun B => c.jump B (pc + 4)
+  | ins => (plainStep c.env c.σ (closure c.env c.σ none) pc A ins (c.wtr.lookup pc)).bind
+      fun B => c.jump pc B (pc + 4)
 
 def Ctx.step (c : Ctx) (i : Nat) (A : AState) : Option (List Edge) :=
   match c.f.prog[i]? with
   | none => none
   | some oi => c.stepAt (c.f.pcOf i) oi A
 
-/-! ## The check -/
+/-! ## The check
 
-def edgeOk (anno : Array (Option AState)) : Edge → Bool
-  | .goto j B => match Fn.annoAt anno j with
-      | some C => B.le C
-      | none => false
+An annotation gives each instruction the states it may be reached in: a list, so that a
+loop whose variable takes a few constant values can be checked one value at a time. -/
+
+def annoAt (anno : Array (List AState)) (i : Nat) : List AState := (anno[i]?).getD []
+
+/-- The writers with fields the function has, with their kinds. -/
+def entryWs (env : Env) (σ : Iface) : List ((AVal × AVal) × Kind) :=
+  (closure env σ none).strs.filterMap fun e => match kindOf env e.2 with
+    | some kd => if kd.pure then none else some (e, kd)
+    | none => none
+
+/-- Their fields' entry cells. -/
+def entryWmem (env : Env) (σ : Iface) : List (AVal × AVal) :=
+  (entryWs env σ).flatMap fun (e, kd) => kd.fields.filterMap fun off =>
+    ((e.1.addK off).cellOf).map fun v => (e.1.addK off, v)
+
+def entryBase (env : Env) (σ : Iface) : AState :=
+  { regs := allRegs.map fun r => match σ.vals.lookup r with
+      | some cs => .oneOf cs
+      | none => .lin r 0
+    slots := [], facts := σ.pre, wmem := entryWmem env σ }
+
+/-- The writers' invariants over their entry cells. -/
+def entryInvs (env : Env) (σ : Iface) : List (Fact AVal) :=
+  (entryWs env σ).flatMap fun (e, kd) => match writerFields (entryBase env σ) e.1 kd with
+    | some vals => instInv kd e.1 vals
+    | none => []
+
+/-- The abstract state at entry: every register its own entry value, except those `vals`
+    restricts to a set of constants; the `pre` facts; the fields of the writers and their
+    invariants. -/
+def Iface.entryState (env : Env) (σ : Iface) : AState :=
+  (entryBase env σ).addFacts (entryInvs env σ)
+
+def Ctx.edgeOk (c : Ctx) (anno : Array (List AState)) : Edge → Bool
+  | .goto j B => (annoAt anno j).any fun C => B == C || leAt (c.f.pcOf j).toNat B C
   | .ret B => okExit B
 
-def Ctx.instrOk (c : Ctx) (anno : Array (Option AState)) (i : Nat) : Bool :=
-  match Fn.annoAt anno i with
-  | none => true
-  | some A => match c.step i A with
+def Ctx.instrOk (c : Ctx) (anno : Array (List AState)) (i : Nat) : Bool :=
+  (annoAt anno i).all fun A => match c.step i A with
     | none => false
-    | some es => es.all (edgeOk anno)
+    | some es => es.all (c.edgeOk anno)
+
+/-- The interface mentions no symbols. -/
+def Iface.symFree (σ : Iface) : Bool :=
+  σ.foot.all (·.base.symFree) && σ.nz.all AVal.symFree &&
+  σ.strs.all (fun e => e.1.symFree && e.2.symFree) && σ.pre.all Fact.symFree
 
 /-- The interface is well-formed for the `Env`: constant footprint items lie above the
     stack and outside the protected regions are the caller's business; here only that
     lengths are sane. -/
-def Ctx.valid (c : Ctx) (anno : Array (Option AState)) : Bool :=
-  c.σ.strs.all (fun e => e.1.isPtr && e.2.isPtr) &&
+def Ctx.valid (c : Ctx) (anno : Array (List AState)) : Bool :=
+  c.σ.strs.all (fun e => e.1.isPtr && e.2.isPtr) && c.σ.symFree &&
   c.f.base == c.σ.entry &&
-  (match Fn.annoAt anno 0 with
-    | some A => c.σ.entryState.le A
-    | none => false) &&
+  (annoAt anno 0).any (leAt c.f.base.toNat (c.σ.entryState c.env) ·) &&
   (List.range c.f.prog.length).all (c.instrOk anno)
 
 end AsmVerif.RiscV.Check
@@ -810,32 +1370,30 @@ open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
 
 /-! ## Sparse certificates
 
-A certificate need only give a state where straight-line propagation from the previous
+A certificate need only give states where straight-line propagation from the previous
 instruction would not: at join points and loop heads. `Ctx.fill` recomputes the rest by
 running the checker's own step along fall-through edges. The checker then checks the
 filled annotation like any other, so nothing about `fill` needs to be trusted. -/
 
-def fallState (A : AState) (j : Nat) : List Edge → Option AState
-  | [] => none
-  | .goto j' B :: es => if j' = j then some B else fallState A j es
-  | .ret _ :: es => fallState A j es
+def fallStates (j : Nat) : List Edge → List AState
+  | [] => []
+  | .goto j' B :: es => if j' = j then B :: fallStates j es else fallStates j es
+  | .ret _ :: es => fallStates j es
 
-def Ctx.fillGo (c : Ctx) : Nat → List (Option Instr) → Option AState → List (Nat × AState) →
-    List (Option AState)
+def Ctx.fillGo (c : Ctx) : Nat → List (Option Instr) → List AState → List (Nat × List AState) →
+    List (List AState)
   | _, [], _, _ => []
   | i, oi :: ps, cur, hints =>
     let (st, hints') := match hints with
-      | (j, A) :: hs => if j = i then (some A, hs) else (cur, hints)
+      | (j, As) :: hs => if j = i then (As, hs) else (cur, hints)
       | [] => (cur, [])
-    let next := match st with
-      | none => none
-      | some A => match c.stepAt (c.f.pcOf i) oi A with
-        | some es => fallState A (i + 1) es
-        | none => none
+    let next := st.flatMap fun A => match c.stepAt (c.f.pcOf i) oi A with
+      | some es => fallStates (i + 1) es
+      | none => []
     st :: c.fillGo (i + 1) ps next hints'
 
-def Ctx.fill (c : Ctx) (hints : List (Nat × AState)) : Array (Option AState) :=
-  (c.fillGo 0 c.f.prog none hints).toArray
+def Ctx.fill (c : Ctx) (hints : List (Nat × List AState)) : Array (List AState) :=
+  (c.fillGo 0 c.f.prog [] hints).toArray
 
 /-! ## The check in one pass
 
@@ -843,33 +1401,26 @@ def Ctx.fill (c : Ctx) (hints : List (Nat × AState)) : Array (Option AState) :=
 `Ctx.validFast` walks both together; only jumps index. `validFast_sound` (`Check.Fast`)
 shows it implies `Ctx.valid`. -/
 
-def edgeOkAt (anno : Array (Option AState)) (i : Nat) (next : Option (Option AState)) :
+def Ctx.edgeOkAt (c : Ctx) (anno : Array (List AState)) (i : Nat) (next : List AState) :
     Edge → Bool
   | .goto j B =>
-      if j = i + 1 then
-        match next with
-        | some (some C) => B == C || B.le C
-        | _ => false
-      else edgeOk anno (.goto j B)
+      if j = i + 1 then next.any fun C => B == C || leAt (c.f.pcOf j).toNat B C
+      else c.edgeOk anno (.goto j B)
   | .ret B => okExit B
 
-def Ctx.walk (c : Ctx) (anno : Array (Option AState)) :
-    Nat → List (Option Instr) → List (Option AState) → Bool
+def Ctx.walk (c : Ctx) (anno : Array (List AState)) :
+    Nat → List (Option Instr) → List (List AState) → Bool
   | i, oi :: ps, a :: as =>
-      (match a with
-        | none => true
-        | some A => match c.stepAt (c.f.pcOf i) oi A with
-          | none => false
-          | some es => es.all (edgeOkAt anno i as.head?)) &&
+      a.all (fun A => match c.stepAt (c.f.pcOf i) oi A with
+        | none => false
+        | some es => es.all (c.edgeOkAt anno i (as.head?.getD []))) &&
       c.walk anno (i + 1) ps as
   | _, _, _ => true
 
-def Ctx.validFast (c : Ctx) (anno : Array (Option AState)) : Bool :=
-  c.σ.strs.all (fun e => e.1.isPtr && e.2.isPtr) &&
+def Ctx.validFast (c : Ctx) (anno : Array (List AState)) : Bool :=
+  c.σ.strs.all (fun e => e.1.isPtr && e.2.isPtr) && c.σ.symFree &&
   c.f.base == c.σ.entry &&
-  (match Fn.annoAt anno 0 with
-    | some A => c.σ.entryState.le A
-    | none => false) &&
+  (annoAt anno 0).any (leAt c.f.base.toNat (c.σ.entryState c.env) ·) &&
   anno.size == c.f.prog.length && c.walk anno 0 c.f.prog anno.toList
 
 end AsmVerif.RiscV.Check

@@ -46,7 +46,7 @@
   This file is the computation. Soundness against `stepSp1` is `Frame.Sound`.
 -/
 
-import RiscvZkvm.Rv64
+import AsmVerif.RiscV.Check.Fact
 
 namespace AsmVerif.RiscV.Frame
 
@@ -59,6 +59,8 @@ open RiscvZkvm.Rv64
 structure Ent where
   reg : Reg → Word
   mem : Word → Word := fun _ => 0
+  /-- The values of the symbols: what an activation knows only through facts (`Check`). -/
+  sym : Nat → Nat → Word := fun _ _ => 0
 
 instance : CoeFun Ent (fun _ => Reg → Word) := ⟨Ent.reg⟩
 
@@ -79,6 +81,9 @@ inductive AVal where
       `ks` of the entry memory (a field of a struct the caller passed, or a field of one of
       its fields). -/
   | cell (r : Reg) (ks : List Word) (d : Word)
+  /-- Symbol `j` made at instruction `i`, plus `k`: a value the activation knows only through
+      its facts (`Check`). -/
+  | sym (i j : Nat) (k : Word)
   deriving DecidableEq, Repr, Inhabited
 
 namespace AVal
@@ -89,6 +94,7 @@ def addK : AVal → Word → AVal
   | .top, _ => .top
   | .oneOf cs, d => .oneOf (cs.map (· + d))
   | .cell r ks k, d => .cell r ks (k + d)
+  | .sym i j k, d => .sym i j (k + d)
 
 /-- The frame offset of a frame address (`lin x2 k`). Matching on a specific register
     inside a pattern expands into Lean's 32-way case tree for `Reg`; testing it with `if`
@@ -127,6 +133,7 @@ def Holds (E : Ent) : AVal → Word → Prop
   | .top, _ => True
   | .oneOf cs, v => v ∈ cs
   | .cell r ks k, v => v = E.deref (E r) ks + k
+  | .sym i j k, v => v = E.sym i j + k
 
 end AVal
 
@@ -155,6 +162,13 @@ def regIdx : Reg → Nat
 structure AState where
   regs : List AVal
   slots : List (Word × AVal)
+  /-- What the activation knows about its values (`Check`). -/
+  facts : List (Check.Fact AVal) := []
+  /-- Doublewords outside the frame whose contents the activation knows: the fields of the
+      writers it was lent (`Check`). -/
+  wmem : List (AVal × AVal) := []
+  /-- The writers built in the frame: pointer and kind (`Check`). -/
+  fw : List (AVal × AVal) := []
   deriving DecidableEq, Repr
 
 /-- Slots worth protecting from a store that might hit them: the saved return address.
@@ -222,6 +236,7 @@ def Req.Holds (E : Ent) (q : Req) : Prop :=
   | .top => True   -- never generated; a `top` base is a residual
   | .oneOf cs => ∀ c ∈ cs, q.w.target c ≠ E .x2 + q.sk
   | .cell r ks k => q.w.target (E.deref (E r) ks + k) ≠ E .x2 + q.sk
+  | .sym i j k => q.w.target (E.sym i j + k) ≠ E .x2 + q.sk
 
 /-! ## The transfer function on straight-line instructions -/
 

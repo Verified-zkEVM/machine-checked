@@ -224,22 +224,39 @@ def Fact.isAtom : Fact Nat → Bool
 
 structure Model where
   kinds : Word → Option Kind
-  /-- The allocator's keys. -/
+  /-- The allocator's keys: everything the heap's structure or contents live in. -/
   heap : Word → Prop
+  /-- The heap keys inside allocated blocks, in a memory: the keys a buffer store may
+      rewrite without changing the heap's structure. -/
+  payload : (Word → Word) → Word → Prop
   /-- The atoms' meaning, in a memory. -/
   atom : Nat → List Word → (Word → Word) → Prop
   /-- Rules about the atoms, for certificates. -/
   rules : List Rule
+  /-- The atoms that do not depend on memory at all. -/
+  fixed : Nat → Bool := fun _ => false
   heap_aligned : ∀ a, heap a → Aligned a
-  /-- An atom depends on the heap's keys only. -/
-  atom_congr : ∀ i args m m', (∀ a, heap a → m' a = m a) → atom i args m → atom i args m'
+  payload_heap : ∀ m a, payload m a → heap a
+  /-- A memory that changes heap keys only inside allocated blocks has the same blocks. -/
+  payload_keep : ∀ m m', (∀ a, heap a → m' a = m a ∨ payload m a) → ∀ a, payload m' a ↔ payload m a
+  /-- …and the same atoms. -/
+  atom_keep : ∀ i args m m', (∀ a, heap a → m' a = m a ∨ payload m a) → atom i args m → atom i args m'
   rules_sound : ∀ m, ∀ r ∈ rules, r.Sound (fun i args => atom i args m)
+  fixed_sound : ∀ i args m m', fixed i = true → atom i args m → atom i args m'
+  /-- A well-typed buffer's bytes `[ptr, ptr + cap)` lie in allocated blocks, away from
+      the writer's fields. -/
+  buf_sound : ∀ k kd p m, kinds k = some kd → ∀ pi ci, kd.buf = some (pi, ci) →
+    (∀ f ∈ kd.inv, f.Holds (fun i args => atom i args m) (kd.val p m)) →
+    ∀ a, (kd.val p m (pi + 1)).toNat ≤ a.toNat →
+      a.toNat + 1 ≤ (kd.val p m (pi + 1)).toNat + (kd.val p m (ci + 1)).toNat →
+      payload m (alignToDword a) ∧ alignToDword a ∉ kd.fieldKeys p
   /-- Fields are aligned; stable fields are fields; a kind with a buffer, or whose invariant
-      has an atom, is heap-typed. -/
+      has an atom, is heap-typed; a kind with a buffer wraps nothing. -/
   kinds_wf : ∀ k kd, kinds k = some kd →
     (∀ off ∈ kd.fields, Aligned off) ∧ (∀ off ∈ kd.stable, off ∈ kd.fields) ∧
     (kd.buf.isSome → kd.heap = true) ∧ (∀ f ∈ kd.inv, f.isAtom = true → kd.heap = true) ∧
-    (∀ s, kd.sub = some s → s.dp ≠ [] ∧ ∀ off ∈ s.dp ++ s.kp, Aligned off)
+    (∀ s, kd.sub = some s → s.dp ≠ [] ∧ ∀ off ∈ s.dp ++ s.kp, Aligned off) ∧
+    (kd.buf.isSome → kd.sub = none)
 
 namespace Model
 
@@ -273,6 +290,14 @@ inductive Stable : Word → Word → (Word → Word) → Word → Prop where
       (hal : ∀ b ∈ s.keys m p, Aligned b)
       (h : Stable (derefM m p s.kp) (derefM m p s.dp) m a) : Stable k p m a
 
+/-- The field keys of the writer and of what it wraps. -/
+inductive Fields : Word → Word → (Word → Word) → Word → Prop where
+  | own {k p m a kd} (hk : M.kinds k = some kd) (h : a ∈ kd.fieldKeys p) (hal : Aligned a) :
+      Fields k p m a
+  | sub {k p m a kd s} (hk : M.kinds k = some kd) (hs : kd.sub = some s)
+      (hal : ∀ b ∈ s.keys m p, Aligned b)
+      (h : Fields (derefM m p s.kp) (derefM m p s.dp) m a) : Fields k p m a
+
 /-- Well-typed: the invariant holds, and what the writer wraps is a well-typed writer of
     one of the listed kinds, reached through aligned keys that are not its own. -/
 inductive WriterOk : Word → Word → (Word → Word) → Prop where
@@ -287,6 +312,34 @@ inductive WriterOk : Word → Word → (Word → Word) → Prop where
 abbrev hit := M.Hit
 abbrev stable := M.Stable
 abbrev writerOk := M.WriterOk
+abbrev fields := M.Fields
+
+/-- A field key is a hit key. -/
+theorem fields_hit {M : Model} {k p : Word} {m : Word → Word} {a : Word} (h : M.Fields k p m a) :
+    M.Hit k p m a := by
+  induction h with
+  | own hk h hal => exact .own hk (Or.inl ⟨h, hal⟩)
+  | sub hk hs hal _ ih => exact .sub hk hs hal ih
+
+/-- A hit key is a field key, a stable key, or a heap key. -/
+theorem hit_fields_stable_heap {M : Model} {k p : Word} {m : Word → Word} {a : Word}
+    (h : M.Hit k p m a) : M.Fields k p m a ∨ M.Stable k p m a ∨ M.heap a := by
+  induction h with
+  | own hk ho =>
+    rcases ho with ⟨h, hal⟩ | ⟨_, hh⟩ | ⟨s, hs, h⟩
+    · exact Or.inl (.own hk h hal)
+    · exact Or.inr (Or.inr hh)
+    · exact Or.inr (Or.inl (.own hk (Or.inr ⟨s, hs, h⟩)))
+  | sub hk hs hal _ ih =>
+    rcases ih with ih | ih | ih
+    · exact Or.inl (.sub hk hs hal ih)
+    · exact Or.inr (Or.inl (.sub hk hs hal ih))
+    · exact Or.inr (Or.inr ih)
+
+/-- An atom depends on the heap's keys only. -/
+theorem atom_congr (i : Nat) (args : List Word) (m m' : Word → Word)
+    (h : ∀ a, M.heap a → m' a = m a) (ha : M.atom i args m) : M.atom i args m' :=
+  M.atom_keep i args m m' (fun a ha => Or.inl (h a ha)) ha
 
 /-- The sub-writer `s` of the writer at `p` is well-typed, of one of its kinds, and its
     paths avoid it. -/
@@ -419,6 +472,55 @@ theorem hit_congr {k p : Word} {m m' : Word → Word} (h : ∀ a, M.hit k p m a 
     have hpre : ∀ b ∈ s.alKeys m p, m' b = m b := fun b hb =>
       h b (.own hk (Or.inr (Or.inr ⟨s, hs, hb⟩)))
     -- First from `m'` to `m`: the aligned prefix in `m'` is the whole path.
+    have hpre' : ∀ b ∈ s.alKeys m' p, m' b = m b := by
+      intro b hb
+      rw [Sub.alKeys_congr hpre] at hb
+      exact hpre b hb
+    have hc := Sub.congr hal (fun b hb => (hpre' b hb).symm)
+    obtain ⟨hkeys, hdp, hkp⟩ := hc
+    rw [← hdp, ← hkp] at ih
+    refine .sub hk hs (by rw [hkeys]; exact hal) (ih fun b hb => h b (.sub hk hs ?_ hb))
+    rw [hkeys]; exact hal
+
+/-- The same, from agreement on the stable keys alone: the hit keys depend on memory
+    only through the paths, which are stable. -/
+theorem hit_congr_stable {k p : Word} {m m' : Word → Word}
+    (h : ∀ a, M.stable k p m a → m' a = m a) : ∀ a, M.hit k p m' a → M.hit k p m a := by
+  intro a ha
+  induction ha with
+  | own hk ho =>
+    rename_i k p m' a kd
+    refine .own hk ?_
+    rcases ho with ho | ho | ⟨s, hs, ho⟩
+    · exact Or.inl ho
+    · exact Or.inr (Or.inl ho)
+    · refine Or.inr (Or.inr ⟨s, hs, ?_⟩)
+      rw [Sub.alKeys_congr fun b hb => h b (.own hk (Or.inr ⟨s, hs, hb⟩))] at ho
+      exact ho
+  | sub hk hs hal _ ih =>
+    rename_i k p m' a kd s hh
+    have hpre : ∀ b ∈ s.alKeys m p, m' b = m b := fun b hb =>
+      h b (.own hk (Or.inr ⟨s, hs, hb⟩))
+    have hpre' : ∀ b ∈ s.alKeys m' p, m' b = m b := by
+      intro b hb
+      rw [Sub.alKeys_congr hpre] at hb
+      exact hpre b hb
+    have hc := Sub.congr hal (fun b hb => (hpre' b hb).symm)
+    obtain ⟨hkeys, hdp, hkp⟩ := hc
+    rw [← hdp, ← hkp] at ih
+    refine .sub hk hs (by rw [hkeys]; exact hal) (ih fun b hb => h b (.sub hk hs ?_ hb))
+    rw [hkeys]; exact hal
+
+/-- Field keys of `m'` are field keys of `m`, when the two agree on the stable keys. -/
+theorem fields_congr_stable {k p : Word} {m m' : Word → Word}
+    (h : ∀ a, M.stable k p m a → m' a = m a) : ∀ a, M.fields k p m' a → M.fields k p m a := by
+  intro a ha
+  induction ha with
+  | own hk ho hal => exact .own hk ho hal
+  | sub hk hs hal _ ih =>
+    rename_i k p m' a kd s hh
+    have hpre : ∀ b ∈ s.alKeys m p, m' b = m b := fun b hb =>
+      h b (.own hk (Or.inr ⟨s, hs, hb⟩))
     have hpre' : ∀ b ∈ s.alKeys m' p, m' b = m b := by
       intro b hb
       rw [Sub.alKeys_congr hpre] at hb
@@ -597,6 +699,20 @@ theorem stable_struct_pure {k : Word} {kd : Kind} (hk : M.kinds k = some kd) (hp
     · exact stable_of_keys hk hs hal ha
     · exact stable_of_sub hk hs hal ha
 
+/-- A field key of a pure structural writer is one of the writer it wraps. -/
+theorem fields_struct_pure {M : Model} {k : Word} {kd : Kind} (hk : M.kinds k = some kd)
+    (hp : kd.pure = true) {s : Sub} (hs : kd.sub = some s) {p : Word} {m : Word → Word}
+    {a : Word} (h : M.Fields k p m a) : M.Fields (derefM m p s.kp) (derefM m p s.dp) m a := by
+  cases h with
+  | own hk' h _ =>
+    rw [hk] at hk'; cases hk'
+    rw [pure_iff] at hp
+    simp [Kind.fieldKeys, hp.1] at h
+  | sub hk' hs' _ h =>
+    rw [hk] at hk'; cases hk'
+    rw [hs] at hs'; cases hs'
+    exact h
+
 /-- A pure unit kind (no wrapper) has no keys. -/
 theorem unit_no_hit {k : Word} {kd : Kind} (hk : M.kinds k = some kd) (hp : kd.pure = true)
     (hs : kd.sub = none) {p : Word} {m : Word → Word} {a : Word} : ¬ M.hit k p m a := by
@@ -626,7 +742,7 @@ theorem sub_intro_pure {k : Word} {kd : Kind} (hk : M.kinds k = some kd) (hp : k
 theorem aligned_of_sub {k : Word} {kd : Kind} (hk : M.kinds k = some kd) {s : Sub}
     (hs : kd.sub = some s) {p : Word} {m : Word → Word} (hal : ∀ b ∈ s.keys m p, Aligned b) :
     Aligned p := by
-  obtain ⟨hne, hoff⟩ := (M.kinds_wf k kd hk).2.2.2.2 s hs
+  obtain ⟨hne, hoff⟩ := (M.kinds_wf k kd hk).2.2.2.2.1 s hs
   cases hdp : s.dp with
   | nil => exact absurd hdp hne
   | cons d rest =>
@@ -655,6 +771,12 @@ theorem Keeps.trans {k p : Word} {m m' m'' : Word → Word} (h1 : M.Keeps k p m 
   ⟨h2.1, fun a ha => h1.2.1 a (h2.2.1 a ha),
    fun a ha => (h2.2.2 a ((h1.stable_iff a).mpr ha)).trans (h1.2.2 a ha)⟩
 
+/-- Keeping from a memory whose stable keys are `m`'s keeps from `m`. -/
+theorem Keeps.of_stable {k p : Word} {m m' m'' : Word → Word}
+    (hst : ∀ a, M.stable k p m a → m' a = m a) (h : M.Keeps k p m' m'') : M.Keeps k p m m'' :=
+  ⟨h.1, fun a ha => hit_congr_stable hst a (h.2.1 a ha),
+   fun a ha => (h.2.2 a ((stable_congr hst a).mpr ha)).trans (hst a ha)⟩
+
 /-- A memory that agrees with `m` on the writer's keys keeps it. -/
 theorem Keeps.of_congr {k p : Word} {m m' : Word → Word} (hw : M.writerOk k p m)
     (h : ∀ a, M.hit k p m a → m' a = m a) : M.Keeps k p m m' :=
@@ -665,6 +787,106 @@ theorem Keeps.congr {k p : Word} {m m' m'' : Word → Word} (h : M.Keeps k p m m
     (hc : ∀ a, M.hit k p m a → m'' a = m' a) : M.Keeps k p m m'' :=
   h.trans (Keeps.of_congr h.1 fun a ha => hc a (h.2.1 a ha))
 
+/-- A stable key is a field key. -/
+theorem stable_fields {k p : Word} {m : Word → Word} {a : Word} (h : M.stable k p m a) :
+    M.fields k p m a ∨ ∃ k' p' s kd, M.kinds k' = some kd ∧ kd.sub = some s ∧ a ∈ s.alKeys m p' := by
+  induction h with
+  | own hk h =>
+    rename_i k p m a kd
+    rcases h with ⟨h, hal⟩ | ⟨s, hs, h⟩
+    · left
+      refine .own hk ?_ hal
+      simp only [Kind.stableKeys, List.mem_map] at h
+      obtain ⟨off, hoff, rfl⟩ := h
+      exact List.mem_map.mpr ⟨off, (M.kinds_wf k kd hk).2.1 off hoff, rfl⟩
+    · exact Or.inr ⟨k, p, s, kd, hk, hs, h⟩
+  | sub hk hs hal _ ih =>
+    rcases ih with ih | ih
+    · exact Or.inl (.sub hk hs hal ih)
+    · exact Or.inr ih
+
+/-- The heap keys a well-typed writer owns change only inside allocated blocks, and its
+    fields and stable keys are not heap keys: it is kept. -/
+theorem Keeps.of_keep {k p : Word} {m m' : Word → Word} (hw : M.writerOk k p m)
+    (h : ∀ a, M.hit k p m a → m' a = m a ∨ (M.heap a ∧ M.payload m a))
+    (hf : ∀ a, M.fields k p m a → ¬ M.heap a) (hs : ∀ a, M.stable k p m a → ¬ M.heap a) :
+    M.Keeps k p m m' := by
+  have hst : ∀ a, M.stable k p m a → m' a = m a := fun a ha =>
+    (h a (stable_hit ha)).resolve_right fun hh => hs a ha hh.1
+  refine ⟨?_, hit_congr_stable hst, hst⟩
+  induction hw with
+  | mk hk hal hinv hsub hkind hkeys ihsub =>
+    rename_i k p m kd
+    have hfld : ∀ a, a ∈ kd.fieldKeys p → m' a = m a := fun a ha => by
+      obtain ⟨off, hoff, rfl⟩ := List.mem_map.mp ha
+      exact (h _ (.own hk (Or.inl ⟨ha, field_aligned hk hal hoff⟩))).resolve_right
+        fun hh => hf _ (.own hk ha (field_aligned hk hal hoff)) hh.1
+    have hval : kd.val p m' = kd.val p m := by
+      funext i
+      cases i with
+      | zero => rfl
+      | succ i =>
+        simp only [Kind.val]
+        split
+        · rename_i off hoff
+          exact hfld _ (List.mem_map.mpr ⟨off, List.mem_of_getElem? hoff, rfl⟩)
+        · rfl
+    refine .mk hk hal ?_ ?_ ?_ ?_
+    · intro f hf'
+      have hf'' := hinv f hf'
+      rw [hval]
+      cases f with
+      | atom i args =>
+        have hh := (M.kinds_wf k kd hk).2.2.2.1 _ hf' rfl
+        refine M.atom_keep _ _ m m' (fun a ha => ?_) hf''
+        rcases h a (.own hk (Or.inr (Or.inl ⟨hh, ha⟩))) with h1 | ⟨_, h1⟩
+        · exact Or.inl h1
+        · exact Or.inr h1
+      | le l r => exact hf''
+      | op o x args => exact hf''
+    · intro s hs'
+      have hk' := hkeys s hs'
+      have hpath : ∀ b ∈ s.alKeys m p, m' b = m b := fun b hb =>
+        hst b (.own hk (Or.inr ⟨s, hs', hb⟩))
+      obtain ⟨hkeys', hdp, hkp⟩ := Sub.congr (fun b hb => (hk' b hb).1) hpath
+      rw [hdp, hkp]
+      refine ihsub s hs' (fun a ha => h a (.sub hk hs' (fun b hb => (hk' b hb).1) ha))
+        (fun a ha => hf a (.sub hk hs' (fun b hb => (hk' b hb).1) ha))
+        (fun a ha => hs a (.sub hk hs' (fun b hb => (hk' b hb).1) ha))
+        (fun a ha => hst a (.sub hk hs' (fun b hb => (hk' b hb).1) ha))
+    · intro s hs'
+      have hk' := hkeys s hs'
+      obtain ⟨-, -, hkp⟩ := Sub.congr (fun b hb => (hk' b hb).1)
+        (fun b hb => hst b (.own hk (Or.inr ⟨s, hs', hb⟩)))
+      rw [hkp]; exact hkind s hs'
+    · intro s hs' a ha
+      have hk' := hkeys s hs'
+      obtain ⟨hkeys', hdp, hkp⟩ := Sub.congr (fun b hb => (hk' b hb).1)
+        (fun b hb => hst b (.own hk (Or.inr ⟨s, hs', hb⟩)))
+      rw [hkeys'] at ha
+      rw [hdp, hkp]
+      refine ⟨(hk' a ha).1, fun hh => (hk' a ha).2 ?_⟩
+      exact hit_congr_stable (fun b hb => hst b (.sub hk hs' (fun b hb => (hk' b hb).1) hb)) a hh
+
+/-- The bytes of a writer's buffer: `[ptr, ptr + cap)`, from its fields. -/
+def BufKey (k p : Word) (m : Word → Word) (a : Word) : Prop :=
+  ∃ kd pi ci, M.kinds k = some kd ∧ kd.buf = some (pi, ci) ∧
+    (kd.val p m (pi + 1)).toNat ≤ a.toNat ∧
+    a.toNat + 1 ≤ (kd.val p m (pi + 1)).toNat + (kd.val p m (ci + 1)).toNat
+
+/-- The doubleword of a buffer byte is a payload key the writer may rewrite. -/
+theorem bufKey_payload {k p : Word} {m : Word → Word} (hw : M.writerOk k p m) {a : Word}
+    (hb : M.BufKey k p m a) :
+    M.payload m (alignToDword a) ∧ M.hit k p m (alignToDword a) ∧
+    ∀ kd, M.kinds k = some kd → alignToDword a ∉ kd.fieldKeys p := by
+  obtain ⟨kd, pi, ci, hk, hbuf, h1, h2⟩ := hb
+  obtain ⟨kd', hk', _, hinv⟩ := writerOk_kind hw
+  rw [hk] at hk'; cases hk'
+  obtain ⟨hp, hnf⟩ := M.buf_sound k kd p m hk pi ci hbuf hinv a h1 h2
+  have hh := (M.kinds_wf k kd hk).2.2.1 (by simp [hbuf])
+  refine ⟨hp, .own hk (Or.inr (Or.inl ⟨hh, M.payload_heap m _ hp⟩)), fun kd' hk' => ?_⟩
+  rw [hk] at hk'; cases hk'; exact hnf
+
 end Model
 
 /-- No writers. -/
@@ -672,10 +894,15 @@ def Model.trivial : Model where
   kinds _ := none
   heap _ := False
   atom _ _ _ := False
+  payload _ _ := False
   rules := []
   heap_aligned _ h := h.elim
-  atom_congr _ _ _ _ _ h := h.elim
+  payload_heap _ _ h := h.elim
+  payload_keep _ _ _ _ := Iff.rfl
+  atom_keep _ _ _ _ _ h := h.elim
   rules_sound _ _ h := by simp at h
+  fixed_sound _ _ _ _ _ h := h.elim
+  buf_sound _ _ _ _ h := nomatch h
   kinds_wf _ _ h := nomatch h
 
 theorem Model.trivial_hit {k p : Word} {m : Word → Word} {a : Word} : ¬ Model.trivial.hit k p m a := by

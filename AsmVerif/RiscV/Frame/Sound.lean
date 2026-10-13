@@ -36,6 +36,7 @@ theorem frameOff?_some {a : AVal} {k : Word} (h : a.frameOff? = some k) : a = .l
   | top => cases h
   | oneOf => cases h
   | cell => cases h
+  | sym => cases h
 
 theorem holds_addK {E : Ent} {a : AVal} {x d : Word} (h : a.Holds E x) :
     (a.addK d).Holds E (x + d) := by
@@ -291,6 +292,12 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
         · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
           exact h.1 rs2
         · exact keep p hp
+      | sym i j k =>
+        simp only [hr2, List.mem_cons] at hp
+        rcases hp with rfl | hp
+        · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+          exact h.1 rs2
+        · exact keep p hp
   | none =>
     simp only [hk] at hreq hres ⊢
     by_cases hnt : b = .top
@@ -317,6 +324,7 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
         | top => exact absurd rfl hnt
         | oneOf cs => simp only [AVal.Holds] at hb; exact hq _ hb
         | cell r ks k => simp only [AVal.Holds] at hb; simpa [Req.Holds, hb] using hq
+        | sym i j k => simp only [AVal.Holds] at hb; simpa [Req.Holds, hb] using hq
       rw [getMem_setMem, if_neg (Ne.symm hneq)]
       exact h.2 p hp.1
 
@@ -764,6 +772,7 @@ theorem outlined_sound {f : Fn} {anno} {E} {s s' : MachineState} {i k : Nat} {A 
   | top => rw [hx5] at hok0; cases hok0
   | oneOf => rw [hx5] at hok0; cases hok0
   | cell => rw [hx5] at hok0; cases hok0
+  | sym => rw [hx5] at hok0; cases hok0
   | const c =>
     rw [hx5] at hok0 h5
     simp only [AVal.Holds] at h5

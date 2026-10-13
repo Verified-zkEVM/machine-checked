@@ -126,6 +126,7 @@ def _root_.AsmVerif.RiscV.Frame.AVal.eval (E : Ent) : AVal → Word
   | .top => 0
   | .oneOf _ => 0
   | .cell r ks k => E.deref (E r) ks + k
+  | .sym i j k => E.sym i j + k
 
 def Len.eval (E : Ent) : Len → Nat
   | .n l => l
@@ -163,7 +164,19 @@ def Written (σ : Iface) (E : Ent) (a : Word) : Prop :=
   InWin (E .x2) σ.depth a ∨ ∃ it ∈ σ.foot, it.Hits E a
 
 /-- The registers and memory of a state, as the entry valuation of a function. -/
-def regsOf (s : MachineState) : Ent := ⟨s.getReg, s.getMem⟩
+def regsOf (s : MachineState) : Ent := { reg := s.getReg, mem := s.getMem }
+
+/-- A postcondition's variable, from the entry state `s` and the exit state `t`. -/
+def postVal (s t : MachineState) : PVal → Word
+  | .ent v => v.eval (regsOf s)
+  | .ret r => t.getReg r
+  | .out a => t.getMem (a.eval (regsOf s))
+
+/-- What a program's `Env` must satisfy for the typed stores: the heap is owned, and a
+    store inside an allocated block keeps the module invariant. -/
+def Env.Ok (env : Env) : Prop :=
+  (∀ a, env.model.heap a → env.InOwn a) ∧
+  ∀ m a v, env.Inv m → env.model.payload m a → env.Inv (fun b => if b = a then v else m b)
 
 /-- A cell's address, given the entry valuation. -/
 def Cell.addr (E : Ent) (c : Cell) : Word := E.deref (E c.r) c.ks + c.k
@@ -177,20 +190,24 @@ def StrHit (env : Env) (σ : Iface) (E : Ent) (m : Word → Word) (a : Word) : P
   ∃ e ∈ σ.strs, env.model.hit (e.2.eval E) (e.1.eval E) m a
 
 /-- At entry: each writer is well-typed; its keys are none the function writes and none
-    protected; its stable keys are aligned and not owned; and no cell is a writer's key. -/
+    protected; its field keys and stable keys are aligned and not owned; and no cell is a
+    writer's key. -/
 def StrsPre (env : Env) (σ : Iface) (E : Ent) (m : Word → Word) : Prop :=
   (∀ e ∈ σ.strs, env.model.writerOk (e.2.eval E) (e.1.eval E) m ∧
     (∀ a, env.model.hit (e.2.eval E) (e.1.eval E) m a → ¬ Written σ E a ∧ ¬ env.InProt a) ∧
-    (∀ a, env.model.stable (e.2.eval E) (e.1.eval E) m a → Aligned a ∧ ¬ env.InOwn a)) ∧
+    (∀ a, env.model.stable (e.2.eval E) (e.1.eval E) m a → Aligned a ∧ ¬ env.InOwn a) ∧
+    (∀ a, env.model.fields (e.2.eval E) (e.1.eval E) m a → Aligned a ∧ ¬ env.InOwn a)) ∧
   ∀ c ∈ σ.cells, ¬ StrHit env σ E m (c.addr E)
 
-/-- At return: each writer is kept (`Model.Keeps`); and so is every writer whose keys
-    the function neither writes nor was lent. -/
+/-- At return: each writer is kept (`Model.Keeps`); and, if the function leaves the heap's
+    structure alone, so is every writer whose keys it neither writes nor was lent. -/
 def StrsPost (env : Env) (σ : Iface) (E : Ent) (m m' : Word → Word) : Prop :=
   (∀ e ∈ σ.strs, env.model.Keeps (e.2.eval E) (e.1.eval E) m m') ∧
-  ∀ k p, env.model.writerOk k p m →
+  (σ.heap = false → ∀ k p, env.model.writerOk k p m →
     (∀ a, env.model.hit k p m a → ¬ Written σ E a ∧ ¬ StrHit env σ E m a) →
-    env.model.Keeps k p m m'
+    (∀ a, env.model.fields k p m a → ¬ env.InOwn a) →
+    (∀ a, env.model.stable k p m a → ¬ env.InOwn a) →
+    env.model.Keeps k p m m')
 
 /-- The precondition: the code is the program's; the stack has room for the window and lies
     below the program; the protected regions hold their contents; footprint items avoid the
@@ -207,17 +224,22 @@ def Pre (env : Env) (C : Word → Option Instr) (σ : Iface) (s : MachineState) 
   (∀ p ∈ σ.vals, s.getReg p.1 ∈ p.2) ∧
   (∀ c ∈ σ.cells, Aligned (c.addr (regsOf s)) ∧ ¬ Written σ (regsOf s) (c.addr (regsOf s)) ∧
     ¬ env.InOwn (c.addr (regsOf s)) ∧ ∀ cs, c.vals = some cs → s.getMem (c.addr (regsOf s)) ∈ cs) ∧
-  env.Inv s.getMem ∧ StrsPre env σ (regsOf s) s.getMem
+  env.Inv s.getMem ∧ StrsPre env σ (regsOf s) s.getMem ∧
+  (∀ f ∈ σ.pre, f.Holds (env.model.atomIn s.getMem) (AVal.eval (regsOf s)))
 
 /-- The postcondition: it returns, to `ra`, with the callee-saved registers restored and
     memory unchanged outside what it may write and the writers it was lent; the invariant
-    holds; the writers are kept. -/
+    holds; the writers are kept; the `post` facts hold; and if it leaves the heap's
+    structure alone, the heap changed only inside the blocks allocated at entry. -/
 def Post (env : Env) (σ : Iface) (s t : MachineState) : Prop :=
   σ.returns = true ∧ t.pc = s.getReg .x1 &&& ~~~1#64 ∧
   (∀ r ∈ savedRegs, t.getReg r = s.getReg r) ∧
   (∀ a, Aligned a → ¬ Written σ (regsOf s) a → ¬ env.InOwn a →
     ¬ StrHit env σ (regsOf s) s.getMem a → t.getMem a = s.getMem a) ∧
-  t.code = s.code ∧ env.Inv t.getMem ∧ StrsPost env σ (regsOf s) s.getMem t.getMem
+  t.code = s.code ∧ env.Inv t.getMem ∧ StrsPost env σ (regsOf s) s.getMem t.getMem ∧
+  (∀ f ∈ σ.post, f.Holds (env.model.atomIn t.getMem) (postVal s t)) ∧
+  (σ.heap = false → ∀ a, env.model.heap a → ¬ env.model.payload s.getMem a →
+    t.getMem a = s.getMem a)
 
 /-- The control-flow premise at a state: a listed `jalr` lands on one of its candidates. -/
 def Env.Cfi (env : Env) (x : MachineState) : Prop :=

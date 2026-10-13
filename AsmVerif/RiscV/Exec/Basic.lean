@@ -38,18 +38,24 @@ def Ret (σ : Iface) (s t : MachineState) : Prop :=
   (∀ a, Aligned a → ¬ Written σ (regsOf s) a → t.getMem a = s.getMem a) ∧
   t.code = s.code
 
-/-- A function that writes no owned key keeps the module invariant; one that writes no
-    writer's key keeps every writer. -/
+/-- A function that writes no owned key keeps the module invariant and the heap (its keys
+    are owned); one that writes no writer's key keeps every writer. Its `post` facts are
+    its own business (`hpost`). -/
 theorem Post.of_ret {env : Env} {σ : Iface} {s t : MachineState}
+    (hheap : ∀ a, env.model.heap a → env.InOwn a)
     (hown : ∀ a, Aligned a → env.InOwn a → ¬ Written σ (regsOf s) a)
-    (hinv : env.Inv s.getMem ∧ StrsPre env σ (regsOf s) s.getMem) (h : Ret σ s t) :
-    Post env σ s t :=
+    (hinv : env.Inv s.getMem ∧ StrsPre env σ (regsOf s) s.getMem)
+    (hpost : ∀ f ∈ σ.post, f.Holds (env.model.atomIn t.getMem) (postVal s t))
+    (h : Ret σ s t) : Post env σ s t :=
   ⟨h.1, h.2.1, h.2.2.1, fun a ha hnw _ _ => h.2.2.2.1 a ha hnw, h.2.2.2.2,
     Env.Inv_congr (fun a ha ho => h.2.2.2.1 a ha (hown a ha ho)) hinv.1,
-    fun e he => Model.Keeps.of_congr (hinv.2.1 e he).1 fun a hh =>
+    ⟨fun e he => Model.Keeps.of_congr (hinv.2.1 e he).1 fun a hh =>
       h.2.2.2.1 a (Model.hit_aligned hh) ((hinv.2.1 e he).2.1 a hh).1,
-    fun _ _ hw hh => Model.Keeps.of_congr hw fun a ha =>
-      h.2.2.2.1 a (Model.hit_aligned ha) (hh a ha).1⟩
+     fun _ _ _ hw hh _ _ => Model.Keeps.of_congr hw fun a ha =>
+      h.2.2.2.1 a (Model.hit_aligned ha) (hh a ha).1⟩,
+    hpost,
+    fun _ a hh _ => h.2.2.2.1 a (env.model.heap_aligned a hh)
+      (hown a (env.model.heap_aligned a hh) (hheap a hh))⟩
 
 /-- An interface with an empty window writes no owned key: its footprint avoids them. -/
 theorem Pre.own_not_written {env : Env} {C : Word → Option Instr} {σ : Iface}
@@ -61,10 +67,13 @@ theorem Pre.own_not_written {env : Env} {C : Word → Option Instr} {σ : Iface}
 
 /-- An interface holds at budget `n` if an invariant holds at the entry and every cut
     state is safe given that every cut state is safe for smaller budgets. The function
-    writes no owned key (`hown`), so its returns keep the module invariant. -/
+    writes no owned key (`hown`), so its returns keep the module invariant and the heap;
+    its returns satisfy its `post` facts (`hpost`). -/
 theorem holdsN_of_inv {env : Env} {C : Word → Option Instr} {σ : Iface} {n : Nat}
-    (Inv : MachineState → MachineState → Prop)
+    (Inv : MachineState → MachineState → Prop) (hok : env.Ok)
     (hown : ∀ s0, Pre env C σ s0 → ∀ a, Aligned a → env.InOwn a → ¬ Written σ (regsOf s0) a)
+    (hpost : ∀ s0 t, Pre env C σ s0 → Ret σ s0 t →
+      ∀ f ∈ σ.post, f.Holds (env.model.atomIn t.getMem) (postVal s0 t))
     (hentry : ∀ s0, s0.pc = σ.entry → Pre env C σ s0 → Inv s0 s0)
     (hstep : ∀ (G : MachineState → Prop) s0 (P : Prop) k, s0.pc = σ.entry → Pre env C σ s0 →
       k ≤ n →
@@ -79,7 +88,8 @@ theorem holdsN_of_inv {env : Env} {C : Word → Option Instr} {σ : Iface} {n : 
     | ind k ih =>
       intro hkn s hs
       exact hstep G s0 P k hpc hpre hkn
-        (fun t ht => SafeN.mono hkn (hk t (Post.of_ret (hown s0 hpre) hpre.2.2.2.2.2.2.2.2.2 ht)))
+        (fun t ht => SafeN.mono hkn (hk t (Post.of_ret hok.1 (hown s0 hpre)
+          ⟨hpre.2.2.2.2.2.2.2.2.2.1, hpre.2.2.2.2.2.2.2.2.2.2.1⟩ (hpost s0 t hpre ht) ht)))
         (fun m hm t ht => ih m hm (by omega) t ht) s hs
   exact key n (Nat.le_refl n) s0 (hentry s0 hpc hpre)
 

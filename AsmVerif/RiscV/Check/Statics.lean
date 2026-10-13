@@ -37,7 +37,7 @@ theorem Pre.not_written_prot (hwf : env.wf = true) (h : Pre env C σ s) {a : Wor
 /-- No writer's key is protected. -/
 theorem Pre.not_strHit_prot (h : Pre env C σ s) {a : Word} (hp : env.InProt a) :
     ¬ StrHit env σ (regsOf s) s.getMem a :=
-  fun ⟨e, he, hh⟩ => ((h.2.2.2.2.2.2.2.2.2.2.1 e he).2.1 a hh).2 hp
+  fun ⟨e, he, hh⟩ => ((h.2.2.2.2.2.2.2.2.2.2.1.1 e he).2.1 a hh).2 hp
 
 /-- **A verified call leaves protected memory as it found it.** -/
 theorem Post.keeps_prot (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : Post env σ s t)
@@ -58,7 +58,7 @@ theorem StrsPre.trivial (hm : env.model = Model.trivial) (hs : σ.strs = []) {E 
 theorem StrsPost.trivial (hm : env.model = Model.trivial) (hs : σ.strs = []) {E : Ent}
     {m m' : Word → Word} : StrsPost env σ E m m' := by
   unfold StrsPost
-  refine ⟨fun e he => (by rw [hs] at he; cases he), fun k p hw _ => ?_⟩
+  refine ⟨fun e he => (by rw [hs] at he; cases he), fun _ k p hw _ _ _ => ?_⟩
   rw [hm] at hw; exact (Model.trivial_writerOk hw).elim
 
 /-- Protected memory holds its load values at a verified call's return. -/
@@ -111,8 +111,11 @@ theorem Pre.plain (hpre : Pre env C σ s) : Pre env.plain C σ s :=
       (hpre.2.2.2.2.2.1 it hit a ha hh).2.1, Env.plain_not_own env⟩,
     hpre.2.2.2.2.2.2.1, hpre.2.2.2.2.2.2.2.1,
     fun c hc => let h := hpre.2.2.2.2.2.2.2.2.1 c hc; ⟨h.1, h.2.1, Env.plain_not_own env, h.2.2.2⟩,
-    trivial, fun e he => let h := hpre.2.2.2.2.2.2.2.2.2.2.1 e he;
-      ⟨h.1, h.2.1, fun a hs => ⟨(h.2.2 a hs).1, Env.plain_not_own env⟩⟩,
+    trivial,
+    ⟨fun e he => let h := hpre.2.2.2.2.2.2.2.2.2.2.1.1 e he;
+      ⟨h.1, h.2.1, fun a hs => ⟨(h.2.2.1 a hs).1, Env.plain_not_own env⟩,
+        fun a hs => ⟨(h.2.2.2 a hs).1, Env.plain_not_own env⟩⟩,
+     hpre.2.2.2.2.2.2.2.2.2.2.1.2⟩,
     hpre.2.2.2.2.2.2.2.2.2.2.2⟩
 
 /-- What a function entered under the owning `Env`'s precondition may write is not owned. -/
@@ -131,7 +134,10 @@ theorem Post.lift (hwf : env.wf = true) (hpre : Pre env C σ s)
     h.2.2.2.2.1, Env.Inv_congr (fun a ha ho =>
       h.2.2.2.1 a ha (Pre.not_written_own hwf hpre ha ho) (Env.plain_not_own env)
         (fun hh => hs a hh ho))
-      hpre.2.2.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2⟩
+      hpre.2.2.2.2.2.2.2.2.2.1,
+    ⟨h.2.2.2.2.2.2.1.1, fun hh k p hw hhit _ _ => h.2.2.2.2.2.2.1.2 hh k p hw hhit
+      (fun _ _ => Env.plain_not_own env) (fun _ _ => Env.plain_not_own env)⟩,
+    h.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2⟩
 
 /-- **Lifting.** An interface proved without owned statics holds with them: its footprint
     and window avoid them (the owning precondition says so), and so do the writers it is

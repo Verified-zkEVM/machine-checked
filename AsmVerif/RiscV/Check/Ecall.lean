@@ -294,6 +294,7 @@ theorem holds_eval {E : Ent} {v : AVal} {w : Word} (h : v.Holds E w)
   | top => simp [AVal.isPtr] at hv
   | oneOf _ => simp [AVal.isPtr] at hv
   | cell r ks k => simp only [AVal.Holds] at h; simp [AVal.eval, h]
+  | sym i j k => simp only [AVal.Holds] at h; simp [AVal.eval, h]
 
 theorem lenPlus_eval {E : Ent} {v : AVal} {w : Word} {c : Nat} {l : Len}
     (h : v.Holds E w) (hl : lenPlus v c = some l) : l.eval E = w.toNat + c := by
@@ -311,6 +312,7 @@ theorem lenPlus_eval {E : Ent} {v : AVal} {w : Word} {c : Nat} {l : Len}
   | top => simp [lenPlus] at hl
   | oneOf _ => simp [lenPlus] at hl
   | cell _ _ _ => simp [lenPlus] at hl
+  | sym _ _ _ => simp [lenPlus] at hl
 
 /-- A value `nzVal` accepts is nonzero, whatever it denotes. -/
 theorem nzVal_holds {σ : Iface} {E : Ent} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) {v : AVal}
@@ -328,6 +330,7 @@ theorem nzVal_holds {σ : Iface} {E : Ent} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 
   | cell r ks k =>
     simp only [AVal.Holds] at h; subst h
     exact hnz _ (List.contains_iff_mem.mp hok)
+  | sym _ _ _ => simp [nzVal] at hok
 
 /-- What `sysStep` promises about an `ecall` in a state its abstract registers describe. -/
 theorem sysStep_sound {σ : Iface} {E : Ent} {A : AState} {x : MachineState} {out : SysOut}
@@ -345,6 +348,7 @@ theorem sysStep_sound {σ : Iface} {E : Ent} {A : AState} {x : MachineState} {ou
   | top => rw [ht] at h; cases h
   | oneOf _ => rw [ht] at h; cases h
   | cell _ _ _ => rw [ht] at h; cases h
+  | sym _ _ _ => rw [ht] at h; cases h
   | const t =>
   rw [ht] at h h5
   simp only [AVal.Holds] at h5

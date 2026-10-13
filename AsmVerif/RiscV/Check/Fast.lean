@@ -11,34 +11,22 @@ namespace AsmVerif.RiscV.Check
 
 open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
 
-theorem AState.le_refl (A : AState) : A.le A = true := by
-  simp [AState.le, AVal.le, List.all_eq_true]
-
-theorem edgeOkAt_imp {anno : Array (Option AState)} {i : Nat} {e : Edge}
-    (h : edgeOkAt anno i (anno.toList[i + 1]?) e = true) : edgeOk anno e = true := by
+theorem Ctx.edgeOkAt_imp {c : Ctx} {anno : Array (List AState)} {i : Nat} {e : Edge}
+    (h : c.edgeOkAt anno i ((anno.toList[i + 1]?).getD []) e = true) :
+    c.edgeOk anno e = true := by
   cases e with
   | goto j B =>
-    simp only [edgeOkAt] at h
+    simp only [Ctx.edgeOkAt] at h
     split at h
     · rename_i hj; subst hj
-      simp only [edgeOk, Fn.annoAt_eq]
-      cases hx : anno.toList[i + 1]? with
-      | none => rw [hx] at h; cases h
-      | some x =>
-        rw [hx] at h
-        cases x with
-        | none => cases h
-        | some C =>
-          simp only [Bool.or_eq_true, beq_iff_eq] at h
-          rcases h with rfl | h
-          · exact AState.le_refl _
-          · exact h
+      simp only [Ctx.edgeOk, annoAt, Array.getElem?_toList] at h ⊢
+      exact h
     · exact h
   | ret B => exact h
 
-theorem Ctx.walk_sound {c : Ctx} {anno : Array (Option AState)}
+theorem Ctx.walk_sound {c : Ctx} {anno : Array (List AState)}
     (hsize : anno.size = c.f.prog.length) :
-    ∀ (ps : List (Option Instr)) (as : List (Option AState)) (i : Nat),
+    ∀ (ps : List (Option Instr)) (as : List (List AState)) (i : Nat),
       c.walk anno i ps as = true → ps = c.f.prog.drop i → as = anno.toList.drop i →
       ∀ k, i ≤ k → k < c.f.prog.length → c.instrOk anno k = true
   | [], _, i, _, hps, _, k, hik, hk => by
@@ -53,7 +41,7 @@ theorem Ctx.walk_sound {c : Ctx} {anno : Array (Option AState)}
     simp only [Ctx.walk, Bool.and_eq_true] at hw
     have hpi : c.f.prog[i]? = some oi := by
       have := congrArg (·[0]?) hps; simpa using this.symm
-    have hai : anno.toList[i]? = some a := by
+    have hai : anno[i]? = some a := by
       have := congrArg (·[0]?) has; simpa using this.symm
     have hps' : ps = c.f.prog.drop (i + 1) := by
       have := congrArg List.tail hps; simpa [List.tail_drop] using this
@@ -61,34 +49,34 @@ theorem Ctx.walk_sound {c : Ctx} {anno : Array (Option AState)}
       have := congrArg List.tail has; simpa [List.tail_drop] using this
     rcases Nat.eq_or_lt_of_le hik with rfl | hlt
     · unfold Ctx.instrOk
-      rw [Fn.annoAt_eq, hai]
-      have hnext : as.head? = anno.toList[i + 1]? := by
+      rw [annoAt, hai, Option.getD_some]
+      have hnext : as.head?.getD [] = (anno.toList[i + 1]?).getD [] := by
         rw [has']; simp
-      cases a with
-      | none => rfl
-      | some A =>
-        have hw1 := hw.1
-        simp only [Option.join] at hw1 ⊢
-        simp only [Ctx.step, hpi]
-        cases hst : c.stepAt (c.f.pcOf i) oi A with
-        | none => rw [hst] at hw1; cases hw1
-        | some es =>
-          rw [hst] at hw1
-          simp only [List.all_eq_true] at hw1
-          simp only [Option.bind_some, id_eq, hst, List.all_eq_true]
-          intro e he
-          have := hw1 e he
-          rw [hnext] at this
-          exact edgeOkAt_imp this
+      have hw1 := hw.1
+      simp only [List.all_eq_true] at hw1 ⊢
+      intro A hA
+      have hwA := hw1 A hA
+      simp only [Ctx.step, hpi]
+      cases hst : c.stepAt (c.f.pcOf i) oi A with
+      | none => rw [hst] at hwA; cases hwA
+      | some es =>
+        rw [hst] at hwA
+        simp only [List.all_eq_true] at hwA ⊢
+        intro e he
+        have := hwA e he
+        rw [hnext] at this
+        exact Ctx.edgeOkAt_imp this
     · exact Ctx.walk_sound hsize ps as (i + 1) hw.2 hps' has' k hlt hk
 
 /-- **The one-pass check suffices.** -/
-theorem Ctx.validFast_sound {c : Ctx} {anno : Array (Option AState)}
+theorem Ctx.validFast_sound {c : Ctx} {anno : Array (List AState)}
     (h : c.validFast anno = true) : c.valid anno = true := by
   simp only [Ctx.validFast, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨hptr, hb⟩, h0⟩, hsize⟩, hw⟩ := h
-  simp only [Ctx.valid, Bool.and_eq_true, beq_iff_eq, List.all_eq_true, List.mem_range]
-  exact ⟨⟨⟨fun e he => by simpa [Bool.and_eq_true] using List.all_eq_true.mp hptr e he, hb⟩, h0⟩,
-    fun k hk => Ctx.walk_sound hsize _ _ 0 hw (by simp) (by simp) k (Nat.zero_le _) hk⟩
+  obtain ⟨⟨⟨⟨⟨hptr, hsf⟩, hb⟩, h0⟩, hsize⟩, hw⟩ := h
+  have hall : (List.range c.f.prog.length).all (c.instrOk anno) = true := by
+    simp only [List.all_eq_true, List.mem_range]
+    exact fun k hk => Ctx.walk_sound hsize _ _ 0 hw (by simp) (by simp) k (Nat.zero_le _) hk
+  simp only [Ctx.valid, Bool.and_eq_true, beq_iff_eq]
+  exact ⟨⟨⟨⟨hptr, hsf⟩, hb⟩, h0⟩, hall⟩
 
 end AsmVerif.RiscV.Check

@@ -155,9 +155,10 @@ end LinTerm
 
 /-! ## Operations -/
 
-/-- A machine operation whose exact result a fact may record. -/
+/-- A machine operation whose exact result a fact may record. Each case evaluates as
+    `execInstr` computes the instruction it stands for. -/
 inductive Op where
-  | add | sub | and | or | xor | sltu | slt | mul | mulhu
+  | add | sub | and | or | xor | sltu | slt | mul | mulhu | divu | remu
   | shl (c : Nat) | shr (c : Nat) | sra (c : Nat)
   /-- The 32-bit operations, sign-extended. -/
   | addw | subw | shlw (c : Nat) | shrw (c : Nat)
@@ -169,17 +170,19 @@ def Op.eval : Op → List Word → Word
   | .and, [u, v] => u &&& v
   | .or, [u, v] => u ||| v
   | .xor, [u, v] => u ^^^ v
-  | .sltu, [u, v] => if u < v then 1 else 0
-  | .slt, [u, v] => if u.toInt < v.toInt then 1 else 0
+  | .sltu, [u, v] => if BitVec.ult u v then 1 else 0
+  | .slt, [u, v] => if BitVec.slt u v then 1 else 0
   | .mul, [u, v] => u * v
-  | .mulhu, [u, v] => BitVec.ofNat 64 ((u.toNat * v.toNat) / 2 ^ 64)
+  | .mulhu, [u, v] => rv64_mulhu u v
+  | .divu, [u, v] => rv64_divu u v
+  | .remu, [u, v] => rv64_remu u v
   | .shl c, [u] => u <<< c
   | .shr c, [u] => u >>> c
   | .sra c, [u] => u.sshiftRight c
-  | .addw, [u, v] => ((u + v).truncate 32).signExtend 64
-  | .subw, [u, v] => ((u - v).truncate 32).signExtend 64
-  | .shlw c, [u] => ((u <<< c).truncate 32).signExtend 64
-  | .shrw c, [u] => ((u.truncate 32) >>> c).signExtend 64
+  | .addw, [u, v] => (u.truncate 32 + v.truncate 32).signExtend 64
+  | .subw, [u, v] => (u.truncate 32 - v.truncate 32).signExtend 64
+  | .shlw c, [u] => (u.truncate 32 <<< c).signExtend 64
+  | .shrw c, [u] => (u.truncate 32 >>> c).signExtend 64
   | _, _ => 0
 
 /-! ## Facts -/
@@ -204,6 +207,21 @@ def mentions [DecidableEq α] (x : α) : Fact α → Bool
   | .op _ y args => y == x || args.contains x
   | .atom _ args => args.contains x
 
+/-- Rename the variables, if every one has a name. -/
+def mapM (f : α → Option β) : Fact α → Option (Fact β)
+  | .le l r => do
+    let lc ← l.coeffs.mapM fun p => (f p.1).map fun y => (y, p.2)
+    let rc ← r.coeffs.mapM fun p => (f p.1).map fun y => (y, p.2)
+    pure (.le ⟨lc, l.const⟩ ⟨rc, r.const⟩)
+  | .op o x args => do pure (.op o (← f x) (← args.mapM f))
+  | .atom i args => do pure (.atom i (← args.mapM f))
+
+/-- Some variable satisfies `p`. -/
+def any (p : α → Bool) : Fact α → Bool
+  | .le l r => l.coeffs.any (p ·.1) || r.coeffs.any (p ·.1)
+  | .op _ y args => p y || args.any p
+  | .atom _ args => args.any p
+
 /-- The valuation of a term, in ℕ. -/
 def nat (ν : α → Word) : α → Nat := fun x => (ν x).toNat
 
@@ -216,6 +234,107 @@ def Holds (A : Nat → List Word → Prop) (ν : α → Word) : Fact α → Prop
 theorem holds_map (A : Nat → List Word → Prop) (ν : β → Word) (f : α → β) (φ : Fact α) :
     (φ.map f).Holds A ν ↔ φ.Holds A (ν ∘ f) := by
   cases φ <;> simp only [map, Holds, LinTerm.eval_map, List.map_map, Function.comp_def] <;> exact Iff.rfl
+
+/-- Mapping over a list that `mapM` succeeded on, with a function that agrees across it. -/
+theorem mapM_map_eq {f : α → Option β} {g : α → γ} {g' : β → γ}
+    (hg : ∀ a b, f a = some b → g a = g' b) :
+    ∀ {l : List α} {l' : List β}, l.mapM f = some l' → l.map g = l'.map g'
+  | [], l', h => by
+    simp only [List.mapM_nil, Option.pure_def, Option.some.injEq] at h; subst h; rfl
+  | a :: l, l', h => by
+    cases hb : f a with
+    | none => rw [List.mapM_cons, hb] at h; simp at h
+    | some b =>
+      cases hl : l.mapM f with
+      | none => rw [List.mapM_cons, hb, hl] at h; simp at h
+      | some l'' =>
+        rw [List.mapM_cons, hb, hl] at h
+        simp at h
+        subst h
+        simp only [List.map_cons]
+        rw [hg _ _ hb, mapM_map_eq hg hl]
+
+/-- A fact whose variables are renamed, each to one with the same value, holds iff it did. -/
+theorem holds_mapM (A : Nat → List Word → Prop) {ν : α → Word} {ν' : β → Word} {f : α → Option β}
+    (hf : ∀ x y, f x = some y → ν' y = ν x) {φ : Fact α} {ψ : Fact β} (h : φ.mapM f = some ψ)
+    (hψ : ψ.Holds A ν') : φ.Holds A ν := by
+  have hterm : ∀ (t : LinTerm α) (tc : List (β × Nat)),
+      t.coeffs.mapM (fun p => (f p.1).map fun y => (y, p.2)) = some tc →
+      (LinTerm.mk tc t.const).eval (nat ν') = t.eval (nat ν) := by
+    intro t tc htc
+    simp only [LinTerm.eval]
+    congr 1
+    rw [mapM_map_eq (fun p q hpq => ?_) htc]
+    simp only [Option.map_eq_some_iff] at hpq
+    obtain ⟨y, hy, rfl⟩ := hpq
+    simp [nat, hf _ _ hy]
+  cases φ with
+  | le l r =>
+    cases hlc : l.coeffs.mapM (fun p => (f p.1).map fun y => (y, p.2)) with
+    | none => simp [mapM, hlc] at h
+    | some lc =>
+    cases hrc : r.coeffs.mapM (fun p => (f p.1).map fun y => (y, p.2)) with
+    | none => simp [mapM, hlc, hrc] at h
+    | some rc =>
+    simp [mapM, hlc, hrc] at h
+    subst h
+    simp only [Holds] at hψ ⊢
+    rw [← hterm l lc hlc, ← hterm r rc hrc]; exact hψ
+  | op o x args =>
+    cases hx' : f x with
+    | none => simp [mapM, hx'] at h
+    | some x' =>
+    cases hargs' : args.mapM f with
+    | none => simp [mapM, hx', hargs'] at h
+    | some args' =>
+    simp [mapM, hx', hargs'] at h
+    subst h
+    simp only [Holds] at hψ ⊢
+    rw [← hf _ _ hx', mapM_map_eq (fun a b hab => (hf a b hab).symm) hargs']
+    exact hψ
+  | atom i args =>
+    cases hargs' : args.mapM f with
+    | none => simp [mapM, hargs'] at h
+    | some args' =>
+    simp [mapM, hargs'] at h
+    subst h
+    simp only [Holds] at hψ ⊢
+    rw [mapM_map_eq (fun a b hab => (hf a b hab).symm) hargs']
+    exact hψ
+
+theorem any_map (p : β → Bool) (f : α → β) (φ : Fact α) : (φ.map f).any p = φ.any (p ∘ f) := by
+  cases φ <;> simp [map, any, LinTerm.map, List.any_map, Function.comp_def]
+
+/-- Two valuations that agree on the variables of a fact give it the same truth. -/
+theorem holds_congr (A : Nat → List Word → Prop) {ν ν' : α → Word} (p : α → Bool)
+    (hν : ∀ x, p x = false → ν x = ν' x) {φ : Fact α} (hφ : φ.any p = false) :
+    φ.Holds A ν ↔ φ.Holds A ν' := by
+  have hterm : ∀ t : LinTerm α, t.coeffs.any (p ·.1) = false → t.eval (nat ν) = t.eval (nat ν') := by
+    intro t ht
+    simp only [LinTerm.eval, nat]
+    congr 2
+    apply List.map_congr_left
+    intro q hq
+    have : p q.1 = false := by
+      simp only [List.any_eq_false] at ht
+      simpa using ht q hq
+    rw [hν q.1 this]
+  have hargs : ∀ args : List α, args.any p = false → args.map ν = args.map ν' := by
+    intro args ha
+    apply List.map_congr_left
+    intro x hx
+    simp only [List.any_eq_false] at ha
+    exact hν x (by simpa using ha x hx)
+  cases φ with
+  | le l r =>
+    simp only [any, Bool.or_eq_false_iff] at hφ
+    simp only [Holds, hterm l hφ.1, hterm r hφ.2]
+  | op o x args =>
+    simp only [any, Bool.or_eq_false_iff] at hφ
+    simp only [Holds, hν x hφ.1, hargs args hφ.2]
+  | atom i args =>
+    simp only [any] at hφ
+    simp only [Holds, hargs args hφ]
 
 /-- The negation of an inequality, as an inequality. -/
 def neg : Fact α → Fact α
@@ -242,11 +361,13 @@ def Rule.Sound (A : Nat → List Word → Prop) (r : Rule) : Prop :=
 
 /-! ## Certificates -/
 
-/-- A reference to a fact the certificate uses: a hypothesis by index, or the upper bound of
-    a value (`x ≤ 2^64 - 1`). -/
+/-- A reference to a fact the certificate uses: a hypothesis by index, the upper bound of
+    a value (`x ≤ 2^64 - 1`), or an axiom of the instance (`Thy.ax`: what the values
+    themselves say, a constant's value or an offset). -/
 inductive Ref (α : Type) where
   | hyp (i : Nat)
   | ub (x : α)
+  | ax (f : Fact α)
   deriving DecidableEq, Repr
 
 /-- The built-in consequences of operations. -/
@@ -261,6 +382,10 @@ inductive Builtin where
   | shlNoWrap
   /-- `x = u >> c`: `x·2^c ≤ u`. -/
   | shrBound
+  /-- `x = u / w`, `w ≤ c` and `c ≤ w` with `c ≠ 0`: `c·x ≤ u`. -/
+  | divBound
+  /-- `x = u % w`, `w ≤ c` and `c ≤ w` with `c ≠ 0`: `x + 1 ≤ c` and `x ≤ u`. -/
+  | remBound
   /-- `x = sltu u v`: `x ≤ 1`. -/
   | sltuLe
   /-- `x = sltu u v` and `u + 1 ≤ v`: `1 ≤ x`. -/
@@ -280,25 +405,32 @@ inductive Proof (α : Type) where
   | split (l r : LinTerm α) (p1 p2 : List (Proof α)) (goal : Fact α)
   /-- A built-in consequence of the referenced facts. -/
   | builtin (b : Builtin) (refs : List (Ref α))
-  /-- Rule `i` of the model, with its variables standing for `subst`, its premises the
+  /-- Rule `i` of the theory, with its variables standing for `subst`, its premises the
       referenced facts. -/
   | rule (i : Nat) (subst : List α) (prems : List (Ref α))
   deriving Repr
+
+/-- What certificates may use besides the facts: a model's rules, and the instance's
+    axioms (facts true of the values by what they are). -/
+structure Thy (α : Type) where
+  rules : List Rule := []
+  ax : Fact α → Bool := fun _ => false
 
 variable {α : Type} [DecidableEq α] [Inhabited α]
 
 def ubFact (x : α) : Fact α := .le (LinTerm.var x) (LinTerm.ofNat (2 ^ 64 - 1))
 
-def Ref.get (facts : List (Fact α)) : Ref α → Option (Fact α)
+def Ref.get (T : Thy α) (facts : List (Fact α)) : Ref α → Option (Fact α)
   | .hyp i => facts[i]?
   | .ub x => some (ubFact x)
+  | .ax f => if T.ax f then some f else none
 
 /-- The combination `Σ m·(l, r)` of inequalities. -/
-def combine (facts : List (Fact α)) : List (Ref α × Nat) → Option (LinTerm α × LinTerm α)
+def combine (T : Thy α) (facts : List (Fact α)) : List (Ref α × Nat) → Option (LinTerm α × LinTerm α)
   | [] => some (LinTerm.ofNat 0, LinTerm.ofNat 0)
   | (rf, m) :: rest => do
-    let (a, b) ← combine facts rest
-    match rf.get facts with
+    let (a, b) ← combine T facts rest
+    match rf.get T facts with
     | some (.le l r) => some (a + l.smul m, b + r.smul m)
     | _ => none
 
@@ -319,6 +451,20 @@ def Builtin.runOn (b : Builtin) (gs : List (Option (Fact α))) : Option (List (F
       some [.le (v x) ((v u).smul (2 ^ c)), .le ((v u).smul (2 ^ c)) (v x)]
     else none
   | .shrBound, [some (.op (.shr c) x [u])] => some [.le ((v x).smul (2 ^ c)) (v u)]
+  | .divBound, [some (.op .divu x [u, w]), some (.le l1 r1), some (.le l2 r2)] =>
+    match r1.coeffs, l2.coeffs with
+    | [], [] =>
+      if l1 == v w && r2 == v w && r1.const == l2.const && r1.const != 0 then
+        some [.le ((v x).smul r1.const) (v u)]
+      else none
+    | _, _ => none
+  | .remBound, [some (.op .remu x [u, w]), some (.le l1 r1), some (.le l2 r2)] =>
+    match r1.coeffs, l2.coeffs with
+    | [], [] =>
+      if l1 == v w && r2 == v w && r1.const == l2.const && r1.const != 0 then
+        some [.le (v x + n 1) (n r1.const), .le (v x) (v u)]
+      else none
+    | _, _ => none
   | .sltuLe, [some (.op .sltu x [_, _])] => some [.le (v x) (n 1)]
   | .sltuTrue, [some (.op .sltu x [u, w]), some (.le l r)] =>
     if l == v u + n 1 && r == v w then some [.le (n 1) (v x)] else none
@@ -329,55 +475,57 @@ def Builtin.runOn (b : Builtin) (gs : List (Option (Fact α))) : Option (List (F
     if o == o' && args == args' then some [.le (v x) (v y), .le (v y) (v x)] else none
   | _, _ => none
 
-def Builtin.run (facts : List (Fact α)) (b : Builtin) (refs : List (Ref α)) :
+def Builtin.run (T : Thy α) (facts : List (Fact α)) (b : Builtin) (refs : List (Ref α)) :
     Option (List (Fact α)) :=
-  b.runOn (refs.map (·.get facts))
+  b.runOn (refs.map (·.get T facts))
 
 mutual
 
-/-- Run a certificate: the facts it adds. -/
-def Proof.run (rules : List Rule) (facts : List (Fact α)) : Proof α → Option (List (Fact α))
+/-- Run a certificate: the facts it adds, or `none` if it does not apply. -/
+def Proof.run (T : Thy α) (facts : List (Fact α)) : Proof α → Option (List (Fact α))
   | .farkas l r ms => do
-    let (a, b) ← combine facts ms
+    let (a, b) ← combine T facts ms
     if (l + b).leq (r + a) then some [.le l r] else none
-  | .split l r p1 p2 goal => do
-    let f1 ← Proof.runAll rules (facts ++ [.le l r]) p1
-    let f2 ← Proof.runAll rules (facts ++ [(Fact.le l r).neg]) p2
+  | .split l r p1 p2 goal =>
+    let f1 := Proof.runAll T (facts ++ [.le l r]) p1
+    let f2 := Proof.runAll T (facts ++ [(Fact.le l r).neg]) p2
     if f1.contains goal && f2.contains goal then some [goal] else none
-  | .builtin b refs => b.run facts refs
+  | .builtin b refs => b.run T facts refs
   | .rule i subst prems => do
-    let r ← rules[i]?
+    let r ← T.rules[i]?
     let sub : Nat → α := fun j => subst.getD j default
-    if prems.map (·.get facts) == r.prems.map (fun f => some (f.map sub)) then
+    if prems.map (·.get T facts) == r.prems.map (fun f => some (f.map sub)) then
       some (r.concls.map (·.map sub))
     else none
 
-/-- Run certificates in order, each seeing what the earlier ones added. -/
-def Proof.runAll (rules : List Rule) (facts : List (Fact α)) :
-    List (Proof α) → Option (List (Fact α))
-  | [] => some facts
-  | p :: ps => do
-    let new ← p.run rules facts
-    Proof.runAll rules (facts ++ new) ps
+/-- Run certificates in order, each seeing what the earlier ones added; one that does not
+    apply adds nothing. -/
+def Proof.runAll (T : Thy α) (facts : List (Fact α)) : List (Proof α) → List (Fact α)
+  | [] => facts
+  | p :: ps => Proof.runAll T (facts ++ (p.run T facts).getD []) ps
 
 end
 
 /-- `goal` follows from `facts` by the certificate. -/
-def entails (rules : List Rule) (facts : List (Fact α)) (pfs : List (Proof α)) (goal : Fact α) :
-    Bool :=
-  match Proof.runAll rules facts pfs with
-  | some facts' => facts'.contains goal
-  | none => false
+def entails (T : Thy α) (facts : List (Fact α)) (pfs : List (Proof α)) (goal : Fact α) : Bool :=
+  (Proof.runAll T facts pfs).contains goal
+
+/-- The false fact: a state whose facts contain it is unreachable. -/
+def falseFact : Fact α := .le (LinTerm.ofNat 1) (LinTerm.ofNat 0)
 
 /-- The facts are contradictory, by the certificate. -/
-def refutes (rules : List Rule) (facts : List (Fact α)) (pfs : List (Proof α)) : Bool :=
-  entails rules facts pfs (.le (LinTerm.ofNat 1) (LinTerm.ofNat 0))
+def refutes (T : Thy α) (facts : List (Fact α)) (pfs : List (Proof α)) : Bool :=
+  entails T facts pfs falseFact
 
 /-! ## Soundness -/
 
+/-- The theory is sound for the atoms' meaning and the valuation. -/
+def Thy.Sound (A : Nat → List Word → Prop) (ν : α → Word) (T : Thy α) : Prop :=
+  (∀ r ∈ T.rules, r.Sound A) ∧ ∀ f, T.ax f = true → f.Holds A ν
+
 section Sound
 
-variable {A : Nat → List Word → Prop} {ν : α → Word}
+variable {A : Nat → List Word → Prop} {ν : α → Word} {T : Thy α}
 
 omit [DecidableEq α] [Inhabited α] in
 theorem ubFact_holds (x : α) : (ubFact x).Holds A ν := by
@@ -385,15 +533,20 @@ theorem ubFact_holds (x : α) : (ubFact x).Holds A ν := by
   have := (ν x).isLt; omega
 
 omit [DecidableEq α] [Inhabited α] in
-theorem Ref.get_holds {facts : List (Fact α)} (hf : ∀ f ∈ facts, f.Holds A ν) {rf : Ref α}
-    {f : Fact α} (h : rf.get facts = some f) : f.Holds A ν := by
+theorem Ref.get_holds (hT : T.Sound A ν) {facts : List (Fact α)} (hf : ∀ f ∈ facts, f.Holds A ν)
+    {rf : Ref α} {f : Fact α} (h : rf.get T facts = some f) : f.Holds A ν := by
   cases rf with
   | hyp i => exact hf f (List.mem_of_getElem? h)
   | ub x => simp only [Ref.get, Option.some.injEq] at h; rw [← h]; exact ubFact_holds x
+  | ax g =>
+    simp only [Ref.get] at h
+    split at h
+    · rename_i hax; simp only [Option.some.injEq] at h; rw [← h]; exact hT.2 g hax
+    · cases h
 
 omit [DecidableEq α] [Inhabited α] in
-theorem combine_sound {facts : List (Fact α)} (hf : ∀ f ∈ facts, f.Holds A ν) :
-    ∀ {ms : List (Ref α × Nat)} {a b : LinTerm α}, combine facts ms = some (a, b) →
+theorem combine_sound (hT : T.Sound A ν) {facts : List (Fact α)} (hf : ∀ f ∈ facts, f.Holds A ν) :
+    ∀ {ms : List (Ref α × Nat)} {a b : LinTerm α}, combine T facts ms = some (a, b) →
       a.eval (Fact.nat ν) ≤ b.eval (Fact.nat ν)
   | [], a, b, h => by
     simp only [combine, Option.some.injEq, Prod.mk.injEq] at h
@@ -401,12 +554,12 @@ theorem combine_sound {facts : List (Fact α)} (hf : ∀ f ∈ facts, f.Holds A 
   | (rf, m) :: rest, a, b, h => by
     simp only [combine, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
     obtain ⟨⟨a', b'⟩, hrest, h⟩ := h
-    have ih := combine_sound hf hrest
+    have ih := combine_sound hT hf hrest
     split at h
     · rename_i l r hget
       simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
-      have hl := Ref.get_holds hf hget
+      have hl := Ref.get_holds hT hf hget
       simp only [Fact.Holds] at hl
       simp only [LinTerm.eval_add, LinTerm.eval_smul]
       exact Nat.add_le_add ih (Nat.mul_le_mul_left _ hl)
@@ -419,6 +572,10 @@ def GsOk (A : Nat → List Word → Prop) (ν : α → Word) (gs : List (Option 
 /-- The evaluation of the facts a built-in step matches and produces. -/
 macro "bsimp" : tactic => `(tactic| simp only [Fact.Holds, Op.eval, List.map_cons, List.map_nil,
   LinTerm.eval_add, LinTerm.eval_var, LinTerm.eval_ofNat, LinTerm.eval_smul, Fact.nat] at *)
+
+omit [DecidableEq α] [Inhabited α] in
+theorem const_eval {t : LinTerm α} (h : t.coeffs = []) (μ : α → Nat) : t.eval μ = t.const := by
+  simp [LinTerm.eval, h]
 
 omit [Inhabited α] in
 theorem Builtin.runOn_sound {gs : List (Option (Fact α))} (hg : GsOk A ν gs) {b : Builtin}
@@ -484,6 +641,52 @@ theorem Builtin.runOn_sound {gs : List (Option (Fact α))} (hg : GsOk A ν gs) {
     bsimp
     rw [h1, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, Nat.mul_comm]
     exact Nat.div_mul_le_self _ _
+  · rename_i x u w l1 r1 l2 r2
+    split at h
+    · rename_i hr1 hl2
+      split at h
+      · rename_i hc
+        simp only [Bool.and_eq_true, beq_iff_eq, bne_iff_ne, ne_eq] at hc
+        obtain ⟨⟨⟨rfl, rfl⟩, hcc⟩, hc0⟩ := hc
+        simp only [Option.some.injEq] at h; subst h
+        have h1 := hg _ (List.mem_cons_self ..) _ rfl
+        have h2 := hg _ (List.mem_cons_of_mem _ (List.mem_cons_self ..)) _ rfl
+        have h3 := hg _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self ..))) _ rfl
+        bsimp
+        rw [const_eval hr1] at h2; rw [const_eval hl2, ← hcc] at h3
+        intro f hf
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hf
+        subst hf
+        bsimp
+        have hw : (ν w).toNat = r1.const := by omega
+        rw [h1, rv64_divu, if_neg (by simp [BitVec.toNat_eq] at hc0 ⊢; omega),
+          BitVec.toNat_udiv, hw, Nat.mul_comm]
+        exact Nat.div_mul_le_self _ _
+      · simp only [reduceCtorEq] at h
+    · simp only [reduceCtorEq] at h
+  · rename_i x u w l1 r1 l2 r2
+    split at h
+    · rename_i hr1 hl2
+      split at h
+      · rename_i hc
+        simp only [Bool.and_eq_true, beq_iff_eq, bne_iff_ne, ne_eq] at hc
+        obtain ⟨⟨⟨rfl, rfl⟩, hcc⟩, hc0⟩ := hc
+        simp only [Option.some.injEq] at h; subst h
+        have h1 := hg _ (List.mem_cons_self ..) _ rfl
+        have h2 := hg _ (List.mem_cons_of_mem _ (List.mem_cons_self ..)) _ rfl
+        have h3 := hg _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self ..))) _ rfl
+        bsimp
+        rw [const_eval hr1] at h2; rw [const_eval hl2, ← hcc] at h3
+        have hw : (ν w).toNat = r1.const := by omega
+        have hne : ¬ (ν w == 0#64) = true := by
+          simp only [beq_iff_eq, BitVec.toNat_eq, BitVec.toNat_ofNat, Nat.zero_mod]; omega
+        intro f hf
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hf
+        rcases hf with rfl | rfl <;> bsimp <;> rw [h1, rv64_remu, if_neg hne, BitVec.toNat_umod, hw]
+        · have := Nat.mod_lt (ν u).toNat (Nat.pos_of_ne_zero hc0); omega
+        · exact Nat.mod_le _ _
+      · simp only [reduceCtorEq] at h
+    · simp only [reduceCtorEq] at h
   · rename_i x u w
     simp only [Option.some.injEq] at h; subst h
     have h1 := hg _ (List.mem_cons_self ..) _ rfl
@@ -506,7 +709,7 @@ theorem Builtin.runOn_sound {gs : List (Option (Fact α))} (hg : GsOk A ν gs) {
       bsimp
       rw [h1]; split
       · simp
-      · rename_i hlt; rw [BitVec.lt_def] at hlt; omega
+      · rename_i hlt; rw [BitVec.ult_iff_lt, BitVec.lt_def] at hlt; omega
     · simp only [reduceCtorEq] at h
   · rename_i x u w l r
     split at h
@@ -520,7 +723,7 @@ theorem Builtin.runOn_sound {gs : List (Option (Fact α))} (hg : GsOk A ν gs) {
       subst hf
       bsimp
       rw [h1]; split
-      · rename_i hlt; rw [BitVec.lt_def] at hlt; omega
+      · rename_i hlt; rw [BitVec.ult_iff_lt, BitVec.lt_def] at hlt; omega
       · simp
     · simp only [reduceCtorEq] at h
   · rename_i x u w
@@ -546,17 +749,17 @@ theorem Builtin.runOn_sound {gs : List (Option (Fact α))} (hg : GsOk A ν gs) {
   · simp only [reduceCtorEq] at h
 
 omit [Inhabited α] in
-theorem Builtin.run_sound {facts : List (Fact α)} (hf : ∀ f ∈ facts, f.Holds A ν) {b : Builtin}
-    {refs : List (Ref α)} {new : List (Fact α)} (h : b.run facts refs = some new) :
+theorem Builtin.run_sound (hT : T.Sound A ν) {facts : List (Fact α)} (hf : ∀ f ∈ facts, f.Holds A ν)
+    {b : Builtin} {refs : List (Ref α)} {new : List (Fact α)} (h : b.run T facts refs = some new) :
     ∀ f ∈ new, f.Holds A ν :=
   Builtin.runOn_sound (fun g hg f hgf => by
     simp only [List.mem_map] at hg
     obtain ⟨rf, _, rfl⟩ := hg
-    exact Ref.get_holds hf hgf) h
+    exact Ref.get_holds hT hf hgf) h
 
-theorem rule_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A) {facts : List (Fact α)}
+theorem rule_sound (hT : T.Sound A ν) {facts : List (Fact α)}
     (hf : ∀ f ∈ facts, f.Holds A ν) {i : Nat} {subst : List α} {prems : List (Ref α)}
-    {new : List (Fact α)} (h : Proof.run rules facts (.rule i subst prems) = some new) :
+    {new : List (Fact α)} (h : Proof.run T facts (.rule i subst prems) = some new) :
     ∀ f ∈ new, f.Holds A ν := by
   simp only [Proof.run, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
   obtain ⟨r, hri, h⟩ := h
@@ -564,7 +767,7 @@ theorem rule_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A) {facts 
   · rename_i hp
     simp only [Option.some.injEq] at h
     subst h
-    have hrs := hr r (List.mem_of_getElem? hri) (fun j => ν (subst.getD j default))
+    have hrs := hT.1 r (List.mem_of_getElem? hri) (fun j => ν (subst.getD j default))
     simp only [beq_iff_eq] at hp
     intro f hf'
     simp only [List.mem_map] at hf'
@@ -572,17 +775,17 @@ theorem rule_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A) {facts 
     rw [Fact.holds_map]
     refine hrs (fun p hp' => ?_) c hc
     refine (Fact.holds_map A ν (fun j => subst.getD j default) p).mp ?_
-    have : some (p.map fun j => subst.getD j default) ∈ prems.map (·.get facts) := by
+    have : some (p.map fun j => subst.getD j default) ∈ prems.map (·.get T facts) := by
       rw [hp]; exact List.mem_map.mpr ⟨p, hp', rfl⟩
     obtain ⟨rf, _, hrf⟩ := List.mem_map.mp this
-    exact Ref.get_holds hf hrf
+    exact Ref.get_holds hT hf hrf
   · exact absurd h (by simp)
 
 mutual
 
-theorem Proof.run_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A) {facts : List (Fact α)}
+theorem Proof.run_sound (hT : T.Sound A ν) {facts : List (Fact α)}
     (hf : ∀ f ∈ facts, f.Holds A ν) :
-    ∀ {p : Proof α} {new : List (Fact α)}, p.run rules facts = some new → ∀ f ∈ new, f.Holds A ν
+    ∀ {p : Proof α} {new : List (Fact α)}, p.run T facts = some new → ∀ f ∈ new, f.Holds A ν
   | .farkas l r ms, new, h => by
     simp only [Proof.run, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
     obtain ⟨⟨a, b⟩, hc, h⟩ := h
@@ -593,14 +796,13 @@ theorem Proof.run_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A) {f
       intro f hf'
       simp only [List.mem_singleton] at hf'
       subst hf'
-      have h1 := combine_sound hf hc
+      have h1 := combine_sound hT hf hc
       have h2 := LinTerm.leq_sound (Fact.nat ν) _ _ hleq
       simp only [LinTerm.eval_add] at h2
       simp only [Fact.Holds]; omega
     · exact absurd h (by simp)
   | .split l r p1 p2 goal, new, h => by
-    simp only [Proof.run, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
-    obtain ⟨f1, h1, f2, h2, h⟩ := h
+    simp only [Proof.run] at h
     split at h
     · rename_i hc
       simp only [Bool.and_eq_true, List.contains_iff_mem] at hc
@@ -615,49 +817,46 @@ theorem Proof.run_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A) {f
           rcases hf' with hf' | rfl
           · exact hf f hf'
           · exact hle
-        exact Proof.runAll_sound hr hf1 h1 _ hc.1
+        exact Proof.runAll_sound hT hf1 (ps := p1) _ hc.1
       · have hf2 : ∀ f ∈ facts ++ [(Fact.le l r).neg], f.Holds A ν := fun f hf' => by
           simp only [List.mem_append, List.mem_singleton] at hf'
           rcases hf' with hf' | rfl
           · exact hf f hf'
           · exact Fact.holds_neg_le A ν l r hle
-        exact Proof.runAll_sound hr hf2 h2 _ hc.2
+        exact Proof.runAll_sound hT hf2 (ps := p2) _ hc.2
     · exact absurd h (by simp)
-  | .builtin b refs, new, h => Builtin.run_sound hf h
-  | .rule i subst prems, new, h => rule_sound hr hf h
+  | .builtin b refs, new, h => Builtin.run_sound hT hf h
+  | .rule i subst prems, new, h => rule_sound hT hf h
 
-theorem Proof.runAll_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A)
-    {facts : List (Fact α)} (hf : ∀ f ∈ facts, f.Holds A ν) :
-    ∀ {ps : List (Proof α)} {facts' : List (Fact α)}, Proof.runAll rules facts ps = some facts' →
-      ∀ f ∈ facts', f.Holds A ν
-  | [], facts', h => by
-    simp only [Proof.runAll, Option.some.injEq] at h; subst h; exact hf
-  | p :: ps, facts', h => by
-    simp only [Proof.runAll, Option.bind_eq_bind, Option.bind_eq_some_iff] at h
-    obtain ⟨new, hnew, h⟩ := h
-    have hn := Proof.run_sound hr hf hnew
-    have hf' : ∀ f ∈ facts ++ new, f.Holds A ν := fun f hf' => by
+theorem Proof.runAll_sound (hT : T.Sound A ν) {facts : List (Fact α)}
+    (hf : ∀ f ∈ facts, f.Holds A ν) :
+    ∀ {ps : List (Proof α)}, ∀ f ∈ Proof.runAll T facts ps, f.Holds A ν
+  | [] => by simp only [Proof.runAll]; exact hf
+  | p :: ps => by
+    simp only [Proof.runAll]
+    have hf' : ∀ f ∈ facts ++ (p.run T facts).getD [], f.Holds A ν := fun f hf' => by
       rcases List.mem_append.mp hf' with hf' | hf'
       · exact hf f hf'
-      · exact hn f hf'
-    exact Proof.runAll_sound hr hf' h
+      · cases hrun : p.run T facts with
+        | none => rw [hrun] at hf'; simp at hf'
+        | some new => rw [hrun] at hf'; exact Proof.run_sound hT hf hrun f hf'
+    exact Proof.runAll_sound hT hf'
 
 end
 
-theorem entails_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A) {facts : List (Fact α)}
+theorem entails_sound (hT : T.Sound A ν) {facts : List (Fact α)}
     (hf : ∀ f ∈ facts, f.Holds A ν) {pfs : List (Proof α)} {goal : Fact α}
-    (h : entails rules facts pfs goal = true) : goal.Holds A ν := by
-  unfold entails at h
-  split at h
-  · rename_i facts' hrun
-    exact Proof.runAll_sound hr hf hrun goal (List.contains_iff_mem.mp h)
-  · exact absurd h (by simp)
+    (h : entails T facts pfs goal = true) : goal.Holds A ν :=
+  Proof.runAll_sound hT hf goal (List.contains_iff_mem.mp h)
 
-theorem refutes_sound {rules : List Rule} (hr : ∀ r ∈ rules, r.Sound A) {facts : List (Fact α)}
+omit [DecidableEq α] [Inhabited α] in
+theorem falseFact_false : ¬ (falseFact (α := α)).Holds A ν := by
+  simp [falseFact, Fact.Holds, LinTerm.eval_ofNat]
+
+theorem refutes_sound (hT : T.Sound A ν) {facts : List (Fact α)}
     (hf : ∀ f ∈ facts, f.Holds A ν) {pfs : List (Proof α)}
-    (h : refutes rules facts pfs = true) : False := by
-  have := entails_sound hr hf h
-  simp [Fact.Holds, LinTerm.eval_ofNat] at this
+    (h : refutes T facts pfs = true) : False :=
+  falseFact_false (entails_sound hT hf h)
 
 end Sound
 
