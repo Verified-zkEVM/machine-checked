@@ -3,15 +3,15 @@
 
   `xstep code` executes the instruction at the current state of a `SafeN` goal.
 
-  The goal must be `SafeN k P x` where `x`'s program counter reduces to a literal (a state
+  The goal must be `SafeN G k P x` where `x`'s program counter reduces to a literal (a state
   built by `setPC`, or `s.setPC p` from `setPC_self` at a cut point), and `code : CodeAt f C`
   for the function `f` being executed. The tactic reads the instruction at that pc from
   `f.prog` syntactically, so the kernel checks the fetch by evaluating one list index, and
   the instruction's immediates stay literals that `simp` can fold.
 
-  `xstep1 code` is the same step, spending one unit of budget (`SafeN (k + 1)`).
+  `xstep1 code` is the same step, spending one unit of budget (`SafeN G (k + 1)`).
 
-  After the step the continuation's goal is `SafeN k P (execInstrBr x i)`, unfolded and
+  After the step the continuation's goal is `SafeN G k P (execInstrBr x i)`, unfolded and
   simplified: register reads through the new writes are resolved, immediates folded. A
   branch leaves an `if` for the proof to split.
 -/
@@ -54,8 +54,8 @@ def instrAtGoal (code : Expr) : TacticM Expr := do
   let ty ← instantiateMVars (← goal.getType)
   let ty ← whnfR ty
   let x ← match ty.getAppFnArgs with
-    | (``SafeN, #[_, _, x]) => pure x
-    | _ => throwError "xstep: goal is not `SafeN k P x`"
+    | (``SafeN, #[_, _, _, x]) => pure x
+    | _ => throwError "xstep: goal is not `SafeN G k P x`"
   let codeTy ← whnfR (← inferType code)
   let f ← match codeTy.getAppFnArgs with
     | (``CodeAt, #[f, _]) => pure f
@@ -172,7 +172,7 @@ syntax (name := xrun1Tac) "xrun1 " term:max (" to " term:max)? : tactic
 def goalPC? : TacticM (Option Nat) := do
   let ty ← whnfR (← instantiateMVars (← (← getMainGoal).getType))
   match ty.getAppFnArgs with
-  | (``SafeN, #[_, _, x]) => bvLit? (← mkAppM ``MachineState.pc #[x])
+  | (``SafeN, #[_, _, _, x]) => bvLit? (← mkAppM ``MachineState.pc #[x])
   | _ => return none
 
 partial def runStraight (code : Term) (stop : Option Nat) (one : Bool) : TacticM Unit := do

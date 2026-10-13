@@ -16,7 +16,7 @@ theorem valid : fn.valid anno = true := Fn.validFast_sound (by decide +kernel)
     `OUTPUT_CAPTURE`, are not the doubleword where `ra` is saved: stack and `.bss` are
     disjoint); and the residual premise `hres` at the two stores through pointers a callee
     returned (`0x7803b774`, `0x7803b798`). -/
-theorem integrity_of_run (E : Reg → Word) {s0 s s' : MachineState}
+theorem integrity_of_run (E : Ent) {s0 s s' : MachineState}
     (hpc : s0.pc = fn.base) (hE : ∀ r, r ≠ .x0 → s0.getReg r = E r) (hc : CodeOk fn s0)
     (hreq : ∀ q ∈ fn.collect anno (·.reqs), q.Holds E)
     (hres : ∀ s, Run fn anno E s0 s → ResOk fn anno E s)

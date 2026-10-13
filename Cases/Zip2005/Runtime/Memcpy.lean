@@ -103,12 +103,12 @@ def At : Pt → MachineState → MachineState → Prop
       s.getReg .x15 = 38#64
 
 /-- What a segment may assume: every cut state is safe at the remaining budget. -/
-abbrev Next (s0 : MachineState) (k : Nat) (P : Prop) : Prop :=
-  ∀ t c, Frame iface C s0 t → At c s0 t → SafeN k P t
+abbrev Next (G : MachineState → Prop) (s0 : MachineState) (k : Nat) (P : Prop) : Prop :=
+  ∀ t c, Frame iface C s0 t → At c s0 t → SafeN G k P t
 
-theorem tail_bc8c {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .bc8c s0 s) (hk : ∀ t, Post iface s0 t → SafeN k P t) :
-    SafeN (k + 1) P s := by
+theorem tail_bc8c {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .bc8c s0 s) (hk : ∀ t, Post iface s0 t → SafeN G k P t) :
+    SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, -, h13, h12⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -141,8 +141,8 @@ theorem tail_bc8c {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C
       xframe
 
 
-theorem tail_bc60 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .bc60 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem tail_bc60 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .bc60 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -152,8 +152,8 @@ theorem tail_bc60 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C
   · xregs; rw [h13]; bv_omega
   · xregs; exact h12
 
-theorem tail_bc0c {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .bc0c s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem tail_bc0c {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .bc0c s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -171,8 +171,8 @@ theorem tail_bc0c {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C
     · xregs; rw [h13]; bv_omega
     · xregs; exact h12
 
-theorem tail_bb78 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .bb78 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem tail_bb78 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .bb78 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -190,8 +190,8 @@ theorem tail_bb78 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C
     · xregs; rw [h13]; bv_omega
     · xregs; exact h12
 
-theorem tail_t548 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .t548 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem tail_t548 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .t548 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   rw [← setPC_self hpc]
@@ -209,8 +209,8 @@ theorem tail_t548 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C
     · xregs; exact h13
     · xregs; exact h12
 
-theorem tail_t540 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .t540 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem tail_t540 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .t540 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   rw [← setPC_self hpc]
@@ -227,8 +227,8 @@ theorem tail_t540 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C
     · xregs; exact h13
     · xregs; exact h12
 
-theorem tail_t538 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .t538 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem tail_t538 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .t538 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   rw [← setPC_self hpc]
@@ -245,8 +245,8 @@ theorem tail_t538 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C
     · xregs; exact h13
     · xregs; exact h12
 
-theorem aln_6c4 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .a6c4 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem aln_6c4 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .a6c4 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -257,8 +257,8 @@ theorem aln_6c4 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s
   · xregs; rw [h13]; bv_omega
   · xregs; exact h12
 
-theorem aln_6ac {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .a6ac s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem aln_6ac {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .a6ac s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -276,8 +276,8 @@ theorem aln_6ac {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s
     · xregs; rw [h13]; bv_omega
     · xregs; exact h12
 
-theorem aln_680 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .a680 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem aln_680 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .a680 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   rw [← setPC_self hpc]
@@ -295,8 +295,8 @@ theorem aln_680 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s
     · xregs; exact h13
     · xregs; exact h12
 
-theorem aln_670 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .a670 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem aln_670 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .a670 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, hlo, h13, h12⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -340,8 +340,8 @@ theorem aln_670 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s
       · xregs; exact h13
       · xregs; exact h12
 
-theorem aln_640 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .l640 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem aln_640 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .l640 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, h32, h14⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -361,8 +361,8 @@ theorem aln_640 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s
     · xregs; rw [h13]; bv_omega
     · xregs; rw [h12]; bv_omega
 
-theorem aln_634 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .c634 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem aln_634 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .c634 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, hpc, ho, h13, h12⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -385,8 +385,8 @@ theorem aln_634 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s
     · xregs; exact h12
     · xregs
 
-theorem seg_c520 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .c520 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_c520 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .c520 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, hpc, ho, h13, h12⟩ := h
   have hcode := hF.code
   rw [← setPC_self hpc]
@@ -401,8 +401,8 @@ theorem seg_c520 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C 
     · xregs
     · xregs; simpa using hb
 
-theorem seg_head {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .head s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_head {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .head s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, hon, h15⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -427,8 +427,8 @@ theorem seg_head {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C 
       · xregs; rw [h13]; bv_omega
       · xregs; rw [h12]; bv_omega
 
-theorem seg_ba64 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .gba64 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_ba64 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .gba64 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, h32, h64⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -448,8 +448,8 @@ theorem seg_ba64 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C 
     · xregs; rw [h13]; bv_omega
     · xregs; exact h12
 
-theorem seg_v1 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .v1 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_v1 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .v1 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, hth, h15⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -479,8 +479,8 @@ theorem seg_v1 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0
       · xregs; rw [h13]; bv_omega
       · xregs; rw [h12]; bv_omega
 
-theorem seg_v2 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .v2 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_v2 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .v2 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, hth, h15⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -510,8 +510,8 @@ theorem seg_v2 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0
       · xregs; rw [h13]; bv_omega
       · xregs; rw [h12]; bv_omega
 
-theorem seg_v3 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .v3 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_v3 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .v3 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, hth, h15⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -541,8 +541,8 @@ theorem seg_v3 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0
       · xregs; rw [h13]; bv_omega
       · xregs; rw [h12]; bv_omega
 
-theorem seg_v4 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .v4 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_v4 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .v4 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, hth, h15⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -572,8 +572,8 @@ theorem seg_v4 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0
       · xregs; rw [h13]; bv_omega
       · xregs; rw [h12]; bv_omega
 
-theorem seg_v5 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .v5 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_v5 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .v5 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, hth, h15⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -603,8 +603,8 @@ theorem seg_v5 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0
       · xregs; rw [h13]; bv_omega
       · xregs; rw [h12]; bv_omega
 
-theorem seg_v6 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .v6 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_v6 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .v6 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, hth, h15⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -634,8 +634,8 @@ theorem seg_v6 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0
       · xregs; rw [h13]; bv_omega
       · xregs; rw [h12]; bv_omega
 
-theorem seg_v7 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .v7 s0 s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_v7 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .v7 s0 s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, hth, h15⟩ := h
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
@@ -669,8 +669,8 @@ def TabOk (s : MachineState) : Prop :=
   s.getMem 0x78001490#64 = 0x7801b8ac7801b574#64 ∧ s.getMem 0x78001498#64 = 0x7801b8107801b76c#64 ∧
   s.getMem 0x780014a0#64 = 0x7801b9587801b6d8#64 ∧ s.getMem 0x780014a8#64 = 0x000000007801b9e4#64
 
-theorem seg_c528 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .c528 s0 s) (htab : TabOk s) (IH : Next s0 k P) : SafeN (k + 1) P s := by
+theorem seg_c528 {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
+    (h : At .c528 s0 s) (htab : TabOk s) (IH : Next G s0 k P) : SafeN G (k + 1) P s := by
   obtain ⟨o, ⟨hpc, ho, h13, h12⟩, h14, h14z⟩ := h
   obtain ⟨t0, t1, t2, t3⟩ := htab
   have hcode := hF.code
@@ -797,8 +797,8 @@ theorem seg_c528 {s0 s : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C 
       · xregs; exact h13
       · xregs; exact h12
 
-theorem seg_entry {s0 : MachineState} {k : Nat} {P : Prop} (hF : Frame iface C s0 s0)
-    (hpc : s0.pc = 0x7801b4d8#64) (IH : Next s0 k P) : SafeN (k + 1) P s0 := by
+theorem seg_entry {s0 : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s0)
+    (hpc : s0.pc = 0x7801b4d8#64) (IH : Next G s0 k P) : SafeN G (k + 1) P s0 := by
   have hcode := hF.code
   have hn := (s0.getReg .x12).isLt
   rw [← setPC_self hpc]
@@ -879,13 +879,13 @@ theorem holds (env : Env) (hinit : env.init = Layout.image.memAt)
   apply holdsN_of_inv Inv
   · intro s0 hpc hpre
     exact ⟨Frame.entry hpre.1, Or.inl ⟨rfl, hpc⟩⟩
-  · intro s0 P k _ hpre _ hk IH s ⟨hF, hs⟩
+  · intro G s0 P k _ hpre _ hk IH s ⟨hF, hs⟩
     cases k with
     | zero => exact SafeN.zero
     | succ k =>
-      have hk' : ∀ t, Post iface s0 t → SafeN k P t :=
+      have hk' : ∀ t, Post iface s0 t → SafeN G k P t :=
         fun t ht => SafeN.mono (Nat.le_succ k) (hk t ht)
-      have IH' : Next s0 k P := fun t c hF h => IH k (Nat.lt_succ_self k) t ⟨hF, Or.inr ⟨c, h⟩⟩
+      have IH' : Next G s0 k P := fun t c hF h => IH k (Nat.lt_succ_self k) t ⟨hF, Or.inr ⟨c, h⟩⟩
       rcases hs with ⟨rfl, hpc⟩ | ⟨c, h⟩
       · exact seg_entry hF hpc IH'
       · cases c with

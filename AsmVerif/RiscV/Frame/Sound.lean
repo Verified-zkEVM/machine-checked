@@ -35,15 +35,16 @@ theorem frameOff?_some {a : AVal} {k : Word} (h : a.frameOff? = some k) : a = .l
   | const => cases h
   | top => cases h
   | oneOf => cases h
+  | cell => cases h
 
-theorem holds_addK {E : Reg → Word} {a : AVal} {x d : Word} (h : a.Holds E x) :
+theorem holds_addK {E : Ent} {a : AVal} {x d : Word} (h : a.Holds E x) :
     (a.addK d).Holds E (x + d) := by
   cases a <;> simp_all [addK, Holds, BitVec.add_assoc]
 
 end AVal
 
 /-- What an abstract state says about a machine state, given the entry registers `E`. -/
-def AState.Holds (E : Reg → Word) (A : AState) (s : MachineState) : Prop :=
+def AState.Holds (E : Ent) (A : AState) (s : MachineState) : Prop :=
   (∀ r, (A.get r).Holds E (s.getReg r)) ∧
   ∀ p ∈ A.slots, p.2.Holds E (s.getMem (E .x2 + p.1))
 
@@ -215,7 +216,7 @@ def storeTarget (s : MachineState) (i : Instr) : Word :=
   | none => 0
 
 /-- A frame store at offset `k` leaves every slot it may not hit unchanged. -/
-theorem frame_keep {E : Reg → Word} {s : MachineState} {w : Width} {k sk v : Word}
+theorem frame_keep {E : Ent} {s : MachineState} {w : Width} {k sk v : Word}
     (hm : mayHit w k sk = false) :
     (s.setMem (w.target (E .x2 + k)) v).getMem (E .x2 + sk) = s.getMem (E .x2 + sk) := by
   rw [getMem_setMem, if_neg]
@@ -284,6 +285,12 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
         · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
           exact h.1 rs2
         · exact keep p hp
+      | cell r ks j =>
+        simp only [hr2, List.mem_cons] at hp
+        rcases hp with rfl | hp
+        · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+          exact h.1 rs2
+        · exact keep p hp
   | none =>
     simp only [hk] at hreq hres ⊢
     by_cases hnt : b = .top
@@ -309,6 +316,7 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
         | const c => simp only [AVal.Holds] at hb; simpa [Req.Holds, hb] using hq
         | top => exact absurd rfl hnt
         | oneOf cs => simp only [AVal.Holds] at hb; exact hq _ hb
+        | cell r ks k => simp only [AVal.Holds] at hb; simpa [Req.Holds, hb] using hq
       rw [getMem_setMem, if_neg (Ne.symm hneq)]
       exact h.2 p hp.1
 
@@ -396,7 +404,7 @@ def IsOutlined (ins : Instr) : Prop := ∃ off, ins = .JALR .x5 .x5 off
 
 /-- What a callee is assumed to do: return to the next instruction, keep the code, `sp` and
     `s0`-`s11`, and leave the caller's saved return addresses alone. -/
-def CallRet (E : Reg → Word) (A : AState) (s s' : MachineState) : Prop :=
+def CallRet (E : Ent) (A : AState) (s s' : MachineState) : Prop :=
   s'.pc = s.pc + 4 ∧ s'.code = s.code ∧
   (∀ r, calleeSaved.contains r = true → s'.getReg r = s.getReg r) ∧
   ∀ p ∈ A.slots, protects p = true → s'.getMem (E .x2 + p.1) = s.getMem (E .x2 + p.1)
@@ -404,7 +412,7 @@ def CallRet (E : Reg → Word) (A : AState) (s s' : MachineState) : Prop :=
 /-- One activation of `f`, from `s0` until it leaves `f`: real `stepSp1` steps inside the
     function and through outlined fragments; calls as `CallRet` macro-steps (and only those
     whose return address is inside `f`: the others are assumed not to return). -/
-inductive Run (f : Fn) (anno : Array (Option AState)) (E : Reg → Word) (s0 : MachineState) :
+inductive Run (f : Fn) (anno : Array (Option AState)) (E : Ent) (s0 : MachineState) :
     MachineState → Prop
   | start : Run f anno E s0 s0
   | step {s s' : MachineState} {i : Nat} {ins : Instr} :
@@ -433,7 +441,7 @@ theorem okExit_holds {E} {A : AState} {s : MachineState} (hx : okExit A = true)
 
 /-- Where a checked step can land: on an instruction of `f` whose annotation holds, or
     outside `f` with `ra` and `sp` at their entry values. -/
-def Lands (f : Fn) (anno : Array (Option AState)) (E : Reg → Word) (s : MachineState) : Prop :=
+def Lands (f : Fn) (anno : Array (Option AState)) (E : Ent) (s : MachineState) : Prop :=
   (∃ j C, f.idx? s.pc = some j ∧ Fn.annoAt anno j = some C ∧ C.Holds E s) ∨
   (f.idx? s.pc = none ∧ s.getReg .x1 = E .x1 ∧ s.getReg .x2 = E .x2)
 
@@ -498,12 +506,12 @@ theorem Fn.step_of_instrAt {f : Fn} {i : Nat} {A : AState} {ins : Instr}
   simp [Fn.step, h]
 
 /-- The premises over the entry registers, for every reachable instruction. -/
-def ReqOk (f : Fn) (anno : Array (Option AState)) (E : Reg → Word) : Prop :=
+def ReqOk (f : Fn) (anno : Array (Option AState)) (E : Ent) : Prop :=
   ∀ i A st, Fn.annoAt anno i = some A → f.step i A = some st → ∀ q ∈ st.reqs, q.Holds E
 
 /-- The residual premise at one state: a store through an unknown pointer does not rewrite
     a saved return address. -/
-def ResOk (f : Fn) (anno : Array (Option AState)) (E : Reg → Word) (s : MachineState) : Prop :=
+def ResOk (f : Fn) (anno : Array (Option AState)) (E : Ent) (s : MachineState) : Prop :=
   ∀ i A st ins, f.idx? s.pc = some i → Fn.annoAt anno i = some A → f.step i A = some st →
     f.instrAt? i = some ins → st.residual ≠ [] →
     ∀ p ∈ A.slots, protects p = true → storeTarget s ins ≠ E .x2 + p.1
@@ -655,7 +663,7 @@ theorem call_step {f : Fn} {i : Nat} {A : AState} {ins : Instr}
   rw [Fn.step_of_instrAt hins]
   rcases hcall with ⟨off, rfl⟩ | ⟨rs, off, rfl⟩ <;> simp [Fn.stepAt, branchOff?]
 
-def Inv (f : Fn) (anno : Array (Option AState)) (E : Reg → Word) (s : MachineState) : Prop :=
+def Inv (f : Fn) (anno : Array (Option AState)) (E : Ent) (s : MachineState) : Prop :=
   ∃ i A, f.idx? s.pc = some i ∧ Fn.annoAt anno i = some A ∧ A.Holds E s ∧ CodeOk f s
 
 theorem call_sound {f : Fn} {anno} {E} {s s' : MachineState} {i : Nat} {A : AState} {ins : Instr}
@@ -755,6 +763,7 @@ theorem outlined_sound {f : Fn} {anno} {E} {s s' : MachineState} {i k : Nat} {A 
   | lin r k0 => rw [hx5] at hok0; cases hok0
   | top => rw [hx5] at hok0; cases hok0
   | oneOf => rw [hx5] at hok0; cases hok0
+  | cell => rw [hx5] at hok0; cases hok0
   | const c =>
     rw [hx5] at hok0 h5
     simp only [AVal.Holds] at h5

@@ -18,7 +18,7 @@ theorem residual_nil : fn.collect anno (·.residual) = [] := by decide +kernel
 
 /-- **`memcpy` preserves `ra` and `sp`** at every exit, including through its jump table,
     with no premise beyond the image. -/
-theorem integrity_of_run (E : Reg → Word) {s0 s s' : MachineState}
+theorem integrity_of_run (E : Ent) {s0 s s' : MachineState}
     (hpc : s0.pc = fn.base) (hE : ∀ r, r ≠ .x0 → s0.getReg r = E r) (hc : CodeOk fn s0)
     (hr : Run fn anno E s0 s) {i : Nat} {ins : Instr}
     (hi : fn.idx? s.pc = some i) (hins : fn.instrAt? i = some ins)

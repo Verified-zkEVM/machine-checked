@@ -17,7 +17,7 @@ theorem residual_nil : fn.collect anno (·.residual) = [] := by decide +kernel
     `hreq`: each store through `self` (`a0 + k`) misses the doubleword where `ra` is saved.
     That is "`self` does not overlap this frame", a fact about the caller. The one call whose
     return address lies outside the function (a panic) is assumed not to return. -/
-theorem integrity_of_run (E : Reg → Word) {s0 s s' : MachineState}
+theorem integrity_of_run (E : Ent) {s0 s s' : MachineState}
     (hpc : s0.pc = fn.base) (hE : ∀ r, r ≠ .x0 → s0.getReg r = E r) (hc : CodeOk fn s0)
     (hreq : ∀ q ∈ fn.collect anno (·.reqs), q.Holds E)
     (hr : Run fn anno E s0 s) {i : Nat} {ins : Instr}

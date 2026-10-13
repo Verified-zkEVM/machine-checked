@@ -21,7 +21,7 @@ theorem residual_nil : fn.collect anno (·.residual) = [] := by decide +kernel
     analysis cannot show `ra` restored everywhere. The relocations of the `--emit-relocs`
     build back the premise: no code address the program materialises lies inside
     `core::fmt::write`. -/
-theorem integrity_of_run (E : Reg → Word) {s0 s s' : MachineState}
+theorem integrity_of_run (E : Ent) {s0 s s' : MachineState}
     (hpc : s0.pc = fn.base) (hE : ∀ r, r ≠ .x0 → s0.getReg r = E r) (hc : CodeOk fn s0)
     (hcfi : ∀ s, Run fn anno E s0 s → CfiOk fn s)
     (hr : Run fn anno E s0 s) {i : Nat} {ins : Instr}

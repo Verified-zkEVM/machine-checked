@@ -81,7 +81,7 @@ Each theorem: run the loaded guest `n` SP1 steps to a state `s0` that enters the
 with entry registers `E`; then along that activation's run, every exit restores `ra` and
 `sp`. The code premise of the `Frame` theorems is gone: it follows from the load. -/
 
-variable {input : List (BitVec 8)} {n : Nat} (E : Reg → Word) {s0 s s' : MachineState}
+variable {input : List (BitVec 8)} {n : Nat} (E : Ent) {s0 s s' : MachineState}
 
 theorem memcpy_integrity (hrun : stepsSp1 n (image.state input) = some s0)
     (hpc : s0.pc = Fns.memcpy.base) (hE : ∀ r, r ≠ .x0 → s0.getReg r = E r)

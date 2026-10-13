@@ -143,7 +143,7 @@ end Window
 /-! ## Items -/
 
 /-- `within` is containment of the keys hit. -/
-theorem within_hits {E : Reg → Word} {d it : Item} (h : d.within it = true) {a : Word}
+theorem within_hits {E : Ent} {d it : Item} (h : d.within it = true) {a : Word}
     (ha : it.Hits E a) : d.Hits E a := by
   unfold Item.within at h
   simp only [Bool.or_eq_true, beq_iff_eq] at h
@@ -172,6 +172,17 @@ theorem within_hits {E : Reg → Word} {d it : Item} (h : d.within it = true) {a
       rcases ha with ha | ⟨hl, ha⟩
       · left; bv_omega
       · by_cases hd : (c - c0).toNat ≥ (c - a).toNat
+        · left; bv_omega
+        · right; exact ⟨by omega, by bv_omega⟩
+    case cell.cell.n.n r0 ks0 k0 r ks k l0 l =>
+      simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h
+      obtain ⟨⟨⟨rfl, rfl⟩, hk⟩, hl0⟩ := h
+      simp only [AVal.eval, Len.eval] at ha ⊢
+      generalize E.deref (E r0) ks0 = X at ha ⊢
+      unfold Hits at *
+      rcases ha with ha | ⟨hl, ha⟩
+      · left; bv_omega
+      · by_cases hd : (k - k0).toNat ≥ (X + k - a).toNat
         · left; bv_omega
         · right; exact ⟨by omega, by bv_omega⟩
 

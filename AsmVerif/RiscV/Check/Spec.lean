@@ -5,13 +5,15 @@
 
   ## The judgement
 
-  `SafeN n P s`: every accepting state reached from `s` in fewer than `n` steps satisfies
-  `P`. Partial correctness: a run that traps, rejects or diverges is safe. Accepting is
-  SP1's `HALT` with exit code `0`.
+  `SafeN G n P s`: every accepting state reached from `s` in fewer than `n` steps, along a
+  run every state of which satisfies the guard `G`, satisfies `P`. Partial correctness: a run
+  that traps, rejects or diverges is safe. Accepting is SP1's `HALT` with exit code `0`. The
+  guard is where premises about runs go: `Env.Cfi`, the targets of the indirect jumps no
+  analysis resolves. With `G = fun _ => True` it is plain safety.
 
   A specification is in continuation form with one budget on both sides:
 
-      ∀ P s, s.pc = entry → Pre s → (∀ t, Post s t → SafeN n P t) → SafeN n P s
+      ∀ G P s, s.pc = entry → Pre s → (∀ t, Post s t → SafeN G n P t) → SafeN G n P s
 
   ("if the caller is safe for `n` steps from wherever the function returns, it is safe for
   `n` steps from the call"). Proved for every `n`, it gives the unbounded `Safe`. A step
@@ -55,38 +57,43 @@ theorem not_accepted_of_code {s : MachineState} {i : Instr} (h : s.code s.pc = s
     (hi : i ≠ .ECALL) : ¬ Accepted s := by
   intro ha; have h1 := ha.1; rw [h] at h1; exact hi (Option.some.inj h1)
 
-def SafeN (n : Nat) (P : Prop) (s : MachineState) : Prop :=
-  ∀ m < n, ∀ s', stepsSp1 m s = some s' → Accepted s' → P
+def SafeN (G : MachineState → Prop) (n : Nat) (P : Prop) (s : MachineState) : Prop :=
+  ∀ m < n, ∀ s', stepsSp1 m s = some s' → (∀ j ≤ m, ∀ x, stepsSp1 j s = some x → G x) →
+    Accepted s' → P
 
-def Safe (P : Prop) (s : MachineState) : Prop := ∀ n, SafeN n P s
+def Safe (G : MachineState → Prop) (P : Prop) (s : MachineState) : Prop := ∀ n, SafeN G n P s
 
 namespace SafeN
 
-theorem zero {P : Prop} {s : MachineState} : SafeN 0 P s := fun _ h => absurd h (Nat.not_lt_zero _)
+variable {G : MachineState → Prop}
 
-theorem mono {P : Prop} {s : MachineState} {k n : Nat} (hk : k ≤ n) (h : SafeN n P s) :
-    SafeN k P s := fun m hm => h m (Nat.lt_of_lt_of_le hm hk)
+theorem zero {P : Prop} {s : MachineState} : SafeN G 0 P s :=
+  fun _ h => absurd h (Nat.not_lt_zero _)
+
+theorem mono {P : Prop} {s : MachineState} {k n : Nat} (hk : k ≤ n) (h : SafeN G n P s) :
+    SafeN G k P s := fun m hm => h m (Nat.lt_of_lt_of_le hm hk)
 
 /-- A step from a state that does not accept: one budget unit is spent. -/
 theorem step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
-    (hs : stepSp1 s = some t) (ht : SafeN n P t) : SafeN (n + 1) P s := by
-  intro m hm s' hr ha
+    (hs : stepSp1 s = some t) (ht : SafeN G n P t) : SafeN G (n + 1) P s := by
+  intro m hm s' hr hg ha
   cases m with
   | zero => simp [stepsSp1] at hr; subst hr; exact absurd ha hna
   | succ m =>
     obtain ⟨s1, h1, h2⟩ := stepsSp1_succ hr
     rw [hs] at h1; cases h1
-    exact ht m (by omega) s' h2 ha
+    exact ht m (by omega) s' h2
+      (fun j hj x hx => hg (j + 1) (by omega) x (by simp [stepsSp1, hs, hx])) ha
 
 /-- A step does not need budget: `SafeN n` passes back along it. -/
 theorem of_step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
-    (hs : stepSp1 s = some t) (ht : SafeN n P t) : SafeN n P s :=
+    (hs : stepSp1 s = some t) (ht : SafeN G n P t) : SafeN G n P s :=
   mono (Nat.le_succ n) (step hna hs ht)
 
 /-- A state with no step: safe unless it accepts. -/
 theorem stuck {P : Prop} {s : MachineState} {n : Nat} (hs : stepSp1 s = none)
-    (hp : Accepted s → P) : SafeN n P s := by
-  intro m _ s' hr ha
+    (hp : Accepted s → P) : SafeN G n P s := by
+  intro m _ s' hr _ ha
   cases m with
   | zero => simp [stepsSp1] at hr; subst hr; exact hp ha
   | succ m => simp [stepsSp1, hs] at hr
@@ -94,10 +101,16 @@ theorem stuck {P : Prop} {s : MachineState} {n : Nat} (hs : stepSp1 s = none)
 /-- From a state that does not accept, safe for `n + 1` steps if every successor is safe
     for `n`. -/
 theorem intro {P : Prop} {s : MachineState} {n : Nat} (hna : ¬ Accepted s)
-    (h : ∀ t, stepSp1 s = some t → SafeN n P t) : SafeN (n + 1) P s := by
+    (h : ∀ t, stepSp1 s = some t → SafeN G n P t) : SafeN G (n + 1) P s := by
   cases hs : stepSp1 s with
   | none => exact stuck hs (fun ha => absurd ha hna)
   | some t => exact step hna hs (h t hs)
+
+/-- The guard holds at the current state of every run it constrains. -/
+theorem assume {P : Prop} {s : MachineState} {n : Nat} (h : G s → SafeN G n P s) :
+    SafeN G n P s := by
+  intro m hm s' hr hg ha
+  exact h (hg 0 (Nat.zero_le _) s rfl) m hm s' hr hg ha
 
 end SafeN
 
@@ -109,18 +122,19 @@ def Hits (b : Word) (l : Nat) (a : Word) : Prop :=
 
 def Aligned (a : Word) : Prop := a &&& 7#64 = 0
 
-def _root_.AsmVerif.RiscV.Frame.AVal.eval (E : Reg → Word) : AVal → Word
+def _root_.AsmVerif.RiscV.Frame.AVal.eval (E : Ent) : AVal → Word
   | .lin r k => E r + k
   | .const c => c
   | .top => 0
   | .oneOf _ => 0
+  | .cell r ks k => E.deref (E r) ks + k
 
-def Len.eval (E : Reg → Word) : Len → Nat
+def Len.eval (E : Ent) : Len → Nat
   | .n l => l
   | .reg r => (E r).toNat
   | .regPlus r c => (E r).toNat + c
 
-def Item.Hits (E : Reg → Word) (it : Item) (a : Word) : Prop :=
+def Item.Hits (E : Ent) (it : Item) (a : Word) : Prop :=
   Check.Hits (it.base.eval E) (it.len.eval E) a
 
 /-- The frame window of a function entered with stack pointer `e`. -/
@@ -134,16 +148,20 @@ def Env.wf (env : Env) : Bool :=
   env.prot.all fun (b, l) => decide (env.stackTop + 8 ≤ b.toNat) && decide (b.toNat + l + 8 ≤ 2 ^ 64)
 
 /-- What a function with interface `σ`, entered with registers `E`, may write. -/
-def Written (σ : Iface) (E : Reg → Word) (a : Word) : Prop :=
+def Written (σ : Iface) (E : Ent) (a : Word) : Prop :=
   InWin (E .x2) σ.depth a ∨ ∃ it ∈ σ.foot, it.Hits E a
 
-/-- The registers of a state, as the entry registers of a function. -/
-def regsOf (s : MachineState) : Reg → Word := s.getReg
+/-- The registers and memory of a state, as the entry valuation of a function. -/
+def regsOf (s : MachineState) : Ent := ⟨s.getReg, s.getMem⟩
+
+/-- A cell's address, given the entry valuation. -/
+def Cell.addr (E : Ent) (c : Cell) : Word := E.deref (E c.r) c.ks + c.k
 
 /-- The precondition: the code is the program's; the stack has room for the window and lies
     below the program; the protected regions hold their contents; footprint items avoid the
     window and the protected regions; the `nz` values are nonzero; the `vals` registers hold
-    one of their candidates. -/
+    one of their candidates; each cell is aligned, not something the function may write,
+    and holds one of its candidates. -/
 def Pre (env : Env) (C : Word → Option Instr) (σ : Iface) (s : MachineState) : Prop :=
   s.code = C ∧ σ.depth ≤ (s.getReg .x2).toNat ∧ (s.getReg .x2).toNat ≤ env.stackTop ∧
   Aligned (s.getReg .x2) ∧
@@ -151,7 +169,9 @@ def Pre (env : Env) (C : Word → Option Instr) (σ : Iface) (s : MachineState) 
   (∀ it ∈ σ.foot, ∀ a, Aligned a → it.Hits (regsOf s) a →
     ¬ InWin (s.getReg .x2) σ.depth a ∧ ¬ env.InProt a) ∧
   (∀ v ∈ σ.nz, v.eval (regsOf s) ≠ 0) ∧
-  (∀ p ∈ σ.vals, s.getReg p.1 ∈ p.2)
+  (∀ p ∈ σ.vals, s.getReg p.1 ∈ p.2) ∧
+  (∀ c ∈ σ.cells, Aligned (c.addr (regsOf s)) ∧ ¬ Written σ (regsOf s) (c.addr (regsOf s)) ∧
+    ∀ cs, c.vals = some cs → s.getMem (c.addr (regsOf s)) ∈ cs)
 
 /-- The postcondition: it returns, to `ra`, with the callee-saved registers restored and
     memory unchanged outside what it may write. -/
@@ -161,10 +181,17 @@ def Post (σ : Iface) (s t : MachineState) : Prop :=
   (∀ a, Aligned a → ¬ Written σ (regsOf s) a → t.getMem a = s.getMem a) ∧
   t.code = s.code
 
-/-- `σ` holds for budget `n`. -/
+/-- The control-flow premise at a state: a listed `jalr` lands on one of its candidates. -/
+def Env.Cfi (env : Env) (x : MachineState) : Prop :=
+  ∀ p ∈ env.cfi, x.pc = p.1 → ∀ rd rs off, x.code x.pc = some (.JALR rd rs off) →
+    (x.getReg rs + signExtend12 off) &&& ~~~1#64 ∈ p.2
+
+/-- `σ` holds for budget `n`, along every run that keeps the program's control-flow
+    premise (and whatever else a guard `G` asks). -/
 def Iface.HoldsN (env : Env) (C : Word → Option Instr) (σ : Iface) (n : Nat) : Prop :=
+  ∀ (G : MachineState → Prop), (∀ x, G x → env.Cfi x) →
   ∀ (P : Prop) (s : MachineState), s.pc = σ.entry → Pre env C σ s →
-    (∀ t, Post σ s t → SafeN n P t) → SafeN n P s
+    (∀ t, Post σ s t → SafeN G n P t) → SafeN G n P s
 
 def Iface.Holds (env : Env) (C : Word → Option Instr) (σ : Iface) : Prop :=
   ∀ n, σ.HoldsN env C n
@@ -172,8 +199,9 @@ def Iface.Holds (env : Env) (C : Word → Option Instr) (σ : Iface) : Prop :=
 /-- The unbounded form: from a state satisfying the precondition, safe if safe from every
     return. -/
 theorem Iface.Holds.safe {env : Env} {C : Word → Option Instr} {σ : Iface}
-    (h : σ.Holds env C) {P : Prop} {s : MachineState} (hpc : s.pc = σ.entry)
-    (hpre : Pre env C σ s) (hk : ∀ t, Post σ s t → Safe P t) : Safe P s :=
-  fun n => h n P s hpc hpre (fun t ht => hk t ht n)
+    (h : σ.Holds env C) {G : MachineState → Prop} (hG : ∀ x, G x → env.Cfi x) {P : Prop}
+    {s : MachineState} (hpc : s.pc = σ.entry)
+    (hpre : Pre env C σ s) (hk : ∀ t, Post σ s t → Safe G P t) : Safe G P s :=
+  fun n => h n G hG P s hpc hpre (fun t ht => hk t ht n)
 
 end AsmVerif.RiscV.Check

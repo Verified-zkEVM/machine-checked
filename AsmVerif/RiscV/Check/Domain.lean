@@ -79,6 +79,8 @@ def Item.within (decl it : Item) : Bool :=
   | .lin r k0, .lin r' k, .n l0, .n l => r == r' && decide ((k - k0).toNat + l ≤ l0) &&
       decide (l0 < 2 ^ 63)
   | .const c0, .const c, .n l0, .n l => decide ((c - c0).toNat + l ≤ l0) && decide (l0 < 2 ^ 63)
+  | .cell r ks k0, .cell r' ks' k, .n l0, .n l => r == r' && ks == ks' &&
+      decide ((k - k0).toNat + l ≤ l0) && decide (l0 < 2 ^ 63)
   | _, _, _, _ => false
 
 /-- What every function of a program shares: the top of the stack (everything the image
@@ -88,11 +90,25 @@ structure Env where
   stackTop : Nat
   prot : List (Word × Nat)
   init : Word → Word
+  /-- The control-flow premise (`CfiOk`): at each listed `jalr`, the target is one of the
+      candidates. A premise about runs, not a theorem; `SafeN` is relative to it. -/
+  cfi : List (Word × List Word) := []
 
 /-- An aligned doubleword key inside a protected region. -/
 def Env.protKey (env : Env) (a : Word) : Bool :=
   decide (a.toNat % 8 = 0) &&
   env.prot.any fun (b, l) => decide (b.toNat ≤ a.toNat) && decide (a.toNat + 8 ≤ b.toNat + l)
+
+/-- A doubleword reached from an entry register: from `r`'s entry value, the loads `ks` of
+    the entry memory, then offset `k` (`a0 + 8`; or the second field of the struct `a1`
+    points to's first field: `r = a1`, `ks = [0]`, `k = 8`). As a premise: it is aligned,
+    the activation does not write it, and with `vals`, it holds one of them. -/
+structure Cell where
+  r : Reg
+  ks : List Word := []
+  k : Word
+  vals : Option (List Word) := none
+  deriving DecidableEq, Repr
 
 structure Iface where
   entry : Word
@@ -103,6 +119,8 @@ structure Iface where
   /-- Registers whose entry value is one of the listed constants: a function pointer or a
       vtable among candidates (the control-flow premise of an indirect call). -/
   vals : List (Reg × List Word) := []
+  /-- Doublewords of the entry memory the function reads and relies on staying put. -/
+  cells : List Cell := []
   deriving DecidableEq, Repr
 
 /-- The abstract state at entry: every register its own entry value, except those `vals`
@@ -113,9 +131,30 @@ def Iface.entryState (σ : Iface) : AState :=
       | none => .lin r 0
     slots := [] }
 
-/-- A value that can be a store's base or a footprint item's: entry-relative or constant. -/
+/-- A value that can be a store's base or a footprint item's: entry-relative, loaded through
+    an entry pointer, or constant. -/
 def _root_.AsmVerif.RiscV.Frame.AVal.isPtr : AVal → Bool
-  | .lin _ _ | .const _ => true
+  | .lin _ _ | .const _ | .cell _ _ _ => true
+  | _ => false
+
+/-- The value of a declared cell: one of its candidates, or the symbolic load. -/
+def cellVal (σ : Iface) (r : Reg) (ks : List Word) (k : Word) : Option AVal :=
+  (σ.cells.find? fun c => c.r == r && c.ks == ks && c.k == k).map fun c =>
+    match c.vals with
+    | some cs => .oneOf cs
+    | none => .cell r (ks ++ [k]) 0
+
+/-- The doubleword at an entry-memory address, if it is one of the function's cells. -/
+def cellAt (σ : Iface) : AVal → Option AVal
+  | .lin r k => cellVal σ r [] k
+  | .cell r ks d => cellVal σ r ks d
+  | _ => none
+
+/-- A value is a constant among `cs`, or a set of them. -/
+def inVals (v : AVal) (cs : List Word) : Bool :=
+  match v with
+  | .const c => cs.contains c
+  | .oneOf ws => ws.all cs.contains
   | _ => false
 
 /-! ## Frames
@@ -137,14 +176,14 @@ def winOk (D : Nat) (k : Word) (w : Width) : Bool :=
 /-! ## Straight-line instructions -/
 
 /-- The value a load produces: a frame slot, a protected doubleword, or unknown. -/
-def loadVal (env : Env) (A : AState) (b : AVal) (isD : Bool) : AVal :=
+def loadVal (env : Env) (σ : Iface) (A : AState) (b : AVal) (isD : Bool) : AVal :=
   if isD then
     match b.frameOff? with
     | some k => (A.slots.lookup k).getD .top
     | none => match b with
       | .const c => if env.protKey c then .const (env.init c) else .top
       | .oneOf cs => if cs.all env.protKey then .oneOf (cs.map env.init) else .top
-      | _ => .top
+      | b => (cellAt σ b).getD .top
   else .top
 
 /-- A store: through the frame (slots updated), or covered by the footprint. `none` if
@@ -172,7 +211,7 @@ def plainStep (env : Env) (σ : Iface) (pc : Word) (A : AState) (i : Instr) : Op
   | some (rd, v) => some (A.set rd v)
   | none =>
   match loadOf i with
-  | some (rd, rs, off, isD) => some (A.set rd (loadVal env A ((A.get rs).addK (signExtend12 off)) isD))
+  | some (rd, rs, off, isD) => some (A.set rd (loadVal env σ A ((A.get rs).addK (signExtend12 off)) isD))
   | none =>
   match storeOf i with
   | some (rs1, rs2, off, w) => storeStep σ A rs1 rs2 off w
@@ -183,8 +222,22 @@ def plainStep (env : Env) (σ : Iface) (pc : Word) (A : AState) (i : Instr) : Op
 
 /-! ## Calls -/
 
-def instVal (A : AState) : AVal → AVal
+/-- The current contents of a doubleword the caller knows: a frame slot, or one of its
+    cells. -/
+def contentAt (σ : Iface) (A : AState) (a : AVal) : Option AVal :=
+  match a.frameOff? with
+  | some f => A.slots.lookup f
+  | none => cellAt σ a
+
+/-- Follow a callee's path of loads from a caller value. -/
+def instPath (σ : Iface) (A : AState) : AVal → List Word → Option AVal
+  | v, [] => some v
+  | v, k :: ks => (contentAt σ A (v.addK k)).bind (instPath σ A · ks)
+
+/-- A callee's value, in the caller's terms. -/
+def instVal (σ : Iface) (A : AState) : AVal → AVal
   | .lin r k => (A.get r).addK k
+  | .cell r ks d => ((instPath σ A (A.get r) ks).map (·.addK d)).getD .top
   | v => v
 
 def instLen (A : AState) : Len → Option Len
@@ -198,8 +251,8 @@ def instLen (A : AState) : Len → Option Len
     | .lin r' k => if k = 0 then some (.regPlus r' c) else none
     | _ => none
 
-def instItem (A : AState) (it : Item) : Option Item :=
-  (instLen A it.len).map fun l => { base := instVal A it.base, len := l }
+def instItem (σ : Iface) (A : AState) (it : Item) : Option Item :=
+  (instLen A it.len).map fun l => { base := instVal σ A it.base, len := l }
 
 /-- An instantiated callee item, checked against the caller. A frame-based item must lie
     in the caller's frame, at or above the callee's stack pointer (`m` bytes below the
@@ -223,8 +276,10 @@ def nzVal (σ : Iface) : AVal → Bool
   | .lin r k => σ.nz.contains (.lin r k)
   | .top => false
   | .oneOf cs => cs.all (· != 0)
+  | .cell r ks k => σ.nz.contains (.cell r ks k)
 
-def nzOk (σ : Iface) (A : AState) (v : AVal) : Bool := v.isPtr && nzVal σ (instVal A v)
+/-- A callee's `nz` value, in the caller's terms, is nonzero. `σ` is the caller. -/
+def nzOk (σ : Iface) (A : AState) (v : AVal) : Bool := v.isPtr && nzVal σ (instVal σ A v)
 
 /-- The callee-saved registers: `sp`, `gp`, `tp`, `s0`-`s11`. -/
 def savedRegs : List Reg :=
@@ -238,11 +293,29 @@ def afterCall (A : AState) (m : Nat) (its : List Item) : AState :=
 
 /-- A callee's `vals` premise, discharged by the caller's value: a constant or a set inside
     the candidates. -/
-def valOk (A : AState) (p : Reg × List Word) : Bool :=
-  match A.get p.1 with
-  | .const c => p.2.contains c
-  | .oneOf cs => cs.all p.2.contains
-  | _ => false
+def valOk (A : AState) (p : Reg × List Word) : Bool := inVals (A.get p.1) p.2
+
+/-- The doubleword at `a` stays put while the callee runs, and its contents: a caller frame
+    slot at or above the callee's stack pointer (`m` bytes below the caller's entry `sp`)
+    that no callee item hits, or one of the caller's cells. A tail call (`m = none`) has no
+    frame left. -/
+def stableAt (σ : Iface) (A : AState) (m : Option Nat) (its : List Item) (a : AVal) :
+    Option AVal :=
+  match a.frameOff? with
+  | some f => match m with
+    | some m => if negOff f ≤ m && its.all (slotClear f) then A.slots.lookup f else none
+    | none => none
+  | none => cellAt σ a
+
+/-- A callee's cell premise, discharged by the caller. -/
+def cellOk (σ : Iface) (A : AState) (m : Option Nat) (its : List Item) (c : Cell) : Bool :=
+  match instPath σ A (A.get c.r) c.ks with
+  | none => false
+  | some v => match stableAt σ A m its (v.addK c.k) with
+    | none => false
+    | some w => match c.vals with
+      | none => true
+      | some cs => inVals w cs
 
 /-- The stack pointer is `m` bytes below its entry value, `m` a multiple of 8. -/
 def spOff (A : AState) : Option Nat :=
@@ -257,10 +330,11 @@ def callOk (σ : Iface) (A : AState) (g : Iface) : Option (Nat × List Item) :=
   | none => none
   | some m =>
     if m + g.depth ≤ σ.depth then
-      match g.foot.mapM (instItem A) with
+      match g.foot.mapM (instItem σ A) with
       | none => none
       | some its =>
-        if its.all (itemOk σ m) && g.nz.all (nzOk σ A) && g.vals.all (valOk A) then some (m, its)
+        if its.all (itemOk σ m) && g.nz.all (nzOk σ A) && g.vals.all (valOk A) &&
+            g.cells.all (cellOk σ A (some m) its) then some (m, its)
         else none
     else none
 
@@ -271,10 +345,11 @@ def okExit (A : AState) : Bool :=
     `g`'s footprint covered by `f`'s. -/
 def tailOk (σ : Iface) (A : AState) (g : Iface) : Bool :=
   okExit A && decide (g.depth ≤ σ.depth) && (σ.returns || !g.returns) &&
-  match g.foot.mapM (instItem A) with
+  match g.foot.mapM (instItem σ A) with
   | none => false
   | some its => its.all (fun it => it.base.frameOff?.isNone && it.base.isPtr &&
-      σ.foot.any (·.within it)) && g.nz.all (nzOk σ A) && g.vals.all (valOk A)
+      σ.foot.any (·.within it)) && g.nz.all (nzOk σ A) && g.vals.all (valOk A) &&
+      g.cells.all (cellOk σ A none its)
 
 /-! ## Syscalls
 
@@ -413,14 +488,15 @@ def Ctx.stepAt (c : Ctx) (pc : Word) (oi : Option Instr) (A : AState) : Option (
       if rd = .x0 then
         if rs = .x1 ∧ off = 0 then (if c.σ.returns then some [.ret A] else none)
         else match A.get rs with
+          -- an unresolved target: the candidates of the control-flow premise, if listed
           | .const t => c.jump A ((t + signExtend12 off) &&& ~~~1#64)
           | .oneOf ts => allEdges (fun t => c.jump A ((t + signExtend12 off) &&& ~~~1#64)) ts
-          | _ => none
+          | _ => (c.env.cfi.lookup pc).bind (allEdges (c.jump A))
       else if rd = .x1 then
         match A.get rs with
         | .const t => c.call pc A ((t + signExtend12 off) &&& ~~~1#64)
         | .oneOf ts => allEdges (fun t => c.call pc A ((t + signExtend12 off) &&& ~~~1#64)) ts
-        | _ => none
+        | _ => (c.env.cfi.lookup pc).bind (allEdges (c.call pc A))
       else if rd = .x5 ∧ rs = .x5 then c.outlined pc A off
       else none
   | .EBREAK => some []

@@ -52,6 +52,21 @@ namespace AsmVerif.RiscV.Frame
 
 open RiscvZkvm.Rv64
 
+/-! ## Entry valuations -/
+
+/-- What an activation's abstract values are relative to: its entry registers, and its entry
+    memory (for values loaded through entry pointers). -/
+structure Ent where
+  reg : Reg → Word
+  mem : Word → Word := fun _ => 0
+
+instance : CoeFun Ent (fun _ => Reg → Word) := ⟨Ent.reg⟩
+
+/-- Follow a path of loads from address `a`: each `k` loads the doubleword at `· + k`. -/
+def Ent.deref (E : Ent) : Word → List Word → Word
+  | a, [] => a
+  | a, k :: ks => E.deref (E.mem (a + k)) ks
+
 /-! ## Abstract values -/
 
 inductive AVal where
@@ -60,6 +75,10 @@ inductive AVal where
   | top
   /-- One of finitely many constants: a function pointer or vtable among candidates. -/
   | oneOf (cs : List Word)
+  /-- A value loaded through an entry pointer, plus `d`: from `r`'s entry value, the loads
+      `ks` of the entry memory (a field of a struct the caller passed, or a field of one of
+      its fields). -/
+  | cell (r : Reg) (ks : List Word) (d : Word)
   deriving DecidableEq, Repr, Inhabited
 
 namespace AVal
@@ -69,6 +88,7 @@ def addK : AVal → Word → AVal
   | .const c, d => .const (c + d)
   | .top, _ => .top
   | .oneOf cs, d => .oneOf (cs.map (· + d))
+  | .cell r ks k, d => .cell r ks (k + d)
 
 /-- The frame offset of a frame address (`lin x2 k`). Matching on a specific register
     inside a pattern expands into Lean's 32-way case tree for `Reg`; testing it with `if`
@@ -100,12 +120,13 @@ def join (a b : AVal) : AVal :=
   | .oneOf xs, .oneOf ys => mkSet (xs ++ ys.filter (!xs.contains ·))
   | _, _ => .top
 
-/-- `v` is a concretization of the abstract value, given the entry register file `E`. -/
-def Holds (E : Reg → Word) : AVal → Word → Prop
+/-- `v` is a concretization of the abstract value, given the entry valuation `E`. -/
+def Holds (E : Ent) : AVal → Word → Prop
   | .lin r k, v => v = E r + k
   | .const c, v => v = c
   | .top, _ => True
   | .oneOf cs, v => v ∈ cs
+  | .cell r ks k, v => v = E.deref (E r) ks + k
 
 end AVal
 
@@ -194,12 +215,13 @@ structure Req where
   sk : Word
   deriving DecidableEq, Repr
 
-def Req.Holds (E : Reg → Word) (q : Req) : Prop :=
+def Req.Holds (E : Ent) (q : Req) : Prop :=
   match q.base with
   | .lin r k => q.w.target (E r + k) ≠ E .x2 + q.sk
   | .const c => q.w.target c ≠ E .x2 + q.sk
   | .top => True   -- never generated; a `top` base is a residual
   | .oneOf cs => ∀ c ∈ cs, q.w.target c ≠ E .x2 + q.sk
+  | .cell r ks k => q.w.target (E.deref (E r) ks + k) ≠ E .x2 + q.sk
 
 /-! ## The transfer function on straight-line instructions -/
 

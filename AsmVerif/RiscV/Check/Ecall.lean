@@ -286,15 +286,16 @@ theorem sys_trap {x : MachineState} (hf : x.code x.pc = some .ECALL)
 
 /-! ## `sysStep` is sound -/
 
-theorem holds_eval {E : Reg → Word} {v : AVal} {w : Word} (h : v.Holds E w)
+theorem holds_eval {E : Ent} {v : AVal} {w : Word} (h : v.Holds E w)
     (hv : v.isPtr = true) : v.eval E = w := by
   cases v with
   | lin r k => simp only [AVal.Holds] at h; simp [AVal.eval, h]
   | const c => simp only [AVal.Holds] at h; simp [AVal.eval, h]
   | top => simp [AVal.isPtr] at hv
   | oneOf _ => simp [AVal.isPtr] at hv
+  | cell r ks k => simp only [AVal.Holds] at h; simp [AVal.eval, h]
 
-theorem lenPlus_eval {E : Reg → Word} {v : AVal} {w : Word} {c : Nat} {l : Len}
+theorem lenPlus_eval {E : Ent} {v : AVal} {w : Word} {c : Nat} {l : Len}
     (h : v.Holds E w) (hl : lenPlus v c = some l) : l.eval E = w.toNat + c := by
   cases v with
   | const n =>
@@ -309,9 +310,10 @@ theorem lenPlus_eval {E : Reg → Word} {v : AVal} {w : Word} {c : Nat} {l : Len
     · cases hl
   | top => simp [lenPlus] at hl
   | oneOf _ => simp [lenPlus] at hl
+  | cell _ _ _ => simp [lenPlus] at hl
 
 /-- A value `nzVal` accepts is nonzero, whatever it denotes. -/
-theorem nzVal_holds {σ : Iface} {E : Reg → Word} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) {v : AVal}
+theorem nzVal_holds {σ : Iface} {E : Ent} (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) {v : AVal}
     {w : Word} (h : v.Holds E w) (hok : nzVal σ v = true) : w ≠ 0 := by
   cases v with
   | const c => simp only [AVal.Holds] at h; subst h; simpa [nzVal] using hok
@@ -323,9 +325,12 @@ theorem nzVal_holds {σ : Iface} {E : Reg → Word} (hnz : ∀ v ∈ σ.nz, v.ev
     simp only [AVal.Holds] at h
     simp only [nzVal, List.all_eq_true, bne_iff_ne, ne_eq] at hok
     exact hok w h
+  | cell r ks k =>
+    simp only [AVal.Holds] at h; subst h
+    exact hnz _ (List.contains_iff_mem.mp hok)
 
 /-- What `sysStep` promises about an `ecall` in a state its abstract registers describe. -/
-theorem sysStep_sound {σ : Iface} {E : Reg → Word} {A : AState} {x : MachineState} {out : SysOut}
+theorem sysStep_sound {σ : Iface} {E : Ent} {A : AState} {x : MachineState} {out : SysOut}
     (h : sysStep σ A = some out) (hr : ∀ r, (A.get r).Holds E (x.getReg r))
     (hnz : ∀ v ∈ σ.nz, v.eval E ≠ 0) (hf : x.code x.pc = some .ECALL) :
     (out = .stop → stepSp1 x = none ∧ ¬ Accepted x) ∧
@@ -339,6 +344,7 @@ theorem sysStep_sound {σ : Iface} {E : Reg → Word} {A : AState} {x : MachineS
   | lin _ _ => rw [ht] at h; cases h
   | top => rw [ht] at h; cases h
   | oneOf _ => rw [ht] at h; cases h
+  | cell _ _ _ => rw [ht] at h; cases h
   | const t =>
   rw [ht] at h h5
   simp only [AVal.Holds] at h5

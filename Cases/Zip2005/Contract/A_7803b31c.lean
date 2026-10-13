@@ -13,12 +13,12 @@ namespace Cases.Zip2005.Contract.A_7803b31c
 
 open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
 
-def iface : Iface := { entry := 0x000000007803b31c#64, depth := 0, foot := [{ base := (.const 0x0000000078048938#64), len := (.n 1) }, { base := (.const 0x0000000078048930#64), len := (.n 8) }, { base := (.const 0x0000000078048928#64), len := (.n 8) }], nz := [], returns := true, vals := [(.x11, [0x0000000078013e68#64])] }
+def iface : Iface := { entry := 0x000000007803b31c#64, depth := 0, foot := [{ base := (.const 0x0000000078048938#64), len := (.n 1) }, { base := (.const 0x0000000078048930#64), len := (.n 8) }, { base := (.const 0x0000000078048928#64), len := (.n 8) }], nz := [], returns := true, vals := [], cells := [] }
 
 def fn : Fn := { base := Cases.Zip2005.Image.F_7803b31c.base, prog := Cases.Zip2005.Image.F_7803b31c.prog, frags := [] }
 
 noncomputable def hints : List (Nat × AState) := [
-  (0, (.ofDiff [(.x11, (.oneOf [0x0000000078013e68#64]))] [])),
+  (0, (.ofDiff [] [])),
   (10, (.ofDiff [(.x11, (.const 0x0000000078048928#64)), (.x12, .top), (.x13, .top)] [])),
   (12, (.ofDiff [(.x11, (.const 0x0000000078048928#64)), (.x12, .top), (.x13, .top)] []))]
 

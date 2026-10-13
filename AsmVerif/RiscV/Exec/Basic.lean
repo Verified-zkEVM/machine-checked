@@ -35,18 +35,19 @@ open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
 theorem holdsN_of_inv {env : Env} {C : Word → Option Instr} {σ : Iface} {n : Nat}
     (Inv : MachineState → MachineState → Prop)
     (hentry : ∀ s0, s0.pc = σ.entry → Pre env C σ s0 → Inv s0 s0)
-    (hstep : ∀ s0 (P : Prop) k, s0.pc = σ.entry → Pre env C σ s0 → k ≤ n →
-      (∀ t, Post σ s0 t → SafeN k P t) →
-      (∀ m < k, ∀ t, Inv s0 t → SafeN m P t) →
-      ∀ s, Inv s0 s → SafeN k P s) :
+    (hstep : ∀ (G : MachineState → Prop) s0 (P : Prop) k, s0.pc = σ.entry → Pre env C σ s0 →
+      k ≤ n →
+      (∀ t, Post σ s0 t → SafeN G k P t) →
+      (∀ m < k, ∀ t, Inv s0 t → SafeN G m P t) →
+      ∀ s, Inv s0 s → SafeN G k P s) :
     σ.HoldsN env C n := by
-  intro P s0 hpc hpre hk
-  have key : ∀ k, k ≤ n → ∀ s, Inv s0 s → SafeN k P s := by
+  intro G _ P s0 hpc hpre hk
+  have key : ∀ k, k ≤ n → ∀ s, Inv s0 s → SafeN G k P s := by
     intro k
     induction k using Nat.strongRecOn with
     | ind k ih =>
       intro hkn s hs
-      exact hstep s0 P k hpc hpre hkn (fun t ht => SafeN.mono hkn (hk t ht))
+      exact hstep G s0 P k hpc hpre hkn (fun t ht => SafeN.mono hkn (hk t ht))
         (fun m hm t ht => ih m hm (by omega) t ht) s hs
   exact key n (Nat.le_refl n) s0 (hentry s0 hpc hpre)
 
@@ -62,10 +63,10 @@ theorem stepSp1_eq {s : MachineState} {i : Instr} (hf : s.code s.pc = some i)
   cases i <;> simp_all [Instr.isMemAccess, memOkSp1, memAccess]
 
 /-- Execute one instruction, spending no budget. -/
-theorem safe_step {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
+theorem safe_step {G : MachineState → Prop} {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
     (hf : s.code s.pc = some i) (he : i ≠ .ECALL) (hb : i ≠ .EBREAK)
     (hc : ∀ c r, i ≠ .CSRS c r)
-    (h : memOkSp1 s i = true → SafeN k P (execInstrBr s i)) : SafeN k P s := by
+    (h : memOkSp1 s i = true → SafeN G k P (execInstrBr s i)) : SafeN G k P s := by
   have hs := stepSp1_eq hf he hb hc
   by_cases hm : memOkSp1 s i = true
   · rw [if_pos hm] at hs
@@ -74,10 +75,10 @@ theorem safe_step {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
     exact SafeN.stuck hs (fun ha => absurd ha (not_accepted_of_code hf he))
 
 /-- Execute one instruction, spending one unit of budget. -/
-theorem safe_step1 {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
+theorem safe_step1 {G : MachineState → Prop} {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
     (hf : s.code s.pc = some i) (he : i ≠ .ECALL) (hb : i ≠ .EBREAK)
     (hc : ∀ c r, i ≠ .CSRS c r)
-    (h : memOkSp1 s i = true → SafeN k P (execInstrBr s i)) : SafeN (k + 1) P s := by
+    (h : memOkSp1 s i = true → SafeN G k P (execInstrBr s i)) : SafeN G (k + 1) P s := by
   have hs := stepSp1_eq hf he hb hc
   by_cases hm : memOkSp1 s i = true
   · rw [if_pos hm] at hs
@@ -87,20 +88,20 @@ theorem safe_step1 {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
 
 /-- A load whose value does not matter: the destination register takes an arbitrary value.
     Keeping it abstract keeps the state small. -/
-theorem safe_load {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
+theorem safe_load {G : MachineState → Prop} {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
     (hf : s.code s.pc = some i) {rd rs : Reg} {off : BitVec 12} {isD : Bool}
     (hl : loadOf i = some (rd, rs, off, isD))
-    (h : ∀ v, SafeN k P ((s.setReg rd v).setPC (s.pc + 4))) : SafeN k P s := by
+    (h : ∀ v, SafeN G k P ((s.setReg rd v).setPC (s.pc + 4))) : SafeN G k P s := by
   have hne : i ≠ .ECALL ∧ i ≠ .EBREAK ∧ ∀ c r, i ≠ .CSRS c r := by
     cases i <;> simp [loadOf] at hl <;> exact ⟨Instr.noConfusion, Instr.noConfusion, fun _ _ h => Instr.noConfusion h⟩
   refine safe_step hf hne.1 hne.2.1 hne.2.2 fun _ => ?_
   obtain ⟨w, hw, _⟩ := loadOf_shape (s := s) hl
   rw [hw]; exact h w
 
-theorem safe_load1 {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
+theorem safe_load1 {G : MachineState → Prop} {k : Nat} {P : Prop} {s : MachineState} {i : Instr}
     (hf : s.code s.pc = some i) {rd rs : Reg} {off : BitVec 12} {isD : Bool}
     (hl : loadOf i = some (rd, rs, off, isD))
-    (h : ∀ v, SafeN k P ((s.setReg rd v).setPC (s.pc + 4))) : SafeN (k + 1) P s := by
+    (h : ∀ v, SafeN G k P ((s.setReg rd v).setPC (s.pc + 4))) : SafeN G (k + 1) P s := by
   have hne : i ≠ .ECALL ∧ i ≠ .EBREAK ∧ ∀ c r, i ≠ .CSRS c r := by
     cases i <;> simp [loadOf] at hl <;> exact ⟨Instr.noConfusion, Instr.noConfusion, fun _ _ h => Instr.noConfusion h⟩
   refine safe_step1 hf hne.1 hne.2.1 hne.2.2 fun _ => ?_
@@ -251,9 +252,9 @@ end Frame
 /-- A `ret` from a state that keeps the frame: the postcondition, so the continuation
     applies. -/
 theorem safe_ret {σ : Iface} {C : Word → Option Instr} {s0 s : MachineState}
-    {k : Nat} {P : Prop} (hσ : σ.returns = true) (h : Frame σ C s0 s)
-    (hf : s.code s.pc = some (.JALR .x0 .x1 0)) (hk : ∀ t, Post σ s0 t → SafeN k P t) :
-    SafeN k P s := by
+    {G : MachineState → Prop} {k : Nat} {P : Prop} (hσ : σ.returns = true) (h : Frame σ C s0 s)
+    (hf : s.code s.pc = some (.JALR .x0 .x1 0)) (hk : ∀ t, Post σ s0 t → SafeN G k P t) :
+    SafeN G k P s := by
   refine safe_step (k := k) (P := P) hf (by decide) (by decide) (by intro c r h; cases h) ?_
   intro _
   apply hk (execInstrBr s (.JALR .x0 .x1 0))
