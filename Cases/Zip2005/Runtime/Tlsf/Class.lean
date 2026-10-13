@@ -62,6 +62,19 @@ theorem search_ok {s r : BitVec 64} (hs : SizeOk s) (hr : SizeOk r)
   simp only [flSearch, slSearch, searchRaw, flOf, slOf, rotr, subw, clz] at *
   bv_decide
 
+/-- Sound for any granule request, however large: no block below `2^40` is filed at or above
+    the class of a larger request. -/
+theorem search_ok' {s r : BitVec 64} (hs : SizeOk s) (hr : 32#64 ≤ r) (hr31 : r &&& 31#64 = 0#64)
+    (hc : flSearch r < flOf s ∨ (flSearch r = flOf s ∧ slSearch r ≤ slOf s)) : r ≤ s := by
+  obtain ⟨hs, hs'⟩ := hs
+  simp only [flSearch, slSearch, searchRaw, flOf, slOf, rotr, subw, clz] at *
+  bv_decide
+
+/-- The search class of a request is a first-level class (below 60). -/
+theorem flSearch_lt {r : BitVec 64} (hr : 32#64 ≤ r) : flSearch r < 60#64 := by
+  simp only [flSearch, searchRaw, rotr, subw, clz] at *
+  bv_decide
+
 /-- Classes are in range: 64 first-level classes of 64 second-level ones. -/
 theorem flOf_lt {s : BitVec 64} (hs : SizeOk s) : flOf s < 64#64 := by
   obtain ⟨hs, hs'⟩ := hs

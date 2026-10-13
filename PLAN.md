@@ -124,7 +124,13 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   read into a bump-allocated buffer, so D4) and the precompile wrappers.
 - D3. libc: `memcpy`, `memset` (and `memmove`, `memcmp` if reachable), with footprints for
   every length.
-- D4. The allocator: `HeapOk` and TLSF `alloc`/`dealloc`/`realloc` against it.
+- D4. The allocator: `HeapOk` and TLSF `alloc`/`dealloc`/`realloc` against it. **`alloc`
+  done.** `Runtime.Tlsf` models rlsf's heap (`Rep`: control block, bitmaps, segregated free
+  lists, physical block chain) with frame (`Shape.congr`) and update lemmas (pop, split,
+  mark). `Runtime.Alloc.spec`: from `Rep` and the de Bruijn table in `.rodata`, `alloc`
+  returns with `Rep` re-established, used blocks kept, memory outside the allocator's
+  doublewords unchanged, and the result null or a fresh block holding `size` bytes at
+  `align` (`Grant`). Open: `dealloc`, `realloc` (alloc + `memcpy` + dealloc).
 - D5. Panics: every panic entry the program reaches never accepts, under `StaticsOk`,
   `HeapOk` and premises the caller can discharge (the payload's vtable or formatter is one
   of the image's).
@@ -134,8 +140,8 @@ program proofs.
 
 ## Rules
 
-- No `sorry`, no `axiom`, no `native_decide`. `bv_decide` is allowed (it adds
-  `Lean.ofReduceBool` and `Lean.trustCompiler`); otherwise `#print axioms` shows only
+- No `sorry`, no `axiom`, no `native_decide`. `bv_decide` is allowed (each use adds a
+  `…_native.bv_decide.ax_…` axiom, its trust in the compiled checker); otherwise `#print axioms` shows only
   `propext`, `Classical.choice` and `Quot.sound`.
 - Zero build warnings.
 - Every remaining premise is in one list with a satisfiability witness: it holds on the
