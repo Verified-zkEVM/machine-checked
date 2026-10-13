@@ -130,7 +130,11 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   mark). `Runtime.Alloc.spec`: from `Rep` and the de Bruijn table in `.rodata`, `alloc`
   returns with `Rep` re-established, used blocks kept, memory outside the allocator's
   doublewords unchanged, and the result null or a fresh block holding `size` bytes at
-  `align` (`Grant`). Open: `dealloc`, `realloc` (alloc + `memcpy` + dealloc).
+  `align` (`Grant`). **`dealloc` done.** `Runtime.Tlsf.Free` adds unlinking from any list
+  position, merging and pushing; `Runtime.Dealloc.spec`: from `Rep` and a pointer `alloc`
+  granted for a used block, `dealloc` coalesces it with its free neighbours, re-establishes
+  `Rep`, keeps every other used block, and changes nothing outside the allocator's
+  doublewords and the freed block. Open: `realloc` (alloc + `memcpy` + dealloc).
 - D5. Panics: every panic entry the program reaches never accepts, under `StaticsOk`,
   `HeapOk` and premises the caller can discharge (the payload's vtable or formatter is one
   of the image's).
