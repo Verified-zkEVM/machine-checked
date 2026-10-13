@@ -124,8 +124,8 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   read into a bump-allocated buffer, so D4) and the precompile wrappers.
 - D3. libc: `memcpy`, `memset` (and `memmove`, `memcmp` if reachable), with footprints for
   every length.
-- D4. The allocator: `HeapOk` and TLSF `alloc`/`dealloc`/`realloc` against it. **`alloc`
-  done.** `Runtime.Tlsf` models rlsf's heap (`Rep`: control block, bitmaps, segregated free
+- D4. The allocator: `HeapOk` and TLSF `alloc`/`dealloc`/`realloc` against it. **Done.**
+  **`alloc`.** `Runtime.Tlsf` models rlsf's heap (`Rep`: control block, bitmaps, segregated free
   lists, physical block chain) with frame (`Shape.congr`) and update lemmas (pop, split,
   mark). `Runtime.Alloc.spec`: from `Rep` and the de Bruijn table in `.rodata`, `alloc`
   returns with `Rep` re-established, used blocks kept, memory outside the allocator's
@@ -134,7 +134,11 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   position, merging and pushing; `Runtime.Dealloc.spec`: from `Rep` and a pointer `alloc`
   granted for a used block, `dealloc` coalesces it with its free neighbours, re-establishes
   `Rep`, keeps every other used block, and changes nothing outside the allocator's
-  doublewords and the freed block. Open: `realloc` (alloc + `memcpy` + dealloc).
+  doublewords and the freed block. **`realloc` done.** `Runtime.Realloc.spec` composes
+  `Alloc.spec`, `memcpy`'s contract and `Dealloc.spec` through `__rust_realloc`: `Rep`
+  re-established, the owned invariant and protected memory kept, every other live byte and
+  everything below the heap unchanged, and the result null (every used block kept) or a new
+  `Grant` with the old block freed. D4's TLSF is complete.
 - D5. Panics: every panic entry the program reaches never accepts, under `StaticsOk`,
   `HeapOk` and premises the caller can discharge (the payload's vtable or formatter is one
   of the image's).
