@@ -115,13 +115,20 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   memory (the image plus the run's 31 stores) and the input stream; corollaries give the
   protected regions, `HooksUnset` and the heap's one free block.
 - D2. Syscall wrappers: `syscall_halt` (rejects for a nonzero code), `syscall_write`,
-  `read_vec_raw`, and the precompile wrappers. **`syscall_write` and `syscall_halt` done**,
+  `read_vec_raw`, and the precompile wrappers. **Done.** **`syscall_write` and `syscall_halt`**,
   against an owning `Env`: `Env.own`/`Env.inv` (owned statics and a module invariant, in
   every `Pre` and `Post`; interfaces proved without them lift by `Iface.HoldsN.lift`).
   zip-2005 owns the hasher's tag and position (`Owned.env`: `Some`, position below 64; it
   holds at `MainEntry`). `Runtime.SysWrite.holds` keeps the invariant;
-  `Runtime.Halt.holds` never accepts with a nonzero code. Open: `read_vec_raw` (a hint
-  read into a bump-allocated buffer, so D4) and the precompile wrappers.
+  `Runtime.Halt.holds` never accepts with a nonzero code. **`read_vec_raw` done.**
+  `Exec.Hint` gives `HINT_LEN`/`HINT_READ` exactly (the length in `t0`; the payload written
+  as little-endian doublewords, the input popped); `Runtime.ReadVec.spec`, from the entry
+  and the code alone, returns `{0, 0, 0}` with no hint, or bumps the pointer at `0x78040618`
+  (its own region `[0x1C00000000, 1 << 37)`, above the TLSF arena) and returns
+  `{ptr, n, cap}` with the hint read there, or calls `core::panicking::panic_fmt` when the
+  region is exhausted (`Panic`, for D5). **Precompile wrappers done** by the checker:
+  `syscall_pallas_add`/`_double` and `syscall_uint256_mulmod` return, write only `a0`'s
+  64 (32) bytes (`Contract.A_7801bf3c`/`bf4c`/`bf5c`); their values are the precompiles'.
 - D3. libc: `memcpy`, `memset` (and `memmove`, `memcmp` if reachable), with footprints for
   every length.
 - D4. The allocator: `HeapOk` and TLSF `alloc`/`dealloc`/`realloc` against it. **Done.**
