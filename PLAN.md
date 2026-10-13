@@ -150,6 +150,17 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   `HeapOk` and premises the caller can discharge (the payload's vtable or formatter is one
   of the image's).
 
+  Scope, measured (`INFER_REACH=7803de40`): 131 functions, about 10.5K instructions, are
+  reachable from `core::panicking::panic_fmt` (the call graph over-approximates through the
+  `vals` candidates of `dyn` calls). 14 have interfaces, and `memcpy`, `alloc`/`dealloc`
+  and `compress256` are proved. About 30 have blockers of their own: stores through a
+  pointer loaded from memory (a `Vec`/`String` buffer at `ptr + len`, an out-parameter),
+  `dyn` calls through a value's vtable, and `fmt::write`'s argument loop. The rest are
+  blocked only by their callees. The chain that matters is `panic_fmt`, then
+  `rust_begin_unwind`, then `panic_with_hook` (`HOOK` is unset, so `default_hook`, which
+  formats to stderr), then `rust_panic`, then `__rust_start_panic`, then
+  `zkvm_set_abort_message`, then `sys_panic`, ending at `syscall_halt` with a nonzero code.
+
 **E/F (later).** A specification format for program logic, and the port of zip-2005's
 program proofs.
 
