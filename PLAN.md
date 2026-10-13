@@ -148,7 +148,19 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   `Grant` with the old block freed. D4's TLSF is complete.
 - D5. Panics: every panic entry the program reaches never accepts, under `StaticsOk`,
   `HeapOk` and premises the caller can discharge (the payload's vtable or formatter is one
-  of the image's).
+  of the image's). **Done modulo one phase-E premise.** `Runtime.Panic`: every panic entry
+  the program reaches -- `panic_fmt` (`0x7803de40`), `panic` (`0x7803de20`), `panic_nounwind`
+  (`0x7803dcdc`), `assert_failed` (`0x7803dd28`) -- never accepts (`..._neverAccepts`:
+  `Safe G False`), given `pwhIface.Holds`: that `panic_with_hook` (`0x7803b8d0`) never
+  accepts from its entry. The entry chain down to `panic_with_hook` is checked (the frames
+  write only themselves and every path ends in a never-returning call, so `returns := false`);
+  `Runtime.SysPanic` proves the tail `sys_panic` -> `syscall_halt(1)` unconditionally. The
+  one gap is `panic_with_hook` and the formatting it drives -- `core::fmt::write` growing a
+  heap `String` through the allocator -- whose buffer writes go through pointers the checker
+  cannot describe. It is stated as an ordinary interface (`returns := false`, so an empty
+  footprint is honest) under `Owned.env`, exactly the shape phase E discharges once a
+  heap-typed `String`/`Vec` validity invariant over `Rep` is available; its `depth` is an
+  over-approximation phase E pins exactly.
 
   Scope, measured (`INFER_REACH=7803de40`): 131 functions, about 10.5K instructions, are
   reachable from `core::panicking::panic_fmt` (the call graph over-approximates through the
