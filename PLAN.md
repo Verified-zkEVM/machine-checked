@@ -191,6 +191,22 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   return. The next link up, `zkvm_set_abort_message`, calls the payload's `get`, which is
   the `String` path above.
 
+  **E, generic layer done.** The checker's interfaces now carry *writers* (`Iface.strs`:
+  a pointer and a kind, in entry terms), and the `Env` a `Model` (`Check/Model.lean`) that
+  says, per kind, which doublewords a writer may change (`hit`), which it keeps (`stable`),
+  what well-typed means (`writerOk`), and which kinds are structural wrappers of another
+  writer (`sub`: a `PadAdapter` around a `String`). `Pre` asks every lent writer to be
+  well-typed, its keys outside the function's own writes; `Post` gives each back
+  (`Model.Keeps`), and keeps every writer the function was not lent. A callee's writer must
+  be one the caller has, or a wrapper built in the caller's frame around one; after the
+  call the caller's writers must be recovered. Candidates (`vals`, cells with candidates,
+  vtable slots) are now one mechanism (`cands`/`root?`), and an indirect call is checked
+  per candidate under the refinement that fixes its target, so a callee's kind can be the
+  constant the vtable determines. `Model.trivial` (no writers) is the default; the zip-2005
+  table is unchanged under it. What remains for zip-2005 is the model itself: the `String`
+  and `PadAdapter` kinds over `Tlsf.Rep`, the leaf proofs (`write_str`, `write_char`,
+  `finish_grow`) and the roots that discharge `pwhIface.Holds`.
+
 **E/F (later).** A specification format for program logic, and the port of zip-2005's
 program proofs.
 

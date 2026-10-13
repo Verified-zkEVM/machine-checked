@@ -169,7 +169,7 @@ theorem inv_iff {m : Word → Word} : env.Inv m ↔ Owned.HasherOk m ∧ HeapOk 
 
 /-- **The checked table, with the heap owned.** -/
 theorem tbl_holds : ∀ g ∈ Contract.tbl, g.Holds env Image.Layout.image.codeAt :=
-  fun g hg n => Iface.HoldsN.lift env_wf (by rw [env_plain]; exact Contract.all g hg n)
+  fun g hg n => Iface.HoldsN.lift_trivial env_wf rfl (by rw [env_plain]; exact Contract.all g hg n)
 
 /-- An owned key of `Owned.env` is one of this `Env`. -/
 theorem inOwn_of_owned {a : Word} (h : Owned.env.InOwn a) : env.InOwn a := by
@@ -185,18 +185,23 @@ theorem Pre.toOwned {C : Word → Option Instr} {σ : Iface} {s : MachineState}
       (hpre.2.2.2.2.2.1 it hit a ha hh).2.1, fun ho => (hpre.2.2.2.2.2.1 it hit a ha hh).2.2 (inOwn_of_owned ho)⟩,
     hpre.2.2.2.2.2.2.1, hpre.2.2.2.2.2.2.2.1,
     fun c hc => let h := hpre.2.2.2.2.2.2.2.2.1 c hc; ⟨h.1, h.2.1, fun ho => h.2.2.1 (inOwn_of_owned ho), h.2.2.2⟩,
-    (Owned.inv_iff).mpr (inv_iff.mp hpre.2.2.2.2.2.2.2.2.2).1⟩
+    (Owned.inv_iff).mpr (inv_iff.mp hpre.2.2.2.2.2.2.2.2.2.1).1,
+    fun e he => let h := hpre.2.2.2.2.2.2.2.2.2.2.1 e he;
+      ⟨h.1, h.2.1, fun a hs => ⟨(h.2.2 a hs).1, fun ho => (h.2.2 a hs).2 (inOwn_of_owned ho)⟩⟩,
+    hpre.2.2.2.2.2.2.2.2.2.2.2⟩
 
 /-- A return under `Owned.env` is one under this `Env`: the function wrote no heap key (its
     window and footprint avoid every owned key), so the heap is as it was. -/
 theorem Post.toHeap {C : Word → Option Instr} {σ : Iface} {s t : MachineState}
     (hpre : Pre env C σ s) (h : Post Owned.env σ s t) : Post env σ s t := by
-  refine ⟨h.1, h.2.1, h.2.2.1, fun a ha hnw ho => h.2.2.2.1 a ha hnw (fun ho' => ho (inOwn_of_owned ho')),
-    h.2.2.2.2.1, inv_iff.mpr ⟨(Owned.inv_iff).mp h.2.2.2.2.2, ?_⟩⟩
-  obtain ⟨bs, L, hrep⟩ := (inv_iff.mp hpre.2.2.2.2.2.2.2.2.2).2
+  refine ⟨h.1, h.2.1, h.2.2.1,
+    fun a ha hnw ho hns => h.2.2.2.1 a ha hnw (fun ho' => ho (inOwn_of_owned ho')) hns,
+    h.2.2.2.2.1, inv_iff.mpr ⟨(Owned.inv_iff).mp h.2.2.2.2.2.1, ?_⟩, h.2.2.2.2.2.2⟩
+  obtain ⟨bs, L, hrep⟩ := (inv_iff.mp hpre.2.2.2.2.2.2.2.2.2.1).2
   obtain ⟨hl, hs⟩ := Tlsf.rep_iff.mp hrep
   have hkeep : ∀ a, Aligned a → env.InOwn a → ¬ Owned.env.InOwn a → t.getMem a = s.getMem a :=
     fun a ha ho hno => h.2.2.2.1 a ha (Pre.not_written_own env_wf hpre ha ho) hno
+      (StrHit.trivial rfl)
   refine ⟨bs, L, Tlsf.rep_iff.mpr ⟨?_, Runtime.Realloc.congrA hs heap_aligned fun a hk hal => ?_⟩⟩
   · rw [hkeep _ heap_aligned heap_own (key_not_hasher heap_aligned (Or.inl (by simp [Tlsf.ctlSize])))]
     exact hl

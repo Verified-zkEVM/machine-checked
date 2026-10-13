@@ -120,8 +120,6 @@ end SafeN
 def Hits (b : Word) (l : Nat) (a : Word) : Prop :=
   (a - b).toNat < l ∨ (0 < l ∧ (b - a).toNat < 8)
 
-def Aligned (a : Word) : Prop := a &&& 7#64 = 0
-
 def _root_.AsmVerif.RiscV.Frame.AVal.eval (E : Ent) : AVal → Word
   | .lin r k => E r + k
   | .const c => c
@@ -170,11 +168,35 @@ def regsOf (s : MachineState) : Ent := ⟨s.getReg, s.getMem⟩
 /-- A cell's address, given the entry valuation. -/
 def Cell.addr (E : Ent) (c : Cell) : Word := E.deref (E c.r) c.ks + c.k
 
+/-! ## Writers
+
+What an interface's `strs` mean (`Check.Model`). -/
+
+/-- A key of a writer the function was lent, as of memory `m`. -/
+def StrHit (env : Env) (σ : Iface) (E : Ent) (m : Word → Word) (a : Word) : Prop :=
+  ∃ e ∈ σ.strs, env.model.hit (e.2.eval E) (e.1.eval E) m a
+
+/-- At entry: each writer is well-typed; its keys are none the function writes and none
+    protected; its stable keys are aligned and not owned; and no cell is a writer's key. -/
+def StrsPre (env : Env) (σ : Iface) (E : Ent) (m : Word → Word) : Prop :=
+  (∀ e ∈ σ.strs, env.model.writerOk (e.2.eval E) (e.1.eval E) m ∧
+    (∀ a, env.model.hit (e.2.eval E) (e.1.eval E) m a → ¬ Written σ E a ∧ ¬ env.InProt a) ∧
+    (∀ a, env.model.stable (e.2.eval E) (e.1.eval E) m a → Aligned a ∧ ¬ env.InOwn a)) ∧
+  ∀ c ∈ σ.cells, ¬ StrHit env σ E m (c.addr E)
+
+/-- At return: each writer is kept (`Model.Keeps`); and so is every writer whose keys
+    the function neither writes nor was lent. -/
+def StrsPost (env : Env) (σ : Iface) (E : Ent) (m m' : Word → Word) : Prop :=
+  (∀ e ∈ σ.strs, env.model.Keeps (e.2.eval E) (e.1.eval E) m m') ∧
+  ∀ k p, env.model.writerOk k p m →
+    (∀ a, env.model.hit k p m a → ¬ Written σ E a ∧ ¬ StrHit env σ E m a) →
+    env.model.Keeps k p m m'
+
 /-- The precondition: the code is the program's; the stack has room for the window and lies
     below the program; the protected regions hold their contents; footprint items avoid the
     window and the protected regions; the `nz` values are nonzero; the `vals` registers hold
     one of their candidates; each cell is aligned, not something the function may write,
-    and holds one of its candidates. -/
+    and holds one of its candidates; the invariant holds; the writers are well-typed. -/
 def Pre (env : Env) (C : Word → Option Instr) (σ : Iface) (s : MachineState) : Prop :=
   s.code = C ∧ σ.depth ≤ (s.getReg .x2).toNat ∧ (s.getReg .x2).toNat ≤ env.stackTop ∧
   Aligned (s.getReg .x2) ∧
@@ -185,15 +207,17 @@ def Pre (env : Env) (C : Word → Option Instr) (σ : Iface) (s : MachineState) 
   (∀ p ∈ σ.vals, s.getReg p.1 ∈ p.2) ∧
   (∀ c ∈ σ.cells, Aligned (c.addr (regsOf s)) ∧ ¬ Written σ (regsOf s) (c.addr (regsOf s)) ∧
     ¬ env.InOwn (c.addr (regsOf s)) ∧ ∀ cs, c.vals = some cs → s.getMem (c.addr (regsOf s)) ∈ cs) ∧
-  env.Inv s.getMem
+  env.Inv s.getMem ∧ StrsPre env σ (regsOf s) s.getMem
 
 /-- The postcondition: it returns, to `ra`, with the callee-saved registers restored and
-    memory unchanged outside what it may write. -/
+    memory unchanged outside what it may write and the writers it was lent; the invariant
+    holds; the writers are kept. -/
 def Post (env : Env) (σ : Iface) (s t : MachineState) : Prop :=
   σ.returns = true ∧ t.pc = s.getReg .x1 &&& ~~~1#64 ∧
   (∀ r ∈ savedRegs, t.getReg r = s.getReg r) ∧
-  (∀ a, Aligned a → ¬ Written σ (regsOf s) a → ¬ env.InOwn a → t.getMem a = s.getMem a) ∧
-  t.code = s.code ∧ env.Inv t.getMem
+  (∀ a, Aligned a → ¬ Written σ (regsOf s) a → ¬ env.InOwn a →
+    ¬ StrHit env σ (regsOf s) s.getMem a → t.getMem a = s.getMem a) ∧
+  t.code = s.code ∧ env.Inv t.getMem ∧ StrsPost env σ (regsOf s) s.getMem t.getMem
 
 /-- The control-flow premise at a state: a listed `jalr` lands on one of its candidates. -/
 def Env.Cfi (env : Env) (x : MachineState) : Prop :=

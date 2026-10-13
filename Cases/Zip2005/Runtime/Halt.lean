@@ -132,7 +132,8 @@ theorem H.pre {sp e : Word} {y : MachineState} {g : Iface} (h : H sp e y)
     (hfoot : ∀ it ∈ g.foot, ∀ a, Aligned a → it.Hits (regsOf y) a →
       ¬ InWin sp g.depth a ∧ a.toNat + 8 ≤ 0x78000190) : Pre Contract.env C g y := by
   refine ⟨h.code, by rw [h.sp]; exact hd, by rw [h.sp]; exact ht, by rw [h.sp]; exact hal,
-    h.prot, fun it hit a ha hh => ?_, by simp [hnz], by simp [hvals], by simp [hcells], trivial⟩
+    h.prot, fun it hit a ha hh => ?_, by simp [hnz], by simp [hvals], by simp [hcells], trivial,
+    StrsPre.trivial rfl⟩
   have := hfoot it hit a ha hh
   exact ⟨by rw [h.sp]; exact this.1, not_prot_low this.2,
     fun ⟨_, hR, _⟩ => by simp [Contract.env] at hR⟩
@@ -346,7 +347,7 @@ theorem holds : iface.Holds Owned.env C := by
   have hcode := hpre.1
   have hd : 0xe0 + 912 ≤ (s.getReg .x2).toNat := hpre.2.1
   have ht : (s.getReg .x2).toNat ≤ 0x78000000 := hpre.2.2.1
-  have htag : s.getMem 0x78048830#64 = 1#64 := ((Owned.inv_iff).mp hpre.2.2.2.2.2.2.2.2.2).1
+  have htag : s.getMem 0x78048830#64 = 1#64 := ((Owned.inv_iff).mp hpre.2.2.2.2.2.2.2.2.2.1).1
   have he0 : s.getReg .x10 ≠ 0 := by
     have := hpre.2.2.2.2.2.2.1 _ (List.mem_singleton_self _)
     simpa [AVal.eval, regsOf] using this

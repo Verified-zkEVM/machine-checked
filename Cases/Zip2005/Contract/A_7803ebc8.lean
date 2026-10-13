@@ -13,7 +13,7 @@ namespace Cases.Zip2005.Contract.A_7803ebc8
 
 open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
 
-def iface : Iface := { entry := 0x000000007803ebc8#64, depth := 8, foot := [], nz := [], returns := true, vals := [], cells := [] }
+def iface : Iface := { entry := 0x000000007803ebc8#64, depth := 8, foot := [], nz := [], returns := true, vals := [], cells := [], strs := [] }
 
 def fn : Fn := { base := Cases.Zip2005.Image.F_7803ebc8.base, prog := Cases.Zip2005.Image.F_7803ebc8.prog, frags := [] }
 

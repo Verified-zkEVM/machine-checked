@@ -153,7 +153,7 @@ theorem post {g : Iface} {x t : MachineState} (h : Mid s0 x)
   have keep : ∀ a, Aligned a → (s0.getReg .x2).toNat - 0x30 ≤ a.toNat →
       a.toNat < 0x78000000 → t.getMem a = x.getMem a := by
     intro a ha hlo hhi
-    refine hun a ha (fun hw => ?_) (hno a)
+    refine hun a ha (fun hw => ?_) (hno a) (StrHit.trivial rfl)
     rcases hW a ha hw with hw | hw
     · rw [hxsp] at hw
       unfold InWin Hits at hw
@@ -174,7 +174,7 @@ theorem post {g : Iface} {x t : MachineState} (h : Mid s0 x)
     (hslot _ (by decide) (by decide)).trans h.fs1, (hslot _ (by decide) (by decide)).trans h.fs2,
     (hslot _ (by decide) (by decide)).trans h.fs3, (hslot _ (by decide) (by decide)).trans h.fs4,
     fun a ha hnw ho => ?_, ?_⟩
-  · refine Eq.trans (hun a ha (fun hw => hnw ?_) (hno a)) (h.mem a ha hnw ho)
+  · refine Eq.trans (hun a ha (fun hw => hnw ?_) (hno a) (StrHit.trivial rfl)) (h.mem a ha hnw ho)
     rcases hW a ha hw with hw | hw
     · left
       rw [hxsp] at hw
@@ -189,7 +189,7 @@ theorem post {g : Iface} {x t : MachineState} (h : Mid s0 x)
       left; bv_omega
   · have hk : ∀ a, (a = Owned.tagKey ∨ a = Owned.posKey) → t.getMem a = x.getMem a := by
       rintro a (rfl | rfl) <;>
-      · refine hun _ (by unfold Aligned; decide) (fun hw => ?_) (hno _)
+      · refine hun _ (by unfold Aligned; decide) (fun hw => ?_) (hno _) (StrHit.trivial rfl)
         rcases hW _ (by unfold Aligned; decide) hw with hw | hw
         · rw [hxsp] at hw
           unfold InWin Hits at hw
@@ -315,7 +315,7 @@ theorem call_memcpy (hpre : Pre Owned.env C iface s0) (hG : ∀ x, G x → Owned
       simpa [Item.Hits, AVal.eval, Len.eval, regsOf, hl, hz] using hh
   refine Runtime.Memcpy.holds Contract.env rfl (by decide) n G (cfi_plain hG) P x hpc
     ⟨h.code, Nat.zero_le _, ?_, ?_, fun a ha hp => prot_mid hpre h ha hp, ?_, by simp [Memcpy.iface],
-      by simp [Memcpy.iface], by simp [Memcpy.iface], trivial⟩
+      by simp [Memcpy.iface], by simp [Memcpy.iface], trivial, StrsPre.trivial rfl⟩
     (fun t hp => hk t (Mid.post h hal hd ht (by simp [Memcpy.iface]) (fun a ha hw => Or.inr ?_) hp)
       hp.2.1 hp.2.2.1)
   · rw [h.sp]; have := (s0.getReg .x2).isLt; show _ ≤ 2013265920; bv_omega
@@ -356,7 +356,7 @@ theorem call_compress (hpre : Pre Owned.env C iface s0) (hG : ∀ x, G x → Own
   refine compress_holds n G (cfi_plain hG) P x hpc
     ⟨h.code, ?_, ?_, ?_, fun a ha hp => prot_mid hpre h ha hp, ?_,
       by simp [Contract.A_780361e0.iface], by simp [Contract.A_780361e0.iface],
-      by simp [Contract.A_780361e0.iface], trivial⟩
+      by simp [Contract.A_780361e0.iface], trivial, StrsPre.trivial rfl⟩
     (fun t hp => hk t (Mid.post h hal hd ht (by simp [Contract.A_780361e0.iface])
       (fun a ha hw => ?_) hp) hp.2.1 hp.2.2.1)
   · rw [h.sp]; simp only [Contract.A_780361e0.iface]; bv_omega
@@ -397,7 +397,7 @@ theorem epilogue {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machin
   xa
   simp only [hy.fra, hy.fs0, hy.fs1, hy.fs2, hy.fs3, hy.fs4]
   apply hk
-  refine ⟨rfl, ?_, fun r hr => ?_, fun a ha hnw ho => ?_, ?_, ?_⟩
+  refine ⟨rfl, ?_, fun r hr => ?_, fun a ha hnw ho _ => ?_, ?_, ?_, StrsPost.trivial rfl⟩
   · simp only [pc_setPC, BitVec.reduceNot]
   · simp only [savedRegs, List.mem_cons, List.mem_nil_iff, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
@@ -582,7 +582,7 @@ theorem holds : iface.Holds Owned.env C := by
       have hw : ¬ InWin sp iface.depth a := fun h => hnw (Or.inl (by simpa [regsOf, hsp] using h))
       xnf hw
       simp only [MachineState.getMem_setReg]
-    · have hinv := (Owned.inv_iff).mp hpre.2.2.2.2.2.2.2.2.2
+    · have hinv := (Owned.inv_iff).mp hpre.2.2.2.2.2.2.2.2.2.1
       have hm : ∀ a, 0x78000000 ≤ a.toNat → y.getMem a = s.getMem a := by
         intro a ha
         rw [hy.mem _ (by simp)]

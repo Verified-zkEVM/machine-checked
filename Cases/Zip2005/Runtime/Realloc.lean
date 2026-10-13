@@ -591,7 +591,7 @@ theorem spec (env : Env) (hinit : env.init = Layout.image.memAt)
     refine Memcpy.holds env hinit hprot n G hG P _ rfl
       ⟨by simp [hcy], Nat.zero_le _, ?_, ?_, fun a _ hp' => ?_, fun it hit a _ hh => ?_,
         by simp [Memcpy.iface], by simp [Memcpy.iface], by simp [Memcpy.iface],
-        Env.Inv_congr (fun a _ ho => ?_) hInv⟩ ?_
+        Env.Inv_congr (fun a _ ho => ?_) hInv, by simp [StrsPre, Memcpy.iface]⟩ ?_
     · xregs; rw [hy.sp, BitVec.toNat_add]; simp; omega
     · xregs; rw [hy.sp]; exact al_add hal (by decide)
     · rw [hymem _ a, hA a (hEN a (.inr hp')) (.inl (hEnvS a (.inr hp')))]; exact hprotM a ‹_› hp'
@@ -611,12 +611,12 @@ theorem spec (env : Env) (hinit : env.init = Layout.image.memAt)
       simp [InWin, Hits, Memcpy.iface] at hw
     · rw [hymem _ a, hA a (hEN a (.inl ho)) (.inl (hEnvS a (.inl ho)))]
     intro t ht
-    obtain ⟨-, hpcm, hsvm, hmm, hcm, hinvm⟩ := ht
+    obtain ⟨-, hpcm, hsvm, hmm, hcm, hinvm, -⟩ := ht
     -- What the copy leaves: everything aligned, not owned, outside the new block's tail.
     have hwr : ∀ a, Aligned a → ¬ env.InOwn a →
         ¬ (r.toNat < a.toNat + 8 ∧ a.toNat < b'.a.toNat + b'.sz.toNat) → t.getMem a = t1.getMem a := by
       intro a hal' ho hn
-      rw [hmm a hal' (fun hw => ?_) ho, hymem _ a]
+      rw [hmm a hal' (fun hw => ?_) ho (by simp [StrHit, Memcpy.iface]), hymem _ a]
       rcases hw with hw | ⟨it, hit, hh⟩
       · simp [InWin, Hits, Memcpy.iface] at hw
       · simp only [Memcpy.iface, List.mem_singleton] at hit

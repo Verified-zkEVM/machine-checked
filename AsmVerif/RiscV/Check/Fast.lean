@@ -86,8 +86,9 @@ theorem Ctx.walk_sound {c : Ctx} {anno : Array (Option AState)}
 theorem Ctx.validFast_sound {c : Ctx} {anno : Array (Option AState)}
     (h : c.validFast anno = true) : c.valid anno = true := by
   simp only [Ctx.validFast, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨hb, h0⟩, hsize⟩, hw⟩ := h
+  obtain ⟨⟨⟨⟨hptr, hb⟩, h0⟩, hsize⟩, hw⟩ := h
   simp only [Ctx.valid, Bool.and_eq_true, beq_iff_eq, List.all_eq_true, List.mem_range]
-  exact ⟨⟨hb, h0⟩, fun k hk => Ctx.walk_sound hsize _ _ 0 hw (by simp) (by simp) k (Nat.zero_le _) hk⟩
+  exact ⟨⟨⟨fun e he => by simpa [Bool.and_eq_true] using List.all_eq_true.mp hptr e he, hb⟩, h0⟩,
+    fun k hk => Ctx.walk_sound hsize _ _ 0 hw (by simp) (by simp) k (Nat.zero_le _) hk⟩
 
 end AsmVerif.RiscV.Check

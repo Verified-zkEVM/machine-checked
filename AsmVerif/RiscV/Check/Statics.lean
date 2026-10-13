@@ -34,10 +34,29 @@ theorem Pre.not_written_prot (hwf : env.wf = true) (h : Pre env C σ s) {a : Wor
   · exact not_prot_of_inWin hwf h.2.2.1 h.2.1 hw hp
   · exact (h.2.2.2.2.2.1 it hit a ha hh).2.1 hp
 
+/-- No writer's key is protected. -/
+theorem Pre.not_strHit_prot (h : Pre env C σ s) {a : Word} (hp : env.InProt a) :
+    ¬ StrHit env σ (regsOf s) s.getMem a :=
+  fun ⟨e, he, hh⟩ => ((h.2.2.2.2.2.2.2.2.2.2.1 e he).2.1 a hh).2 hp
+
 /-- **A verified call leaves protected memory as it found it.** -/
 theorem Post.keeps_prot (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : Post env σ s t)
     {a : Word} (ha : Aligned a) (hp : env.InProt a) : t.getMem a = s.getMem a :=
   hpost.2.2.2.1 a ha (Pre.not_written_prot hwf hpre ha hp) (not_own_of_prot hwf hp)
+    (Pre.not_strHit_prot hpre hp)
+
+/-! ## The trivial model: no writers -/
+
+theorem StrHit.trivial (hm : env.model = Model.trivial) {E : Ent} {m : Word → Word} {a : Word} :
+    ¬ StrHit env σ E m a := fun ⟨_, _, h⟩ => by rw [hm] at h; exact h
+
+theorem StrsPre.trivial (hm : env.model = Model.trivial) {E : Ent} {m : Word → Word} :
+    StrsPre env σ E m := by
+  unfold StrsPre StrHit; rw [hm]; simp [Model.trivial]
+
+theorem StrsPost.trivial (hm : env.model = Model.trivial) {E : Ent} {m m' : Word → Word} :
+    StrsPost env σ E m m' := by
+  unfold StrsPost Model.Keeps StrHit; rw [hm]; simp [Model.trivial]
 
 /-- Protected memory holds its load values at a verified call's return. -/
 theorem Post.prot_init (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : Post env σ s t)
@@ -89,7 +108,9 @@ theorem Pre.plain (hpre : Pre env C σ s) : Pre env.plain C σ s :=
       (hpre.2.2.2.2.2.1 it hit a ha hh).2.1, Env.plain_not_own env⟩,
     hpre.2.2.2.2.2.2.1, hpre.2.2.2.2.2.2.2.1,
     fun c hc => let h := hpre.2.2.2.2.2.2.2.2.1 c hc; ⟨h.1, h.2.1, Env.plain_not_own env, h.2.2.2⟩,
-    trivial⟩
+    trivial, fun e he => let h := hpre.2.2.2.2.2.2.2.2.2.2.1 e he;
+      ⟨h.1, h.2.1, fun a hs => ⟨(h.2.2 a hs).1, Env.plain_not_own env⟩⟩,
+    hpre.2.2.2.2.2.2.2.2.2.2.2⟩
 
 /-- What a function entered under the owning `Env`'s precondition may write is not owned. -/
 theorem Pre.not_written_own (hwf : env.wf = true) (hpre : Pre env C σ s) {a : Word}
@@ -99,21 +120,30 @@ theorem Pre.not_written_own (hwf : env.wf = true) (hpre : Pre env C σ s) {a : W
   · exact (hpre.2.2.2.2.2.1 it hit a ha hh).2.2 ho
 
 /-- A return under the plain `Env` is one under the owning `Env`: the function wrote no
-    owned key, so the invariant still holds. -/
-theorem Post.lift (hwf : env.wf = true) (hpre : Pre env C σ s) (h : Post env.plain σ s t) :
+    owned key, and (`hs`) no writer it was lent reaches one, so the invariant still holds. -/
+theorem Post.lift (hwf : env.wf = true) (hpre : Pre env C σ s)
+    (hs : ∀ a, StrHit env σ (regsOf s) s.getMem a → ¬ env.InOwn a) (h : Post env.plain σ s t) :
     Post env σ s t :=
-  ⟨h.1, h.2.1, h.2.2.1, fun a ha hnw _ => h.2.2.2.1 a ha hnw (Env.plain_not_own env),
+  ⟨h.1, h.2.1, h.2.2.1, fun a ha hnw _ hns => h.2.2.2.1 a ha hnw (Env.plain_not_own env) hns,
     h.2.2.2.2.1, Env.Inv_congr (fun a ha ho =>
-      h.2.2.2.1 a ha (Pre.not_written_own hwf hpre ha ho) (Env.plain_not_own env))
-      hpre.2.2.2.2.2.2.2.2.2⟩
+      h.2.2.2.1 a ha (Pre.not_written_own hwf hpre ha ho) (Env.plain_not_own env)
+        (fun hh => hs a hh ho))
+      hpre.2.2.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2⟩
 
 /-- **Lifting.** An interface proved without owned statics holds with them: its footprint
-    and window avoid them (the owning precondition says so), so it keeps the invariant.
-    Only functions that write owned statics need proofs against the invariant. -/
-theorem Iface.HoldsN.lift {n : Nat} (hwf : env.wf = true) (h : σ.HoldsN env.plain C n) :
-    σ.HoldsN env C n :=
+    and window avoid them (the owning precondition says so), and so do the writers it is
+    lent (`hs`), so it keeps the invariant. Only functions that write owned statics need
+    proofs against the invariant. -/
+theorem Iface.HoldsN.lift {n : Nat} (hwf : env.wf = true)
+    (hs : ∀ s, Pre env C σ s → ∀ a, StrHit env σ (regsOf s) s.getMem a → ¬ env.InOwn a)
+    (h : σ.HoldsN env.plain C n) : σ.HoldsN env C n :=
   fun G hG P s hpc hpre hk =>
     h G (fun x hx => by simpa [Env.Cfi, Env.plain] using hG x hx) P s hpc hpre.plain
-      (fun t ht => hk t (Post.lift hwf hpre ht))
+      (fun t ht => hk t (Post.lift hwf hpre (hs s hpre) ht))
+
+/-- Lifting under the trivial model: there are no writers to reach an owned key. -/
+theorem Iface.HoldsN.lift_trivial {n : Nat} (hwf : env.wf = true) (hm : env.model = Model.trivial)
+    (h : σ.HoldsN env.plain C n) : σ.HoldsN env C n :=
+  h.lift hwf fun _ _ _ hh => (StrHit.trivial hm hh).elim
 
 end AsmVerif.RiscV.Check

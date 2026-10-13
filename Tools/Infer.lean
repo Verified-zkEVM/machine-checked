@@ -58,6 +58,8 @@ structure Need where
   wants : List Cell := []
   /-- Entry registers wanted as a constant set. -/
   wantRegs : List Reg := []
+  /-- Writers a callee needs that the function has not got: it must be lent them. -/
+  strs : List (AVal × AVal) := []
   sites : List Site := []
 
 def Need.addItem (n : Need) (it : Item) : Need :=
@@ -71,6 +73,9 @@ def Need.addCell (n : Need) (c : Cell) : Need :=
 
 def Need.addWant (n : Need) (c : Cell) : Need :=
   if n.wants.contains c then n else { n with wants := c :: n.wants }
+
+def Need.addStr (n : Need) (e : AVal × AVal) : Need :=
+  if n.strs.contains e then n else { n with strs := n.strs ++ [e] }
 
 /-- Why the analysis gave up, with the cells it wanted constant on the way. `blocked` names
     a callee still being worked on. -/
@@ -94,12 +99,24 @@ structure Ctx' where
   vals : List (Reg × List Word) := []
   /-- Cells with candidate sets, from the top-down pass. -/
   cvals : List Cell := []
-  /-- Discovering: any cell may be a premise. Otherwise exactly `cells`, as the checker. -/
+  /-- Discovering: any cell may be a premise, and a callee's writer the function has not
+      got becomes one it is lent. Otherwise exactly `cells` and `strs`, as the checker. -/
   discover : Bool := true
   cells : List Cell := []
+  /-- The writers the function is lent. -/
+  strs : List (AVal × AVal) := []
   /-- Collecting call sites: unknown callees havoc and return, nothing is rejected for
       want of a callee's premises. -/
   permissive : Bool := false
+
+/-- The premises so far, as the interface the checker's candidate and writer logic reads.
+    Discovering, the cells are those with candidates: any other may still become one. -/
+def Ctx'.σ (c : Ctx') : Iface :=
+  { entry := c.f.base, depth := 0, vals := c.vals,
+    cells := if c.discover then c.cvals else c.cells, strs := c.strs }
+
+/-- What the function knows of its writers, under a refinement. -/
+def Ctx'.kn (c : Ctx') (ref : Option (AVal × Word)) : Kn := closure c.env c.σ ref
 
 def Ctx'.lookup (c : Ctx') (pc tgt : Word) : M Iface := do
   match c.tbl[tgt]? with
@@ -126,9 +143,8 @@ def Ctx'.findCell (c : Ctx') (r : Reg) (ks : List Word) (k : Word) : Option Cell
     | none => if ks.length < maxPath then some { r, ks, k } else none
   else c.cells.find? (sameCell r ks k)
 
-/-- `cellAt`: the value of the doubleword at an entry-memory address, if it is a cell. A
-    cell with candidates is a premise as soon as it is read: its value no longer says where
-    it came from. -/
+/-- `cellAt`: the value of the doubleword at an entry-memory address, if it is a cell: the
+    symbolic load (`cellVal`). A cell with candidates is a premise as soon as it is read. -/
 def Ctx'.cellAtI (c : Ctx') (a : AVal) : M (Option (Cell × AVal)) := do
   let some (r, ks, k) := (match a with
     | .lin r k => some (r, [], k)
@@ -137,9 +153,8 @@ def Ctx'.cellAtI (c : Ctx') (a : AVal) : M (Option (Cell × AVal)) := do
   match c.findCell r ks k with
   | none => pure none
   | some cl =>
-    match cl.vals with
-    | some cs => modify (·.addCell cl); pure (some (cl, .oneOf cs))
-    | none => pure (some (cl, .cell r (ks ++ [k]) 0))
+    if cl.vals.isSome then modify (·.addCell cl)
+    pure (some (cl, .cell r (ks ++ [k]) 0))
 
 /-- The premises a value relies on: the cells along its path. -/
 def demand (v : AVal) : M Unit :=
@@ -168,40 +183,50 @@ def want (v : AVal) : M Unit := do
   for c in cs do modify (·.addWant c)
   for r in rs do modify fun n => if n.wantRegs.contains r then n else { n with wantRegs := r :: n.wantRegs }
 
-def Ctx'.loadI (c : Ctx') (A : AState) (b : AVal) (isD : Bool) : M AVal := do
+/-- `loadVal`, discovering. Every way the checker knows a doubleword gives the same symbolic
+    load; a load through a value with candidates, all protected, needs no cell, nor does a
+    stable doubleword of a writer. -/
+def Ctx'.loadI (c : Ctx') (kn : Kn) (A : AState) (b : AVal) (isD : Bool) : M AVal := do
   if !isD then return .top
   match b.frameOff? with
   | some k => pure ((A.slots.lookup k).getD .top)
   | none => match b with
-    | .const _ | .oneOf _ => pure (loadVal c.env { entry := 0, depth := 0 } A b true)
-    | b => return ((← c.cellAtI b).map (·.2)).getD .top
+    | .const _ | .oneOf _ => pure (loadVal c.env c.σ kn A b true)
+    | b =>
+      if let some cs := cands c.env c.σ kn b then
+        if cs.all c.env.protKey then return b.cellOf.getD .top
+      match kn.cells.lookup b with
+      | some v => pure v
+      | none => return ((← c.cellAtI b).map (·.2)).getD .top
 
 /-- `contentAt`, recording the cells it relies on. -/
-def Ctx'.contentAtI (c : Ctx') (A : AState) (a : AVal) : M (Option AVal) := do
+def Ctx'.contentAtI (c : Ctx') (kn : Kn) (A : AState) (a : AVal) : M (Option AVal) := do
   demand a
   match a.frameOff? with
   | some f => pure (A.slots.lookup f)
-  | none => match ← c.cellAtI a with
-    | some (cl, v) => modify (·.addCell cl); pure (some v)
-    | none => pure none
+  | none => match kn.cells.lookup a with
+    | some v => pure (some v)
+    | none => match ← c.cellAtI a with
+      | some (cl, v) => modify (·.addCell cl); pure (some v)
+      | none => pure none
 
-def Ctx'.instPathI (c : Ctx') (A : AState) : AVal → List Word → M (Option AVal)
+def Ctx'.instPathI (c : Ctx') (kn : Kn) (A : AState) : AVal → List Word → M (Option AVal)
   | v, [] => pure (some v)
   | v, k :: ks => do
-    match ← c.contentAtI A (v.addK k) with
-    | some u => c.instPathI A u ks
+    match ← c.contentAtI kn A (v.addK k) with
+    | some u => c.instPathI kn A u ks
     | none => pure none
 
-def Ctx'.instValI (c : Ctx') (A : AState) : AVal → M AVal
+def Ctx'.instValI (c : Ctx') (kn : Kn) (A : AState) : AVal → M AVal
   | .lin r k => pure ((A.get r).addK k)
-  | .cell r ks d => do return ((← c.instPathI A (A.get r) ks).map (·.addK d)).getD .top
+  | .cell r ks d => do return ((← c.instPathI kn A (A.get r) ks).map (·.addK d)).getD .top
   | v => pure v
 
-def Ctx'.instItems (c : Ctx') (pc : Word) (A : AState) (g : Iface) : M (List Item) :=
+def Ctx'.instItems (c : Ctx') (kn : Kn) (pc : Word) (A : AState) (g : Iface) : M (List Item) :=
   g.foot.mapM fun it => do
     match instLen A it.len with
     | some l =>
-      let b ← c.instValI A it.base
+      let b ← c.instValI kn A it.base
       demand b
       pure { base := b, len := l }
     | none => bad pc s!"callee item {(repr it).pretty 80} cannot be instantiated"
@@ -229,12 +254,13 @@ def storeI (pc : Word) (A : AState) (rs1 rs2 : Reg) (off : BitVec 12) (w : Width
         modify (·.addItem { base := b, len := .n (wbytes w) })
         pure A
 
-def Ctx'.plainI (c : Ctx') (pc : Word) (A : AState) (i : Instr) : M AState := do
+def Ctx'.plainI (c : Ctx') (kn : Kn) (pc : Word) (A : AState) (i : Instr) : M AState := do
   match aluResult pc A i with
   | some (rd, v) => pure (A.set rd v)
   | none =>
   match loadOf i with
-  | some (rd, rs, off, isD) => pure (A.set rd (← c.loadI A ((A.get rs).addK (signExtend12 off)) isD))
+  | some (rd, rs, off, isD) =>
+    pure (A.set rd (← c.loadI kn A ((A.get rs).addK (signExtend12 off)) isD))
   | none =>
   match storeOf i with
   | some (rs1, rs2, off, w) => storeI pc A rs1 rs2 off w
@@ -251,9 +277,9 @@ def nzV (pc : Word) : AVal → M Unit
   | .top => bad pc "a value that must be nonzero is unknown"
   | .oneOf cs => if cs.all (· != 0) then pure () else bad pc "a value that must be nonzero may be 0"
 
-def Ctx'.nzI (c : Ctx') (pc : Word) (A : AState) (v : AVal) : M Unit := do
+def Ctx'.nzI (c : Ctx') (kn : Kn) (pc : Word) (A : AState) (v : AVal) : M Unit := do
   if !v.isPtr then bad pc "a callee's nonzero premise is not a value"
-  nzV pc (← c.instValI A v)
+  nzV pc (← c.instValI kn A v)
 
 /-- An item a syscall writes, checked as `itemOk σ σ.depth` will check it. -/
 def sysItemI (pc : Word) (it : Item) : M Unit := do
@@ -289,23 +315,25 @@ def ecallI (pc : Word) (A : AState) : M (Option (AState × List Item)) := do
 
 /-! ### Calls -/
 
-/-- A callee's `vals` premise, discharged by the caller's value. -/
-def valI (pc : Word) (A : AState) (p : Reg × List Word) : M Unit := do
+/-- A callee's `vals` premise, discharged by the caller's value's candidates. -/
+def Ctx'.valI (c : Ctx') (kn : Kn) (pc : Word) (A : AState) (p : Reg × List Word) : M Unit := do
   let v := A.get p.1
-  if inVals v p.2 then pure ()
+  if inCands c.env c.σ kn v p.2 then pure ()
   else
     want v
     bad pc s!"callee needs x{regIdx p.1} among {p.2.length} candidates"
 
 /-- A callee's cell premise, discharged as `cellOk` will. -/
-def Ctx'.cellI (c : Ctx') (pc : Word) (A : AState) (mo : Option Nat) (its : List Item)
-    (cl : Cell) : M Unit := do
-  let some v ← c.instPathI A (A.get cl.r) cl.ks
+def Ctx'.cellI (c : Ctx') (kn : Kn) (pc : Word) (A : AState) (fs : List Word) (mo : Option Nat)
+    (its : List Item) (cl : Cell) : M Unit := do
+  let some v ← c.instPathI kn A (A.get cl.r) cl.ks
     | bad pc "a callee's cell is not reachable from what the caller knows"
   let a := v.addK cl.k
   demand a
   let w ← match a.frameOff? with
-    | some f => match mo with
+    | some f =>
+      if fs.contains f then bad pc "a callee's cell is a frame slot its writers are built from"
+      match mo with
       | some m => pure (if negOff f ≤ m && its.all (slotClear f) then A.slots.lookup f else none)
       | none => pure none
     | none => do
@@ -316,51 +344,108 @@ def Ctx'.cellI (c : Ctx') (pc : Word) (A : AState) (mo : Option Nat) (its : List
   match cl.vals with
   | none => pure ()
   | some cs =>
-    if inVals w cs then pure ()
+    if inCands c.env c.σ kn w cs then pure ()
     else
       want w
       bad pc "a callee's cell must hold one of its candidates"
 
 /-- Collecting, a premise check that fails only says what it wants. -/
-def Ctx'.soft (c : Ctx') (x : M Unit) : M Unit :=
+def Ctx'.softD (c : Ctx') (d : α) (x : M α) : M α :=
   if c.permissive then
     tryCatch x fun e => match e with
-      | .fail _ _ st => set st
-      | .blocked _ => pure ()
+      | .fail _ _ st => do set st; pure d
+      | .blocked _ => pure d
   else x
+
+def Ctx'.soft (c : Ctx') (x : M Unit) : M Unit := c.softD () x
+
+/-! ### Writers -/
+
+/-- A value in the function's own terms: a writer's pointer or kind at its entry. -/
+def entryVal (v : AVal) : Bool := v.isPtr && v.frameOff?.isNone
+
+/-- A callee's writer, as `passEntry` will match it. Discovering, one the function has not
+    got (directly, or the one a structural writer built in its frame wraps) becomes a writer
+    it is lent. -/
+def Ctx'.passI (c : Ctx') (kn : Kn) (ref : Option (AVal × Word)) (pc : Word) (A : AState)
+    (m : Option Nat) (its : List Item) (d k : AVal) : M (List (AVal × AVal) × List Word) := do
+  match passEntry c.env c.σ kn ref A m its d k with
+  | some r => pure r
+  | none =>
+    let (d', k') ← match k, m with
+      | .const K, some m =>
+        match c.env.model.sub K with
+        | some s =>
+          match framePath A m its d s.dp, framePath A m its d s.kp with
+          | some (d2, _), some (k2, _) => do
+            if !inCands c.env c.σ kn k2 s.kinds then want k2
+            pure (d2, k2)
+          | _, _ => pure (d, k)
+        | none => pure (d, k)
+      | _, _ => pure (d, k)
+    if c.discover && entryVal d' && entryVal k' then
+      demand d'
+      demand k'
+      modify (·.addStr (d', k'))
+      pure ([(d', k')], [])
+    else bad pc "a callee's writer is not one the caller has"
+
+/-- `strsOk`: the callee's writers are the caller's, and the caller's are recovered. The
+    frame slots the callee's writers are built from. -/
+def Ctx'.strsI (c : Ctx') (kn : Kn) (ref : Option (AVal × Word)) (pc : Word) (A : AState)
+    (m : Option Nat) (its : List Item) (g : Iface) : M (List Word) := do
+  let mut passed : List (AVal × AVal) := []
+  let mut fs : List Word := []
+  for e in g.strs do
+    let (ps, f) ← c.passI kn ref pc A m its (← c.instValI kn A e.1) (← c.instValI kn A e.2)
+    passed := passed ++ ps
+    fs := fs ++ f
+  if !g.strs.isEmpty then
+    for e in c.σ.strs do
+      if !recov c.env ref kn passed 2 e then
+        bad pc "a writer of the caller is not recovered after the call"
+  pure fs
+
+/-! ### Control flow -/
 
 def tailI (pc : Word) (A : AState) (g : Iface) : M Unit := do
   if !okExit A then bad pc "tail call without the callee-saved registers restored"
   needDepth g.depth
   if g.returns then modify fun n => { n with returns := true }
 
-def Ctx'.tailChecks (c : Ctx') (pc : Word) (A : AState) (g : Iface) : M Unit := do
+def Ctx'.tailChecks (c : Ctx') (pc : Word) (A : AState) (g : Iface)
+    (ref : Option (AVal × Word)) : M Unit := do
+  let kn := c.kn ref
   tailI pc A g
-  let its ← c.instItems pc A g
+  let its ← c.instItems kn pc A g
   for it in its do
     if it.base.frameOff?.isSome || !it.base.isPtr then
       bad pc "tail call passes a frame or unknown pointer the callee writes through"
     modify (·.addItem it)
-  for v in g.nz do c.nzI pc A v
-  for p in g.vals do c.soft (valI pc A p)
-  for cl in g.cells do c.soft (c.cellI pc A none its cl)
+  for v in g.nz do c.nzI kn pc A v
+  for p in g.vals do c.soft (c.valI kn pc A p)
+  for cl in g.cells do c.soft (c.cellI kn pc A [] none its cl)
+  c.soft (discard <| c.strsI kn ref pc A none its g)
 
-def Ctx'.jump (c : Ctx') (pc : Word) (A : AState) (tgt : Word) : M (List Edge) := do
+def Ctx'.jump (c : Ctx') (pc : Word) (A : AState) (tgt : Word)
+    (ref : Option (AVal × Word) := none) : M (List Edge) := do
   match c.f.idx? tgt with
   | some j => pure [.goto j A]
   | none =>
     let g ← c.lookup pc tgt
     modify fun n => { n with sites := ⟨tgt, A⟩ :: n.sites }
-    c.soft (c.tailChecks pc A g)
+    c.soft (c.tailChecks pc A g ref)
     pure []
 
-def Ctx'.call (c : Ctx') (pc : Word) (A : AState) (tgt : Word) : M (List Edge) := do
+def Ctx'.call (c : Ctx') (pc : Word) (A : AState) (tgt : Word)
+    (ref : Option (AVal × Word) := none) : M (List Edge) := do
   let g ← c.lookup pc tgt
+  let kn := c.kn ref
   let A1 := A.set .x1 (.const (pc + 4))
   modify fun n => { n with sites := ⟨tgt, A1⟩ :: n.sites }
   let some m := spOff A1 | bad pc "call with the stack pointer not a known 8-aligned frame offset"
   needDepth (m + g.depth)
-  let its ← c.instItems pc A1 g
+  let its ← c.instItems kn pc A1 g
   for it in its do
     match it.base.frameOff?, it.len with
     | some k, .n l =>
@@ -370,9 +455,10 @@ def Ctx'.call (c : Ctx') (pc : Word) (A : AState) (tgt : Word) : M (List Edge) :
     | none, _ =>
       if !it.base.isPtr then bad pc "callee writes through a pointer the caller does not know"
       modify (·.addItem it)
-  for v in g.nz do c.nzI pc A1 v
-  for p in g.vals do c.soft (valI pc A1 p)
-  for cl in g.cells do c.soft (c.cellI pc A1 (some m) its cl)
+  let fs ← c.softD [] (c.strsI kn ref pc A1 (some m) its g)
+  for v in g.nz do c.nzI kn pc A1 v
+  for p in g.vals do c.soft (c.valI kn pc A1 p)
+  for cl in g.cells do c.soft (c.cellI kn pc A1 fs (some m) its cl)
   if g.returns then
     if (pc + 4) &&& ~~~1#64 != pc + 4 then bad pc "misaligned return address"
     match c.f.idx? (pc + 4) with
@@ -380,12 +466,26 @@ def Ctx'.call (c : Ctx') (pc : Word) (A : AState) (tgt : Word) : M (List Edge) :
     | none => bad pc "returning call at the end of the function"
   else pure []
 
+/-- `fanOut`: the edges of an indirect jump or call through a value with candidates, each
+    under the refinement that fixes the target. -/
+def Ctx'.fanOut (c : Ctx') (v : AVal) (off : BitVec 12)
+    (k : Option (AVal × Word) → Word → M (List Edge)) : M (Option (List Edge)) := do
+  match root? c.σ v with
+  | some (root, cs) =>
+    let mut es : List Edge := []
+    for cand in cs do
+      match refineVal c.env (root, cand) v with
+      | some t => es := es ++ (← k (some (root, cand)) ((t + signExtend12 off) &&& ~~~1#64))
+      | none => return none
+    pure (some es)
+  | none => pure none
+
 def Ctx'.runFrag (c : Ctx') (pc0 : Word) (A : AState) (fbase : Word) :
     List (Option Instr) → Nat → M AState
   | [], _ => bad pc0 "fragment without its return"
   | some i :: rest, n =>
       if i = .JALR .x0 .x5 0 then pure A else do
-      let B ← c.plainI (fbase + BitVec.ofNat 64 (4 * n)) A i
+      let B ← c.plainI (c.kn none) (fbase + BitVec.ofNat 64 (4 * n)) A i
       c.runFrag pc0 B fbase rest (n + 1)
   | none :: _, _ => bad pc0 "undecodable word in a fragment"
 
@@ -425,19 +525,17 @@ def Ctx'.stepAt (c : Ctx') (pc : Word) (oi : Option Instr) (A : AState) : M (Lis
             modify fun n => { n with returns := true }
             pure [.ret A]
           else bad pc "ret without ra and the callee-saved registers restored"
-        else match A.get rs with
-          | .const t => c.jump pc A ((t + signExtend12 off) &&& ~~~1#64)
-          | .oneOf ts => return (← ts.mapM fun t => c.jump pc A ((t + signExtend12 off) &&& ~~~1#64)).flatten
-          | v => match c.env.cfi.lookup pc with
-            | some ts => return (← ts.mapM (c.jump pc A)).flatten
-            | none => do want v; bad pc "indirect jump"
+        else match ← c.fanOut (A.get rs) off (fun ref t => c.jump pc A t ref) with
+          | some es => pure es
+          | none => match c.env.cfi.lookup pc with
+            | some ts => return (← ts.mapM fun t => c.jump pc A t).flatten
+            | none => do want (A.get rs); bad pc "indirect jump"
       else if rd = .x1 then
-        match A.get rs with
-        | .const t => c.call pc A ((t + signExtend12 off) &&& ~~~1#64)
-        | .oneOf ts => return (← ts.mapM fun t => c.call pc A ((t + signExtend12 off) &&& ~~~1#64)).flatten
-        | v => match c.env.cfi.lookup pc with
-          | some ts => return (← ts.mapM (c.call pc A)).flatten
-          | none => do want v; bad pc "indirect call"
+        match ← c.fanOut (A.get rs) off (fun ref t => c.call pc A t ref) with
+        | some es => pure es
+        | none => match c.env.cfi.lookup pc with
+          | some ts => return (← ts.mapM fun t => c.call pc A t).flatten
+          | none => do want (A.get rs); bad pc "indirect call"
       else if rd = .x5 ∧ rs = .x5 then c.outlined pc A off
       else bad pc "jalr with an unusual link register"
   | .EBREAK => pure []
@@ -448,7 +546,7 @@ def Ctx'.stepAt (c : Ctx') (pc : Word) (oi : Option Instr) (A : AState) : M (Lis
         for it in its do sysItemI pc it
         c.jump pc { B with slots := B.slots.filter fun p => its.all (slotClear p.1) } (pc + 4)
   | ins => do
-      let B ← c.plainI pc A ins
+      let B ← c.plainI (c.kn none) pc A ins
       c.jump pc B (pc + 4)
 
 /-- Kildall over instruction indices, then one pass to record what every reachable
@@ -534,10 +632,10 @@ def mergeCells (cs : List Cell) : List Cell := Id.run do
     regIdx a.r < regIdx b.r || (regIdx a.r == regIdx b.r && (a.ks.length < b.ks.length ||
       (a.ks.length == b.ks.length && (repr a.ks).pretty ≤ (repr b.ks).pretty && a.k.toNat ≤ b.k.toNat)))
 
-def mkIface (entry : Word) (n : Need) (vals : List (Reg × List Word)) (cells : List Cell) :
-    Iface :=
+def mkIface (entry : Word) (n : Need) (vals : List (Reg × List Word)) (cells : List Cell)
+    (strs : List (AVal × AVal)) : Iface :=
   { entry, depth := n.depth, foot := mergeItems n.items, nz := n.nz.reverse, returns := n.returns,
-    vals, cells }
+    vals, cells, strs }
 
 /-! ## Lean output -/
 
@@ -572,7 +670,8 @@ def fmtIface (σ : Iface) : String :=
   s!"\{ entry := {word σ.entry}, depth := {σ.depth}, foot := {fmtList (σ.foot.map fmtItem)}, " ++
   s!"nz := {fmtList (σ.nz.map fmtAVal)}, returns := {σ.returns}, " ++
   s!"vals := {fmtList (σ.vals.map fun (r, cs) => s!"({regName r}, {fmtWords cs})")}, " ++
-  s!"cells := {fmtList (σ.cells.map fmtCell)} }"
+  s!"cells := {fmtList (σ.cells.map fmtCell)}, " ++
+  s!"strs := {fmtList (σ.strs.map fun (d, k) => s!"({fmtAVal d}, {fmtAVal k})")} }"
 
 end Tools.Infer
 
@@ -598,7 +697,7 @@ composition use the hand proofs. Columns: address, Lean module, the interface's 
 term proving `∀ n, (∀ g ∈ tbl, ∀ m < n, g.HoldsN env C m) → iface.HoldsN env C n`, and the
 interface itself in a compact form:
 
-    depth=N foot=ITEM,ITEM nz=VAL,VAL ret=0|1
+    depth=N foot=ITEM,ITEM nz=VAL,VAL ret=0|1 strs=BASE:BASE,...
 
 with `ITEM := BASE:LEN`, `BASE := xN+HEX | #HEX`, `LEN := N | xN | xN+N`. The kernel checks
 that the Lean interface is the one callers were checked against: the table it builds is the
@@ -641,6 +740,11 @@ def parseIface? (entry : Nat) (spec : String) : Option Iface := do
         pure ({ base := ← parseBase? b, len := ← parseLen? l } : Item)
       σ := { σ with foot := its }
     | ["nz", vs] => σ := { σ with nz := ← ((vs.splitOn ",").filter (· != "")).mapM parseBase? }
+    | ["strs", es] =>
+      let strs ← ((es.splitOn ",").filter (· != "")).mapM fun e => do
+        let [d, k] := e.splitOn ":" | none
+        pure ((← parseBase? d), (← parseBase? k))
+      σ := { σ with strs }
     | ["ret", r] => σ := { σ with returns := r == "1" }
     | [""] => pure ()
     | _ => none
@@ -716,9 +820,21 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
         if !pending.contains f.base then continue
         let tbl : Std.HashMap Word Iface := done.fold (fun acc k v => acc.insert k v.1) {}
         let p := prem.getD f.base {}
-        let c : Ctx' := { env, tbl, pending := pending.erase f.base, f, vals := p.vals,
-                          cvals := p.cvals }
-        match c.analyze with
+        let c0 : Ctx' := { env, tbl, pending := pending.erase f.base, f, vals := p.vals,
+                           cvals := p.cvals }
+        -- The writers a function is lent are found by its calls, and what it knows through
+        -- them feeds its own analysis: discover until they stop growing.
+        let mut c := c0
+        let mut disc := c.analyze
+        for _ in [0:3] do
+          match disc with
+          | .ok (_, need) =>
+            let strs := c.strs ++ need.strs.filter (!c.strs.contains ·)
+            if strs.length == c.strs.length then break
+            c := { c with strs }
+            disc := c.analyze
+          | .error _ => break
+        match disc with
         | .ok (_, need) =>
           let mut cells := mergeCells need.cells
           let mut res : Except String (Array (Option AState) × Need × List Cell) :=
@@ -737,7 +853,7 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
             | .error (.blocked _) => break
           match res with
           | .ok (anno, need', cells') =>
-            let σ := mkIface f.base need' p.vals cells'
+            let σ := mkIface f.base need' p.vals cells' c.strs
             match σ.foot.find? (hitsProt env) with
             | some it =>
               failed := failed.insert f.base
@@ -759,7 +875,8 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
       Std.HashMap Word Raw × Std.HashMap Word (List Cell × List Reg) := Id.run do
     let ctxOf (f : Fn) : Ctx' :=
       let p := prem.getD f.base {}
-      { env, tbl, pending := {}, f, vals := p.vals, cvals := p.cvals, permissive := true }
+      { env, tbl, pending := {}, f, vals := p.vals, cvals := p.cvals, permissive := true,
+        strs := ((tbl[f.base]?).map (·.strs)).getD [] }
     let mut wants : Std.HashMap Word (List Cell × List Reg) := {}
     let mut sites : Array (Word × Site) := #[]
     for (_, f) in fns do
@@ -778,17 +895,24 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
     let mut seenWant : Std.HashMap Word (List (Reg × AVal)) := {}
     let mut seenCells : Std.HashMap Word (List (Cell × AVal)) := {}
     for (cb, site) in sites do
-      let vs := argRegs.map site.st.get
+      let some f := fnAt[cb]? | continue
+      let c := ctxOf f
+      let kn0 := c.kn none
+      -- A value with candidates is the set of them.
+      let cv (v : AVal) : AVal := match v with
+        | .lin .. | .cell .. => match cands env c.σ kn0 v with
+          | some cs => .oneOf cs
+          | none => v
+        | v => v
+      let vs := argRegs.map fun r => cv (site.st.get r)
       seenRegs := seenRegs.insert site.tgt (match seenRegs[site.tgt]? with
         | some ws => (ws.zip vs).map fun (a, b) => a.join b
         | none => vs)
-      let some f := fnAt[cb]? | continue
-      let c := ctxOf f
       let (wcs, wrs) := wants.getD site.tgt ([], [])
       -- Optimistic: a wanted value the caller has only symbolically (its own entry value or
       -- cell) adds nothing here, and becomes the caller's want.
       for r in wrs do
-        let v := site.st.get r
+        let v := cv (site.st.get r)
         match v with
         | .cell .. | .lin .. => extra' := addExtra extra' cb v
         | _ =>
@@ -798,11 +922,11 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
             | none => (r, v) :: old)
       for w in wcs do
         let ev : M (Option AVal) := do
-          match ← c.instPathI site.st (site.st.get w.r) w.ks with
-          | some v => c.contentAtI site.st (v.addK w.k)
+          match ← c.instPathI kn0 site.st (site.st.get w.r) w.ks with
+          | some v => c.contentAtI kn0 site.st (v.addK w.k)
           | none => pure none
         let v := match ev.run' {} with
-          | .ok (some v) => v
+          | .ok (some v) => cv v
           | _ => .top
         match v with
         | .cell .. | .lin .. => extra' := addExtra extra' cb v
@@ -1063,7 +1187,8 @@ def main (args : List String) : IO UInt32 := do
     let tblM : Std.HashMap Word Iface := tbl.foldl (fun acc g => acc.insert g.entry g) {}
     let ctxOf (f : Fn) : Ctx' :=
       let p := prem.getD f.base {}
-      { env, tbl := tblM, pending := {}, f, vals := p.vals, cvals := p.cvals, permissive := true }
+      { env, tbl := tblM, pending := {}, f, vals := p.vals, cvals := p.cvals, permissive := true,
+        strs := ((tblM[f.base]?).map (·.strs)).getD [] }
     let mut allSites : Array (Word × Site) := #[]
     for (_, f) in fns do
       if let .ok (_, need) := (ctxOf f).analyze then

@@ -54,7 +54,7 @@ theorem inv_iff {m : Word → Word} : env.Inv m ↔ HasherOk m := by
 
 /-- **The checked table, with the hasher owned.** -/
 theorem tbl_holds : ∀ g ∈ Contract.tbl, g.Holds env Image.Layout.image.codeAt :=
-  fun g hg n => Iface.HoldsN.lift env_wf (by rw [env_plain]; exact Contract.all g hg n)
+  fun g hg n => Iface.HoldsN.lift_trivial env_wf rfl (by rw [env_plain]; exact Contract.all g hg n)
 
 /-- At `main`'s entry the hasher is set up: the invariant holds. -/
 theorem mainEntry_inv {input : List (BitVec 8)} {t : MachineState}
