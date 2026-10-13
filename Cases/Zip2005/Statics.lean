@@ -110,7 +110,7 @@ theorem hooksUnset_of_pre {C : Word → Option Instr} {σ : Iface} {s : MachineS
 
 /-- At the return of every verified call. -/
 theorem hooksUnset_of_post {C : Word → Option Instr} {σ : Iface} {s t : MachineState}
-    (hpre : Pre Contract.env C σ s) (hpost : Post σ s t) : HooksUnset t :=
+    (hpre : Pre Contract.env C σ s) (hpost : Post Contract.env σ s t) : HooksUnset t :=
   ⟨fun a hal hm => (Post.regionOk Contract.env_wf allocHook_prot hpre hpost a hal hm).trans
       (allocHook_zero hal hm),
    fun a hal hm => (Post.regionOk Contract.env_wf panicHook_prot hpre hpost a hal hm).trans

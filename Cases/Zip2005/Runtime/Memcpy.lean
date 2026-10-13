@@ -107,7 +107,7 @@ abbrev Next (G : MachineState → Prop) (s0 : MachineState) (k : Nat) (P : Prop)
   ∀ t c, Frame iface C s0 t → At c s0 t → SafeN G k P t
 
 theorem tail_bc8c {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s)
-    (h : At .bc8c s0 s) (hk : ∀ t, Post iface s0 t → SafeN G k P t) :
+    (h : At .bc8c s0 s) (hk : ∀ t, Ret iface s0 t → SafeN G k P t) :
     SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, -, h13, h12⟩ := h
   have hcode := hF.code
@@ -860,7 +860,7 @@ theorem tabOk {env : Env} (hinit : env.init = Layout.image.memAt)
     rw [hF.mem a hal, hpre.2.2.2.2.1 a hal hp, hinit]
     rintro (hw | ⟨it, hit, hh⟩)
     · rcases hw with hw | ⟨hw, _⟩ <;> simp [iface] at hw
-    · exact (hpre.2.2.2.2.2.1 it hit a hal hh).2 hp
+    · exact (hpre.2.2.2.2.2.1 it hit a hal hh).2.1 hp
   obtain ⟨t0, t1, t2, t3⟩ := tab_image
   exact ⟨(key _ (by decide) (by decide) (by decide)).trans t0,
     (key _ (by decide) (by decide) (by decide)).trans t1,
@@ -876,14 +876,14 @@ def Inv (s0 s : MachineState) : Prop :=
 theorem holds (env : Env) (hinit : env.init = Layout.image.memAt)
     (hprot : (0x78000190#64, 0x157a8) ∈ env.prot) : iface.Holds env C := by
   intro n
-  apply holdsN_of_inv Inv
+  apply holdsN_of_inv Inv (fun _ hpre => Pre.own_not_written rfl hpre)
   · intro s0 hpc hpre
     exact ⟨Frame.entry hpre.1, Or.inl ⟨rfl, hpc⟩⟩
   · intro G s0 P k _ hpre _ hk IH s ⟨hF, hs⟩
     cases k with
     | zero => exact SafeN.zero
     | succ k =>
-      have hk' : ∀ t, Post iface s0 t → SafeN G k P t :=
+      have hk' : ∀ t, Ret iface s0 t → SafeN G k P t :=
         fun t ht => SafeN.mono (Nat.le_succ k) (hk t ht)
       have IH' : Next G s0 k P := fun t c hF h => IH k (Nat.lt_succ_self k) t ⟨hF, Or.inr ⟨c, h⟩⟩
       rcases hs with ⟨rfl, hpc⟩ | ⟨c, h⟩

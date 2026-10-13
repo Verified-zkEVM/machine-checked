@@ -23,6 +23,10 @@ def CellsOk (σ : Iface) (E : Ent) : Prop :=
   ∀ c ∈ σ.cells, Aligned (c.addr E) ∧ ¬ Written σ E (c.addr E) ∧
     ∀ cs, c.vals = some cs → E.mem (c.addr E) ∈ cs
 
+/-- The cells are not owned statics: no call changes them. -/
+def CellsOwnFree (env : Env) (σ : Iface) (E : Ent) : Prop :=
+  ∀ c ∈ σ.cells, ¬ env.InOwn (c.addr E)
+
 /-- What `A` says about a memory `M`: its slots hold there, and the cells still hold their
     entry contents. -/
 def MemOk (σ : Iface) (E : Ent) (A : AState) (M : Word → Word) : Prop :=
@@ -147,23 +151,29 @@ structure Facts (env : Env) (σ : Iface) (E : Ent) (s0 : MachineState) : Prop wh
   top : (E .x2).toNat ≤ env.stackTop
   al : Aligned (E .x2)
   prot : ∀ a, Aligned a → env.InProt a → s0.getMem a = env.init a
-  foot : ∀ it ∈ σ.foot, ∀ a, Aligned a → it.Hits E a → ¬ InWin (E .x2) σ.depth a ∧ ¬ env.InProt a
+  foot : ∀ it ∈ σ.foot, ∀ a, Aligned a → it.Hits E a →
+    ¬ InWin (E .x2) σ.depth a ∧ ¬ env.InProt a ∧ ¬ env.InOwn a
   nz : ∀ v ∈ σ.nz, v.eval E ≠ 0
   vals : ∀ p ∈ σ.vals, E p.1 ∈ p.2
   cells : CellsOk σ E
+  cellsOwn : CellsOwnFree env σ E
+  inv : env.Inv s0.getMem
   emem : ∀ a, E.mem a = s0.getMem a
 
 theorem Facts.of_pre {env : Env} {C} {σ : Iface} {s0 : MachineState} (hwf : env.wf = true)
     (h : Pre env C σ s0) : Facts env σ (regsOf s0) s0 :=
   ⟨hwf, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.1, h.2.2.2.2.2.2.1,
-    h.2.2.2.2.2.2.2.1, h.2.2.2.2.2.2.2.2, fun _ => rfl⟩
+    h.2.2.2.2.2.2.2.1,
+    fun c hc => let hc' := h.2.2.2.2.2.2.2.2.1 c hc; ⟨hc'.1, hc'.2.1, hc'.2.2.2⟩,
+    fun c hc => (h.2.2.2.2.2.2.2.2.1 c hc).2.2.1, h.2.2.2.2.2.2.2.2.2, fun _ => rfl⟩
 
 /-- The checker's invariant at a state `x` of the activation, with abstract state `A`. -/
-structure St (σ : Iface) (C : Word → Option Instr) (E : Ent) (s0 : MachineState)
+structure St (env : Env) (σ : Iface) (C : Word → Option Instr) (E : Ent) (s0 : MachineState)
     (A : AState) (x : MachineState) : Prop where
   holds : A.Holds E x
   code : x.code = C
-  mem : ∀ a, Aligned a → ¬ Written σ E a → x.getMem a = s0.getMem a
+  mem : ∀ a, Aligned a → ¬ Written σ E a → ¬ env.InOwn a → x.getMem a = s0.getMem a
+  inv : env.Inv x.getMem
   slots : ∀ p ∈ A.slots, 8 ≤ negOff p.1 ∧ negOff p.1 ≤ σ.depth ∧ negOff p.1 % 8 = 0
 
 section Facts
@@ -186,19 +196,35 @@ theorem slot_facts (hF : Facts env σ E s0) {k : Word}
 
 /-- The slots and cells describe the memory of every state of the activation. -/
 theorem St.memOk {C} {A : AState} {x : MachineState} (hF : Facts env σ E s0)
-    (h : St σ C E s0 A x) : MemOk σ E A x.getMem :=
+    (h : St env σ C E s0 A x) : MemOk σ E A x.getMem :=
   ⟨h.holds.2, fun c hc => by
     have := hF.cells c hc
-    rw [h.mem _ this.1 this.2.1, hF.emem]⟩
+    rw [h.mem _ this.1 this.2.1 (hF.cellsOwn c hc), hF.emem]⟩
+
+/-- What the activation may write is not owned. -/
+theorem Facts.not_own (hF : Facts env σ E s0) {a : Word} (ha : Aligned a)
+    (hw : Written σ E a) : ¬ env.InOwn a := by
+  rcases hw with hw | ⟨it, hit, hh⟩
+  · exact not_own_of_inWin hF.wf hF.top hF.depth hw
+  · exact (hF.foot it hit a ha hh).2.2
 
 /-- The protected regions hold their contents at every state of the activation. -/
 theorem St.prot {C} {A : AState} {x : MachineState} (hF : Facts env σ E s0)
-    (h : St σ C E s0 A x) {a : Word} (ha : Aligned a) (hp : env.InProt a) :
+    (h : St env σ C E s0 A x) {a : Word} (ha : Aligned a) (hp : env.InProt a) :
     x.getMem a = env.init a := by
-  rw [h.mem a ha, hF.prot a ha hp]
+  rw [h.mem a ha ?_ (not_own_of_prot hF.wf hp), hF.prot a ha hp]
   rintro (hw | ⟨it, hit, hh⟩)
   · exact not_prot_of_inWin hF.wf hF.top hF.depth hw hp
-  · exact (hF.foot it hit a ha hh).2 hp
+  · exact (hF.foot it hit a ha hh).2.1 hp
+
+/-- A store the activation may make keeps the invariant. -/
+theorem St.inv_setMem {C} {A : AState} {x : MachineState} (hF : Facts env σ E s0)
+    (h : St env σ C E s0 A x) {k v : Word} (hk : Aligned k → Written σ E k) :
+    env.Inv (x.setMem k v).getMem :=
+  Env.Inv_congr (fun a ha ho => by
+    rw [getMem_setMem, if_neg]
+    rintro rfl
+    exact hF.not_own ha (hk ha) ho) h.inv
 
 end Facts
 
@@ -218,7 +244,7 @@ section Plain
 variable {env : Env} {σ : Iface} {C : Word → Option Instr} {E : Ent} {s0 : MachineState}
 
 theorem loadVal_sound (hF : Facts env σ E s0) {A : AState} {x : MachineState} {b : AVal}
-    {addr : Word} (h : St σ C E s0 A x) (hb : b.Holds E addr) :
+    {addr : Word} (h : St env σ C E s0 A x) (hb : b.Holds E addr) :
     (loadVal env σ A b true).Holds E (x.getMem addr) := by
   unfold loadVal
   simp only [if_true]
@@ -254,9 +280,9 @@ theorem loadVal_sound (hF : Facts env σ E s0) {A : AState} {x : MachineState} {
 
 theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineState}
     {rs1 rs2 : Reg} {off : BitVec 12} {w : Width} {v : Word}
-    (h : St σ C E s0 A x) (hv : w = .d → v = x.getReg rs2)
+    (h : St env σ C E s0 A x) (hv : w = .d → v = x.getReg rs2)
     (hs : storeStep σ A rs1 rs2 off w = some B) :
-    St σ C E s0 B (x.setMem (w.target (x.getReg rs1 + signExtend12 off)) v) := by
+    St env σ C E s0 B (x.setMem (w.target (x.getReg rs1 + signExtend12 off)) v) := by
   have hb := AVal.holds_addK (d := signExtend12 off) (h.holds.1 rs1)
   have hregs : ∀ a, ∀ r, (A.get r).Holds E ((x.setMem a v).getReg r) := fun a r => by
     rw [getReg_setMem]; exact h.holds.1 r
@@ -276,7 +302,8 @@ theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
       have hkw : InWin (E .x2) σ.depth key := by
         rw [← hkey]; exact inWin_store hF.depth hwin.1 hwin.2
       have hkeyF : w.target (E .x2 + k) = key := by rw [add_frame]; exact hkey
-      refine ⟨⟨hregs _, fun p hp => ?_⟩, by simp [h.code], fun a ha hnw => ?_, fun p hp => ?_⟩
+      refine ⟨⟨hregs _, fun p hp => ?_⟩, by simp [h.code], fun a ha hnw hno => ?_,
+        St.inv_setMem hF h (fun _ => Or.inl hkw), fun p hp => ?_⟩
       · have keep : ∀ p ∈ A.slots.filter (fun p => !mayHit w k p.1),
             p.2.Holds E ((x.setMem key v).getMem (E .x2 + p.1)) := by
           intro p hp
@@ -321,7 +348,7 @@ theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
               · exact keep p hp
             · exact keep p hp
       · rw [getMem_setMem, if_neg (fun he => hnw (Or.inl (by rw [he]; exact hkw)))]
-        exact h.mem a ha hnw
+        exact h.mem a ha hnw hno
       · have sub : ∀ p ∈ A.slots.filter (fun p => !mayHit w k p.1), p ∈ A.slots :=
           fun p hp => (List.mem_filter.mp hp).1
         cases w with
@@ -385,7 +412,8 @@ theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
             | cell r ks d => simp only [AVal.Holds] at hb; simp [AVal.eval, hb]
           simp only [this, Len.eval]
           rw [← hkey]; exact hits_target w _
-        refine ⟨⟨hregs _, fun p hp => ?_⟩, by simp [h.code], fun a ha hnw => ?_, h.slots⟩
+        refine ⟨⟨hregs _, fun p hp => ?_⟩, by simp [h.code], fun a ha hnw hno => ?_,
+          St.inv_setMem hF h (fun _ => Or.inr ⟨d, hd, hhit⟩), h.slots⟩
         · have hsl := slot_facts hF (h.slots p hp)
           have hne : E .x2 + p.1 ≠ key := by
             intro he
@@ -393,12 +421,12 @@ theorem storeStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
             exact (hF.foot d hd _ hsl.1 hhit).1 hsl.2
           rw [getMem_setMem, if_neg hne]; exact h.holds.2 p hp
         · have hne : a ≠ key := fun he => hnw (Or.inr ⟨d, hd, he ▸ hhit⟩)
-          rw [getMem_setMem, if_neg hne]; exact h.mem a ha hnw
+          rw [getMem_setMem, if_neg hne]; exact h.mem a ha hnw hno
       · cases hs
 
 theorem plainStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineState} {pc : Word}
-    {i : Instr} (hpc : x.pc = pc) (h : St σ C E s0 A x) (hs : plainStep env σ pc A i = some B) :
-    St σ C E s0 B (execInstrBr x i) ∧ (execInstrBr x i).pc = x.pc + 4 := by
+    {i : Instr} (hpc : x.pc = pc) (h : St env σ C E s0 A x) (hs : plainStep env σ pc A i = some B) :
+    St env σ C E s0 B (execInstrBr x i) ∧ (execInstrBr x i).pc = x.pc + 4 := by
   unfold plainStep at hs
   split at hs
   · rename_i rd v hr
@@ -406,14 +434,16 @@ theorem plainStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
     obtain ⟨w, he, hw⟩ := aluResult_sound hpc h.holds hr
     rw [he]
     exact ⟨⟨AState.holds_setPC (AState.holds_set h.holds hw), by simp [h.code],
-      fun a ha hnw => by simpa using h.mem a ha hnw, h.slots⟩, rfl⟩
+      fun a ha hnw hno => by simpa using h.mem a ha hnw hno,
+      Env.Inv_congr (fun _ _ _ => by simp) h.inv, h.slots⟩, rfl⟩
   · split at hs
     · rename_i rd rs off isD hl
       cases hs
       obtain ⟨w, he, hw⟩ := loadOf_shape (s := x) hl
       rw [he]
       refine ⟨⟨AState.holds_setPC (AState.holds_set h.holds ?_), by simp [h.code],
-        fun a ha hnw => by simpa using h.mem a ha hnw, h.slots⟩, rfl⟩
+        fun a ha hnw hno => by simpa using h.mem a ha hnw hno,
+        Env.Inv_congr (fun _ _ _ => by simp) h.inv, h.slots⟩, rfl⟩
       cases isD with
       | false => simp [loadVal, AVal.Holds]
       | true =>
@@ -425,14 +455,17 @@ theorem plainStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineStat
         rw [he]
         have := storeStep_sound hF h hv hs
         exact ⟨⟨AState.holds_setPC this.holds, by simpa using this.code,
-          fun a ha hnw => by simpa using this.mem a ha hnw, this.slots⟩, rfl⟩
+          fun a ha hnw hno => by simpa using this.mem a ha hnw hno,
+          Env.Inv_congr (fun _ _ _ => by simp) this.inv, this.slots⟩, rfl⟩
       · split at hs
         · cases hs
           exact ⟨⟨AState.holds_setPC h.holds, by simp [execInstrBr, h.code],
-            fun a ha hnw => by simpa [execInstrBr] using h.mem a ha hnw, h.slots⟩, rfl⟩
+            fun a ha hnw hno => by simpa [execInstrBr] using h.mem a ha hnw hno,
+            Env.Inv_congr (fun _ _ _ => by simp [execInstrBr]) h.inv, h.slots⟩, rfl⟩
         · cases hs
           exact ⟨⟨AState.holds_setPC h.holds, by simp [execInstrBr, h.code],
-            fun a ha hnw => by simpa [execInstrBr] using h.mem a ha hnw, h.slots⟩, rfl⟩
+            fun a ha hnw hno => by simpa [execInstrBr] using h.mem a ha hnw hno,
+            Env.Inv_congr (fun _ _ _ => by simp [execInstrBr]) h.inv, h.slots⟩, rfl⟩
         · cases hs
 
 end Plain
@@ -620,7 +653,7 @@ theorem spOff_sound {A : AState} {x : MachineState} {m : Nat} (h : RegsHold E A 
 
 /-- At a call, the slots and cells describe the callee's entry memory. -/
 theorem memOk_call (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState}
-    (hx : St σ C E s0 A x) (hA1 : A1.slots = A.slots) (hmem : y.mem = x.mem) :
+    (hx : St env σ C E s0 A x) (hA1 : A1.slots = A.slots) (hmem : y.mem = x.mem) :
     MemOk σ E A1 y.getMem := by
   have h := St.memOk hF hx
   have hg : y.getMem = x.getMem := by funext a; simp [MachineState.getMem, hmem]
@@ -720,6 +753,7 @@ theorem cellOk_sound (hF : Facts env σ E s0) {A : AState} {y : MachineState} {g
       negOff f ≤ m → (∀ it ∈ its, slotClear f it = true) → ¬ Written g (regsOf y) (E .x2 + f))
     (hok : cellOk σ A mo its c = true) :
     Aligned (c.addr (regsOf y)) ∧ ¬ Written g (regsOf y) (c.addr (regsOf y)) ∧
+      ¬ env.InOwn (c.addr (regsOf y)) ∧
       ∀ cs, c.vals = some cs → y.getMem (c.addr (regsOf y)) ∈ cs := by
   unfold cellOk at hok
   cases hp : instPath σ A (A.get c.r) c.ks with
@@ -736,7 +770,7 @@ theorem cellOk_sound (hF : Facts env σ E s0) {A : AState} {y : MachineState} {g
   simp only at hok
   -- The contents, and the address stays put.
   have hw : w.Holds E (y.getMem (c.addr (regsOf y))) ∧ Aligned (c.addr (regsOf y)) ∧
-      ¬ Written g (regsOf y) (c.addr (regsOf y)) := by
+      ¬ Written g (regsOf y) (c.addr (regsOf y)) ∧ ¬ env.InOwn (c.addr (regsOf y)) := by
     unfold stableAt at hs
     cases hf : (v.addK c.k).frameOff? with
     | some f =>
@@ -753,7 +787,8 @@ theorem cellOk_sound (hF : Facts env σ E s0) {A : AState} {y : MachineState} {g
           simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at hc
           have hp' := lookup_mem hs
           have hsl' := hsl _ hp'
-          exact ⟨hm.1 _ hp', (slot_facts hF hsl').1, hslot m f rfl hsl' hc.1 hc.2⟩
+          exact ⟨hm.1 _ hp', (slot_facts hF hsl').1, hslot m f rfl hsl' hc.1 hc.2,
+            not_own_of_inWin hF.wf hF.top hF.depth (slot_facts hF hsl').2⟩
         · cases hs
     | none =>
       rw [hf] at hs
@@ -761,15 +796,15 @@ theorem cellOk_sound (hF : Facts env σ E s0) {A : AState} {y : MachineState} {g
       have hcf := hF.cells c' hc'
       rw [← ha]
       exact ⟨by rw [ha]; exact cellAt_holds hF.cells hm.2 hva hs, hcf.1,
-        fun hw => hcf.2.1 (hW _ hcf.1 hw)⟩
-  refine ⟨hw.2.1, hw.2.2, fun cs hcs => ?_⟩
+        fun hw => hcf.2.1 (hW _ hcf.1 hw), hF.cellsOwn c' hc'⟩
+  refine ⟨hw.2.1, hw.2.2.1, hw.2.2.2, fun cs hcs => ?_⟩
   rw [hcs] at hok
   exact inVals_holds hw.1 hok
 
 /-- What a checked call site gives the callee: its precondition. -/
 theorem call_pre (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState} {g : Iface}
     {m : Nat} {its : List Item}
-    (hx : St σ C E s0 A x) (hy1 : RegsHold E A1 y) (hA1 : A1.slots = A.slots)
+    (hx : St env σ C E s0 A x) (hy1 : RegsHold E A1 y) (hA1 : A1.slots = A.slots)
     (hmem : y.mem = x.mem) (hcode : y.code = C)
     (hok : callOk σ A1 g = some (m, its)) :
     Pre env C g y ∧ y.getReg .x2 = E .x2 - BitVec.ofNat 64 m ∧ m % 8 = 0 ∧
@@ -803,7 +838,7 @@ theorem call_pre (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState} {
       have hW := callee_written hF hy1 hm1 hsp1 hm8 hdep hits hall1
       refine ⟨⟨hcode, by omega, by omega, by rw [hsp1]; exact aligned_sub hF.al hm8,
         fun a ha hp => ?_, fun it hit a ha hh => ?_, fun v hv => ?_, fun p hp => ?_,
-        fun c hc => ?_⟩, hsp1, hm8, hdep, rfl, by simpa [List.all_eq_true] using hall1⟩
+        fun c hc => ?_, ?_⟩, hsp1, hm8, hdep, rfl, by simpa [List.all_eq_true] using hall1⟩
       · simp only [MachineState.getMem, hmem]
         exact St.prot hF hx ha hp
       · obtain ⟨it', hit', hinst⟩ := mapM_some_mem hits it hit
@@ -826,7 +861,8 @@ theorem call_pre (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState} {
             rw [add_frame] at hh'
             have := frameItem_keys (Dg := g.depth) hF.depth hF.al hm8 hdep hio.1.1 hio.1.2 ha hh'
             rw [hsp1]
-            exact ⟨this.1, not_prot_of_inWin hF.wf hF.top hF.depth this.2⟩
+            exact ⟨this.1, not_prot_of_inWin hF.wf hF.top hF.depth this.2,
+              not_own_of_inWin hF.wf hF.top hF.depth this.2⟩
         | none =>
           rw [hfo] at hio
           simp only [Bool.and_eq_true, List.any_eq_true] at hio
@@ -843,24 +879,27 @@ theorem call_pre (hF : Facts env σ E s0) {A A1 : AState} {x y : MachineState} {
             cases hm0
             exact slot_callee hF hy1 hm1 hsp1 hm8 hdep hits hall1 hsl hpm hclr)
           (hall4 c hc)
+      · have : y.getMem = x.getMem := funext fun a => by simp only [MachineState.getMem, hmem]
+        rw [this]; exact hx.inv
     · cases hok
   · cases hok
 
 /-- What a checked call site gets back: at the return, the invariant with `afterCall`. -/
 theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {g : Iface}
     {m : Nat} {its : List Item} {A1 : AState}
-    (hx : St σ C E s0 A x) (hy1 : RegsHold E A1 y) (hA1 : A1.slots = A.slots)
+    (hx : St env σ C E s0 A x) (hy1 : RegsHold E A1 y) (hA1 : A1.slots = A.slots)
     (hycode : y.code = C)
     (hregs : ∀ r, r ≠ .x1 → y.getReg r = x.getReg r)
     (hmem : y.mem = x.mem) (hsp : y.getReg .x2 = E .x2 - BitVec.ofNat 64 m) (hm8 : m % 8 = 0)
     (hdep : m + g.depth ≤ σ.depth) (hits : g.foot.mapM (instItem σ A1) = some its)
-    (hall : its.all (itemOk σ m) = true) (hpost : Post g y t) :
-    St σ C E s0 (afterCall A m its) t := by
-  obtain ⟨_, _, hsaved, hun, hcode⟩ := hpost
+    (hall : its.all (itemOk σ m) = true) (hpost : Post env g y t) :
+    St env σ C E s0 (afterCall A m its) t := by
+  obtain ⟨_, _, hsaved, hun, hcode, hinv⟩ := hpost
   simp only [List.all_eq_true] at hall
   have hm1 := memOk_call hF hx hA1 hmem
   have hwr := callee_written hF hy1 hm1 hsp hm8 hdep hits hall
-  refine ⟨⟨fun r => ?_, fun p hp => ?_⟩, by rw [hcode, hycode], fun a ha hnw => ?_, fun p hp => ?_⟩
+  refine ⟨⟨fun r => ?_, fun p hp => ?_⟩, by rw [hcode, hycode], fun a ha hnw hno => ?_, hinv,
+    fun p hp => ?_⟩
   · rw [afterCall_get]
     split
     · rename_i h0; subst h0; simp [AVal.Holds, MachineState.getReg]
@@ -876,14 +915,14 @@ theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {
     have hsl := hx.slots p hp
     have hkey := slot_facts hF hsl
     have hnw := slot_callee hF hy1 hm1 hsp hm8 hdep hits hall hsl hpm hclr
-    rw [hun _ hkey.1 hnw]
+    rw [hun _ hkey.1 hnw (not_own_of_inWin hF.wf hF.top hF.depth hkey.2)]
     simp only [MachineState.getMem, hmem]
     exact hx.holds.2 p hp
   · by_cases hw : Written g (regsOf y) a
     · exact absurd (hwr a ha hw) hnw
-    · rw [hun a ha hw]
+    · rw [hun a ha hw hno]
       simp only [MachineState.getMem, hmem]
-      exact hx.mem a ha hnw
+      exact hx.mem a ha hnw hno
   · simp only [afterCall, List.mem_filter] at hp
     exact hx.slots p hp.1
 
@@ -891,8 +930,8 @@ theorem call_post (hF : Facts env σ E s0) {A : AState} {x y t : MachineState} {
     callee's precondition holds, and its postcondition is `f`'s. -/
 theorem tail_sound (hF : Facts env σ E s0) {A : AState} {x : MachineState} {g : Iface}
     (hpre0 : s0.code = C) (hE : E = regsOf s0)
-    (hx : St σ C E s0 A x) (hok : tailOk σ A g = true) :
-    Pre env C g x ∧ ∀ t, Post g x t → Post σ s0 t := by
+    (hx : St env σ C E s0 A x) (hok : tailOk σ A g = true) :
+    Pre env C g x ∧ ∀ t, Post env g x t → Post env σ s0 t := by
   unfold tailOk at hok
   simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.or_eq_true, Bool.not_eq_true'] at hok
   obtain ⟨⟨⟨hexit, hdep⟩, hret⟩, hfoot⟩ := hok
@@ -927,14 +966,14 @@ theorem tail_sound (hF : Facts env σ E s0) {A : AState} {x : MachineState} {g :
     by rw [hx2]; exact hF.al, fun a ha hp => St.prot hF hx ha hp, fun it hit a ha hh => ?_,
     fun v hv => ?_, fun p hp => valOk_sound hx.holds.1 (hvals p hp),
     fun c hc => cellOk_sound hF hx.holds.1 hm hx.slots hW (fun _ _ h => by cases h)
-      (hcells c hc)⟩, fun t ht => ?_⟩
+      (hcells c hc), hx.inv⟩, fun t ht => ?_⟩
   · obtain ⟨d, hd, hdh⟩ := hcov it hit a hh
     have hf := hF.foot d hd a ha hdh
     rw [hx2]
     exact ⟨fun hw => hf.1 (hwin a ha hw), hf.2⟩
   · exact nzOk_sound hF.nz hx.holds.1 hF.cells hm (hnz v hv)
-  · obtain ⟨hgr, hpc, hsaved, hun, hcode⟩ := ht
-    refine ⟨?_, ?_, fun r hr => ?_, fun a ha hnw => ?_, ?_⟩
+  · obtain ⟨hgr, hpc, hsaved, hun, hcode, hinv⟩ := ht
+    refine ⟨?_, ?_, fun r hr => ?_, fun a ha hnw hno => ?_, ?_, hinv⟩
     · rcases hret with h | h
       · exact h
       · rw [hgr] at h; cases h
@@ -942,24 +981,25 @@ theorem tail_sound (hF : Facts env σ E s0) {A : AState} {x : MachineState} {g :
     · rw [hsaved r hr, hsv r hr, hE]; rfl
     · rw [← hE] at hnw
       have hnw' : ¬ Written g (regsOf x) a := fun hw => hnw (hW a ha hw)
-      rw [hun a ha hnw']
-      exact hx.mem a ha hnw
+      rw [hun a ha hnw' hno]
+      exact hx.mem a ha hnw hno
     · rw [hcode, hx.code, hpre0]
 
 /-- A `ret` with every callee-saved register and `ra` restored is `f`'s postcondition. -/
 theorem ret_sound {A : AState} {x : MachineState}
     (hpre0 : s0.code = C) (hE : E = regsOf s0) (hr : σ.returns = true)
-    (hx : St σ C E s0 A x) (hok : okExit A = true) :
-    Post σ s0 (execInstrBr x (.JALR .x0 .x1 0)) := by
+    (hx : St env σ C E s0 A x) (hok : okExit A = true) :
+    Post env σ s0 (execInstrBr x (.JALR .x0 .x1 0)) := by
   obtain ⟨hx1, hsv⟩ := okExit_regs hok hx.holds.1
-  refine ⟨hr, ?_, fun r hr' => ?_, fun a ha hnw => ?_, ?_⟩
+  refine ⟨hr, ?_, fun r hr' => ?_, fun a ha hnw hno => ?_, ?_,
+    Env.Inv_congr (fun _ _ _ => by simp [execInstrBr, setReg_x0]) hx.inv⟩
   · simp only [execInstrBr, setReg_x0]
     show (x.getReg .x1 + signExtend12 0) &&& ~~~1#64 = _
     rw [hx1, hE]; simp [signExtend12, regsOf]
   · simp only [execInstrBr, setReg_x0, MachineState.getReg_setPC]
     rw [hsv r hr', hE]; rfl
   · rw [← hE] at hnw
-    simpa [execInstrBr, setReg_x0] using hx.mem a ha hnw
+    simpa [execInstrBr, setReg_x0] using hx.mem a ha hnw hno
   · simp [execInstrBr, setReg_x0, hx.code, hpre0]
 
 end Call
@@ -980,21 +1020,21 @@ theorem plainStep_some_plain {env : Env} {σ : Iface} {pc : Word} {A B : AState}
   refine ⟨?_, ?_, fun c r => ?_⟩ <;>
     (rintro rfl; simp [plainStep, aluResult, loadOf, storeOf] at h)
 
-theorem St.le {σ C E s0} {A B : AState} {x : MachineState} (h : St σ C E s0 A x)
-    (hle : A.le B = true) : St σ C E s0 B x := by
-  refine ⟨AState.holds_of_le hle h.holds, h.code, h.mem, fun p hp => h.slots p ?_⟩
+theorem St.le {env σ C E s0} {A B : AState} {x : MachineState} (h : St env σ C E s0 A x)
+    (hle : A.le B = true) : St env σ C E s0 B x := by
+  refine ⟨AState.holds_of_le hle h.holds, h.code, h.mem, h.inv, fun p hp => h.slots p ?_⟩
   simp only [AState.le, Bool.and_eq_true, List.all_eq_true, List.contains_iff_mem] at hle
   exact hle.2 p hp
 
-theorem St.setPC {σ C E s0} {A : AState} {x : MachineState} {v : Word} (h : St σ C E s0 A x) :
-    St σ C E s0 A (x.setPC v) :=
-  ⟨AState.holds_setPC h.holds, by simp [h.code], fun a ha hnw => by simpa using h.mem a ha hnw,
-    h.slots⟩
+theorem St.setPC {env σ C E s0} {A : AState} {x : MachineState} {v : Word} (h : St env σ C E s0 A x) :
+    St env σ C E s0 A (x.setPC v) :=
+  ⟨AState.holds_setPC h.holds, by simp [h.code], fun a ha hnw hno => by simpa using h.mem a ha hnw hno,
+    Env.Inv_congr (fun _ _ _ => by simp) h.inv, h.slots⟩
 
-theorem St.setReg {σ C E s0} {A : AState} {x : MachineState} {r : Reg} {v : AVal} {w : Word}
-    (h : St σ C E s0 A x) (hv : v.Holds E w) : St σ C E s0 (A.set r v) (x.setReg r w) :=
-  ⟨AState.holds_set h.holds hv, by simp [h.code], fun a ha hnw => by simpa using h.mem a ha hnw,
-    by
+theorem St.setReg {env σ C E s0} {A : AState} {x : MachineState} {r : Reg} {v : AVal} {w : Word}
+    (h : St env σ C E s0 A x) (hv : v.Holds E w) : St env σ C E s0 (A.set r v) (x.setReg r w) :=
+  ⟨AState.holds_set h.holds hv, by simp [h.code], fun a ha hnw hno => by simpa using h.mem a ha hnw hno,
+    Env.Inv_congr (fun _ _ _ => by simp) h.inv, by
       intro p hp
       exact h.slots p (by simpa [AState.set] using hp)⟩
 
@@ -1085,7 +1125,7 @@ variable {c : Ctx} {anno : Array (Option AState)} {C : Word → Option Instr} {n
 /-- The invariant at a state of the activation: at instruction `i` with its annotation. -/
 def Ctx.At (c : Ctx) (anno : Array (Option AState)) (C : Word → Option Instr) (s0 : MachineState)
     (x : MachineState) : Prop :=
-  ∃ i A, c.f.idx? x.pc = some i ∧ Fn.annoAt anno i = some A ∧ St c.σ C (regsOf s0) s0 A x
+  ∃ i A, c.f.idx? x.pc = some i ∧ Fn.annoAt anno i = some A ∧ St c.env c.σ C (regsOf s0) s0 A x
 
 /-- The hypotheses of the activation argument. -/
 structure ActHyp (c : Ctx) (anno : Array (Option AState)) (C : Word → Option Instr) (n : Nat)
@@ -1095,7 +1135,7 @@ structure ActHyp (c : Ctx) (anno : Array (Option AState)) (C : Word → Option I
   tbl : ∀ g ∈ c.tbl, ∀ m < n, g.HoldsN c.env C m
   code0 : s0.code = C
   facts : Facts c.env c.σ (regsOf s0) s0
-  k : ∀ t, Post c.σ s0 t → SafeN G n P t
+  k : ∀ t, Post c.env c.σ s0 t → SafeN G n P t
   cfi : ∀ x, G x → c.env.Cfi x
 
 theorem ActHyp.instrOk (h : ActHyp c anno C n G P s0) {i : Nat} (hi : i < c.f.prog.length) :
@@ -1109,7 +1149,7 @@ theorem ActHyp.instrOk (h : ActHyp c anno C n G P s0) {i : Nat} (hi : i < c.f.pr
 theorem jump_sound (h : ActHyp c anno C n G P s0) {k : Nat} (hk : k < n)
     (ih : ∀ x, c.At anno C s0 x → SafeN G k P x) {A : AState} {z : MachineState} {tgt : Word}
     {es : List Edge} (hj : c.jump A tgt = some es) (hes : ∀ e ∈ es, edgeOk anno e = true)
-    (hz : St c.σ C (regsOf s0) s0 A z) (hpc : z.pc = tgt) : SafeN G k P z := by
+    (hz : St c.env c.σ C (regsOf s0) s0 A z) (hpc : z.pc = tgt) : SafeN G k P z := by
   unfold Ctx.jump at hj
   cases hidx : c.f.idx? tgt with
   | some j =>
@@ -1139,8 +1179,8 @@ theorem frag_sound (h : ActHyp c anno C n G P s0) {k : Nat} {fb : Word} :
     ∀ (fp : List (Option Instr)) (m : Nat) {A B : AState} {z : MachineState},
     c.runFrag A fb fp m = some B →
     (∀ j ins, fp[j]? = some (some ins) → C (fb + BitVec.ofNat 64 (4 * (m + j))) = some ins) →
-    z.pc = fb + BitVec.ofNat 64 (4 * m) → St c.σ C (regsOf s0) s0 A z →
-    (∀ z', St c.σ C (regsOf s0) s0 B z' → z'.pc = z'.getReg .x5 &&& ~~~1#64 → SafeN G k P z') →
+    z.pc = fb + BitVec.ofNat 64 (4 * m) → St c.env c.σ C (regsOf s0) s0 A z →
+    (∀ z', St c.env c.σ C (regsOf s0) s0 B z' → z'.pc = z'.getReg .x5 &&& ~~~1#64 → SafeN G k P z') →
     SafeN G k P z
   | [], _, _, _, _, hr, _, _, _, _ => by simp [Ctx.runFrag] at hr
   | none :: _, _, _, _, _, hr, _, _, _, _ => by simp [Ctx.runFrag] at hr
@@ -1184,7 +1224,7 @@ theorem frag_sound (h : ActHyp c anno C n G P s0) {k : Nat} {fb : Word} :
 theorem call_sound' (h : ActHyp c anno C n G P s0) {k : Nat} (hk : k < n)
     (ih : ∀ x, c.At anno C s0 x → SafeN G k P x) {A : AState} {x y : MachineState} {pc tgt : Word}
     {es : List Edge} (hcall : c.call pc A tgt = some es) (hes : ∀ e ∈ es, edgeOk anno e = true)
-    (hx : St c.σ C (regsOf s0) s0 A x)
+    (hx : St c.env c.σ C (regsOf s0) s0 A x)
     (hy : y = (x.setReg .x1 (pc + 4)).setPC tgt) : SafeN G k P y := by
   unfold Ctx.call at hcall
   cases hg : c.lookup tgt with
@@ -1293,15 +1333,16 @@ theorem act (h : ActHyp c anno C n G P s0) : ∀ k ≤ n, ∀ x, c.At anno C s0 
         refine SafeN.intro (n := k) (P := P) hna (fun y hst => ?_)
         obtain ⟨hpc, hcode, hB, hsl, hmem⟩ := hy y hst
         refine jump_sound h hkn' ih' hstp hok ?_ hpc
-        refine ⟨⟨fun r => hB r, fun p hp => ?_⟩, by rw [hcode, hx.code], fun a ha hnw => ?_,
-          fun p hp => ?_⟩
+        refine ⟨⟨fun r => hB r, fun p hp => ?_⟩, by rw [hcode, hx.code], fun a ha hnw hno => ?_,
+          Env.Inv_congr (fun a ha ho => hmem a (fun it hi hh =>
+            h.facts.not_own ha ((hit it hi).2 a hh) ho)) hx.inv, fun p hp => ?_⟩
         · simp only [List.mem_filter, List.all_eq_true] at hp
           rw [hsl] at hp
           rw [hmem _ (fun it hi => slot_clear_items h.facts (hx.slots p hp.1) (hall it hi)
             (hp.2 it hi))]
           exact hx.holds.2 p hp.1
         · rw [hmem a (fun it hi hh => hnw ((hit it hi).2 a hh))]
-          exact hx.mem a ha hnw
+          exact hx.mem a ha hnw hno
         · simp only [List.mem_filter] at hp
           rw [hsl] at hp
           exact hx.slots p hp.1
@@ -1489,7 +1530,7 @@ theorem Ctx.sound {c : Ctx} {anno : Array (Option AState)} {C : Word → Option 
   refine act hAct n (Nat.le_refl _) s ⟨0, A, ?_, hA, ?_⟩
   · simp [Fn.idx?, hpc, ← hbase, hne]
   · refine ⟨AState.holds_of_le h0 (holds_entryState hF.vals), hpre.1,
-      fun _ _ _ => rfl, fun p hp => ?_⟩
+      fun _ _ _ _ => rfl, hF.inv, fun p hp => ?_⟩
     simp only [AState.le, Bool.and_eq_true, List.all_eq_true, List.contains_iff_mem] at h0
     have := h0.2 p hp
     simp [Iface.entryState] at this

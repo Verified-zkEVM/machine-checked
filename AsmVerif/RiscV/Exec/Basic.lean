@@ -30,14 +30,39 @@ open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
 
 /-! ## The cut-point principle -/
 
+/-- A return that writes no owned static: the postcondition without the module invariant,
+    which follows (`Post.of_ret`). What a leaf function's proof establishes. -/
+def Ret (σ : Iface) (s t : MachineState) : Prop :=
+  σ.returns = true ∧ t.pc = s.getReg .x1 &&& ~~~1#64 ∧
+  (∀ r ∈ savedRegs, t.getReg r = s.getReg r) ∧
+  (∀ a, Aligned a → ¬ Written σ (regsOf s) a → t.getMem a = s.getMem a) ∧
+  t.code = s.code
+
+/-- A function that writes no owned key keeps the module invariant. -/
+theorem Post.of_ret {env : Env} {σ : Iface} {s t : MachineState}
+    (hown : ∀ a, Aligned a → env.InOwn a → ¬ Written σ (regsOf s) a) (hinv : env.Inv s.getMem)
+    (h : Ret σ s t) : Post env σ s t :=
+  ⟨h.1, h.2.1, h.2.2.1, fun a ha hnw _ => h.2.2.2.1 a ha hnw, h.2.2.2.2,
+    Env.Inv_congr (fun a ha ho => h.2.2.2.1 a ha (hown a ha ho)) hinv⟩
+
+/-- An interface with an empty window writes no owned key: its footprint avoids them. -/
+theorem Pre.own_not_written {env : Env} {C : Word → Option Instr} {σ : Iface}
+    {s : MachineState} (h0 : σ.depth = 0) (hpre : Pre env C σ s) :
+    ∀ a, Aligned a → env.InOwn a → ¬ Written σ (regsOf s) a := by
+  rintro a ha ho (hw | ⟨it, hit, hh⟩)
+  · rw [h0] at hw; simp [InWin, Hits] at hw
+  · exact (hpre.2.2.2.2.2.1 it hit a ha hh).2.2 ho
+
 /-- An interface holds at budget `n` if an invariant holds at the entry and every cut
-    state is safe given that every cut state is safe for smaller budgets. -/
+    state is safe given that every cut state is safe for smaller budgets. The function
+    writes no owned key (`hown`), so its returns keep the module invariant. -/
 theorem holdsN_of_inv {env : Env} {C : Word → Option Instr} {σ : Iface} {n : Nat}
     (Inv : MachineState → MachineState → Prop)
+    (hown : ∀ s0, Pre env C σ s0 → ∀ a, Aligned a → env.InOwn a → ¬ Written σ (regsOf s0) a)
     (hentry : ∀ s0, s0.pc = σ.entry → Pre env C σ s0 → Inv s0 s0)
     (hstep : ∀ (G : MachineState → Prop) s0 (P : Prop) k, s0.pc = σ.entry → Pre env C σ s0 →
       k ≤ n →
-      (∀ t, Post σ s0 t → SafeN G k P t) →
+      (∀ t, Ret σ s0 t → SafeN G k P t) →
       (∀ m < k, ∀ t, Inv s0 t → SafeN G m P t) →
       ∀ s, Inv s0 s → SafeN G k P s) :
     σ.HoldsN env C n := by
@@ -47,7 +72,8 @@ theorem holdsN_of_inv {env : Env} {C : Word → Option Instr} {σ : Iface} {n : 
     induction k using Nat.strongRecOn with
     | ind k ih =>
       intro hkn s hs
-      exact hstep G s0 P k hpc hpre hkn (fun t ht => SafeN.mono hkn (hk t ht))
+      exact hstep G s0 P k hpc hpre hkn
+        (fun t ht => SafeN.mono hkn (hk t (Post.of_ret (hown s0 hpre) hpre.2.2.2.2.2.2.2.2.2 ht)))
         (fun m hm t ht => ih m hm (by omega) t ht) s hs
   exact key n (Nat.le_refl n) s0 (hentry s0 hpc hpre)
 
@@ -253,7 +279,7 @@ end Frame
     applies. -/
 theorem safe_ret {σ : Iface} {C : Word → Option Instr} {s0 s : MachineState}
     {G : MachineState → Prop} {k : Nat} {P : Prop} (hσ : σ.returns = true) (h : Frame σ C s0 s)
-    (hf : s.code s.pc = some (.JALR .x0 .x1 0)) (hk : ∀ t, Post σ s0 t → SafeN G k P t) :
+    (hf : s.code s.pc = some (.JALR .x0 .x1 0)) (hk : ∀ t, Ret σ s0 t → SafeN G k P t) :
     SafeN G k P s := by
   refine safe_step (k := k) (P := P) hf (by decide) (by decide) (by intro c r h; cases h) ?_
   intro _

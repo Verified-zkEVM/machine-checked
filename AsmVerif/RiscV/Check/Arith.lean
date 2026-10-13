@@ -104,11 +104,49 @@ theorem not_prot_of_inWin {env : Env} (hwf : env.wf = true) (he : e.toNat ≤ en
     (hD : D ≤ e.toNat) {a : Word} (h : InWin e D a) : ¬ env.InProt a := by
   rintro ⟨⟨b, l⟩, hR, hh⟩
   simp only [Env.wf, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at hwf
-  have hR' := hwf.2 _ hR
-  have hst := hwf.1
+  have hR' := hwf.1.2 _ hR
+  have hst := hwf.1.1
   unfold InWin Hits at h
   unfold Hits at hh
   rcases h with h | ⟨_, h⟩ <;> rcases hh with hh | ⟨_, hh⟩ <;> bv_omega
+
+/-- Window keys are not owned either. -/
+theorem not_own_of_inWin {env : Env} (hwf : env.wf = true) (he : e.toNat ≤ env.stackTop)
+    (hD : D ≤ e.toNat) {a : Word} (h : InWin e D a) : ¬ env.InOwn a := by
+  rintro ⟨⟨b, l⟩, hR, hh⟩
+  simp only [Env.wf, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at hwf
+  have hR' := (hwf.2 _ hR).1
+  have hst := hwf.1.1
+  unfold InWin Hits at h
+  unfold Hits at hh
+  rcases h with h | ⟨_, h⟩ <;> rcases hh with hh | ⟨_, hh⟩ <;> bv_omega
+
+/-- No key is both protected and owned. -/
+theorem not_own_of_prot {env : Env} (hwf : env.wf = true) {a : Word} (hp : env.InProt a) :
+    ¬ env.InOwn a := by
+  obtain ⟨⟨b', l'⟩, hR', hh'⟩ := hp
+  rintro ⟨⟨b, l⟩, hR, hh⟩
+  simp only [Env.wf, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
+    Bool.or_eq_true] at hwf
+  have hown := hwf.2 _ hR
+  have hp1 := hwf.1.2 _ hR'
+  have hd := hown.2 _ hR'
+  have hb := hown.1
+  unfold Hits at hh hh'
+  have := a.isLt
+  rcases hd with hd | hd <;> rcases hh with hh | ⟨_, hh⟩ <;> rcases hh' with hh' | ⟨_, hh'⟩ <;>
+    bv_omega
+
+/-- The invariant sees only owned keys. -/
+theorem Env.Inv_congr {env : Env} {m m' : Word → Word}
+    (h : ∀ a, Aligned a → env.InOwn a → m' a = m a) (hi : env.Inv m) : env.Inv m' := by
+  have : env.ownPart m' = env.ownPart m := by
+    funext a
+    unfold Env.ownPart
+    split
+    · rename_i ha; exact h a ha.1 ha.2
+    · rfl
+  unfold Env.Inv; rw [this]; exact hi
 
 /-- A callee window `m` bytes down, `m + Dg ≤ D`, lies in the caller's, on aligned keys. -/
 theorem inWin_callee {m Dg : Nat} (hal : Aligned e) (hm8 : m % 8 = 0)

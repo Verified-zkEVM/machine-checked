@@ -32,15 +32,15 @@ theorem Pre.not_written_prot (hwf : env.wf = true) (h : Pre env C σ s) {a : Wor
     (ha : Aligned a) (hp : env.InProt a) : ¬ Written σ (regsOf s) a := by
   rintro (hw | ⟨it, hit, hh⟩)
   · exact not_prot_of_inWin hwf h.2.2.1 h.2.1 hw hp
-  · exact (h.2.2.2.2.2.1 it hit a ha hh).2 hp
+  · exact (h.2.2.2.2.2.1 it hit a ha hh).2.1 hp
 
 /-- **A verified call leaves protected memory as it found it.** -/
-theorem Post.keeps_prot (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : Post σ s t)
+theorem Post.keeps_prot (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : Post env σ s t)
     {a : Word} (ha : Aligned a) (hp : env.InProt a) : t.getMem a = s.getMem a :=
-  hpost.2.2.2.1 a ha (Pre.not_written_prot hwf hpre ha hp)
+  hpost.2.2.2.1 a ha (Pre.not_written_prot hwf hpre ha hp) (not_own_of_prot hwf hp)
 
 /-- Protected memory holds its load values at a verified call's return. -/
-theorem Post.prot_init (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : Post σ s t)
+theorem Post.prot_init (hwf : env.wf = true) (hpre : Pre env C σ s) (hpost : Post env σ s t)
     {a : Word} (ha : Aligned a) (hp : env.InProt a) : t.getMem a = env.init a := by
   rw [Post.keeps_prot hwf hpre hpost ha hp]
   exact hpre.2.2.2.2.1 a ha hp
@@ -62,7 +62,7 @@ theorem Image.state_regionOk (img : Image) (input : List (BitVec 8)) (R : Region
 /-- **C3, preserved:** a region the `Env` protects holds its load values at the return of
     every verified call, whatever the function. -/
 theorem Post.regionOk (hwf : env.wf = true) {R : Region} (hR : (R.base, R.len) ∈ env.prot)
-    (hpre : Pre env C σ s) (hpost : Post σ s t) : RegionOk R env.init t :=
+    (hpre : Pre env C σ s) (hpost : Post env σ s t) : RegionOk R env.init t :=
   fun _ ha hm => Post.prot_init hwf hpre hpost ha (Env.inProt_of_mem hR hm)
 
 /-- And at the entry of every verified call: the precondition says so. -/

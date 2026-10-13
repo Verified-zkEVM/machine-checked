@@ -184,12 +184,16 @@ theorem stores_not_prot {a : Word} (hp : Contract.env.InProt a) : stores.lookup 
     rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
   · intro h; rw [h] at hr; revert hr; decide
 
+/-- `Contract.env` owns no statics. -/
+theorem not_own {a : Word} : ¬ Contract.env.InOwn a := fun ⟨_, hR, _⟩ => by
+  simp [Contract.env] at hR
+
 /-! ## The `memset` call -/
 
 theorem memset_pre {s : MachineState} (hcode : s.code = C) (h2 : s.getReg .x2 = 0x77fffff0#64)
     (h10 : s.getReg .x10 = 0x78048858#64) (h12 : s.getReg .x12 = 0x49#64)
     (hmem : ∀ a, s.getMem a = initMem a) : Pre Contract.env C Memset.iface s := by
-  refine ⟨hcode, Nat.zero_le _, by rw [h2]; decide, by unfold Aligned; rw [h2]; decide, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hcode, Nat.zero_le _, by rw [h2]; decide, by unfold Aligned; rw [h2]; decide, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro a _ hp
     rw [hmem, initMem, stores_not_prot hp]
     rfl
@@ -197,7 +201,7 @@ theorem memset_pre {s : MachineState} (hcode : s.code = C) (h2 : s.getReg .x2 = 
     simp only [Memset.iface, List.mem_singleton] at hit
     subst hit
     simp only [Item.Hits, AVal.eval, Len.eval, regsOf, h10, h12] at hh
-    refine ⟨by simp [InWin, Hits, Memset.iface], fun hp => ?_⟩
+    refine ⟨by simp [InWin, Hits, Memset.iface], fun hp => ?_, not_own⟩
     have hr := prot_range hp
     have := a.isLt
     simp only [Hits] at hh
@@ -205,11 +209,12 @@ theorem memset_pre {s : MachineState} (hcode : s.code = C) (h2 : s.getReg .x2 = 
   · simp [Memset.iface]
   · simp [Memset.iface]
   · simp [Memset.iface]
+  · trivial
 
 theorem memset_post {s t : MachineState} (h10 : s.getReg .x10 = 0x78048858#64)
-    (h12 : s.getReg .x12 = 0x49#64) (hpost : Post Memset.iface s t) {a : Word} (ha : Aligned a)
+    (h12 : s.getReg .x12 = 0x49#64) (hpost : Post Contract.env Memset.iface s t) {a : Word} (ha : Aligned a)
     (hh : ¬ Hits 0x78048858#64 0x49 a) : t.getMem a = s.getMem a := by
-  refine hpost.2.2.2.1 a ha ?_
+  refine hpost.2.2.2.1 a ha ?_ not_own
   rintro (hw | ⟨it, hit, hh'⟩)
   · simp [InWin, Hits, Memset.iface] at hw
   · simp only [Memset.iface, List.mem_singleton] at hit
@@ -227,7 +232,7 @@ theorem after_memset {G : MachineState → Prop} (hG : ∀ x, G x → Contract.e
   apply Runtime.Memset.holds Contract.env n G hG P s hpc (memset_pre hcode h2 h10 h12 hmem)
   intro t ht
   have htpc : t.pc = 0x7801be98#64 := by rw [ht.2.1, h1]; decide
-  have htc : t.code = C := ht.2.2.2.2.trans hcode
+  have htc : t.code = C := ht.2.2.2.2.1.trans hcode
   have ht2 : t.getReg .x2 = 0x77fffff0#64 := (ht.2.2.1 .x2 (by simp [savedRegs])).trans h2
   have ht3 : t.getReg .x3 = 0x78000800#64 := (ht.2.2.1 .x3 (by simp [savedRegs])).trans h3
   rw [← setPC_self htpc]

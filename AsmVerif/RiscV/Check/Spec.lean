@@ -142,10 +142,23 @@ def InWin (e : Word) (D : Nat) (a : Word) : Prop := Hits (e - BitVec.ofNat 64 D)
 
 def Env.InProt (env : Env) (a : Word) : Prop := ∃ R ∈ env.prot, Hits R.1 R.2 a
 
-/-- The protected regions lie above the stack and do not wrap. -/
+def Env.InOwn (env : Env) (a : Word) : Prop := ∃ R ∈ env.own, Hits R.1 R.2 a
+
+open Classical in
+/-- The owned statics of a memory, everything else zero: all the invariant may look at. -/
+noncomputable def Env.ownPart (env : Env) (m : Word → Word) (a : Word) : Word :=
+  if Aligned a ∧ env.InOwn a then m a else 0
+
+/-- The module invariant holds of a memory: of its owned statics. -/
+def Env.Inv (env : Env) (m : Word → Word) : Prop := env.inv (env.ownPart m)
+
+/-- The protected and owned regions lie above the stack and do not wrap, and no owned
+    region comes within a doubleword of a protected one. -/
 def Env.wf (env : Env) : Bool :=
   decide (env.stackTop + 8 ≤ 2 ^ 63) &&
-  env.prot.all fun (b, l) => decide (env.stackTop + 8 ≤ b.toNat) && decide (b.toNat + l + 8 ≤ 2 ^ 64)
+  env.prot.all (fun (b, l) => decide (env.stackTop + 8 ≤ b.toNat) && decide (b.toNat + l + 8 ≤ 2 ^ 64)) &&
+  env.own.all (fun (b, l) => decide (env.stackTop + 8 ≤ b.toNat) && decide (b.toNat + l + 8 ≤ 2 ^ 64) &&
+    env.prot.all fun (b', l') => decide (b.toNat + l + 8 ≤ b'.toNat) || decide (b'.toNat + l' + 8 ≤ b.toNat))
 
 /-- What a function with interface `σ`, entered with registers `E`, may write. -/
 def Written (σ : Iface) (E : Ent) (a : Word) : Prop :=
@@ -167,19 +180,20 @@ def Pre (env : Env) (C : Word → Option Instr) (σ : Iface) (s : MachineState) 
   Aligned (s.getReg .x2) ∧
   (∀ a, Aligned a → env.InProt a → s.getMem a = env.init a) ∧
   (∀ it ∈ σ.foot, ∀ a, Aligned a → it.Hits (regsOf s) a →
-    ¬ InWin (s.getReg .x2) σ.depth a ∧ ¬ env.InProt a) ∧
+    ¬ InWin (s.getReg .x2) σ.depth a ∧ ¬ env.InProt a ∧ ¬ env.InOwn a) ∧
   (∀ v ∈ σ.nz, v.eval (regsOf s) ≠ 0) ∧
   (∀ p ∈ σ.vals, s.getReg p.1 ∈ p.2) ∧
   (∀ c ∈ σ.cells, Aligned (c.addr (regsOf s)) ∧ ¬ Written σ (regsOf s) (c.addr (regsOf s)) ∧
-    ∀ cs, c.vals = some cs → s.getMem (c.addr (regsOf s)) ∈ cs)
+    ¬ env.InOwn (c.addr (regsOf s)) ∧ ∀ cs, c.vals = some cs → s.getMem (c.addr (regsOf s)) ∈ cs) ∧
+  env.Inv s.getMem
 
 /-- The postcondition: it returns, to `ra`, with the callee-saved registers restored and
     memory unchanged outside what it may write. -/
-def Post (σ : Iface) (s t : MachineState) : Prop :=
+def Post (env : Env) (σ : Iface) (s t : MachineState) : Prop :=
   σ.returns = true ∧ t.pc = s.getReg .x1 &&& ~~~1#64 ∧
   (∀ r ∈ savedRegs, t.getReg r = s.getReg r) ∧
-  (∀ a, Aligned a → ¬ Written σ (regsOf s) a → t.getMem a = s.getMem a) ∧
-  t.code = s.code
+  (∀ a, Aligned a → ¬ Written σ (regsOf s) a → ¬ env.InOwn a → t.getMem a = s.getMem a) ∧
+  t.code = s.code ∧ env.Inv t.getMem
 
 /-- The control-flow premise at a state: a listed `jalr` lands on one of its candidates. -/
 def Env.Cfi (env : Env) (x : MachineState) : Prop :=
@@ -191,7 +205,7 @@ def Env.Cfi (env : Env) (x : MachineState) : Prop :=
 def Iface.HoldsN (env : Env) (C : Word → Option Instr) (σ : Iface) (n : Nat) : Prop :=
   ∀ (G : MachineState → Prop), (∀ x, G x → env.Cfi x) →
   ∀ (P : Prop) (s : MachineState), s.pc = σ.entry → Pre env C σ s →
-    (∀ t, Post σ s t → SafeN G n P t) → SafeN G n P s
+    (∀ t, Post env σ s t → SafeN G n P t) → SafeN G n P s
 
 def Iface.Holds (env : Env) (C : Word → Option Instr) (σ : Iface) : Prop :=
   ∀ n, σ.HoldsN env C n
@@ -201,7 +215,7 @@ def Iface.Holds (env : Env) (C : Word → Option Instr) (σ : Iface) : Prop :=
 theorem Iface.Holds.safe {env : Env} {C : Word → Option Instr} {σ : Iface}
     (h : σ.Holds env C) {G : MachineState → Prop} (hG : ∀ x, G x → env.Cfi x) {P : Prop}
     {s : MachineState} (hpc : s.pc = σ.entry)
-    (hpre : Pre env C σ s) (hk : ∀ t, Post σ s t → Safe G P t) : Safe G P s :=
+    (hpre : Pre env C σ s) (hk : ∀ t, Post env σ s t → Safe G P t) : Safe G P s :=
   fun n => h n G hG P s hpc hpre (fun t ht => hk t ht n)
 
 end AsmVerif.RiscV.Check

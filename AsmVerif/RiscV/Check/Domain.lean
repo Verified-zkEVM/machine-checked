@@ -93,6 +93,14 @@ structure Env where
   /-- The control-flow premise (`CfiOk`): at each listed `jalr`, the target is one of the
       candidates. A premise about runs, not a theorem; `SafeN` is relative to it. -/
   cfi : List (Word × List Word) := []
+  /-- Owned statics: byte ranges that functions change only through their own interfaces
+      (an allocator's state, a hasher). No footprint may name them; any call may change
+      them, keeping `inv`. -/
+  own : List (Word × Nat) := []
+  /-- The module invariant over the owned statics: every interface's precondition asks
+      for it and its postcondition gives it back. Only owned keys are visible to it
+      (`Env.Inv`). -/
+  inv : (Word → Word) → Prop := fun _ => True
 
 /-- An aligned doubleword key inside a protected region. -/
 def Env.protKey (env : Env) (a : Word) : Bool :=

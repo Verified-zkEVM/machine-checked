@@ -86,7 +86,7 @@ def Tl (s0 s : MachineState) : Prop :=
     s.getReg .x13 = s0.getReg .x10 + BitVec.ofNat 64 q ∧ s.getReg .x12 = BitVec.ofNat 64 m
 
 theorem bt {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) (h : Bt s0 s)
-    (hk : ∀ t, Post iface s0 t → SafeN G k P t)
+    (hk : ∀ t, Ret iface s0 t → SafeN G k P t)
     (IH : ∀ t, Frame iface C s0 t → Bt s0 t → SafeN G k P t) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, o, r, hr, hor, h13, h12⟩ := h
   have hcode := hF.code
@@ -112,7 +112,7 @@ theorem bt {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop
 
 
 theorem tl {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s) (h : Tl s0 s)
-    (hk : ∀ t, Post iface s0 t → SafeN G k P t)
+    (hk : ∀ t, Ret iface s0 t → SafeN G k P t)
     (IH : ∀ t, Frame iface C s0 t → Bt s0 t → SafeN G k P t) : SafeN G (k + 1) P s := by
   obtain ⟨hpc, q, m, hqm, hm64, h13, h12⟩ := h
   have hcode := hF.code
@@ -223,7 +223,7 @@ theorem head {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Pr
     · xregs; exact h12
 
 theorem entry {s0 : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop} (hF : Frame iface C s0 s0)
-    (hpc : s0.pc = 0x7803f57c#64) (hk : ∀ t, Post iface s0 t → SafeN G k P t)
+    (hpc : s0.pc = 0x7803f57c#64) (hk : ∀ t, Ret iface s0 t → SafeN G k P t)
     (IH : ∀ t, Frame iface C s0 t → (Head s0 t ∨ Mid s0 t ∨ Bt s0 t) → SafeN G k P t) :
     SafeN G (k + 1) P s0 := by
   have hcode := hF.code
@@ -284,14 +284,14 @@ def Inv (s0 s : MachineState) : Prop :=
     nothing. -/
 theorem holds (env : Env) : iface.Holds env C := by
   intro n
-  apply holdsN_of_inv Inv
+  apply holdsN_of_inv Inv (fun _ hpre => Pre.own_not_written rfl hpre)
   · intro s0 hpc hpre
     exact ⟨Frame.entry hpre.1, Or.inl ⟨rfl, hpc⟩⟩
   · intro G s0 P k _ _ _ hk IH s ⟨hF, hs⟩
     cases k with
     | zero => exact SafeN.zero
     | succ k =>
-      have hk' : ∀ t, Post iface s0 t → SafeN G k P t :=
+      have hk' : ∀ t, Ret iface s0 t → SafeN G k P t :=
         fun t ht => SafeN.mono (Nat.le_succ k) (hk t ht)
       have IH' : ∀ t, Inv s0 t → SafeN G k P t := fun t ht => IH k (Nat.lt_succ_self k) t ht
       rcases hs with ⟨rfl, hpc⟩ | h | h | h | h | h
