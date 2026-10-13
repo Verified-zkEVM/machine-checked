@@ -64,7 +64,12 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   constant `jalr` targets.
 - B2. The table, and the composition theorem: strong induction on the budget, recursion
   included.
-- B3. Indirect calls and tail calls with candidate lists and `CfiOk`.
+- B3. Indirect calls and tail calls with candidate lists and `CfiOk`. **Done.** The abstract
+  domain has value sets (`oneOf`); interfaces carry `vals` premises (a register's entry value
+  is one of a list) and `SafeN` carries a control-flow guard (`Env.Cfi`): at a listed `jalr`
+  the target is one of its candidates, a premise about runs, not a theorem. The checker takes
+  the candidates at an unresolved indirect jump/call on a listed site. Inference collects
+  call-site values and resolves them top-down.
 - B4. A generator that emits each function's certificate and its table entry. The kernel
   checks the image's derivable functions.
 
@@ -76,7 +81,18 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   load values. `StaticsOk` holds at `main`'s entry and is preserved by the specifications
   that keep it.
 - C4. Constant loads from `.rodata` and indirect-call targets resolved from them. Where
-  this resolves a candidate list, it turns `CfiOk` into a theorem.
+  this resolves a candidate list, it turns `CfiOk` into a theorem. **Done.** Loads through a
+  protected address or a set of them yield the initial contents; interfaces carry `cells`
+  (an entry doubleword, reached by a path of loads, that the activation relies on staying
+  put, optionally one of a candidate set — a vtable held in a struct). Callers instantiate a
+  callee's paths through their frame slots and their own cells and discharge the premises.
+  The fmt dispatch resolves through `Formatter.buf` this way.
+
+  Remaining uncovered functions (coverage holds at 70 of 304) are the fmt/panic internals
+  whose blockers are genuinely program-logic: digit buffers indexed in the frame by a small
+  dynamic offset, writes into a heap buffer at `base + len`, and `dyn` calls through a value
+  pointer. These belong with the heap and the per-caller reasoning, below the line this
+  goal stops at.
 
 **D. The SP1 runtime**
 - D0. Port zip-2005's symbolic executor to step-indexed `SafeN` and make it generic.
