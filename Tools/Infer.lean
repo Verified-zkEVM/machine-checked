@@ -1307,7 +1307,7 @@ def main (args : List String) : IO UInt32 := do
       let some (_, f) := fns.find? (·.2.base.toNat == a) | continue
       IO.println s!"trace {hex a 8}: status {(res.find? (·.sym.addr == a)).map fun r => match r.status with | .ok _ => "ok" | .error e => e}"
       let p := prem.getD f.base {}
-      IO.println s!"  vals {p.vals.map fun (r, cs) => (regIdx r, cs.length)} cvals {p.cvals.map fmtCell}"
+      IO.println s!"  vals {p.vals.map fun (r, cs) => (regIdx r, cs.map fun (c : Word) => hex c.toNat 8)} cvals {p.cvals.map fmtCell}"
       match (ctxOf f).analyze with
       | .ok (_, need) =>
         IO.println s!"  wants {need.wants.map fmtCell} wantRegs {need.wantRegs.map regIdx} sites-out {need.sites.map (hex ·.tgt.toNat 8)}"

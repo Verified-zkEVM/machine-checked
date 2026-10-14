@@ -339,6 +339,13 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   never accepts": `panic_with_hook` and the default allocation-error hook (stated at
   `rust_oom`, `0x7803b100`, or at `handle_alloc_error`). The second needs no heap reasoning
   (the stderr adapter is the unit kind E2 already plans) and may be the smaller proof.
+  **Finding (2026-10-14): a third.** `hfmt`, the contract that `alloc::fmt::format_inner`
+  (`0x7803d1cc`) returns a well-formed heap `String`, is used on the parser's error paths
+  (12 files) and by `empty_input_stream_halt`. Proving it is `core::fmt::write` into a heap
+  `String`, the same problem as `panic_with_hook`. So M1's premises are three, all phase E:
+  `panic_with_hook` never accepts, the default allocation-error hook never accepts, and
+  `format_inner` returns a `String`. A `fmt::write` specification generic in its writer is
+  the common root they would all follow from.
 - F4. The end theorem: from `Layout.image.state I`, an accepting run gives
   `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
   satisfiability witness.
