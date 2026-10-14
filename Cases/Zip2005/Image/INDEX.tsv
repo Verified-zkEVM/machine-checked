@@ -24,6 +24,7 @@ F_7801aef0	7801aef0	52	_RNvNtCs7hWk6dfU847_11panic_abort4zkvm22zkvm_set_abort_me
 F_7801afc0	7801afc0	252	syscall_halt
 F_7801b3b0	7801b3b0	74	syscall_write
 F_7801b4d8	7801b4d8	510	memcpy
+F_7801bcd0	7801bcd0	7	_start
 F_7801bcec	7801bcec	7	_RNvCsgG40wm8spDe_7___rustc12___rust_alloc
 F_7801bd08	7801bd08	12	_RNvCsgG40wm8spDe_7___rustc14___rust_dealloc
 F_7801bd38	7801bd38	45	_RNvCsgG40wm8spDe_7___rustc14___rust_realloc

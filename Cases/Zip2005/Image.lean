@@ -610,3 +610,5 @@ import
 Cases.Zip2005.Image.F_7803f54c
 import
 Cases.Zip2005.Image.F_7803f57c
+import Cases.Zip2005.Image.Layout
+import Cases.Zip2005.Image.Ro

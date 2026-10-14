@@ -194,4 +194,9 @@ def prog : List (Option Instr) := [
   some (RiscvZkvm.Rv64.Instr.BNE (RiscvZkvm.Rv64.Reg.x11) (RiscvZkvm.Rv64.Reg.x0) 0x1f90#13),
   some (RiscvZkvm.Rv64.Instr.JAL (RiscvZkvm.Rv64.Reg.x0) 0x1fff9c#21)]
 
+theorem decode_ok : AsmVerif.RiscV.decodeWords words = prog := by decide +kernel
+
+theorem prog_packed : prog = AsmVerif.RiscV.decodeWords (AsmVerif.RiscV.unpackWords packed len) := by
+  decide +kernel
+
 end Cases.Zip2005.Image.F_7803aa98

@@ -34,17 +34,31 @@ def parseHex? (s : String) : Option Nat :=
 def parseNm (txt : String) : List Sym := Id.run do
   let mut seen : Std.HashSet Nat := {}
   let mut out : Array Sym := #[]
+  -- global text symbols without a size (`_start`, hand-written assembly): they extend to
+  -- the next text symbol
+  let mut unsized : Array (Nat × String) := #[]
+  let mut starts : Array Nat := #[]
   for line in txt.splitOn "\n" do
     match line.splitOn " " |>.filter (· ≠ "") with
     | [a, s, k, n] =>
       if (k == "t" || k == "T") && !n.startsWith ".L" then
         match parseHex? a, parseHex? s with
         | some addr, some size =>
+          starts := starts.push addr
           if size > 0 && !seen.contains addr then
             seen := seen.insert addr
             out := out.push { addr, size, name := n }
+          else if size == 0 && k == "T" then
+            unsized := unsized.push (addr, n)
         | _, _ => pure ()
     | _ => pure ()
+  for (addr, n) in unsized do
+    if seen.contains addr then continue
+    let nexts := starts.filter (· > addr)
+    let some next := nexts.foldl (fun acc a => match acc with | none => some a | some b => some (min a b)) none
+      | continue
+    seen := seen.insert addr
+    out := out.push { addr, size := next - addr, name := n }
   return out.toList.mergeSort (·.addr ≤ ·.addr)
 
 /-- The `n` little-endian 32-bit words at virtual address `addr`, from the segment holding them. -/

@@ -29,4 +29,17 @@ def wordOfPacked (n i : Nat) : BitVec 32 :=
 def unpackWords (n len : Nat) : List (BitVec 32) :=
   (List.range len).map (wordOfPacked n)
 
+/-- **Constant-time fetch.** Word `i` of the decoding of a packed run is the decoding of
+    word `i`, which the kernel computes by one shift of the packed `Nat`. A generated module
+    states `prog = decodeWords (unpackWords packed len)` once (`prog_packed`), and the
+    symbolic executor fetches instruction `i` through this lemma instead of walking the
+    literal `prog`. -/
+theorem getElem!_decodeWords_unpack {n len i : Nat} (hi : i < len) {ins : Option Instr}
+    (h : RiscvZkvm.Interpreter.decode (wordOfPacked n i) = ins) :
+    (decodeWords (unpackWords n len))[i]! = ins := by
+  subst h
+  simp only [decodeWords, unpackWords, List.map_map]
+  rw [getElem!_pos _ _ (by simpa using hi)]
+  simp
+
 end AsmVerif.RiscV

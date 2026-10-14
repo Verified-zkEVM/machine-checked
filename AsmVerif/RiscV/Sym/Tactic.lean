@@ -45,6 +45,7 @@
 -/
 
 import Lean
+import AsmVerif.RiscV.Image
 import AsmVerif.RiscV.Sym.Regs
 import AsmVerif.RiscV.Sym.Ro
 import AsmVerif.RiscV.Sym.ByteFold
@@ -1550,16 +1551,33 @@ def fetch (st : St) (pc : Nat) : MetaM Fetched := do
         hiLit (mkApp4 (mkConst ``Eq.symm [1]) natTy lenE (mkNatLit c.prog.size) c.hlen)
       let getBang ← mkAppM ``GetElem?.getElem! #[c.progExpr, mkNatLit i]
       let someIns := mkApp2 (mkConst ``Option.some [0]) (mkConst ``Instr) ins
-      -- `prog[i]! = some ins`: a generated per-index lemma when the program module has one
-      -- (`f_XProg_i`), since the kernel's evaluation of `prog[i]!` walks `i` cells per step;
-      -- otherwise by `rfl`
+      -- `prog[i]! = some ins`: through the module's packed form when it has one
+      -- (`prog_packed : prog = decodeWords (unpackWords packed len)`, from `gen-image`), so
+      -- that the kernel does one shift of `packed` rather than walk `i` cells of the literal
+      -- at every step; otherwise by `rfl`
       let hprog ← do
-        let fromLemma? : Option Expr ← do
+        let packed? : Option Expr ← do
           let .const pn ls := c.progExpr | pure none
-          let ln := Name.str pn.getPrefix (pn.getString! ++ s!"_{i}")
+          let ln := Name.str pn.getPrefix "prog_packed"
           if (← getEnv).contains ln then pure (some (mkConst ln ls)) else pure none
-        match fromLemma? with
-        | some h => pure h
+        match packed? with
+        | some hpk =>
+          -- hpk : prog = decodeWords (unpackWords packed len)
+          let some (_, _, rhs) := (← inferType hpk).eq? | throwError "sym_exec: prog_packed shape"
+          let unpackE := rhs.appArg!
+          let nE := unpackE.appFn!.appArg!
+          let lenE := unpackE.appArg!
+          let hi ← mkDecideProof (natLtE (mkNatLit i) lenE)
+          let wordE := mkApp2 (mkConst ``AsmVerif.RiscV.wordOfPacked) nE (mkNatLit i)
+          let decE := mkApp (mkConst ``RiscvZkvm.Interpreter.decode) wordE
+          let hdec ← rflOf (mkApp3 (mkConst ``Eq [1]) optInstr decE someIns) someIns
+          let hget ← mkAppM ``AsmVerif.RiscV.getElem!_decodeWords_unpack #[hi, hdec]
+          -- prog[i]! = some ins, by rewriting `prog` with `hpk`
+          let motive := mkLambda `p .default (mkApp (mkConst ``List [0]) optInstr)
+            (mkApp3 (mkConst ``Eq [1]) optInstr (mkApp2 (mkConst ``GetElem?.getElem! [0, 0, 0]) (mkBVar 0) (mkNatLit i)) someIns)
+          let _ := motive
+          mkAppM ``Eq.mpr #[← mkAppM ``congrArg #[← withLocalDeclD `p (mkApp (mkConst ``List [0]) optInstr) fun p => do
+              mkLambdaFVars #[p] (← mkAppM ``GetElem?.getElem! #[p, mkNatLit i]), hpk], hget]
         | none => rflOf (mkApp3 (mkConst ``Eq [1]) optInstr getBang someIns) someIns
       let pcTarget ← mkAdd (mkWordLit c.base) (mkApp2 (mkConst ``BitVec.ofNat) (mkNatLit 64)
         (← mkMulN (mkNatLit 4) (mkNatLit i)))
