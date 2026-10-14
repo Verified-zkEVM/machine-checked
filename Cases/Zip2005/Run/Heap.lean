@@ -25,7 +25,7 @@ import Cases.Zip2005.Runtime.Tlsf.Init
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Runtime
+open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym AsmVerif.RiscV.Check Cases.Zip2005 Cases.Zip2005.Runtime
 
 /-- `INNER_HEAP`, the allocator's control block. -/
 abbrev HEAP : Word := 0x78040620#64
@@ -40,9 +40,14 @@ def TOP : Nat := 0x1c00000000
 def sentinel : Tlsf.Blk := ⟨0x1bffffffe0#64, 0x20#64, true, true⟩
 
 /-- The open ranges: below the control block; the hasher's state and buffer, between its tag
-    and its position; the statics after the hasher, up to the arena; above the arena. -/
+    and its position; the statics after the hasher up to the arena, but for the two hooks
+    (`std::alloc::HOOK` at `0x78048920`, the panic hook at `0x78048948`); above the arena. -/
 def ranges : List (Nat × Nat) :=
-  [(0, 0x78040620), (0x78048838, 0x780488a0), (0x780488a8, 0x78048980), (0x1c00000000, 2 ^ 64)]
+  [(0, 0x78040620), (0x78048838, 0x780488a0), (0x780488a8, 0x78048920), (0x78048928, 0x78048948),
+    (0x78048960, 0x78048980), (0x1c00000000, 2 ^ 64)]
+
+/-- The hooks' doublewords: the checker's protected statics (`Contract.env.prot`). -/
+def hookKeys : List Word := [0x78048920#64, 0x78048948#64, 0x78048950#64, 0x78048958#64]
 
 /-- A live buffer: null (and small), or the payload of a used block from its start. -/
 def LiveOk (bs : List Tlsf.Blk) (r : Word × Nat) : Prop :=
@@ -50,10 +55,14 @@ def LiveOk (bs : List Tlsf.Blk) (r : Word × Nat) : Prop :=
   ∃ b ∈ bs, b.used = true ∧ b.last = false ∧ b.a + 16#64 = r.1 ∧
     r.1.toNat + 8 * r.2 ≤ b.a.toNat + b.sz.toNat
 
-/-- The invariant, of a memory: the hasher's, and the heap well formed with its sentinel and the
-    live buffers. -/
+/-- No two live buffers but null ones share a pointer: each names its own block. -/
+def Distinct (L : List (Word × Nat)) : Prop := L.Pairwise fun a b => a.1 = 0#64 ∨ a.1 ≠ b.1
+
+/-- The invariant, of a memory: the hooks unset (at their load values), the hasher's, and the
+    heap well formed with its sentinel and the live buffers, each its own block's. -/
 def Q (L : List (Word × Nat)) (m : Word → Word) : Prop :=
-  Owned.HasherOk m ∧ ∃ bs Lf, Tlsf.Rep HEAP BASE m bs Lf ∧ sentinel ∈ bs ∧ ∀ r ∈ L, LiveOk bs r
+  (∀ k ∈ hookKeys, m k = Contract.env.init k) ∧ Owned.HasherOk m ∧ Distinct L ∧
+    ∃ bs Lf, Tlsf.Rep HEAP BASE m bs Lf ∧ sentinel ∈ bs ∧ ∀ r ∈ L, LiveOk bs r
 
 /-- **The run's invariant**, as the executor carries it. -/
 abbrev HeapAt (L : List (Word × Nat)) (s : MachineState) : Prop := Carry ranges Q L s
@@ -125,7 +134,7 @@ theorem not_open_lo {L : List (Word × Nat)} {m : Word → Word} {bs : List Tlsf
     ¬ Open ranges L a := by
   rintro (⟨r, hr, hr1, hr2⟩ | ⟨r, hr, hin⟩)
   · simp only [ranges, List.mem_cons, List.mem_nil_iff, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> simp at hr1 hr2 <;> omega
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> simp at hr1 hr2 <;> omega
   · rcases live_range h (hL r hr) hin with h3 | ⟨c, hc, _, h3, _⟩
     · omega
     · have := base_le h hc; omega
@@ -155,7 +164,7 @@ theorem not_open_key {L : List (Word × Nat)} {m : Word → Word} {bs : List Tls
     rintro (⟨r, hr, hr1, hr2⟩ | ⟨r, hr, hin⟩)
     · simp only [ranges, List.mem_cons, List.mem_nil_iff, or_false] at hr
       simp only [TOP] at hend
-      rcases hr with rfl | rfl | rfl | rfl <;> simp at hr1 hr2 <;> omega
+      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> simp at hr1 hr2 <;> omega
     · rcases live_range h (hL r hr) hin with h3 | ⟨c, hc, hcu, h3, h4⟩
       · omega
       · by_cases hbc : b = c
@@ -166,22 +175,34 @@ theorem not_open_key {L : List (Word × Nat)} {m : Word → Word} {bs : List Tls
           · omega
         · rcases hsh.disj hb hc hbc with h5 | h5 <;> omega
 
+/-- A closed doubleword of the statics: between the control block and the arena, outside every
+    open range there. -/
+theorem not_open_static {L : List (Word × Nat)} {m : Word → Word} {bs : List Tlsf.Blk}
+    {Lf : Word → Word → List Word} (h : Tlsf.Rep HEAP BASE m bs Lf) (hL : ∀ r ∈ L, LiveOk bs r)
+    {a : Word} (h1 : 0x78040620 ≤ a.toNat) (h2 : a.toNat < 0x78048980)
+    (h3 : ∀ r ∈ ranges, ¬ (r.1 ≤ a.toNat ∧ a.toNat < r.2)) : ¬ Open ranges L a := by
+  rintro (⟨r, hr, hr1, hr2⟩ | ⟨r, hr, hin⟩)
+  · exact h3 r hr ⟨hr1, hr2⟩
+  · rcases live_range h (hL r hr) hin with h4 | ⟨c, hc, _, h4, _⟩
+    · omega
+    · have := base_le h hc; omega
+
 /-- **The frame**: the invariant reads closed memory only. -/
 theorem q_frame {L : List (Word × Nat)} {m m' : Word → Word} (h : Q L m)
     (hm : ∀ a, ¬ Open ranges L a → m' a = m a) : Q L m' := by
-  obtain ⟨⟨ht, hp⟩, bs, Lf, hrep, hs, hL⟩ := h
+  obtain ⟨hhk, ⟨ht, hp⟩, hD, bs, Lf, hrep, hs, hL⟩ := h
   have hcl : ∀ a, 0x78040620 ≤ a.toNat → a.toNat < 0x78048838 → m' a = m a :=
     fun a h1 h2 => hm a (not_open_lo hrep hL h1 h2)
-  refine ⟨⟨?_, ?_⟩, bs, Lf, ?_, hs, hL⟩
+  have hst : ∀ a, 0x78040620 ≤ a.toNat → a.toNat < 0x78048980 →
+      (∀ r ∈ ranges, ¬ (r.1 ≤ a.toNat ∧ a.toNat < r.2)) → m' a = m a :=
+    fun a h1 h2 h3 => hm a (not_open_static hrep hL h1 h2 h3)
+  refine ⟨fun k hk => ?_, ⟨?_, ?_⟩, hD, bs, Lf, ?_, hs, hL⟩
+  · simp only [hookKeys, List.mem_cons, List.mem_nil_iff, or_false] at hk
+    rw [← hhk k (by simp [hookKeys, hk])]
+    rcases hk with rfl | rfl | rfl | rfl <;>
+      exact hst _ (by decide) (by decide) (by simp [ranges])
   · rw [Owned.tagKey, hcl _ (by decide) (by decide)]; exact ht
-  · have : ¬ Open ranges L Owned.posKey := by
-      rintro (⟨r, hr, hr1, hr2⟩ | ⟨r, hr, hin⟩)
-      · simp only [ranges, List.mem_cons, List.mem_nil_iff, or_false] at hr
-        rcases hr with rfl | rfl | rfl | rfl <;> simp [Owned.posKey] at hr1 hr2
-      · rcases live_range hrep (hL r hr) hin with h3 | ⟨c, hc, _, h3, _⟩
-        · simp [Owned.posKey] at h3
-        · have := base_le hrep hc; simp [Owned.posKey] at h3; omega
-    rw [hm _ this]; exact hp
+  · rw [Owned.posKey, hst _ (by decide) (by decide) (by simp [ranges])]; exact hp
   · obtain ⟨hl, hsh⟩ := Tlsf.rep_iff.mp hrep
     refine Tlsf.rep_iff.mpr ⟨?_, hsh.congr fun a ha => hm a (not_open_key hrep hs hL ha)⟩
     rw [hcl _ (by decide) (by decide)]; exact hl
@@ -192,14 +213,21 @@ theorem heapAt_of {L : List (Word × Nat)} {s : MachineState} (h : Q L s.getMem)
 
 /-- A shorter live list. -/
 theorem HeapAt.sub {L L' : List (Word × Nat)} {s : MachineState} (h : HeapAt L s)
-    (hsub : ∀ r ∈ L', r ∈ L) : HeapAt L' s := by
-  obtain ⟨hh, bs, Lf, hr, hs, hL⟩ := h.holds
-  exact heapAt_of ⟨hh, bs, Lf, hr, hs, fun r hr => hL r (hsub r hr)⟩
+    (hsub : L'.Sublist L) : HeapAt L' s := by
+  obtain ⟨hk, hh, hD, bs, Lf, hr, hs, hL⟩ := h.holds
+  exact heapAt_of ⟨hk, hh, hD.sublist hsub, bs, Lf, hr, hs, fun r hr => hL r (hsub.subset hr)⟩
 
 /-- At `main`'s entry: the hasher set up, the heap one free block, nothing live. -/
 theorem mainEntry_heapAt {input : List (BitVec 8)} {t : MachineState}
     (h : Entry.MainEntry input t) : HeapAt [] t :=
-  heapAt_of ⟨Owned.inv_iff.mp (Owned.mainEntry_inv h), Tlsf.bs0, Tlsf.L0,
+  heapAt_of ⟨fun k hk => by
+      simp only [hookKeys, List.mem_cons, List.mem_nil_iff, or_false] at hk
+      rcases hk with rfl | rfl | rfl | rfl
+      · exact h.prot (Env.inProt_of_mem Statics.allocHook_prot (by simp [Region.Mem, Region.hi, Statics.allocHook]))
+      · exact h.prot (Env.inProt_of_mem Statics.panicHook_prot (by simp [Region.Mem, Region.hi, Statics.panicHook]))
+      · exact h.prot (Env.inProt_of_mem Statics.panicHook_prot (by simp [Region.Mem, Region.hi, Statics.panicHook]))
+      · exact h.prot (Env.inProt_of_mem Statics.panicHook_prot (by simp [Region.Mem, Region.hi, Statics.panicHook])),
+    Owned.inv_iff.mp (Owned.mainEntry_inv h), List.Pairwise.nil, Tlsf.bs0, Tlsf.L0,
     Tlsf.rep_init h.2.2.2.2.2.1, by simp [Tlsf.bs0, sentinel], by simp⟩
 
 end Cases.Zip2005.Run

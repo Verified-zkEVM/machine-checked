@@ -103,7 +103,7 @@ theorem entrySeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 : MachineS
   have hn : ∀ c : Word, 2 ^ 64 - 0x30 ≤ c.toNat → ∀ a, ¬ InFrame (s0.getReg .x2) a →
       a ≠ s0.getReg .x2 + c := fun c hc a ha e => slot_ne ha hsp hc e.symm
   refine ⟨hcode, by simp [hcode], by xregs, by xregs, by xregs, by xregs,
-    fun r hr => ?_, ?_, ?_, ?_, ?_, ?_, fun a ha => ?_⟩
+    fun r hr => ?_, ?_, ?_, ?_, ?_, ?_, fun a ha => ?_, by simp⟩
   · simp only [untouched, List.mem_cons, List.mem_nil_iff, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> xregs
   all_goals simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,

@@ -61,6 +61,7 @@ structure St (s0 : MachineState) (M : Word → Word) (y : MachineState) : Prop w
   fs2 : y.getMem (s0.getReg .x2 + 0xffffffffffffffe0#64) = s0.getReg .x18
   fs3 : y.getMem (s0.getReg .x2 + 0xffffffffffffffd8#64) = s0.getReg .x19
   mem : ∀ a, ¬ InFrame (s0.getReg .x2) a → y.getMem a = M a
+  priv : y.privateInput = s0.privateInput
 
 /-- What the caller gets back: `ret` to `ra`, the callee-saved registers and the code as they
     were, and memory off the frame `M'`, with the result in `a0`. -/
@@ -70,6 +71,7 @@ structure Out (s0 : MachineState) (M' : Word → Word) (r : Word) (t : MachineSt
   code : t.code = s0.code
   mem : ∀ a, ¬ InFrame (s0.getReg .x2) a → t.getMem a = M' a
   res : t.getReg .x10 = r
+  priv : t.privateInput = s0.privateInput
 
 /-- Fold literal offsets on a symbolic base. -/
 macro "xa" : tactic => `(tactic| (
@@ -127,7 +129,8 @@ theorem exit {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSta
   simp only [MachineState.getMem_setReg, getMem_setMem, n1, n2, n3,
     n4, n5, if_false, hs.fra, hs.fs0, hs.fs1, hs.fs2, hs.fs3]
   apply hk
-  refine ⟨by simp, fun q hq => ?_, by simpa using hs.code.trans hs.code0.symm, fun a ha => ?_, ?_⟩
+  refine ⟨by simp, fun q hq => ?_, by simpa using hs.code.trans hs.code0.symm, fun a ha => ?_, ?_,
+    by simp [hs.priv]⟩
   · simp only [savedRegs, List.mem_cons, List.mem_nil_iff, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
       rfl | rfl <;> xregs <;> first | rfl | (rw [hs.sp]; bv_omega) |
@@ -145,13 +148,13 @@ variable {s0 y : MachineState} {M : Word → Word}
 theorem setPC (h : St s0 M y) (v : Word) : St s0 M (y.setPC v) :=
   ⟨h.code0, by simp [h.code], by simp [h.sp], by simp [h.self], by simp [h.align], by simp [h.size],
     fun r hr => by simp [h.regs r hr], by simp [h.fra], by simp [h.fs0], by simp [h.fs1],
-    by simp [h.fs2], by simp [h.fs3], fun a ha => by simp [h.mem a ha]⟩
+    by simp [h.fs2], by simp [h.fs3], fun a ha => by simp [h.mem a ha], by simp [h.priv]⟩
 
 theorem setReg (h : St s0 M y) {r : Reg} (hr : r ∉ untouched) (h2 : r ≠ .x2) (h8 : r ≠ .x8)
     (h9 : r ≠ .x9) (h18 : r ≠ .x18) (v : Word) : St s0 M (y.setReg r v) := by
   refine ⟨h.code0, by simp [h.code], ?_, ?_, ?_, ?_, fun r' hr' => ?_, by simp [h.fra],
     by simp [h.fs0], by simp [h.fs1], by simp [h.fs2], by simp [h.fs3],
-    fun a ha => by simp [h.mem a ha]⟩
+    fun a ha => by simp [h.mem a ha], by simp [h.priv]⟩
   · rw [MachineState.getReg_setReg_ne _ _ _ _ h2]; exact h.sp
   · rw [MachineState.getReg_setReg_ne _ _ _ _ h8]; exact h.self
   · rw [MachineState.getReg_setReg_ne _ _ _ _ h9]; exact h.align
@@ -166,7 +169,7 @@ theorem setMem (h : St s0 M y) {k : Word} (hk : ¬ InFrame (s0.getReg .x2) k)
     fun c hc => slot_ne hk hsp hc
   refine ⟨h.code0, by simp [h.code], by simp [getReg_setMem, h.sp], by simp [getReg_setMem, h.self],
     by simp [getReg_setMem, h.align], by simp [getReg_setMem, h.size],
-    fun r hr => by simp [getReg_setMem, h.regs r hr], ?_, ?_, ?_, ?_, ?_, fun a ha => ?_⟩
+    fun r hr => by simp [getReg_setMem, h.regs r hr], ?_, ?_, ?_, ?_, ?_, fun a ha => ?_, ?_⟩
   · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fra
   · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs0
   · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs1
@@ -176,6 +179,7 @@ theorem setMem (h : St s0 M y) {k : Word} (hk : ¬ InFrame (s0.getReg .x2) k)
     by_cases e : a = k
     · rw [if_pos e, e, Tlsf.upd_same]
     · rw [if_neg e, Tlsf.upd_ne e]; exact h.mem a ha
+  · simp [h.priv]
 
 end St
 
