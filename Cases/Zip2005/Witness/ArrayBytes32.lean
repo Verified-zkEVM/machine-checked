@@ -12,7 +12,7 @@ namespace Cases.Zip2005
 
 open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
-theorem array_bytes32_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem array_bytes32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O WW : List Word) (hOl : O.length = 129) (hWl : WW.length = 129)
     (hpc : s.pc = 0x78016938#64) (hcode : CodeAt F_78016938.base F_78016938.prog s)
     (hcodeE : CodeAt F_78019a10.base F_78019a10.prog s)
@@ -33,16 +33,16 @@ theorem array_bytes32_spec {P : Prop} (s : MachineState) (ra sp out de q l : Wor
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x900#64, 288), (out, 129), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (tagBytesW O WW 5 128) t → Region de [q + 1029#64, l - 1024#64] t →
-      1024 ≤ l.toNat → Safe P t)
+      1024 ≤ l.toNat → SafeN G n P t)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x900#64, 288), (out, 129), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (replaceByte O[0]! 0 1#8 :: e :: O.drop 2) t → Region de [d0, d1] t →
-      l.toNat < 1024 → Safe P t) :
-    Safe P s := by
+      l.toNat < 1024 → SafeN G n P t) :
+    SafeN G n P s := by
   rcases Nat.lt_or_ge l.toNat 1024 with hl | hl
   · exact array_bytes32_err_spec s ra sp out de q l O WW hOl hWl hpc hcode hcodeE hcodeA hcodeN hcodeM hcw hra hra1 hsp hstk ha0 ha1 ha2 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hl hio
       (fun t e d0 d1 h1 h2 h3 h4 h5 h6 => hkE t e d0 d1 h1 h2 h3 h4 h5 h6 hl)

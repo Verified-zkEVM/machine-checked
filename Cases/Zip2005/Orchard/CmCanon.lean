@@ -59,14 +59,14 @@ theorem cmSel_Z_lt (Q R B k : List Word) :
 
 /-- `note_commitment_derive_spec` with the output's cells named: the model equation, the flag
 cell and the `Z` limbs below `p` as separate facts, for a caller whose next callee needs them. -/
-theorem note_commitment_derive_spec' {P : Prop} (s : MachineState)
+theorem note_commitment_derive_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     (ra sp out gd pkd v rho psi rcm : Word)
     (g0 g1 g2 g3 p0 p1 p2 p3 r0 r1 r2 r3 q0 q1 q2 q3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 13) (hJl : J.length = 15)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n P u)
+    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801fbcc#64) (hcode : CodeAt F_7801fbcc.base F_7801fbcc.prog s)
     -- callees: cached_commit_domain (+ from_raw, from_xy, is_on_curve, mulmod, black_box,
     -- to_curve), to_le_bits (+ to_repr), commit and its callees, memset, conditional_select
@@ -137,7 +137,7 @@ theorem note_commitment_derive_spec' {P : Prop} (s : MachineState)
         (∀ o, o < 1090 → byteAt Bv o = bw (noteBit [g0, g1, g2, g3] [p0, p1, p2, p3] v
           (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]) o)) →
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 137 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     -- `__rust_dealloc` of that `Vec` (ledger T2)
     (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 137 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780210f0#64 →
@@ -145,7 +145,7 @@ theorem note_commitment_derive_spec' {P : Prop} (s : MachineState)
       u.getReg .x12 = 1#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 137 ≤ 0x1c00000000 →
       (∀ t, t.pc = 0x780210f0#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe P t) → Safe P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ (t : MachineState) (c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 cf : Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code →
       Unchanged [(sp - 0xb50#64, 362), (out, 13), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
@@ -153,8 +153,8 @@ theorem note_commitment_derive_spec' {P : Prop} (s : MachineState)
       cf = replaceByte O[12]! 0 (commitFlag qNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3])) →
       leLimbsToNat [c8, c9, c10, c11] < Fp.p →
       Region out [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11] t → Region (out + 0x60#64) [cf] t →
-      mulFacts rNoteW [k0, k1, k2, k3] → Safe P t) :
-    Safe P s :=
+      mulFacts rNoteW [k0, k1, k2, k3] → SafeN G n P t) :
+    SafeN G n P s :=
   note_commitment_derive_spec s ra sp out gd pkd v rho psi rcm g0 g1 g2 g3 p0 p1 p2 p3 r0 r1 r2 r3 q0 q1 q2 q3 k0 k1 k2 k3 O J hOl hJl hpaf hpanic hunwrap hbounds hpc hcode hcodeCD hcodeLB hcodeCm hcodeC hcodeTA hcodeI hcodeM hcodeBB hcodeCo hcodeP hcodeRp hcodeL hcodeIA hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeU hcodeR hcodeXY hcodeOC hcodeFR hcodeTC hcodeF hcodeBt hcodeS hcodeCS hcodeB hcodeW hcodeMul hcodeRq hcodeA hcodeDbl hcodeD hcodeAF hcodeAFI hcodeEA hcodeED hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 ha4 ha5 ha6 hG hokG hP hokP hR hokR hS hokS hK hokK hO hokO hJ hd0 hd1 hd2 hd3 hd4 hd5 he0 he1 he2 he3 he4 hh0 hh1 hfrom hdealloc (fun t h1 h2 h3 h4 hR hF hm => hk t (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[0]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[1]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[2]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[3]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[4]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[5]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[6]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[7]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[8]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[9]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[10]! (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]) [k0, k1, k2, k3])[11]! _ h1 h2 h3 h4 (cells12_eq _ (cmSel_length _ _ _ _)) rfl (cmSel_Z_lt _ _ _ _) (by rw [cells12_eq _ (cmSel_length _ _ _ _)]; exact hR) hF hm)
 
 end Cases.Zip2005

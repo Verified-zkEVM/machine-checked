@@ -9,15 +9,15 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 100000000 in
 set_option maxRecDepth 20000 in
-theorem pow_seg18 {P : Prop} (s0 : MachineState) (sp a0 : Word) (T0 T1 T2 T3 A : Nat) (t : MachineState)
+theorem pow_seg18 {G : MachineState → Prop} {n : Nat} {P : Prop} (s0 : MachineState) (sp a0 : Word) (T0 T1 T2 T3 A : Nat) (t : MachineState)
     (hstk : StackOk Ro.layout 0x450 sp)
     (h : PowCut true s0 sp a0 0x7802e104#64 T0 T1 T2 T3 A t)
     (hsp0 : s0.getReg .x2 = sp) (hra1 : s0.getReg .x1 &&& ~~~1#64 = s0.getReg .x1) (O : List Word) (hOl : O.length = 4) (hO : Region a0 O s0)
     (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi a0 4) (hd0 : Disjoint (sp - 1104#64) 138 a0 4)
     (hk : ∀ u, u.pc = s0.getReg .x1 → CalleeSaved s0 u → u.code = s0.code →
       Unchanged [(sp - 1104#64, 138), (a0, 4)] s0 u →
-      Region a0 (natToLeLimbs 4 (Fp.powRun [T0, T1, T2, T3] Fp.powOps18 A)) u → Safe P u) :
-    Safe P t := by
+      Region a0 (natToLeLimbs 4 (Fp.powRun [T0, T1, T2, T3] Fp.powOps18 A)) u → SafeN G n P u) :
+    SafeN G n P t := by
   obtain ⟨w0, w1, t00, t01, t02, t03, t10, t11, t12, t13, t20, t21, t22, t23, t30, t31, t32, t33, d0, d1, d2, d3, b0, b1, b2, b3, hpc, hcode, hcA, hcM, hcw, hok, hU0, hx2, hx3, hx4, hx8, hx9, hx10, hx11, hx18, hx19, hx20, hx21, hx22, hx23, hx24, hx25, hx27, hB0, hX1, hB1, hX2, hB2, hC, hD1, hD2, hE, hS, eT0, eT1, eT2, eT3, eA, eB⟩ := h
   rw [if_pos rfl] at hx23
   clear hx25
@@ -54,7 +54,7 @@ theorem pow_seg18 {P : Prop} (s0 : MachineState) (sp a0 : Word) (T0 T1 T2 T3 A :
       u.getReg .x26 = s0.getReg .x26 →
       u.getReg .x27 = t.getReg .x27 →
       Unchanged [(sp - 1104#64, 138), (a0, 4)] t u →
-      Region a0 (natToLeLimbs 4 (Fp.powRun [T0, T1, T2, T3] Fp.powOps18 A)) u → Safe P u := by
+      Region a0 (natToLeLimbs 4 (Fp.powRun [T0, T1, T2, T3] Fp.powOps18 A)) u → SafeN G n P u := by
     intro u upc ucode r2 r3 r4 rx8 rx9 rx18 rx19 rx20 rx21 rx22 rx23 rx24 rx25 rx26 r27 uU uR
     refine hk u upc ?_ (ucode.trans hcode) ((hU0.mono (by simp)).trans uU) uR
     intro r hr

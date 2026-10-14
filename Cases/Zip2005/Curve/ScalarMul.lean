@@ -108,9 +108,9 @@ set_option maxHeartbeats 40000000 in
 set_option maxRecDepth 10000 in
 /-- The loop at its body (`0x78031ef8`) with `a0 = i` and `m` rounds left, up to
     its exit (`0x78032034`). -/
-theorem mul_loop {P : Prop} (sp : Word) (S : List Word) (c : Word → Option Instr)
+theorem mul_loop {G : MachineState → Prop} {n : Nat} {P : Prop} (sp : Word) (S : List Word) (c : Word → Option Instr)
     (g3 g4 g8 g24 g25 g26 g27 : Word)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = c → Safe P u) :
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = c → SafeN G n P u) :
     ∀ m i (t : MachineState) (acc base : List Word), i + m = 255 → 1 ≤ m →
       acc.length = 9 → base.length = 9 →
       t.pc = 0x78031ef8#64 → t.code = c → CodeAt F_78031be8.base F_78031be8.prog t →
@@ -140,8 +140,8 @@ theorem mul_loop {P : Prop} (sp : Word) (S : List Word) (c : Word → Option Ins
         Region (sp + 0xa0#64) (mulLoop (scalarBit S) i m acc base).2 u →
         Region (sp + 0xe8#64) (mulLoop (scalarBit S) i m acc base).1 u →
         mulOk (scalarBit S) i m acc base →
-        Safe P u) →
-      Safe P t := by
+        SafeN G n P u) →
+      SafeN G n P t := by
   intro m
   induction m with
   | zero => intro i t acc base hm hm1; omega

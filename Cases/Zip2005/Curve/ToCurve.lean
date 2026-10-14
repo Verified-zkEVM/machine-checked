@@ -17,7 +17,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem to_curve_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem to_curve_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 : Word) (O : List Word) (hOl : O.length = 12)
     (hpc : s.pc = 0x78025854#64) (hcode : CodeAt F_78025854.base F_78025854.prog s)
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -32,8 +32,8 @@ theorem to_curve_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x40#64, 8), (a0, 12)] s t →
       Region a0 ([x0, x1, x2, x3, y0, y1, y2, y3] ++
-        natToLeLimbs 4 (if x0 = 0#64 ∧ x1 = 0#64 ∧ x2 = 0#64 ∧ x3 = 0#64 ∧ y0 = 0#64 ∧ y1 = 0#64 ∧ y2 = 0#64 ∧ y3 = 0#64 then 0 else Fp.R)) t → Safe P t) :
-    Safe P s := by
+        natToLeLimbs 4 (if x0 = 0#64 ∧ x1 = 0#64 ∧ x2 = 0#64 ∧ x3 = 0#64 ∧ y0 = 0#64 ∧ y1 = 0#64 ∧ y2 = 0#64 ∧ y3 = 0#64 then 0 else Fp.R)) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x40#64) 8 := hstk.frame 8 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x30#64) 6 := hokW.sub' 2 6 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x30#64) 6 s

@@ -17,13 +17,13 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `EpAffine::from_bytes` (`0x78025a1c`): see `FromBytesPost`. The `FP_TABLES` must be
     initialised (`Once` state `2`), as for `sqrt_alt`. -/
-theorem ep_affine_from_bytes_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (b0 b1 b2 b3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 9) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x78025a1c#64) (hcode : CodeAt F_78025a1c.base F_78025a1c.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcodeP : CodeAt F_78029d94.base F_78029d94.prog s)
@@ -61,8 +61,8 @@ theorem ep_affine_from_bytes_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : W
       Unchanged [(sp - 0x6f0#64, 222), (a0, 9)] s t →
       Region a0 [x0, x1, x2, x3, y0, y1, y2, y3, replaceByte O[8]! 0 f] t →
       FromBytesPost b0 b1 b2 b3 (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) f →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x6f0#64) 222 := hstk.frame 222 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x130#64) 38 := hokW.sub' 184 38 (by decide) (by bv_omega)
   have hokD : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x130#64) 25 := hokF.sub' 0 25 (by decide) (by bv_omega)
@@ -184,11 +184,11 @@ theorem ep_affine_from_bytes_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : W
       Unchanged [(sp - 0x6f0#64, 222), (a0, 9)] s u := fun u h => hunch.trans h
   clear hunch
   have hu2 := Unchanged.refl [(sp - 0x6f0#64, 222), (a0, 9)] s_416
-  have hpb' : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s_416.code → Safe P u :=
+  have hpb' : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s_416.code → SafeN G n P u :=
     fun u h1 h2 => hpb u h1 (h2.trans hcode)
-  have hpp' : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s_416.code → Safe P u :=
+  have hpp' : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s_416.code → SafeN G n P u :=
     fun u h1 h2 => hpp u h1 (h2.trans hcode)
-  have hprz' : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s_416.code → Safe P u :=
+  have hprz' : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s_416.code → SafeN G n P u :=
     fun u h1 h2 => hprz u h1 (h2.trans hcode)
   clear hpb hpp hprz
   have hcodeS : s_416.code = s.code := hcode

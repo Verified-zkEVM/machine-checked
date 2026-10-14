@@ -38,7 +38,7 @@ set_option maxRecDepth 10000 in
 /-- `Fp::get_lower_32`: the low 32 bits of `x·R⁻¹ mod p` (`montgomery_reduce`, first limb).
     Only those bits are computed -- the upper half of `a0` is not zero-extended, and the
     callers truncate (`slli`/`srli` by 32). -/
-theorem fp_get_lower_32_spec {P : Prop} (s : MachineState) (ra a0 : Word) (x0 x1 x2 x3 : Word)
+theorem fp_get_lower_32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 : Word) (x0 x1 x2 x3 : Word)
     (hpc : s.pc = 0x78029b64#64) (hcode : CodeAt F_78029b64.base F_78029b64.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -47,8 +47,8 @@ theorem fp_get_lower_32_spec {P : Prop} (s : MachineState) (ra a0 : Word) (x0 x1
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [] s t →
       (t.getReg .x10).setWidth 32 = BitVec.ofNat 32 (leLimbsToNat [x0, x1, x2, x3] * Fp.rInv % Fp.p) →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   sym_exec
   sym_close hk
   bn_lin

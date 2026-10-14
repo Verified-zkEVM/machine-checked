@@ -18,7 +18,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem enc_from_bytes_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
+theorem enc_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x7801f5a4#64) (hcode : CodeAt F_7801f5a4.base F_7801f5a4.prog s)
     (hcodeR : CodeAt F_780297c0.base F_780297c0.prog s)
@@ -35,8 +35,8 @@ theorem enc_from_bytes_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x110#64, 34), (a0, 5)] s t →
       Region a0 (ctLimbs (leLimbsToNat [b0, b1, b2, b3] < Fp.p)
-        (natToLeLimbs 4 (Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2)) O[4]!) t → Safe P t) :
-    Safe P s := by
+        (natToLeLimbs 4 (Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2)) O[4]!) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x110#64) 34 := hstk.frame 34 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x60#64) 12 := hokW.sub' 22 12 (by decide) (by bv_omega)
   -- the frame: [8, 0x28) the `CtOption<Fp>`, [0x30, 0x50) the four words, saved registers

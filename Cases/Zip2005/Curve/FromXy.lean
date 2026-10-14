@@ -15,7 +15,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_xy_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
+theorem from_xy_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 : Word) (O : List Word) (hOl : O.length = 9)
     (hpc : s.pc = 0x78026878#64) (hcode : CodeAt F_78026878.base F_78026878.prog s)
     (hcodeOC : CodeAt F_78026258.base F_78026258.prog s)
@@ -35,8 +35,8 @@ theorem from_xy_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x170#64, 46), (a0, 9)] s t →
       Region a0 [x0, x1, x2, x3, y0, y1, y2, y3,
-        replaceByte O[8]! 0 (if (Fp.sub (Fp.mul (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [y0, y1, y2, y3])) (Fp.mul (Fp.mul (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [x0, x1, x2, x3])) (leLimbsToNat [x0, x1, x2, x3])) = Fp.mul 5 Fp.R2) ∨ (x0 = 0#64 ∧ x1 = 0#64 ∧ x2 = 0#64 ∧ x3 = 0#64 ∧ y0 = 0#64 ∧ y1 = 0#64 ∧ y2 = 0#64 ∧ y3 = 0#64) then 1#8 else 0#8)] t → Safe P t) :
-    Safe P s := by
+        replaceByte O[8]! 0 (if (Fp.sub (Fp.mul (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [y0, y1, y2, y3])) (Fp.mul (Fp.mul (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [x0, x1, x2, x3])) (leLimbsToNat [x0, x1, x2, x3])) = Fp.mul 5 Fp.R2) ∨ (x0 = 0#64 ∧ x1 = 0#64 ∧ x2 = 0#64 ∧ x3 = 0#64 ∧ y0 = 0#64 ∧ y1 = 0#64 ∧ y2 = 0#64 ∧ y3 = 0#64) then 1#8 else 0#8)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x170#64) 46 := hstk.frame 46 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x50#64) 10 := hokW.sub' 36 10 (by decide) (by bv_omega)
   -- the frame: [0, 0x40) the affine point, saved registers

@@ -29,9 +29,9 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem mul_spec {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)
+theorem mul_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)
     (hptl : pt.length = 12) (hkl : k.length = 4) (hOl : O.length = 12)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x78031be8#64) (hcode : CodeAt F_78031be8.base F_78031be8.prog s)
     (hcodeBB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
     (hcodeMS : CodeAt F_7803f57c.base F_7803f57c.prog s)
@@ -62,8 +62,8 @@ theorem mul_spec {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O :
     (hd01 : Disjoint a0 12 a1 12) (hd02 : Disjoint a0 12 a2 4)
     (hk' : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x490#64, 146), (a0, 12)] s t → (mulW pt k).length = 12 →
-      Region a0 (mulW pt k) t → mulFacts pt k → Safe P t) :
-    Safe P s := by
+      Region a0 (mulW pt k) t → mulFacts pt k → SafeN G n P t) :
+    SafeN G n P s := by
   -- mul's frame, `sp0 = sp - 0x260`, in the blocks its callees write
   obtain ⟨B, hB, hBl⟩ := Region.exists_junk (sp - 0x490#64) 70 s
   obtain ⟨F0, hF0, hF0l⟩ := Region.exists_junk (sp - 0x260#64) 12 s
@@ -94,7 +94,7 @@ theorem mul_spec {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O :
       rw [BitVec.toNat_sub, Bn.toNat_ofNat']; omega
     exact ⟨by rw [e]; omega, by rw [e]; omega, by rw [e, Ro.layout_stackTop]; omega⟩
   have L := fun S g3 g4 g8 g24 g25 g26 g27 t acc base =>
-    mul_loop (P := P) (sp - 0x260#64) S s.code g3 g4 g8 g24 g25 g26 g27 hpanic 255 0 t acc base
+    mul_loop (G := G) (n := n) (P := P) (sp - 0x260#64) S s.code g3 g4 g8 g24 g25 g26 g27 hpanic 255 0 t acc base
       rfl (by decide)
   replace hk' := fun t h1 h2 h3 h4 => hk' t h1 h2 h3 h4 (length_mulW pt k)
   sym_exec [memset96_spec, black_box_spec, to_affine_spec, coordinates_spec, fp_to_repr_spec, fq_to_repr_spec,

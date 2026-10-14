@@ -153,7 +153,7 @@ structure RunCode (s : MachineState) : Prop where
 /-- The premises of `main_spec` that are not about the image: the lazy table build (A3), the
     runtime contracts (A4–A10) and the panic and reject-halt paths (A11, A12). Each mentions the
     state only through its code. -/
-structure RunHyps (s : MachineState) (I : List (BitVec 8)) : Prop where
+structure RunHyps (G : MachineState → Prop) (n : Nat) (s : MachineState) (I : List (BitVec 8)) : Prop where
   hinit : ∀ u : MachineState, u.pc = 0x7801a258#64 → u.code = s.code →
       (∀ t : MachineState, t.pc = u.pc → t.code = u.code → (∀ r : Reg, t.getReg r = u.getReg r) →
         Unchanged [(0x78040620#64, 4162), (0x780488a8#64, 10), (0x78048980#64, 14780690128)] u t →
@@ -177,62 +177,62 @@ structure RunHyps (s : MachineState) (I : List (BitVec 8)) : Prop where
         tg1.toNat + 8 * 1024 ≤ 0x1c00000000 →
         tg2.toNat + 8 * 1024 ≤ 0x1c00000000 →
         tg3.toNat + 8 * 516 ≤ 0x1c00000000 →
-        Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hhandle_al : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hpaf_nf : ∀ u : MachineState, u.pc = 0x78019da0#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hhalt_hint : ∀ u : MachineState, u.pc = 0x78035e44#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hhalt_empty : ∀ u : MachineState, u.pc = 0x78035f14#64 → u.code = s.code → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hhandle_al : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hpaf_nf : ∀ u : MachineState, u.pc = 0x78019da0#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hhalt_hint : ∀ u : MachineState, u.pc = 0x78035e44#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hhalt_empty : ∀ u : MachineState, u.pc = 0x78035f14#64 → u.code = s.code → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         t.privateInput = u.privateInput →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   hfmt : ∀ (u : MachineState) (sp' d : Word), u.pc = 0x7803d1cc#64 → u.code = s.code →
       u.getReg .x1 = 0x78019fa4#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x400 sp' → u.getReg .x10 = d →
       (∀ (t : MachineState) (S : List Word), t.pc = 0x78019fa4#64 → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp' - 0x400#64, 128), (d, 3), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
-        S.length = 3 → Region d S t → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        S.length = 3 → Region d S t → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   halloc : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = r' → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   halloc_mp : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x7801d114#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' → u.getReg .x10 = 0x80#64 →
       u.getReg .x11 = 8#64 →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x7801d114#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 16 → Region ptr B t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 16 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x80 ≤ 0x1c00000000 → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hrealloc_mp : ReallocMp (Cases.Zip2005.Top.GuestAccepts I) s.code
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x80 ≤ 0x1c00000000 → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hrealloc_mp : ReallocMp G n (Cases.Zip2005.Top.GuestAccepts I) s.code
   hdealloc : ∀ (u : MachineState) (sp' r ptr sz : Word), u.pc = 0x7801bd08#64 → u.code = s.code →
       u.getReg .x1 = r → r &&& ~~~1#64 = r → u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr →
       u.getReg .x11 = sz → u.getReg .x12 = 8#64 → 0x78048980 ≤ ptr.toNat →
       (∀ t, t.pc = r → CalleeSaved u t → t.code = u.code → t.privateInput = u.privateInput →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   hdealloc_a1 : ∀ (u : MachineState) (sp' r ptr sz : Word), u.pc = 0x7801bd08#64 → u.code = s.code →
       u.getReg .x1 = r → r &&& ~~~1#64 = r → u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr →
       u.getReg .x11 = sz → u.getReg .x12 = 1#64 → 0x78048980 ≤ ptr.toNat →
       (∀ t, t.pc = r → CalleeSaved u t → t.code = u.code → t.privateInput = u.privateInput →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   hdealloc_nf : ∀ (u : MachineState) (sp' ptr : Word) (C : List Word), C.length = 768 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x78020c64#64 → u.getReg .x2 = sp' →
       StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = 6144#64 → u.getReg .x12 = 8#64 →
       Region ptr C u → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 →
       (∀ t, t.pc = 0x78020c64#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   hdealloc_ivk : ∀ (tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx : Word) (IV G0 G1 G2 G3 : List Word),
       ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 65 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780215d8#64 → u.getReg .x2 = sp' →
@@ -243,13 +243,13 @@ structure RunHyps (s : MachineState) (I : List (BitVec 8)) : Prop where
       (∀ t, t.pc = 0x780215d8#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   hdealloc_cm : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 137 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780210f0#64 → u.getReg .x2 = sp' →
       StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = cap → u.getReg .x12 = 1#64 →
       Region ptr C u → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 →
       (∀ t, t.pc = 0x780210f0#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   -- `P128Pow5T3::constants()` is proved (`constants_contract`): its code (A1) and the allocator's
   -- instance at its call site (A4)
   halloc_c : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
@@ -258,7 +258,7 @@ structure RunHyps (s : MachineState) (I : List (BitVec 8)) : Prop where
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78023cf4#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 768 → Region ptr B t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x1800 ≤ 0x1c00000000 → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x1800 ≤ 0x1c00000000 → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   -- `Vec<bool>::from_iter` of `commit_ivk`'s iterator is proved (`from_iter_ivk_contract`); what it
   -- assumes: its code loaded (A1) and the allocator's two instances at its call sites, keeping the
   -- hasher's tables (A4, A5)
@@ -274,10 +274,10 @@ structure RunHyps (s : MachineState) (I : List (BitVec 8)) : Prop where
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
       Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t →
-        Disjoint 0x780488a8#64 10 ptr 1 → Disjoint iptr 138 ptr 1 → Disjoint tg0 1024 ptr 1 → Disjoint tg1 1024 ptr 1 → Disjoint tg2 1024 ptr 1 → Disjoint tg3 516 ptr 1 → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
+        Disjoint 0x780488a8#64 10 ptr 1 → Disjoint iptr 138 ptr 1 → Disjoint tg0 1024 ptr 1 → Disjoint tg1 1024 ptr 1 → Disjoint tg2 1024 ptr 1 → Disjoint tg3 516 ptr 1 → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
   -- `RawVec<u8>::reserve`'s slow path in `orchard` is proved (`reserve_or_fi`, `reserve_or_nc`):
   -- its code (A1) and `__rust_realloc`'s two instances under it (A4)
-  hrealloc_fi : ReallocOrFi (Cases.Zip2005.Top.GuestAccepts I) s.code
+  hrealloc_fi : ReallocOrFi G n (Cases.Zip2005.Top.GuestAccepts I) s.code
   -- `Vec<bool>::from_iter` of `NoteCommitment::derive`'s iterator is proved (`from_iter_nc_contract`):
   -- its code (A1) and the allocator's two instances at its call sites (A4, A5)
   halloc_nc : ∀ (u : MachineState) (sp : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
@@ -286,18 +286,18 @@ structure RunHyps (s : MachineState) (I : List (BitVec 8)) : Prop where
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e028#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → Safe (Cases.Zip2005.Top.GuestAccepts I) t) → Safe (Cases.Zip2005.Top.GuestAccepts I) u
-  hrealloc_nc : ReallocOrNc (Cases.Zip2005.Top.GuestAccepts I) s.code
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) t) → SafeN G n (Cases.Zip2005.Top.GuestAccepts I) u
+  hrealloc_nc : ReallocOrNc G n (Cases.Zip2005.Top.GuestAccepts I) s.code
 
 /-- Every premise of `main_spec` that depends on the state only through its code: the loaded
     code and the contracts. It holds of any state with the same code (`RunContracts.of_code_eq`). -/
-structure RunContracts (s : MachineState) (I : List (BitVec 8)) : Prop
-    extends RunCode s, RunHyps s I
+structure RunContracts (G : MachineState → Prop) (n : Nat) (s : MachineState) (I : List (BitVec 8)) : Prop
+    extends RunCode s, RunHyps G n s I
 
 /-- `RunContracts` and the entry state of `main` (A2): its pc, return address, stack, private input
     and the hint area. -/
-structure MainAssumptions (s : MachineState) (ra sp b : Word) (I : List (BitVec 8)) (bp : Word) : Prop
-    extends RunContracts s I where
+structure MainAssumptions (G : MachineState → Prop) (n : Nat) (s : MachineState) (ra sp b : Word) (I : List (BitVec 8)) (bp : Word) : Prop
+    extends RunContracts G n s I where
   hpc : s.pc = 0x78019ff4#64
   hro : RoImage Ro.layout s
   hra : s.getReg .x1 = ra
@@ -314,8 +314,8 @@ structure MainAssumptions (s : MachineState) (ra sp b : Word) (I : List (BitVec 
   hbp : 0x1c00000000 ≤ bp.toNat
 
 /-- The contracts and code facts depend on the state only through its code. -/
-theorem RunContracts.of_code_eq {s s' : MachineState} {I : List (BitVec 8)} (h : RunContracts s I)
-    (hc : s'.code = s.code) : RunContracts s' I where
+theorem RunContracts.of_code_eq {G : MachineState → Prop} {n : Nat} {s s' : MachineState} {I : List (BitVec 8)} (h : RunContracts G n s I)
+    (hc : s'.code = s.code) : RunContracts G n s' I where
   hc_78016938 := codeAt_of_code_eq hc h.hc_78016938
   hc_7801775c := codeAt_of_code_eq hc h.hc_7801775c
   hc_7801806c := codeAt_of_code_eq hc h.hc_7801806c
@@ -470,8 +470,8 @@ theorem RunContracts.of_code_eq {s s' : MachineState} {I : List (BitVec 8)} (h :
   hrealloc_nc := by rw [hc]; exact h.hrealloc_nc
 
 /-- **The top-level theorem, with its premises bundled.** -/
-theorem guest_accepting_run' (s : MachineState) (ra sp b : Word) (I : List (BitVec 8)) (bp : Word)
-    (h : MainAssumptions s ra sp b I bp) : Safe (Cases.Zip2005.Top.GuestAccepts I) s :=
+theorem guest_accepting_run' {G : MachineState → Prop} {n : Nat} (s : MachineState) (ra sp b : Word) (I : List (BitVec 8)) (bp : Word)
+    (h : MainAssumptions G n s ra sp b I bp) : SafeN G n (Cases.Zip2005.Top.GuestAccepts I) s :=
   guest_accepting_run s ra sp b I h.hpc h.hc_78016938 h.hc_7801775c h.hc_7801806c h.hc_7801823c
     h.hc_780191c4 h.hc_780197cc h.hc_78019918 h.hc_78019a10 h.hc_78019b50 h.hc_78019bf0
     h.hc_78019cb8 h.hc_78019dd8 h.hc_78019f50 h.hc_78019ff4 h.hc_7801aed0 h.hc_7801b4d8

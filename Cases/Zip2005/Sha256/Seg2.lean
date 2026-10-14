@@ -13,7 +13,7 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- Segment 2: `0x780381c4` to `0x78039184`. -/
-theorem compress256_seg2 {P : Prop} (u : MachineState) (ra sp st blk : Word) (r8 r9 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 : Word)
+theorem compress256_seg2 {G : MachineState → Prop} {n : Nat} {P : Prop} (u : MachineState) (ra sp st blk : Word) (r8 r9 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 : Word)
     (J1 J3 S B : List Word) (hJ1 : J1.length = 64) (hJ3 : J3.length = 34) (hS : S.length = 4) (hB : B.length = 8)
     (hpc : u.pc = 0x780381c4#64) (hcode : CodeAt F_780361e0.base F_780361e0.prog u)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi u)
@@ -31,8 +31,8 @@ theorem compress256_seg2 {P : Prop} (u : MachineState) (ra sp st blk : Word) (r8
       Region (sp - 0x390#64) [st] v → (∃ J, J.length = 64 ∧ Region (sp - 0x388#64) J v) →
       Region (sp - 0x188#64) [blk + 64#64] v → (∃ J, J.length = 34 ∧ Region (sp - 0x180#64) J v) →
       Region (sp - 0x70#64) [blk] v → Region (sp - 0x68#64) [r27, r26, r25, r24, r23, r22, r21, r20, r19, r18, r9, r8, ra] v →
-      (∃ S', S'.length = 4 ∧ Region st S' v) → (∃ B', B'.length = 8 ∧ Region blk B' v) → Safe P v) :
-    Safe P u := by
+      (∃ S', S'.length = 4 ∧ Region st S' v) → (∃ B', B'.length = 8 ∧ Region blk B' v) → SafeN G n P v) :
+    SafeN G n P u := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x390#64) 114 := hstk.frame 114 (by decide)
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x390#64) 1 := hokW.sub' 0 1 (by decide) (by bv_omega)
   have hok1 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x388#64) 64 := hokW.sub' 1 64 (by decide) (by bv_omega)

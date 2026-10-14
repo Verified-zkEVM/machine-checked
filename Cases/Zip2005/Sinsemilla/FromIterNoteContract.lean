@@ -33,7 +33,7 @@ theorem byteAt_take {Bv : List Word} {n o : Nat} (h : o / 8 < n) : byteAt (Bv.ta
   simp only [List.getElem!_eq_getElem?_getD, List.getElem?_take, if_pos h]
 
 set_option maxHeartbeats 4000000 in
-theorem from_iter_nc_contract {P : Prop} (s : MachineState)
+theorem from_iter_nc_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s) (hcodeN : CodeAt F_78021720.base F_78021720.prog s)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s) (hcodeZ : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -43,10 +43,10 @@ theorem from_iter_nc_contract {P : Prop} (s : MachineState)
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e028#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     (hcodeR : CodeAt F_780221a4.base F_780221a4.prog s) (hcodeG : CodeAt F_7802225c.base F_7802225c.prog s)
-    (hrealloc_nc : ReallocOrNc P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u) :
+    (hrealloc_nc : ReallocOrNc G n P s.code)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u) :
     ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (sp0 : Word)
       (J0 : List Word) (g0 g1 g2 g3 p0 p1 p2 p3 v r0 r1 r2 r3 q0 q1 q2 q3 : Word), O1.length = 3 →
       u.pc = 0x7801dfb4#64 → u.code = s.code → u.getReg .x1 = 0x78020dc4#64 →
@@ -70,7 +70,7 @@ theorem from_iter_nc_contract {P : Prop} (s : MachineState)
         (∀ o, o < 1090 → byteAt Bv o = bw (noteBit [g0, g1, g2, g3] [p0, p1, p2, p3] v
           (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]) o)) →
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 137 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → Safe (P) t) → Safe (P) u := by
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u := by
   intro u sp' a0' a1' j O1 sp0 J0 g0 g1 g2 g3 p0 p1 p2 p3 v r0 r1 r2 r3 q0 q1 q2 q3 hO1l hpc hcu hra hsp
     hstk ha0 ha1 hO hC0 hCit hC88 hM hokO hokC hdjSO hdjSC hdjOC hstk0 hdjSM hdjOM hdjCM hdjHO hdjHC hk
   have hlo' := hstk.lo
@@ -79,7 +79,7 @@ theorem from_iter_nc_contract {P : Prop} (s : MachineState)
   have hhi0 := (Nat.le_trans hstk0.hi (Nat.le_of_eq Ro.layout_stackTop))
   have hal0 := hstk0.aligned
   have hsub : (sp' - 0xe0#64).toNat = sp'.toNat - 0xe0 := toNat_sub_lit sp' 0xe0 (by omega)
-  have hstk' : StackOk Ro.layout 0x180 (sp' - 0xe0#64) := ⟨by have := hstk.aligned; omega, by omega, by omega⟩
+  have hstk' : StackOk Ro.layout 0x180 (sp' - 0xe0#64) := ⟨by have := hstk.aligned; omega, by omega, by rw [Ro.layout_stackTop]; omega⟩
   have hokFr : RegionOk Ro.layout.roBase Ro.layout.textHi (sp' - 0xe0#64) 28 :=
     RegionOk.of_nat (by have := hstk.aligned; omega) (by unfold SP1_MAX_MEMORY; omega)
       (Or.inl (by simp only [Ro.layout_roBase]; omega))

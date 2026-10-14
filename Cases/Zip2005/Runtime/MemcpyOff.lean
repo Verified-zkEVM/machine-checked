@@ -158,7 +158,7 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 128)` with `dst` seven bytes into an aligned doubleword: the 17 cells
     from `dst - 7` become `shiftUp7 D S`. -/
-theorem memcpy128_to7_spec {P : Prop} (s : MachineState) (ra dst src : Word) (D S : List Word)
+theorem memcpy128_to7_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (D S : List Word)
     (hDl : D.length = 17) (hSl : S.length = 16)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
@@ -168,8 +168,8 @@ theorem memcpy128_to7_spec {P : Prop} (s : MachineState) (ra dst src : Word) (D 
     (hS : Region src S s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 16)
     (hdj : Disjoint (dst - 7#64) 17 src 16)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst - 7#64, 17)] s t →
-      Region (dst - 7#64) (shiftUp7 D S) t → Safe P t) :
-    Safe P s := by
+      Region (dst - 7#64) (shiftUp7 D S) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst - 7#64, 17)] s
   have hm : dst &&& 7#64 = 7#64 := and7_of_sub7 hokD.aligned
   sym_exec
@@ -198,7 +198,7 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 128)` with `src` seven bytes into an aligned doubleword: `dst` holds
     `shiftDown7 C`, `C` the 17 cells from `src - 7`. -/
-theorem memcpy128_from7_spec {P : Prop} (s : MachineState) (ra dst src : Word) (D C : List Word)
+theorem memcpy128_from7_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (D C : List Word)
     (hDl : D.length = 16) (hCl : C.length = 17)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
@@ -208,8 +208,8 @@ theorem memcpy128_from7_spec {P : Prop} (s : MachineState) (ra dst src : Word) (
     (hC : Region (src - 7#64) C s) (hokC : RegionOk Ro.layout.textLo Ro.layout.textHi (src - 7#64) 17)
     (hdj : Disjoint dst 16 (src - 7#64) 17)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 16)] s t →
-      Region dst (shiftDown7 C) t → Safe P t) :
-    Safe P s := by
+      Region dst (shiftDown7 C) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 16)] s
   have hm : src &&& 7#64 = 7#64 := and7_of_sub7 hokC.aligned
   sym_exec

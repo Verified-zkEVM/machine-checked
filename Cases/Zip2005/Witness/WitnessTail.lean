@@ -24,7 +24,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
 set_option asmverif.sym.foldBytes true in
-theorem witness_tail_spec {P : Prop} (s : MachineState) (sp out r9 r18 r19 r20 r22 r23 r24 r25 r26 r27 : Word)
+theorem witness_tail_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp out r9 r18 r19 r20 r22 r23 r24 r25 r26 r27 : Word)
     (vs0 vs1 vs2 vs3 vs4 vs5 vs6 vs7 vs8 vs9 vs10 vs11 vra : Word) (Fr O : List Word)
     (hFl : Fr.length = 321) (hOl : O.length = 174)
     (hpc : s.pc = 0x78018cc0#64) (hcode : CodeAt F_7801823c.base F_7801823c.prog s)
@@ -43,8 +43,8 @@ theorem witness_tail_spec {P : Prop} (s : MachineState) (sp out r9 r18 r19 r20 r
       t.getReg .x3 = s.getReg .x3 → t.getReg .x4 = s.getReg .x4 →
       t.getReg .x8 = vs0 → t.getReg .x9 = vs1 → t.getReg .x18 = vs2 → t.getReg .x19 = vs3 → t.getReg .x20 = vs4 → t.getReg .x21 = vs5 → t.getReg .x22 = vs6 → t.getReg .x23 = vs7 → t.getReg .x24 = vs8 → t.getReg .x25 = vs9 → t.getReg .x26 = vs10 → t.getReg .x27 = vs11 →
       Unchanged [(sp - 0x1120#64, 548), (sp, 334), (out, 174)] s t →
-      Region out (tailW Fr r9 r18 r19 r20 r22 r23 r24 r25 r26 r27) t → Safe P t) :
-    Safe P s := by
+      Region out (tailW Fr r9 r18 r19 r20 r22 r23 r24 r25 r26 r27) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x1120#64) 548 := hstk.frame 548 (by decide)
   have hmO : out &&& 7#64 = 0#64 := hokO.and7
   have hokOr : RegionOk Ro.layout.roBase Ro.layout.textHi out 174 :=

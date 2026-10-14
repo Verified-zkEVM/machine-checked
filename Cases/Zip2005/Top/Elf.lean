@@ -20,7 +20,7 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option autoImplicit false
 
-theorem guest_elf_run (s : MachineState) (I : List (BitVec 8)) (bp : Word) (hR : RunContracts s I)
+theorem guest_elf_run {G : MachineState → Prop} {n : Nat} (s : MachineState) (I : List (BitVec 8)) (bp : Word) (hR : RunContracts G n s I)
     (hpc : s.pc = 0x7801bcd0#64) (hc0 : CodeAt F_7801bcd0.base F_7801bcd0.prog s)
     (hc1 : CodeAt F_7801be34.base F_7801be34.prog s) (hc2 : CodeAt F_7801bdec.base F_7801bdec.prog s)
     (hc3 : CodeAt F_7801bfac.base F_7801bfac.prog s) (hcD : CodeAt F_7801beac.base F_7801beac.prog s)
@@ -29,7 +29,7 @@ theorem guest_elf_run (s : MachineState) (I : List (BitVec 8)) (bp : Word) (hR :
     (hflag : Region 0x78040620#64 [0#64] s) (hhead : Region 0x78044598#64 [0#64] s)
     (hbp_eq : bp = 0x1c00000000#64 + (bytesToWordLE (I.take 8) + 7#64 &&& 18446744073709551608#64))
     (hokJ2 : RegionOk Ro.layout.textLo Ro.layout.textHi bp 175) (hbp : 0x1c00000000 ≤ bp.toNat) :
-    Safe (Cases.Zip2005.Top.GuestAccepts I) s := by
+    SafeN G n (Cases.Zip2005.Top.GuestAccepts I) s := by
   refine start_to_main s hpc hc0 hc1 hc2 hc3 hcD hR.hc_7803f57c hR.hcw hro hflag hhead ?_
   intro t htpc htc hra hsp hti hun hrot
   have hB : Region 0x78040618#64 [0x1c00000000#64] t := by

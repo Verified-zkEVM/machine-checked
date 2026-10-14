@@ -13,9 +13,9 @@ namespace Cases.Zip2005
 open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 /-- `<Ep as Mul<&Fq>>::mul`: a frame around `sp1_pallas::zkvm::mul`. -/
-theorem ep_mul_fq_spec {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)
+theorem ep_mul_fq_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)
     (hptl : pt.length = 12) (hkl : k.length = 4) (hOl : O.length = 12)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7802827c#64) (hcodeW : CodeAt F_7802827c.base F_7802827c.prog s)
     (hcode : CodeAt F_78031be8.base F_78031be8.prog s)
     (hcodeBB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -47,8 +47,8 @@ theorem ep_mul_fq_spec {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt
     (hd01 : Disjoint a0 12 a1 12) (hd02 : Disjoint a0 12 a2 4)
     (hk' : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x4a0#64, 148), (a0, 12)] s t → (mulW pt k).length = 12 →
-      Region a0 (mulW pt k) t → mulFacts pt k → Safe P t) :
-    Safe P s := by
+      Region a0 (mulW pt k) t → mulFacts pt k → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨FB, hFB, hFBl⟩ := Region.exists_junk (sp - 0x10#64) 2 s
   have hokA : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x4a0#64) 148 := hstk.frame 148 (by decide)
   have hokFB : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hokA.sub' 146 2 (by decide) (by bv_omega)
@@ -60,7 +60,7 @@ theorem ep_mul_fq_spec {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt
       rw [BitVec.toNat_sub, Bn.toNat_ofNat']; omega
     exact ⟨by rw [e]; omega, by rw [e]; omega, by rw [e, Ro.layout_stackTop]; omega⟩
   have M := fun (t : MachineState) (hc : t.code = s.code) ra a0 a1 a2 sp pt k O hptl hkl hOl =>
-    mul_spec (P := P) t ra a0 a1 a2 sp pt k O hptl hkl hOl (fun u hu hcu => hpanic u hu (hcu.trans hc))
+    mul_spec (G := G) (n := n) (P := P) t ra a0 a1 a2 sp pt k O hptl hkl hOl (fun u hu hcu => hpanic u hu (hcu.trans hc))
   sym_exec [M]
   sym_close hk'
   · exact length_mulW pt k

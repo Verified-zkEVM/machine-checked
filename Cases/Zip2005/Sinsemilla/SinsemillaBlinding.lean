@@ -22,9 +22,9 @@ theorem fold12 {xs : List Word} (h : xs.length = 12) :
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sinsemilla_blinding_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
+theorem sinsemilla_blinding_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (pt k O : List Word) (hptl : pt.length = 12) (hkl : k.length = 4) (hOl : O.length = 12)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x78023594#64) (hcode : CodeAt F_78023594.base F_78023594.prog s)
     (hcodeW : CodeAt F_7802827c.base F_7802827c.prog s)
     (hcodeMul : CodeAt F_78031be8.base F_78031be8.prog s)
@@ -57,8 +57,8 @@ theorem sinsemilla_blinding_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 :
     (hd01 : Disjoint a0 12 (a1 + 0x60#64) 12) (hd02 : Disjoint a0 12 a2 4)
     (hk' : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x520#64, 164), (a0, 12)] s t → (mulW pt k).length = 12 →
-      Region a0 (mulW pt k) t → mulFacts pt k → Safe P t) :
-    Safe P s := by
+      Region a0 (mulW pt k) t → mulFacts pt k → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x520#64) 164 := hstk.frame 164 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x80#64) 16 := hokW.sub' 148 16 (by decide) (by bv_omega)
   -- the frame: [8, 0x68) the copied point, saved registers

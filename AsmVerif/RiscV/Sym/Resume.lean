@@ -18,7 +18,7 @@ open Lean Elab Tactic Meta
 elab "sym_reframe" : tactic => withMainContext do
   let g ← getMainGoal
   let ty := (← instantiateMVars (← g.getType)).consumeMData
-  unless ty.isAppOfArity ``AsmVerif.RiscV.Sym.Safe 2 do throwError "sym_reframe: goal is not `Safe P s`"
+  unless ty.isAppOfArity ``AsmVerif.RiscV.SafeN 4 do throwError "sym_reframe: goal is not `SafeN G n P s`"
   let s := ty.appArg!
   let lctx ← getLCtx
   let some h := lctx.findDeclRev? (fun d => if d.userName == `hunch then some d else none)

@@ -15,7 +15,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sinsemilla_pack_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
+theorem sinsemilla_pack_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 : Word) (O : List Word) (hOl : O.length = 8)
     (hpc : s.pc = 0x780237dc#64) (hcode : CodeAt F_780237dc.base F_780237dc.prog s)
     (hcodeT : CodeAt F_78029468.base F_78029468.prog s)
@@ -32,8 +32,8 @@ theorem sinsemilla_pack_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Wor
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x60#64, 12), (a0, 8)] s t →
       Region a0 (natToLeLimbs 4 (leLimbsToNat [x0, x1, x2, x3] * Fp.rInv % Fp.p) ++
-        natToLeLimbs 4 (leLimbsToNat [y0, y1, y2, y3] * Fp.rInv % Fp.p)) t → Safe P t) :
-    Safe P s := by
+        natToLeLimbs 4 (leLimbsToNat [y0, y1, y2, y3] * Fp.rInv % Fp.p)) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x60#64) 12 := hstk.frame 12 (by decide)
   -- the frame: [8, 0x28) `x.to_repr()`, [0x28, 0x48) `y.to_repr()`, saved registers
   have hokX : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x58#64) 4 := hokW.sub' 1 4 (by decide) (by bv_omega)

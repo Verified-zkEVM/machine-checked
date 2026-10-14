@@ -19,7 +19,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 set_option asmverif.sym.foldBytes true in
-theorem pad_next_ivk_0_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (hAl : A.length = 4) (hBl : B.length = 4) (j : Word)
     (hpc : s.pc = 0x78021e7c#64) (hcode : CodeAt F_78021e7c.base F_78021e7c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -34,12 +34,12 @@ theorem pad_next_ivk_0_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word
     (hdjI : Disjoint iter 12 (ptrA sp) 4) (hdjI' : Disjoint iter 12 (ptrB sp) 4)
     (hdjS : Disjoint (spn - 0x10#64) 2 iter 12) (hdjSA : Disjoint (spn - 0x10#64) 2 (ptrA sp) 4)
     (hdjSB : Disjoint (spn - 0x10#64) 2 (ptrB sp) 4) (hdjAB : Disjoint (ptrA sp) 4 (ptrB sp) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       Region iter (padIvkA sp J j 254#64 (ptrA sp) 1#8 0#64 1#64) t →
-      t.getReg .x10 = bw (wordsBit A 0) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (wordsBit A 0) → SafeN G n P t) :
+    SafeN G n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (spn - 0x10#64) 2 := hstk.frame 2 (by decide)
   have hu := Unchanged.refl [(spn - 0x10#64, 2), (iter, 12)] s
   have hlo := hstk.lo
@@ -89,7 +89,7 @@ theorem pad_next_ivk_0_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       Region iter [0#64, j, 255#64, ptrB sp, ivkEndB sp J, ivkEndB2 sp J, 254#64, ptrA sp, v103,
         ivkEndA2 sp J, v91, 1#64] t →
-      t.getReg .x10 = v112 → Safe P t := by
+      t.getReg .x10 = v112 → SafeN G n P t := by
     intro t h1 h2 h3 h4 h5 h6
     refine hk t h1 h2 h3 h4 (Region.of_eq h5 ?_) ?_
     · simp only [padIvkA, List.cons.injEq, and_true, true_and, eq_self]

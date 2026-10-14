@@ -121,7 +121,7 @@ theorem cmSel_cells13 (Q R B k : List Word) (f : Word) :
 attribute [simp] domainPtW_length boolBytesToWords_length noteBitsW_length
 
 /-- `conditional_select` on `commit`'s flag byte, read back zero-extended. -/
-theorem conditional_select_spec_flag {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
+theorem conditional_select_spec_flag {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (Q Bv : List Word)
     (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 : Word)
     (O : List Word) (hOl : O.length = 12)
@@ -147,8 +147,8 @@ theorem conditional_select_spec_flag {P : Prop} (s : MachineState) (ra sp a0 a1 
         if (commitFold Q Bv).isSome then q6 else p6, if (commitFold Q Bv).isSome then q7 else p7,
         if (commitFold Q Bv).isSome then q8 else p8, if (commitFold Q Bv).isSome then q9 else p9,
         if (commitFold Q Bv).isSome then q10 else p10, if (commitFold Q Bv).isSome then q11 else p11] t →
-      Safe P t) :
-    Safe P s :=
+      SafeN G n P t) :
+    SafeN G n P s :=
   conditional_select_spec s ra sp a0 a1 a2 (commitFold Q Bv).isSome p0 p1 p2 p3 p4 p5 p6 p7 p8 p9
     p10 p11 q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 O hOl hpc hcode hcw hra hra1 hsp hstk ha0 ha1 ha2
     (by rw [ha3]; unfold commitFlag bw; split <;> rfl) hA hok1 hB hok2 hO hok0 hd0 hd1 hd2 he1 he2 hk
@@ -180,14 +180,14 @@ Reducible: a `from_iter` contract stated over it is matched against the executor
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem note_commitment_derive_spec {P : Prop} (s : MachineState)
+theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState)
     (ra sp out gd pkd v rho psi rcm : Word)
     (g0 g1 g2 g3 p0 p1 p2 p3 r0 r1 r2 r3 q0 q1 q2 q3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 13) (hJl : J.length = 15)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G nb P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G nb P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G nb P u)
+    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G nb P u)
     (hpc : s.pc = 0x7801fbcc#64) (hcode : CodeAt F_7801fbcc.base F_7801fbcc.prog s)
     -- callees: cached_commit_domain (+ from_raw, from_xy, is_on_curve, mulmod, black_box,
     -- to_curve), to_le_bits (+ to_repr), commit and its callees, memset, conditional_select
@@ -258,7 +258,7 @@ theorem note_commitment_derive_spec {P : Prop} (s : MachineState)
         (∀ o, o < 1090 → byteAt Bv o = bw (noteBit [g0, g1, g2, g3] [p0, p1, p2, p3] v
           (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]) o)) →
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 137 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u)
     -- `__rust_dealloc` of that `Vec` (ledger T2)
     (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 137 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780210f0#64 →
@@ -266,15 +266,15 @@ theorem note_commitment_derive_spec {P : Prop} (s : MachineState)
       u.getReg .x12 = 1#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 137 ≤ 0x1c00000000 →
       (∀ t, t.pc = 0x780210f0#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe P t) → Safe P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G nb P t) → SafeN G nb P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xb50#64, 362), (out, 13), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3]
         [q0, q1, q2, q3]) [k0, k1, k2, k3]) t →
       Region (out + 0x60#64) [replaceByte O[12]! 0 (commitFlag qNoteW
         (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]))] t →
-      mulFacts rNoteW [k0, k1, k2, k3] → Safe P t) :
-    Safe P s := by
+      mulFacts rNoteW [k0, k1, k2, k3] → SafeN G nb P t) :
+    SafeN G nb P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xb50#64) 362 := hstk.frame 362 (by decide)
   -- the frame (below it 0x8e0 bytes for `commit`): the domain `[Q, R]`, `commit`'s output,
   -- the iterator, the message words, the save area
@@ -351,7 +351,7 @@ theorem note_commitment_derive_spec {P : Prop} (s : MachineState)
   -- the iterator block's cells, atom-free, so that `commit`'s contract matches `hfrom`
   simp only [← v222_def, ← v223_def, ← v224_def, ← v225_def, ← v226_def, ← v227_def, ← v228_def, ← v229_def, ← v230_def, ← v232_def, ← v233_def, ← v234_def, ← v235_def, ← v236_def, ← v237_def, ← v238_def, ← v239_def, ← v248_def, ← v249_def, ← v250_def, ← v253_def, ← v254_def, ← v255_def, ← v256_def, ← v257_def, ← v258_def, ← v259_def, ← v260_def, ← v261_def, ← v262_def, ← v263_def, ← v264_def, ← v265_def, ← v266_def, ← v267_def, ← v268_def, ← v269_def, ← v272_def, ← v273_def, ← v274_def, ← v275_def, ← v276_def, ← v277_def, ← v278_def, ← v279_def, ← v280_def, ← v281_def, ← v282_def, ← v284_def, ← v285_def, ← v286_def, ← v287_def, ← v288_def, ← v289_def, ← v290_def, ← v291_def, ← v292_def, ← v293_def, ← v294_def, ← v295_def, ← v296_def, ← v297_def, ← v299_def, ← v300_def, ← v301_def, ← v302_def, ← v303_def, ← v304_def, ← v305_def, ← v306_def, ← v307_def, ← v308_def, ← v309_def, ← v310_def, ← v311_def, ← v312_def, ← v313_def, ← v314_def, ← v315_def, ← v316_def, ← v317_def, ← v318_def, ← v320_def, ← v321_def, ← v322_def, ← v323_def, ← v324_def, ← v325_def, ← v326_def, ← v327_def, ← v328_def, ← v329_def, ← v330_def, ← v331_def, ← v332_def, ← v333_def, ← v334_def, ← v335_def, ← v336_def, ← v337_def, ← v338_def, ← v339_def, ← v340_def] at hR6
   sym_reframe
-  have hcommit := sinsemilla_commit_spec (P := P) (M := sp - 0xb50#64 + 0xa80#64)
+  have hcommit := sinsemilla_commit_spec (G := G) (n := nb) (P := P) (M := sp - 0xb50#64 + 0xa80#64)
     (Mw := [g0, g1, g2, g3, p0, p1, p2, p3, v] ++ reprW [r0, r1, r2, r3] ++ reprW [q0, q1, q2, q3])
     (bit := noteBit [g0, g1, g2, g3] [p0, p1, p2, p3] v (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]))
     (hMl := by simp [reprW])

@@ -26,7 +26,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem prf_nf_spec {P : Prop} (s : MachineState) (ra sp out nk rho : Word)
+theorem prf_nf_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out nk rho : Word)
     (n0 n1 n2 n3 r0 r1 r2 r3 : Word)
     (hpc : s.pc = 0x780207e8#64) (hcode : CodeAt F_780207e8.base F_780207e8.prog s)
     (hcodeU : CodeAt F_78029ae8.base F_78029ae8.prog s) (hcodeR : CodeAt F_78028298.base F_78028298.prog s)
@@ -61,7 +61,7 @@ theorem prf_nf_spec {P : Prop} (s : MachineState) (ra sp out nk rho : Word)
         Region a0' [64#64, ptr, 64#64] t → Region (a0' + 0x18#64) Poseidon.mdsWords t →
         Region (a0' + 0x138#64) MI t →
         Region ptr Poseidon.rcWords t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     -- `__rust_dealloc(ptr, 64 * 96, 8)` at its call site here (ledger T2)
     (hdealloc : ∀ (u : MachineState) (sp' ptr : Word) (C : List Word), C.length = 768 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x78020c64#64 →
@@ -69,14 +69,14 @@ theorem prf_nf_spec {P : Prop} (s : MachineState) (ra sp out nk rho : Word)
       u.getReg .x12 = 8#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 768 ≤ 0x1c00000000 →
       (∀ t, t.pc = 0x78020c64#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe P t) → Safe P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x9b0#64, 310), (out, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       ∀ o0 o1 o2 o3 : Word, Region out [o0, o1, o2, o3] t →
       leLimbsToNat [o0, o1, o2, o3] =
         Poseidon.hash2 (leLimbsToNat [n0, n1, n2, n3]) (leLimbsToNat [r0, r1, r2, r3]) →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x9b0#64) 310 := hstk.frame 310 (by decide)
   -- the frame (below it 0x300 bytes for the callees' frames): [0, 0x1f8) scratch, the `constants()` output in three pieces, the sponge state
   -- (later its output), [0x4b0, 0x648) scratch, the save area

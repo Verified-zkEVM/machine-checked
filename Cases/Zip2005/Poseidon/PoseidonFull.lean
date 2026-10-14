@@ -20,7 +20,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
-theorem full_round_spec {P : Prop} (s : MachineState) (ra sp env e1 mp st rc : Word)
+theorem full_round_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp env e1 mp st rc : Word)
     (m0 m1 m2 m3 m4 m5 m6 m7 m8 m9 m10 m11 m12 m13 m14 m15 m16 m17 m18 m19 m20 m21 m22 m23 m24 m25 m26 m27 m28 m29 m30 m31 m32 m33 m34 m35 : Word)
     (x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 : Word) (c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 : Word)
     (hpc : s.pc = 0x7801f120#64) (hcode : CodeAt F_7801f120.base F_7801f120.prog s)
@@ -53,8 +53,8 @@ theorem full_round_spec {P : Prop} (s : MachineState) (ra sp env e1 mp st rc : W
       leLimbsToNat [o0, o1, o2, o3] < Fp.p →
       leLimbsToNat [o4, o5, o6, o7] < Fp.p →
       leLimbsToNat [o8, o9, o10, o11] < Fp.p →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x90#64) 18 s
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x90#64) 18 := hstk.frame 18 (by decide)
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x200#64) 64 := hstk.frame 64 (by decide)

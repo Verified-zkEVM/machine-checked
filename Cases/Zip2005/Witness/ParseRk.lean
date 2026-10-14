@@ -17,14 +17,14 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem parse_rk_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem parse_rk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (b0 b1 b2 b3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 17) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801cb44#64) (hcode : CodeAt F_7801cb44.base F_7801cb44.prog s)
     (hcodeU : CodeAt F_78026928.base F_78026928.prog s)
     (hcodeF : CodeAt F_78025a1c.base F_78025a1c.prog s)
@@ -68,8 +68,8 @@ theorem parse_rk_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
         (if leLimbsToNat [x0, x1, x2, x3] = 0 ∧ leLimbsToNat [y0, y1, y2, y3] = 0 then 0 else Fp.R) →
       tag = BitVec.zeroExtend 64 f → L.length = 16 →
       (f = 1#8 → L = [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3, b0, b1, b2, b3]) →
-      Region a0 (tag :: L) t → Safe P t) :
-    Safe P s := by
+      Region a0 (tag :: L) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x960#64) 300 := hstk.frame 300 (by decide)
   have hok_a1' := hok_a1.toText
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x1c0#64) 56 := hokW.sub' 244 56 (by decide) (by bv_omega)

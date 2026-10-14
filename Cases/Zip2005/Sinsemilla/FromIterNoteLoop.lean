@@ -168,14 +168,14 @@ theorem noteCoverH {sp : Word} {b : Word} {n : Nat} (hlo : 0x78048980 ≤ b.toNa
   ⟨(0x78048980#64, 14780690128), by simp, covers_arena hlo hhi⟩
 
 /-- One word of the loop from byte `8m`: eight `next` calls, eight byte stores. -/
-theorem note_word8_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} {J G K R Q V : List Word}
+theorem note_word8_step {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} {J G K R Q V : List Word}
     {j : Word} (E : NoteEnv sp sp0 out a1 G K R Q) {cap m : Nat} (hcap : cap ≤ 2048)
     (hm8 : 8 * (m + 1) ≤ cap) (hm : m ≤ 135) (hmV : m < V.length)
     (H : NoteHead sp sp0 out p v J G K R Q j cap (8 * m) V s) (C : NoteCtx sp0 v G K R Q s)
     (hk : ∀ (t : MachineState) (w' : Word), t.code = s.code → Unchanged (noteLoopW sp) s t →
       Kept s t → NoteCtx sp0 v G K R Q t →
-      NoteHead sp sp0 out p v J G K R Q j cap (8 * (m + 1)) (V.set m w') t → Safe P t) :
-    Safe P s := by
+      NoteHead sp sp0 out p v J G K R Q j cap (8 * (m + 1)) (V.set m w') t → SafeN Gd nb P t) :
+    SafeN Gd nb P s := by
   have hlo := H.hlo
   have hhi := H.hhi
   have hnw : p.toNat + 8 * V.length < 2 ^ 64 := by omega
@@ -259,14 +259,14 @@ theorem note_word8_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word}
   · rw [List.length_set]; exact H.hhi
 
 /-- The rest of a word from byte `8m + 1`: seven `next` calls, seven byte stores, byte 0 kept. -/
-theorem note_word7_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} {J G K R Q V : List Word}
+theorem note_word7_step {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} {J G K R Q V : List Word}
     {j : Word} (E : NoteEnv sp sp0 out a1 G K R Q) {cap m : Nat} (hcap : cap ≤ 2048)
     (hm8 : 8 * (m + 1) ≤ cap) (hm : m ≤ 135) (hmV : m < V.length)
     (H : NoteHead sp sp0 out p v J G K R Q j cap (8 * m + 1) V s) (C : NoteCtx sp0 v G K R Q s)
     (hk : ∀ (t : MachineState) (w' : Word), t.code = s.code → Unchanged (noteLoopW sp) s t →
       Kept s t → NoteCtx sp0 v G K R Q t →
-      NoteHead sp sp0 out p v J G K R Q j cap (8 * (m + 1)) (V.set m w') t → Safe P t) :
-    Safe P s := by
+      NoteHead sp sp0 out p v J G K R Q j cap (8 * (m + 1)) (V.set m w') t → SafeN Gd nb P t) :
+    SafeN Gd nb P s := by
   have hlo := H.hlo
   have hhi := H.hhi
   have hnw : p.toNat + 8 * V.length < 2 ^ 64 := by omega
@@ -351,14 +351,14 @@ theorem note_word7_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word}
   · rw [List.length_set]; exact H.hhi
 
 /-- `k` whole words from byte `8m`. -/
-theorem note_words8 {P : Prop} {sp sp0 out a1 v : Word} {J G K R Q : List Word} {j : Word}
+theorem note_words8 {Gd : MachineState → Prop} {n : Nat} {P : Prop} {sp sp0 out a1 v : Word} {J G K R Q : List Word} {j : Word}
     (E : NoteEnv sp sp0 out a1 G K R Q) {cap : Nat} (hcap : cap ≤ 2048) (k : Nat) :
     ∀ (m : Nat) (s : MachineState) (p : Word) (V : List Word), 8 * (m + k) ≤ cap → m + k ≤ 136 →
       m + k ≤ V.length →
       NoteHead sp sp0 out p v J G K R Q j cap (8 * m) V s → NoteCtx sp0 v G K R Q s →
       (∀ (t : MachineState) (V' : List Word), t.code = s.code → Unchanged (noteLoopW sp) s t →
         Kept s t → NoteCtx sp0 v G K R Q t → V'.length = V.length →
-        NoteHead sp sp0 out p v J G K R Q j cap (8 * (m + k)) V' t → Safe P t) → Safe P s := by
+        NoteHead sp sp0 out p v J G K R Q j cap (8 * (m + k)) V' t → SafeN Gd n P t) → SafeN Gd n P s := by
   induction k with
   | zero =>
     intro m s p V _ _ _ H C hk
@@ -374,14 +374,14 @@ theorem note_words8 {P : Prop} {sp sp0 out a1 v : Word} {J G K R Q : List Word} 
     exact hk t' V' (hc2.trans hc1) (hu1.trans hu2) (hk1.trans hk2) C2 hl H2
 
 /-- A phase: from byte `8m + 1` (the byte after a growth, or the first) to byte `8(m + 1 + k)`. -/
-theorem note_phase {P : Prop} {sp sp0 out a1 v : Word} {J G K R Q : List Word} {j : Word}
+theorem note_phase {Gd : MachineState → Prop} {n : Nat} {P : Prop} {sp sp0 out a1 v : Word} {J G K R Q : List Word} {j : Word}
     (E : NoteEnv sp sp0 out a1 G K R Q) {cap : Nat} (hcap : cap ≤ 2048) (m k : Nat) (s : MachineState)
     (p : Word) (V : List Word) (h8 : 8 * (m + 1 + k) ≤ cap) (h63 : m + 1 + k ≤ 136)
     (hV : m + 1 + k ≤ V.length)
     (H : NoteHead sp sp0 out p v J G K R Q j cap (8 * m + 1) V s) (C : NoteCtx sp0 v G K R Q s)
     (hk : ∀ (t : MachineState) (V' : List Word), t.code = s.code → Unchanged (noteLoopW sp) s t →
       Kept s t → NoteCtx sp0 v G K R Q t → V'.length = V.length →
-      NoteHead sp sp0 out p v J G K R Q j cap (8 * (m + 1 + k)) V' t → Safe P t) : Safe P s := by
+      NoteHead sp sp0 out p v J G K R Q j cap (8 * (m + 1 + k)) V' t → SafeN Gd n P t) : SafeN Gd n P s := by
   refine note_word7_step E hcap (by omega) (by omega) (by omega) H C ?_
   intro t w' hc1 hu1 hk1 C1 H1
   refine note_words8 E hcap k (m + 1) t p (V.set m w') h8 h63 (by rw [List.length_set]; omega) H1 C1 ?_
@@ -391,7 +391,7 @@ theorem note_phase {P : Prop} {sp sp0 out a1 v : Word} {J G K R Q : List Word} {
 
 /-- The growth at byte `C = cap`: `do_reserve_and_handle` doubles the `Vec`, then one `next`
 and one byte store. -/
-theorem note_grow_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} {J G K R Q V : List Word}
+theorem note_grow_step {Gd : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} {J G K R Q V : List Word}
     {j : Word} (E : NoteEnv sp sp0 out a1 G K R Q) {C : Nat}
     (hC : C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256 ∨ C = 512 ∨ C = 1024) (hVl : C / 8 ≤ V.length)
     (H : NoteHead sp sp0 out p v J G K R Q j C C V s) (Cx : NoteCtx sp0 v G K R Q s)
@@ -406,11 +406,11 @@ theorem note_grow_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} 
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region sp [BitVec.ofNat 64 (2 * C), p', BitVec.ofNat 64 C] t → W'.length = C / 8 + 1 →
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
-        0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 → SafeN Gd n P t) → SafeN Gd n P u)
     (hk : ∀ (t : MachineState) (p' : Word) (V' : List Word), t.code = s.code →
       Unchanged (noteLoopW sp) s t → Kept s t → NoteCtx sp0 v G K R Q t → V'.length = C / 4 + 1 →
-      NoteHead sp sp0 out p' v J G K R Q j (2 * C) (C + 1) V' t → Safe P t) :
-    Safe P s := by
+      NoteHead sp sp0 out p' v J G K R Q j (2 * C) (C + 1) V' t → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have e8 : 8 * (C / 8) = C := by omega
   have hlo := H.hlo
   have hhi := H.hhi
@@ -458,7 +458,7 @@ theorem note_grow_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} 
 
 /-- The exit from byte 1088: two more bits, the `None`, the `Vec` stored at `out`, the registers
 restored. `Bv` is the buffer: 257 words, bytes `o < 1090` the message bits. -/
-theorem note_tail_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} {J G K R Q V O : List Word}
+theorem note_tail_step {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} {J G K R Q V O : List Word}
     {j rav s0v s1v s2v s3v s4v s5v : Word} (E : NoteEnv sp sp0 out a1 G K R Q) (hOl : O.length = 3)
     (hVl : V.length = 257) (hra1 : rav &&& ~~~1#64 = rav)
     (H : NoteHead sp sp0 out p v J G K R Q j 2048 1088 V s) (C : NoteCtx sp0 v G K R Q s)
@@ -469,7 +469,7 @@ theorem note_tail_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} 
       t.getReg .x18 = s2v → t.getReg .x19 = s3v → t.getReg .x20 = s4v → t.getReg .x21 = s5v →
       Region out [2048#64, p, 1090#64] t → Bv.length = 257 → BitsUpToF (noteBit G K v R Q) Bv 1090 →
       Region p Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi p 257 → 0x78048980 ≤ p.toNat →
-      p.toNat + 8 * 257 ≤ 0x1c00000000 → Safe P t) : Safe P s := by
+      p.toNat + 8 * 257 ≤ 0x1c00000000 → SafeN Gd nb P t) : SafeN Gd nb P s := by
   have hlo := H.hlo
   have hhi := H.hhi
   have hnw : p.toNat + 8 * V.length < 2 ^ 64 := by omega
@@ -542,7 +542,7 @@ theorem note_tail_step {P : Prop} {s : MachineState} {sp sp0 out a1 p v : Word} 
 
 /-- The prologue: from the entry to the loop head at byte 1, the `Vec` of one word allocated,
 the caller's block advanced once and copied to the frame. -/
-theorem note_pro_step {P : Prop} {s : MachineState} {sp sp0 out a1 ra v : Word} {J G K R Q O : List Word}
+theorem note_pro_step {Gd : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 ra v : Word} {J G K R Q O : List Word}
     {j : Word} (E : NoteEnv sp sp0 out a1 G K R Q) (hOl : O.length = 3)
     (hpc : s.pc = 0x7801dfb4#64) (C : NoteCtx sp0 v G K R Q s)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s) (hcodeZ : CodeAt F_7801aed0.base F_7801aed0.prog s)
@@ -555,15 +555,15 @@ theorem note_pro_step {P : Prop} {s : MachineState} {sp sp0 out a1 ra v : Word} 
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e028#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → Safe P t) → Safe P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → SafeN Gd n P t) → SafeN Gd n P u)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN Gd n P u)
     (hk : ∀ (t : MachineState) (ptr w : Word), t.code = s.code →
       Unchanged [(sp - 0x180#64, 48), (sp, 28), (a1, 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Kept s t → NoteCtx sp0 v G K R Q t → NoteHead sp sp0 out ptr v J G K R Q j 8 1 [w] t →
       Region (sp + 0xa8#64) [s.getReg .x21, s.getReg .x20, s.getReg .x19, s.getReg .x18,
         s.getReg .x9, s.getReg .x8, ra] t →
-      Region out O t → (∃ I1 : List Word, I1.length = 18 ∧ Region a1 I1 t) → Safe P t) :
-    Safe P s := by
+      Region out O t → (∃ I1 : List Word, I1.length = 18 ∧ Region a1 I1 t) → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   refine from_iter_note_pro s sp sp0 out a1 ra v J G K R Q (noteState sp0 J j 0) O j E.Gl E.Kl E.Rl E.Ql (by simp) rfl
     hOl hpc C.code C.codeN hcodeM hcodeZ C.cw hra hsp E.stk E.okFr ha0 ha1 hO E.okO hCb E.okC
     C.Gr E.okG C.Kr E.okK C.Vr E.okVv C.Rr E.okR C.Qr E.okQ E.sp0_lo E.sp0_hi E.djS28O E.djS28C

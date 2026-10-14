@@ -35,7 +35,7 @@ theorem not_bw (a : Bool) :
 
 set_option maxHeartbeats 40000000 in
 set_option maxRecDepth 10000 in
-theorem coordinates_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
+theorem coordinates_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 : Word) (O : List Word) (hOl : O.length = 9)
     (hpc : s.pc = 0x78023f64#64) (hcode : CodeAt F_78023f64.base F_78023f64.prog s)
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -52,8 +52,8 @@ theorem coordinates_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
       Region a0 [x0, x1, x2, x3, y0, y1, y2, y3, replaceByte O[8]! 0
         (if x0 = 0 ∧ x1 = 0 ∧ x2 = 0 ∧ x3 = 0 ∧ y0 = 0 ∧ y1 = 0 ∧ y2 = 0 ∧ y3 = 0
           then 0#8 else 1#8)] t →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x70#64) 14 s
   obtain ⟨FB, hFB, hFBl⟩ := Region.exists_junk (sp - 0x80#64) 2 s
   have hokA : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x80#64) 16 := hstk.frame 16 (by decide)
@@ -81,7 +81,7 @@ expressions (`Nullifier::derive`: the affine form of a Jacobian sum) gets atoms 
 hypotheses, with one equation each (oriented expression = atom, so the executor's rewriting
 folds the expressions into the atoms rather than expanding them), instead of the expressions
 themselves inside the `is_some` condition. -/
-theorem coordinates_spec' {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
+theorem coordinates_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 : Word) (O : List Word) (hOl : O.length = 9)
     (hpc : s.pc = 0x78023f64#64) (hcode : CodeAt F_78023f64.base F_78023f64.prog s)
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -99,8 +99,8 @@ theorem coordinates_spec' {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
       Region a0 [u0, u1, u2, u3, w0, w1, w2, w3, replaceByte O[8]! 0
         (if u0 = 0 ∧ u1 = 0 ∧ u2 = 0 ∧ u3 = 0 ∧ w0 = 0 ∧ w1 = 0 ∧ w2 = 0 ∧ w3 = 0
           then 0#8 else 1#8)] t →
-      Safe P t) :
-    Safe P s :=
+      SafeN G n P t) :
+    SafeN G n P s :=
   coordinates_spec s ra a0 a1 sp x0 x1 x2 x3 y0 y1 y2 y3 O hOl hpc hcode hcodeB hcw hra hra1 hsp hstk
     ha0 ha1 hp hokp hO hok0 hd0 hd1 hd
     (fun t h1 h2 h3 h4 hR => hk t x0 x1 x2 x3 y0 y1 y2 y3 h1 h2 h3 h4 rfl rfl rfl rfl rfl rfl rfl rfl hR)

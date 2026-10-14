@@ -63,7 +63,7 @@ set_option maxRecDepth 10000 in
 /-- `Fq::to_repr`: the canonical little-endian bytes of `x`, i.e. the
     Montgomery representative `x` reduced to `x·R⁻¹ mod q`. Software Montgomery
     reduction (four rounds, then a conditional subtraction), no calls. -/
-theorem fq_to_repr_off2_spec {P : Prop} (s : MachineState) (ra b a1 : Word) (x0 x1 x2 x3 : Word) (W : List Word)
+theorem fq_to_repr_off2_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra b a1 : Word) (x0 x1 x2 x3 : Word) (W : List Word)
     (hWl : W.length = 5)
     (hpc : s.pc = 0x7802e9b8#64) (hcode : CodeAt F_7802e9b8.base F_7802e9b8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
@@ -74,8 +74,8 @@ theorem fq_to_repr_off2_spec {P : Prop} (s : MachineState) (ra b a1 : Word) (x0 
     (hk : ∀ t (l0 l1 l2 l3 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(b, 5)] s t →
       [l0, l1, l2, l3] = natToLeLimbs 4 (leLimbsToNat [x0, x1, x2, x3] * Fq.rInv % Fq.q) →
-      Region b (splice2 W l0 l1 l2 l3) t → Safe P t) :
-    Safe P s := by
+      Region b (splice2 W l0 l1 l2 l3) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(b, 5)] s
   sym_exec
   bn_lin

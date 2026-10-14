@@ -27,7 +27,7 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `compress256(state, blocks)` with one block: returns, callee-saved registers restored, only
 the frame and the state written, some state left. -/
-theorem compress256_spec {P : Prop} (s : MachineState) (ra sp st blk : Word) (S B : List Word)
+theorem compress256_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp st blk : Word) (S B : List Word)
     (hS : S.length = 4) (hB : B.length = 8)
     (hpc : s.pc = 0x780361e0#64) (hcode : CodeAt F_780361e0.base F_780361e0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -39,8 +39,8 @@ theorem compress256_spec {P : Prop} (s : MachineState) (ra sp st blk : Word) (S 
     (hd1 : Disjoint (sp - 0x390#64) 114 st 4) (hd2 : Disjoint (sp - 0x390#64) 114 blk 8)
     (hd3 : Disjoint st 4 blk 8)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
-      Unchanged [(sp - 0x390#64, 114), (st, 4)] s t → (∃ S', S'.length = 4 ∧ Region st S' t) → Safe P t) :
-    Safe P s := by
+      Unchanged [(sp - 0x390#64, 114), (st, 4)] s t → (∃ S', S'.length = 4 ∧ Region st S' t) → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x390#64) 114 := hstk.frame 114 (by decide)
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x390#64) 1 := hokW.sub' 0 1 (by decide) (by bv_omega)
   have hok1 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x388#64) 64 := hokW.sub' 1 64 (by decide) (by bv_omega)
@@ -63,7 +63,7 @@ theorem compress256_spec {P : Prop} (s : MachineState) (ra sp st blk : Word) (S 
       Region (sp - 0x390#64) [st] v → (∃ J, J.length = 64 ∧ Region (sp - 0x388#64) J v) →
       Region (sp - 0x188#64) [blk + 64#64] v → (∃ J, J.length = 34 ∧ Region (sp - 0x180#64) J v) →
       Region (sp - 0x70#64) [blk] v → Region (sp - 0x68#64) [s.getReg .x27, s.getReg .x26, s.getReg .x25, s.getReg .x24, s.getReg .x23, s.getReg .x22, s.getReg .x21, s.getReg .x20, s.getReg .x19, s.getReg .x18, s.getReg .x9, s.getReg .x8, ra] v →
-      (∃ S', S'.length = 4 ∧ Region st S' v) → (∃ B', B'.length = 8 ∧ Region blk B' v) → Safe P v := by
+      (∃ S', S'.length = 4 ∧ Region st S' v) → (∃ B', B'.length = 8 ∧ Region blk B' v) → SafeN G n P v := by
     intro v vpc vcode vcA vcw vx2 vx3 vx4 vU vF0 ⟨J1, hJ1, vF1⟩ vF2 ⟨J3, hJ3, vF3⟩ vF3b vF4 ⟨S', hS', vS⟩ ⟨B', hB', vB⟩
     exact compress256_seg3 v ra sp st blk (s.getReg .x8) (s.getReg .x9) (s.getReg .x18) (s.getReg .x19) (s.getReg .x20) (s.getReg .x21) (s.getReg .x22) (s.getReg .x23) (s.getReg .x24) (s.getReg .x25) (s.getReg .x26) (s.getReg .x27) J1 J3 S' B' hJ1 hJ3 hS' hB'
       vpc vcA vcw (vx2.trans (by bv_omega)) hstk hra1 vF0 vF1 vF2 vF3 vF3b vF4 vS hokS vB hokB hd1 hd2 hd3
@@ -77,7 +77,7 @@ theorem compress256_spec {P : Prop} (s : MachineState) (ra sp st blk : Word) (S 
       Region (sp - 0x390#64) [st] v → (∃ J, J.length = 64 ∧ Region (sp - 0x388#64) J v) →
       Region (sp - 0x188#64) [blk + 64#64] v → (∃ J, J.length = 34 ∧ Region (sp - 0x180#64) J v) →
       Region (sp - 0x70#64) [blk] v → Region (sp - 0x68#64) [s.getReg .x27, s.getReg .x26, s.getReg .x25, s.getReg .x24, s.getReg .x23, s.getReg .x22, s.getReg .x21, s.getReg .x20, s.getReg .x19, s.getReg .x18, s.getReg .x9, s.getReg .x8, ra] v →
-      (∃ S', S'.length = 4 ∧ Region st S' v) → (∃ B', B'.length = 8 ∧ Region blk B' v) → Safe P v := by
+      (∃ S', S'.length = 4 ∧ Region st S' v) → (∃ B', B'.length = 8 ∧ Region blk B' v) → SafeN G n P v := by
     intro v vpc vcode vcA vcw vx2 vx3 vx4 vU vF0 ⟨J1, hJ1, vF1⟩ vF2 ⟨J3, hJ3, vF3⟩ vF3b vF4 ⟨S', hS', vS⟩ ⟨B', hB', vB⟩
     exact compress256_seg2 v ra sp st blk (s.getReg .x8) (s.getReg .x9) (s.getReg .x18) (s.getReg .x19) (s.getReg .x20) (s.getReg .x21) (s.getReg .x22) (s.getReg .x23) (s.getReg .x24) (s.getReg .x25) (s.getReg .x26) (s.getReg .x27) J1 J3 S' B' hJ1 hJ3 hS' hB'
       vpc vcA vcw (vx2.trans (by bv_omega)) hstk vF0 vF1 vF2 vF3 vF3b vF4 vS hokS vB hokB hd1 hd2 hd3
@@ -89,7 +89,7 @@ theorem compress256_spec {P : Prop} (s : MachineState) (ra sp st blk : Word) (S 
       Region (sp - 0x390#64) [st] v → (∃ J, J.length = 64 ∧ Region (sp - 0x388#64) J v) →
       Region (sp - 0x188#64) [blk + 64#64] v → (∃ J, J.length = 34 ∧ Region (sp - 0x180#64) J v) →
       Region (sp - 0x70#64) [blk] v → Region (sp - 0x68#64) [s.getReg .x27, s.getReg .x26, s.getReg .x25, s.getReg .x24, s.getReg .x23, s.getReg .x22, s.getReg .x21, s.getReg .x20, s.getReg .x19, s.getReg .x18, s.getReg .x9, s.getReg .x8, ra] v →
-      (∃ S', S'.length = 4 ∧ Region st S' v) → (∃ B', B'.length = 8 ∧ Region blk B' v) → Safe P v := by
+      (∃ S', S'.length = 4 ∧ Region st S' v) → (∃ B', B'.length = 8 ∧ Region blk B' v) → SafeN G n P v := by
     intro v vpc vcode vcA vcw vx2 vx3 vx4 vU vF0 ⟨J1, hJ1, vF1⟩ vF2 ⟨J3, hJ3, vF3⟩ vF3b vF4 ⟨S', hS', vS⟩ ⟨B', hB', vB⟩
     exact compress256_seg1 v ra sp st blk (s.getReg .x8) (s.getReg .x9) (s.getReg .x18) (s.getReg .x19) (s.getReg .x20) (s.getReg .x21) (s.getReg .x22) (s.getReg .x23) (s.getReg .x24) (s.getReg .x25) (s.getReg .x26) (s.getReg .x27) J1 J3 S' B' hJ1 hJ3 hS' hB'
       vpc vcA vcw (vx2.trans (by bv_omega)) hstk vF0 vF1 vF2 vF3 vF3b vF4 vS hokS vB hokB hd1 hd2 hd3

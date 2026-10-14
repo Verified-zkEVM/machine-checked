@@ -37,7 +37,7 @@ theorem negw_and7_one (a : Word) (h : (a - 1#64) &&& 7#64 = 0#64) :
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem memset63_pad_spec {P : Prop} (s : MachineState) (ra a0 : Word) (O : List Word)
+theorem memset63_pad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 : Word) (O : List Word)
     (hOl : O.length = 8)
     (hpc : s.pc = 0x7803f57c#64) (hcode : CodeAt F_7803f57c.base F_7803f57c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -45,8 +45,8 @@ theorem memset63_pad_spec {P : Prop} (s : MachineState) (ra a0 : Word) (O : List
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = 0#64) (ha2 : s.getReg .x12 = 63#64)
     (hO : Region (a0 - 1#64) O s) (hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (a0 - 1#64) 8)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(a0 - 1#64, 8)] s t →
-      (∃ W : List Word, W.length = 8 ∧ Region (a0 - 1#64) W t) → Safe P t) :
-    Safe P s := by
+      (∃ W : List Word, W.length = 8 ∧ Region (a0 - 1#64) W t) → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(a0 - 1#64, 8)] s
   have hm := negw_and7_one a0 hok0.and7
   sym_exec

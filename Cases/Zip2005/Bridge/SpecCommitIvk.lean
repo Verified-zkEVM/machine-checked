@@ -18,7 +18,7 @@ scalar out of Montgomery form.
 
 namespace Cases.Zip2005.Poseidon
 
-open RiscvZkvm.Rv64 Cases.Zip2005.BridgeMul Cases.Zip2005.Precompile.Pallas
+open RiscvZkvm.Rv64 Cases.Zip2005.SpecMul Cases.Zip2005.Precompile.Pallas
 open Zcash.Circuits (Point)
 
 set_option autoImplicit false

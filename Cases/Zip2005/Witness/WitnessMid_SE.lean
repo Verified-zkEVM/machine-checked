@@ -28,7 +28,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
 set_option asmverif.sym.foldBytes true in
-theorem witness_mid_SE_spec {P : Prop} (s : MachineState) (sp out de qb l c r9 r18 r19 r20 r22 r23 r24 r25 r26 r27 : Word)
+theorem witness_mid_SE_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp out de qb l c r9 r18 r19 r20 r22 r23 r24 r25 r26 r27 : Word)
     (vs0 vs1 vs2 vs3 vs4 vs5 vs6 vs7 vs8 vs9 vs10 vs11 vra : Word)
     (Fr1 Fr2 O W : List Word) (hF1l : Fr1.length = 17) (hF2l : Fr2.length = 302)
     (hOl : O.length = 174) (hWl : W.length = 138)
@@ -66,20 +66,20 @@ theorem witness_mid_SE_spec {P : Prop} (s : MachineState) (sp out de qb l c r9 r
       (∀ (t : MachineState) (S : List Word), t.pc = 0x78019fa4#64 → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp' - 0x400#64, 128), (d, 3), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
-        S.length = 3 → Region d S t → Safe P t) → Safe P u)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → Safe P u)
+        S.length = 3 → Region d S t → SafeN G n P t) → SafeN G n P u)
+    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
     (halloc : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = r' → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hqk1 : 1 ≤ (optTag5 [W[129]!, W[130]!, W[131]!, W[132]!, W[133]!]).toNat) (hqk2 : (optTag5 [W[129]!, W[130]!, W[131]!, W[132]!, W[133]!]).toNat < 2) (hsg : 2 ≤ (optTag6 [W[133]!, W[134]!, W[135]!, W[136]!, W[137]!]).toNat)
     (hkErr : ∀ (t : MachineState) (V : List Word), t.pc = vra &&& ~~~1#64 →
       t.code = s.code → t.getReg .x1 = vra → t.getReg .x2 = sp + 0xa70#64 →
@@ -88,8 +88,8 @@ theorem witness_mid_SE_spec {P : Prop} (s : MachineState) (sp out de qb l c r9 r
       t.getReg .x20 = vs4 → t.getReg .x21 = vs5 → t.getReg .x22 = vs6 → t.getReg .x23 = vs7 →
       t.getReg .x24 = vs8 → t.getReg .x25 = vs9 → t.getReg .x26 = vs10 → t.getReg .x27 = vs11 →
       Unchanged [(sp - 0x1120#64, 548), (sp, 334), (out, 174), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
-      Region out V t → V.length = 174 → extractByte V[173]! 7 = 2#8 → Safe P t) :
-    Safe P s := by
+      Region out V t → V.length = 174 → extractByte V[173]! 7 = 2#8 → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x1120#64) 548 := hstk.frame 548 (by decide)
   have hu := Unchanged.refl [(sp - 0x1120#64, 548), (sp, 334), (out, 174), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   have hokHp : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040620#64 14780694332 := heapOk

@@ -16,7 +16,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem parse_rho_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
+theorem parse_rho_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x7801d360#64) (hcode : CodeAt F_7801d360.base F_7801d360.prog s)
     (hcodeRho : CodeAt F_7801ddd8.base F_7801ddd8.prog s)
@@ -36,8 +36,8 @@ theorem parse_rho_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1
       tag = (if leLimbsToNat [b0, b1, b2, b3] < Fp.p then 1#64 else 0#64) → L.length = 4 →
       (leLimbsToNat [b0, b1, b2, b3] < Fp.p →
         L = natToLeLimbs 4 (Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2)) →
-      Region a0 (tag :: L) t → Safe P t) :
-    Safe P s := by
+      Region a0 (tag :: L) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x150#64) 42 := hstk.frame 42 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x40#64) 8 := hokW.sub' 34 8 (by decide) (by bv_omega)
   -- the frame: [8, 0x30) the `CtOption<Fp>`, saved registers

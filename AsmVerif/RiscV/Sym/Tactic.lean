@@ -3,8 +3,8 @@
 
   The symbolic executor: `sym_exec`.
 
-  The goal is `Safe P s` (`AsmVerif.RiscV.Sym.Safe`). The executor steps the machine from `s`,
-  one instruction at a time, replacing the goal by `Safe P s'` for the
+  The goal is `SafeN G n P s` (`AsmVerif.RiscV.SafeN`). The executor steps the machine from `s`,
+  one instruction at a time, replacing the goal by `SafeN G n P s'` for the
   successor state `s'` and deriving facts about `s'` from the facts about `s`:
   its pc, the registers it knows, the memory regions it tracks, the code map,
   the store invariant, the frame (`Unchanged`), the private input. The previous
@@ -388,7 +388,8 @@ def mkEqMS (a b : Expr) : Expr := mkApp3 (mkConst ``Eq [1]) msTy a b
 def mkSetPC (s p : Expr) : Expr := mkApp2 (mkConst ``MachineState.setPC) s p
 def mkSetReg (s : Expr) (i : Nat) (v : Expr) : Expr := mkApp3 (mkConst ``MachineState.setReg) s (mkReg i) v
 def mkSetMem (s a v : Expr) : Expr := mkApp3 (mkConst ``MachineState.setMem) s a v
-def mkSafe (P s : Expr) : Expr := mkApp2 (mkConst ``AsmVerif.RiscV.Sym.Safe) P s
+/-- `SafeN G n P s` from the judgement's head `J = SafeN G n P`. -/
+def mkSafe (J s : Expr) : Expr := mkApp J s
 
 def natLtE (a b : Expr) : Expr := mkApp4 (mkConst ``LT.lt [0]) natTy (mkConst ``instLTNat) a b
 def natLeE (a b : Expr) : Expr := mkApp4 (mkConst ``LE.le [0]) natTy (mkConst ``instLENat) a b
@@ -495,11 +496,19 @@ def regListSet (l : Expr) (i : Nat) (v : Expr) : MetaM Expr := do
 
 /-! ## The goal -/
 
+/-- The goal `SafeN G n P s`: its head `SafeN G n P` and the state `s`. -/
 def goalParts (g : MVarId) : MetaM (Expr × Expr) := do
   let ty ← instantiateMVars (← g.getType)
   match_expr ty with
-  | AsmVerif.RiscV.Sym.Safe P s => return (P, s)
-  | _ => throwError "sym_exec: goal is not `Safe P s`:{indentExpr ty}"
+  | AsmVerif.RiscV.SafeN G n P s => return (mkApp3 (mkConst ``AsmVerif.RiscV.SafeN) G n P, s)
+  | _ => throwError "sym_exec: goal is not `SafeN G n P s`:{indentExpr ty}"
+
+/-- The goal `SafeN G n P s`, in parts. -/
+def goalParts4 (g : MVarId) : MetaM (Expr × Expr × Expr × Expr) := do
+  let ty ← instantiateMVars (← g.getType)
+  match_expr ty with
+  | AsmVerif.RiscV.SafeN G n P s => return (G, n, P, s)
+  | _ => throwError "sym_exec: goal is not `SafeN G n P s`:{indentExpr ty}"
 
 /-- Replace the main goal `G` by `G` under new hypotheses `xᵢ : tᵢ`, closing the
     old goal with `(fun x₁ … xₙ => ?new) a₁ … aₙ`. The application is built
@@ -544,9 +553,9 @@ def clearFacts (fvs : Array FVarId) : TacticM Unit := do
     try g ← g.clear fv catch _ => pure ()
   replaceMainGoal [g]
 
-/-- Replace the goal `Safe P s` by `Safe P s'` for a fresh `s'` with
-    `hdef : shape = s'`. `close k` must prove `Safe P s` from
-    `k : ∀ s', shape = s' → Safe P s'`. Returns `(s', hdef)`. -/
+/-- Replace the goal `SafeN G n P s` by `SafeN G n P s'` for a fresh `s'` with
+    `hdef : shape = s'`. `close k` must prove `SafeN G n P s` from
+    `k : ∀ s', shape = s' → SafeN G n P s'`. Returns `(s', hdef)`. -/
 def advance (shape : Expr) (close : Expr → MetaM Expr) (k : Nat) : TacticM (Expr × Expr) := do
   let g ← getMainGoal
   g.withContext do
@@ -2012,7 +2021,7 @@ def unfoldEq (s : Expr) (f : Fetched) : MetaM (Expr × Expr) := do
 /-- `close` for an ordinary step: `hstep : stepSp1 s = some X`, `hX : X = shape`. -/
 def stepClose (hstep hX : Expr) (kMV : Expr) : MetaM Expr := do
   let hstep' ← mkAppM ``Eq.trans #[hstep, ← mkAppM ``congrArg #[mkApp (mkConst ``Option.some [0]) msTy, hX]]
-  mkAppM ``AsmVerif.RiscV.Sym.Safe.step_gen #[hstep', kMV]
+  mkAppM ``AsmVerif.RiscV.SafeN.step_gen #[hstep', kMV]
 
 /-- A register-writing step from its raw value and raw pc. -/
 def regStep (hstep : Expr) (rd : Nat) (rawV rawPc : Expr) (eq : Expr)
@@ -2624,8 +2633,8 @@ def ecallStep (f : Fetched) : SymM Bool := do
         let hne ← match ← proveBySimp (← mkAppM ``Ne #[mkGetReg s 10, mkWordLit 0]) #[a0.proof] normLemmas with
           | some p => pure p
           | none => throwError "sym_exec: a0 ≠ 0"
-        let (P, _) ← goalParts g
-        g.assign (← mkAppOptM ``AsmVerif.RiscV.Sym.Safe.reject #[some P, some s, some f.hfetch,
+        let (G, n, P, _) ← goalParts4 g
+        g.assign (← mkAppOptM ``AsmVerif.RiscV.SafeN.reject #[some G, some P, some s, some n, some f.hfetch,
           some (← mkExpectedTypeHint ht0 (mkEqW (mkGetReg s 5) (mkWordLit 0))), some hne])
       replaceMainGoal []
       logInfo m!"sym_exec: rejecting HALT (a0 = {a0.lin.c}) at pc {st.pc}"
@@ -2635,7 +2644,7 @@ def ecallStep (f : Fetched) : SymM Bool := do
   if id == 0x10 || id == 0x1a then
     -- COMMIT / COMMIT_DEFERRED_PROOFS
     let isCommit := id == 0x10
-    let lem := if isCommit then ``AsmVerif.RiscV.Sym.Safe.commit else ``AsmVerif.RiscV.Sym.Safe.commitDeferred
+    let lem := if isCommit then ``AsmVerif.RiscV.Sym.SafeN.commit else ``AsmVerif.RiscV.Sym.SafeN.commitDeferred
     let idE := if isCommit then mkConst ``Sp1.COMMIT else mkConst ``Sp1.COMMIT_DEFERRED_PROOFS
     let base := if isCommit then mkApp (mkConst ``MachineState.sp1Commit) s else s
     let orig := mkSetPC base (← withMainContext (mkAdd (mkPc s) (mkWordLit 4)))
@@ -2724,13 +2733,13 @@ def ecallStep (f : Fetched) : SymM Bool := do
       if isMul then
         let (hy, _, hyl) := snd.get!
         let ha1 := a1.proof
-        mkAppM ``AsmVerif.RiscV.Sym.Safe.uint256Mul #[f.hfetch, ← mkExpectedTypeHint ht0 (mkEqW (mkGetReg s 5) (mkConst ``Sp1.UINT256_MUL)), ha0, ha1, hx, hxl, hy, hyl, k']
+        mkAppM ``AsmVerif.RiscV.Sym.SafeN.uint256Mul #[f.hfetch, ← mkExpectedTypeHint ht0 (mkEqW (mkGetReg s 5) (mkConst ``Sp1.UINT256_MUL)), ha0, ha1, hx, hxl, hy, hyl, k']
       else if isAdd then
         let (hy, _, hyl) := snd.get!
         let ha1 := a1.proof
-        mkAppM ``AsmVerif.RiscV.Sym.Safe.pallasAdd #[f.hfetch, ← mkExpectedTypeHint ht0 (mkEqW (mkGetReg s 5) (mkConst ``Sp1.PALLAS_ADD)), ha0, ha1, hx, hxl, hy, hyl, k']
+        mkAppM ``AsmVerif.RiscV.Sym.SafeN.pallasAdd #[f.hfetch, ← mkExpectedTypeHint ht0 (mkEqW (mkGetReg s 5) (mkConst ``Sp1.PALLAS_ADD)), ha0, ha1, hx, hxl, hy, hyl, k']
       else
-        mkAppM ``AsmVerif.RiscV.Sym.Safe.pallasDouble #[f.hfetch, ← mkExpectedTypeHint ht0 (mkEqW (mkGetReg s 5) (mkConst ``Sp1.PALLAS_DOUBLE)), ha0, hx, hxl, k']
+        mkAppM ``AsmVerif.RiscV.Sym.SafeN.pallasDouble #[f.hfetch, ← mkExpectedTypeHint ht0 (mkEqW (mkGetReg s 5) (mkConst ``Sp1.PALLAS_DOUBLE)), ha0, hx, hxl, k']
     finish { shape, kind := .ww r0 i0 a0.val ws wsE, newPc := some pc4, newPcE := pcv } close
     return true
   logInfo m!"sym_exec: stopping at ECALL {id} at pc {st.pc}"
@@ -2745,7 +2754,7 @@ partial def piConclusion (e : Expr) : Expr :=
   | _ => e
 
 def isContinuation (ty : Expr) : Bool :=
-  ty.isForall && (piConclusion ty).isAppOf ``AsmVerif.RiscV.Sym.Safe
+  ty.isForall && (piConclusion ty).isAppOf ``AsmVerif.RiscV.SafeN
 
 def piArity (e : Expr) : Nat :=
   match e with
@@ -3901,10 +3910,11 @@ def branchStep (f : Fetched) (rs1 rs2 off : Nat) (kind : String) : SymM Res := d
     let branches ← g.withContext do
       let c := rhs.getAppArgs[1]!
       let (c', _) ← rewriteTo c (st.regRules ++ #[st.hpc]) normLemmas
-      let (P, _) ← goalParts g
-      let g1 ← mkFreshExprSyntheticOpaqueMVar (← mkArrow c' (mkSafe P s))
-      let g2 ← mkFreshExprSyntheticOpaqueMVar (← mkArrow (mkNot c') (mkSafe P s))
-      g.assign (← mkAppOptM ``AsmVerif.RiscV.Sym.Safe.cases #[some P, some s, some c', some g1, some g2])
+      let (G, n, P, _) ← goalParts4 g
+      let J := mkApp3 (mkConst ``AsmVerif.RiscV.SafeN) G n P
+      let g1 ← mkFreshExprSyntheticOpaqueMVar (← mkArrow c' (mkSafe J s))
+      let g2 ← mkFreshExprSyntheticOpaqueMVar (← mkArrow (mkNot c') (mkSafe J s))
+      g.assign (← mkAppOptM ``AsmVerif.RiscV.SafeN.cases #[some G, some P, some s, some n, some c', some g1, some g2])
       let (h1, g1') ← g1.mvarId!.intro (Name.mkSimple s!"hbr{st.k}")
       let (h2, g2') ← g2.mvarId!.intro (Name.mkSimple s!"hbr{st.k}")
       pure #[(g1', mkFVar h1, tgt), (g2', mkFVar h2, pc4)]
@@ -3961,10 +3971,11 @@ def stepOnce (first : Bool) : SymM (Res × Option Fetched) := do
       if let some c := undecided then
         let g ← getMainGoal
         let branches ← g.withContext do
-          let (P, _) ← goalParts g
-          let g1 ← mkFreshExprSyntheticOpaqueMVar (← mkArrow c (mkSafe P st.s))
-          let g2 ← mkFreshExprSyntheticOpaqueMVar (← mkArrow (mkNot c) (mkSafe P st.s))
-          g.assign (← mkAppOptM ``AsmVerif.RiscV.Sym.Safe.cases #[some P, some st.s, some c, some g1, some g2])
+          let (G, n, P, _) ← goalParts4 g
+          let J := mkApp3 (mkConst ``AsmVerif.RiscV.SafeN) G n P
+          let g1 ← mkFreshExprSyntheticOpaqueMVar (← mkArrow c (mkSafe J st.s))
+          let g2 ← mkFreshExprSyntheticOpaqueMVar (← mkArrow (mkNot c) (mkSafe J st.s))
+          g.assign (← mkAppOptM ``AsmVerif.RiscV.SafeN.cases #[some G, some P, some st.s, some n, some c, some g1, some g2])
           let (h1, g1') ← g1.mvarId!.intro (Name.mkSimple s!"hsp{st.k}")
           let (h2, g2') ← g2.mvarId!.intro (Name.mkSimple s!"hsp{st.k}")
           pure #[(g1', mkFVar h1), (g2', mkFVar h2)]

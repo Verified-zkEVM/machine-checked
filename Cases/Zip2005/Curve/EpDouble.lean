@@ -48,7 +48,7 @@ theorem Fp.dblJ_eq {X Y Z a b c d0 d2 d3 d4 d e2 e f zy z3 dd x3 c2 c4 c8 dx edx
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem ep_double_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem ep_double_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 : Word) (O : List Word) (hOl : O.length = 12)
     (hpc : s.pc = 0x7802413c#64) (hcode : CodeAt F_7802413c.base F_7802413c.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -66,8 +66,8 @@ theorem ep_double_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
       Unchanged [(sp - 0x1b0#64, 54), (a0, 12)] s t →
       Region a0 (natToLeLimbs 4 (Fp.dblJ (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [z0, z1, z2, z3])).1 ++
         natToLeLimbs 4 (Fp.dblJ (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [z0, z1, z2, z3])).2.1 ++
-        natToLeLimbs 4 (Fp.dblJ (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [z0, z1, z2, z3])).2.2) t → Safe P t) :
-    Safe P s := by
+        natToLeLimbs 4 (Fp.dblJ (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [z0, z1, z2, z3])).2.2) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x1b0#64) 54 := hstk.frame 54 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x1a0#64) 39 := hokW.sub' 2 39 (by decide) (by bv_omega)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x68#64) 13 := hokW.sub' 41 13 (by decide) (by bv_omega)

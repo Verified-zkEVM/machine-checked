@@ -24,14 +24,14 @@ def lebs2ipK (w0 w1 : Word) : Word :=
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem lebs2ip_k_spec {P : Prop} (s : MachineState) (ra a0 : Word) (w0 w1 : Word)
+theorem lebs2ip_k_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 : Word) (w0 w1 : Word)
     (hpc : s.pc = 0x780234cc#64) (hcode : CodeAt F_780234cc.base F_780234cc.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra) (ha0 : s.getReg .x10 = a0)
     (hb : Region a0 [w0, w1] s) (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi a0 2)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [] s t →
-      t.getReg .x10 = lebs2ipK w0 w1 → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = lebs2ipK w0 w1 → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [] s
   sym_exec
   have hfin : s_30.getReg .x10 = lebs2ipK w0 w1 := by

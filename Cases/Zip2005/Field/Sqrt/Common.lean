@@ -13,13 +13,13 @@ set_option maxRecDepth 20000 in
     (`< p`, the last `UINT256_MULMOD` is modulo `p`). Its value is left unconstrained: the
     caller `sqrt_alt` checks it (`res² = u` or `res² = ROOT·u`, else panic), so no property of
     the lookup tables beyond their extent is needed. Three segments (`Cases.Zip2005.Field.Sqrt.Seg*`). -/
-theorem sqrt_common_spec {P : Prop} (s : MachineState) (ra sp a0 tb a2 a3 uv0 uv1 uv2 uv3 vv0 vv1 vv2 vv3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word)
+theorem sqrt_common_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 tb a2 a3 uv0 uv1 uv2 uv3 vv0 vv1 vv2 vv3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word)
     (O IV G0 G1 G2 G3 : List Word) (hOl : O.length = 4)
     (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
     (hstk : StackOk Ro.layout 0x1b0 sp) (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi a0 4) (hd0 : Disjoint (sp - 0x1b0#64) 54 a0 4)
     (hilen : ilen.toNat ≤ 1104)
     (hok_a2 : RegionOk Ro.layout.roBase Ro.layout.textHi a2 4) (hd_a2 : Disjoint (sp - 0x1b0#64) 54 a2 4) (he_a2 : Disjoint a0 4 a2 4)
@@ -44,8 +44,8 @@ theorem sqrt_common_spec {P : Prop} (s : MachineState) (ra sp a0 tb a2 a3 uv0 uv
     (hG0 : Region g0 G0 s) (hG1 : Region g1 G1 s) (hG2 : Region g2 G2 s) (hG3 : Region g3 G3 s)
     (hk : ∀ (t : MachineState) (r0 r1 r2 r3 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x1b0#64, 54), (a0, 4)] s t → Region a0 [r0, r1, r2, r3] t →
-      leLimbsToNat [r0, r1, r2, r3] < Fp.p → Safe P t) :
-    Safe P s := by
+      leLimbsToNat [r0, r1, r2, r3] < Fp.p → SafeN G n P t) :
+    SafeN G n P s := by
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x1b0#64) 54 := hstk.frame 54 (by decide)
   have hokB : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x1b0#64) 41 := hokF.sub' 0 41 (by decide) (by bv_omega)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x68#64) 13 := hokF.sub' 41 13 (by decide) (by bv_omega)
@@ -78,7 +78,7 @@ theorem sqrt_common_spec {P : Prop} (s : MachineState) (ra sp a0 tb a2 a3 uv0 uv
         s.getReg .x1] u → O'.length = 4 → Region a0 O' u →
       Region a2 [uv0, uv1, uv2, uv3] u → Region a3 [vv0, vv1, vv2, vv3] u → Region tb [cap, iptr, ilen, g0, g1, g2, g3, hmod, hx] u →
       Region iptr IV u → Region g0 G0 u → Region g1 G1 u → Region g2 G2 u → Region g3 G3 u →
-      Safe P u := by
+      SafeN G n P u := by
     intro u B' O' upc ucode ucA ucM ucL ucw uro uU ux2 ux3 ux4 ux8 ux9 ux18 ux19 ux20 ux21 ux22 ux23 ux24 ux25 ux26 ux27 uBl uB uS uOl uO uU' uV' uT' uIV' uG0 uG1 uG2 uG3
     exact sq_seg2 s sp a0 tb a2 a3 uv0 uv1 uv2 uv3 vv0 vv1 vv2 vv3 cap iptr ilen g0 g1 g2 g3 hmod hx IV G0 G1 G2 G3 u hIVl hG0l hG1l hG2l hG3l hpb hpp hprz hstk hok0 hd0 hok_a2 hd_a2 he_a2 hok_a3 hd_a3 he_a3 hok_tb hd_tb he_tb hok_iptr hd_iptr he_iptr hok_g0 hd_g0 he_g0 hok_g1 hd_g1 he_g1 hok_g2 hd_g2 he_g2 hok_g3 hd_g3 he_g3
       ⟨upc, ucode, ucA, ucM, ucL, ucw, uro, uU, ux2, ux3, ux4, ux8, ux9, ux18, ux19, ux20, ux21, ux22, ux23, ux24, ux25, ux26, ux27, ⟨B', uBl, uB⟩, uS, ⟨O', uOl, uO⟩,

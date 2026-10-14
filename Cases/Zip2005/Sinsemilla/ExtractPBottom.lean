@@ -63,7 +63,7 @@ theorem epb_mask (X Y : Nat) (hX : X < 2 ^ 256) (hY : Y < 2 ^ 256) :
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem extract_p_bottom_spec {P : Prop} (s : MachineState) (ra sp out a1 : Word)
+theorem extract_p_bottom_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out a1 : Word)
     (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 c : Word) (f : BitVec 8) (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x7802340c#64) (hcode : CodeAt F_7802340c.base F_7802340c.prog s)
     (hcodeMS : CodeAt F_7803f57c.base F_7803f57c.prog s)
@@ -86,8 +86,8 @@ theorem extract_p_bottom_spec {P : Prop} (s : MachineState) (ra sp out a1 : Word
       Unchanged [(sp - 0x3a0#64, 116), (out, 5)] s t →
       Region out (extractPBottomW f [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11] ++
         [replaceByte O[4]! 0 f]) t →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x3a0#64) 116 := hstk.frame 116 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x170#64) 46 := hokW.sub' 70 46 (by decide) (by bv_omega)
   -- the frame: [8, 0x68) the selection, [0x68, 0xc8) the zero point, [0xc8, 0x110) the affine

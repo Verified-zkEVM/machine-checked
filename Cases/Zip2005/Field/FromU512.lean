@@ -13,7 +13,7 @@ set_option maxHeartbeats 20000000 in
 set_option maxRecDepth 10000 in
 /-- `Fp::from_u512`: the low half times `R2` plus the high half times `R3`, each
     through `UINT256_MUL` and a reduction by `R⁻¹`, added in software. -/
-theorem fp_from_u512_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x : List Word)
+theorem fp_from_u512_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x : List Word)
     (hxl : x.length = 8)
     (hpc : s.pc = 0x78028718#64) (hcode : CodeAt F_78028718.base F_78028718.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -28,8 +28,8 @@ theorem fp_from_u512_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x 
       Unchanged [(sp - 0xf0#64, 30), (a0, 4)] s t →
       Region a0 (natToLeLimbs 4 (Fp.add
         (Fp.mul (leLimbsToNat [x[0]!, x[1]!, x[2]!, x[3]!]) Fp.R2)
-        (Fp.mul (leLimbsToNat [x[4]!, x[5]!, x[6]!, x[7]!]) Fp.R3))) t → Safe P t) :
-    Safe P s := by
+        (Fp.mul (leLimbsToNat [x[4]!, x[5]!, x[6]!, x[7]!]) Fp.R3))) t → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨O, hO, hOlen⟩ := Region.exists_junk a0 4 s
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0xf0#64) 30 s
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xf0#64) 30 := hstk.frame 30 (by decide)

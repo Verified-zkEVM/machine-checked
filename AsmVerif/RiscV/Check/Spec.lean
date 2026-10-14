@@ -5,21 +5,12 @@
 
   ## The judgement
 
-  `SafeN G n P s`: every accepting state reached from `s` in fewer than `n` steps, along a
-  run every state of which satisfies the guard `G`, satisfies `P`. Partial correctness: a run
-  that traps, rejects or diverges is safe. Accepting is SP1's `HALT` with exit code `0`. The
-  guard is where premises about runs go: `Env.Cfi`, the targets of the indirect jumps no
-  analysis resolves. With `G = fun _ => True` it is plain safety.
-
-  A specification is in continuation form with one budget on both sides:
-
-      ∀ G P s, s.pc = entry → Pre s → (∀ t, Post s t → SafeN G n P t) → SafeN G n P s
-
-  ("if the caller is safe for `n` steps from wherever the function returns, it is safe for
-  `n` steps from the call"). Proved for every `n`, it gives the unbounded `Safe`. A step
-  never lowers the budget a proof needs (`SafeN.of_step`), so an executor proof carries `n`
-  through unchanged; and the checker's soundness uses a callee's specification at a
-  smaller budget than its own, which is what makes recursion and loops compose.
+  `SafeN G n P s` (`AsmVerif.RiscV.Safe`): every accepting state reached from `s` in fewer
+  than `n` steps, along a run every state of which satisfies the guard `G`, satisfies `P`.
+  The guard is where premises about runs go: `Env.Cfi`, the targets of the indirect jumps
+  no analysis resolves. A specification is in continuation form with one budget on both
+  sides; the checker's soundness uses a callee's specification at a smaller budget than its
+  own, which is what makes recursion and loops compose.
 
   ## Memory
 
@@ -30,7 +21,7 @@
   modulo `2^64`.
 -/
 
-import AsmVerif.RiscV.Accept
+import AsmVerif.RiscV.Safe
 import AsmVerif.RiscV.Check.Domain
 import AsmVerif.RiscV.Frame.Sound
 
@@ -40,67 +31,10 @@ open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
 
 /-! ## Accepting, and `SafeN`
 
-`Accepted` (SP1's `HALT` with exit code `0`) is `AsmVerif.RiscV.Accepted`, shared with the
-symbolic executor (`AsmVerif.RiscV.Sym`). -/
+`Accepted` (SP1's `HALT` with exit code `0`), `stepsSp1`, `SafeN` and `Safe` are
+`AsmVerif.RiscV.Safe`, shared with the symbolic executor (`AsmVerif.RiscV.Sym`). -/
 
 export AsmVerif.RiscV (Accepted stepSp1_halt Accepted.stuck not_accepted_of_code)
-
-def SafeN (G : MachineState → Prop) (n : Nat) (P : Prop) (s : MachineState) : Prop :=
-  ∀ m < n, ∀ s', stepsSp1 m s = some s' → (∀ j ≤ m, ∀ x, stepsSp1 j s = some x → G x) →
-    Accepted s' → P
-
-def Safe (G : MachineState → Prop) (P : Prop) (s : MachineState) : Prop := ∀ n, SafeN G n P s
-
-namespace SafeN
-
-variable {G : MachineState → Prop}
-
-theorem zero {P : Prop} {s : MachineState} : SafeN G 0 P s :=
-  fun _ h => absurd h (Nat.not_lt_zero _)
-
-theorem mono {P : Prop} {s : MachineState} {k n : Nat} (hk : k ≤ n) (h : SafeN G n P s) :
-    SafeN G k P s := fun m hm => h m (Nat.lt_of_lt_of_le hm hk)
-
-/-- A step from a state that does not accept: one budget unit is spent. -/
-theorem step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
-    (hs : stepSp1 s = some t) (ht : SafeN G n P t) : SafeN G (n + 1) P s := by
-  intro m hm s' hr hg ha
-  cases m with
-  | zero => simp [stepsSp1] at hr; subst hr; exact absurd ha hna
-  | succ m =>
-    obtain ⟨s1, h1, h2⟩ := stepsSp1_succ hr
-    rw [hs] at h1; cases h1
-    exact ht m (by omega) s' h2
-      (fun j hj x hx => hg (j + 1) (by omega) x (by simp [stepsSp1, hs, hx])) ha
-
-/-- A step does not need budget: `SafeN n` passes back along it. -/
-theorem of_step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
-    (hs : stepSp1 s = some t) (ht : SafeN G n P t) : SafeN G n P s :=
-  mono (Nat.le_succ n) (step hna hs ht)
-
-/-- A state with no step: safe unless it accepts. -/
-theorem stuck {P : Prop} {s : MachineState} {n : Nat} (hs : stepSp1 s = none)
-    (hp : Accepted s → P) : SafeN G n P s := by
-  intro m _ s' hr _ ha
-  cases m with
-  | zero => simp [stepsSp1] at hr; subst hr; exact hp ha
-  | succ m => simp [stepsSp1, hs] at hr
-
-/-- From a state that does not accept, safe for `n + 1` steps if every successor is safe
-    for `n`. -/
-theorem intro {P : Prop} {s : MachineState} {n : Nat} (hna : ¬ Accepted s)
-    (h : ∀ t, stepSp1 s = some t → SafeN G n P t) : SafeN G (n + 1) P s := by
-  cases hs : stepSp1 s with
-  | none => exact stuck hs (fun ha => absurd ha hna)
-  | some t => exact step hna hs (h t hs)
-
-/-- The guard holds at the current state of every run it constrains. -/
-theorem assume {P : Prop} {s : MachineState} {n : Nat} (h : G s → SafeN G n P s) :
-    SafeN G n P s := by
-  intro m hm s' hr hg ha
-  exact h (hg 0 (Nat.zero_le _) s rfl) m hm s' hr hg ha
-
-end SafeN
 
 /-! ## Memory regions -/
 

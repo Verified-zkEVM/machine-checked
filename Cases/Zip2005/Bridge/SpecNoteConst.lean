@@ -16,7 +16,7 @@ blinding base and `𝒦^Orchard` as the guest holds them are ironwood's (`dec8_q
 
 namespace Cases.Zip2005.Poseidon
 
-open RiscvZkvm.Rv64 Cases.Zip2005.BridgeMul Cases.Zip2005.Precompile.Pallas
+open RiscvZkvm.Rv64 Cases.Zip2005.SpecMul Cases.Zip2005.Precompile.Pallas
 open Zcash.Circuits (Point)
 open Zcash.Circuits.Poseidon
 

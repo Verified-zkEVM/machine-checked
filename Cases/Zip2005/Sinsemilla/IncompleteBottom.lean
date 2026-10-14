@@ -15,7 +15,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem incomplete_bottom_spec {P : Prop} (s : MachineState) (ra sp a0 : Word) (o0 o1 o2 o3 o4 o5 o6 o7 o8 o9 o10 o11 o12 : Word)
+theorem incomplete_bottom_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 : Word) (o0 o1 o2 o3 o4 o5 o6 o7 o8 o9 o10 o11 o12 : Word)
     (hpc : s.pc = 0x78023544#64) (hcode : CodeAt F_78023544.base F_78023544.prog s)
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
     (hcodeMS : CodeAt F_7803f57c.base F_7803f57c.prog s)
@@ -27,8 +27,8 @@ theorem incomplete_bottom_spec {P : Prop} (s : MachineState) (ra sp a0 : Word) (
     (hd0 : Disjoint (sp - 0x30#64) 6 a0 13)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x30#64, 6), (a0, 13)] s t →
-      Region a0 (List.replicate 12 0#64 ++ [replaceByte o12 0 0#8]) t → Safe P t) :
-    Safe P s := by
+      Region a0 (List.replicate 12 0#64 ++ [replaceByte o12 0 0#8]) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x30#64) 6 := hstk.frame 6 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x20#64) 4 := hokW.sub' 2 4 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x20#64) 4 s

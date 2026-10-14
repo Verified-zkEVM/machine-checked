@@ -22,7 +22,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_iter_note_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : Word)
+theorem from_iter_note_pro {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : Word)
     (J G K R Q Cb O : List Word) (j : Word) (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4)
     (hCbl : Cb.length = 18) (hCb : noteState sp0 J j 0 = Cb) (hOl : O.length = 3)
     (hpc : s.pc = 0x7801dfb4#64) (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s)
@@ -84,8 +84,8 @@ theorem from_iter_note_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : W
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e028#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → Safe P t) → Safe P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → SafeN Gd n P t) → SafeN Gd n P u)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN Gd n P u)
     (hk : ∀ (t : MachineState) (ptr w bit0 bit1 : Word) (I1 I2 : List Word), t.pc = 0x7801e0d4#64 →
       t.code = s.code →
       Unchanged [(sp - 0x180#64, 48), (sp, 28), (a1, 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
@@ -101,8 +101,8 @@ theorem from_iter_note_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : W
       Region out O t →
       bw (noteBit G K v R Q 0) = bit0 → Region ptr [w] t → extractByte w 0 = BitVec.truncate 8 bit0 →
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
-      Safe P t) :
-    Safe P s := by
+      SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have hokV : RegionOk Ro.layout.roBase Ro.layout.textHi sp 3 := hokFr.sub' 0 3 (by decide) (by simp)
   have hokBlk : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x18#64) 18 := hokFr.sub' 3 18 (by decide) rfl
   have hokSv : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0xa8#64) 7 := hokFr.sub' 21 7 (by decide) rfl
@@ -128,7 +128,7 @@ theorem from_iter_note_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : W
         t.code = u.code → Unchanged [(sp - 0x180#64, 48), (a1, 18)] u t →
         noteState sp0 J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] → Region (a1) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] t →
         bw (noteBit G K v R Q k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
-        t.getReg .x10 = bit → Safe P t) → Safe P u :=
+        t.getReg .x10 = bit → SafeN Gd n P t) → SafeN Gd n P u :=
     fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 k hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hG hK hV hR hQ hk' =>
       pad_next_note_cells_spec u 0x7801dfe8#64 sp sp0 (a1) v J G K R Q i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 hGl hKl hRl hQl j k hIv hk hpc
         hcode hcw hra (by decide) hsp' hstk hsp0_lo hsp0_hi ha0 hI hokCb hG hokG hK hokK hV hokVv hR hokR hQ hokQ hdjCG hdjCK hdjCV hdjCR hdjCQ
@@ -143,7 +143,7 @@ theorem from_iter_note_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : W
         t.code = u.code → Unchanged [(sp - 0x180#64, 48), (sp + 0x18#64, 18)] u t →
         noteState sp0 J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] → Region (sp + 0x18#64) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] t →
         bw (noteBit G K v R Q k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
-        t.getReg .x10 = bit → Safe P t) → Safe P u :=
+        t.getReg .x10 = bit → SafeN Gd n P t) → SafeN Gd n P u :=
     fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 k hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hG hK hV hR hQ hk' =>
       pad_next_note_cells_spec u 0x7801e060#64 sp sp0 (sp + 0x18#64) v J G K R Q i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 hGl hKl hRl hQl j k hIv hk hpc
         hcode hcw hra (by decide) hsp' hstk hsp0_lo hsp0_hi ha0 hI hokBlk hG hokG hK hokK hV hokVv hR hokR hQ hokQ
@@ -167,7 +167,7 @@ theorem from_iter_note_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : W
       Region out [O[0]!, O[1]!, O[2]!] t →
       bw (noteBit G K v R Q 0) = bit0 → Region ptr [w] t → extractByte w 0 = BitVec.truncate 8 bit0 →
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
-      Safe P t :=
+      SafeN Gd n P t :=
     fun t ptr w bit0 bit1 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c17 d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 d13 d14 d15 d16 d17 hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4
         h3 h4 h22 h23 h24 h25 h26 h27 hI2 hR hR1 hO' hb0 hW hw hok hlo hhi =>
       hk t ptr w bit0 bit1 [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17] [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15, d16, d17] hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4

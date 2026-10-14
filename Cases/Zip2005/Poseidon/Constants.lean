@@ -49,7 +49,7 @@ theorem RoImage.mdsInvWords {s : MachineState} (h : RoImage Ro.layout s) : Regio
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem constants_spec {P : Prop} (s : MachineState) (ra sp out : Word) (O : List Word)
+theorem constants_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out : Word) (O : List Word)
     (hOl : O.length = 75)
     (hpc : s.pc = 0x78023cbc#64) (hcode : CodeAt F_78023cbc.base F_78023cbc.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
@@ -67,14 +67,14 @@ theorem constants_spec {P : Prop} (s : MachineState) (ra sp out : Word) (O : Lis
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78023cf4#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 768 → Region ptr B t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x1800 ≤ 0x1c00000000 → Safe P t) → Safe P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x1800 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ (t : MachineState) (ptr : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 75), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out ([64#64, ptr, 64#64] ++ Poseidon.mdsWords ++ mdsInvWords) t →
       Region ptr Poseidon.rcWords t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 768 →
-      0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → Safe P t) :
-    Safe P s := by
+      0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x50#64) 10 := hstk.frame 10 (by decide)
   have hu := Unchanged.refl [(sp - 0x50#64, 10), (out, 75), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   have hlo := hstk.lo

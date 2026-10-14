@@ -25,13 +25,13 @@ set_option maxRecDepth 20000 in
 /-- `sqrt_alt`: the result `r` is canonical, the flag is `r² = u`, and (the assertion having
     passed) `u = 0` or exactly one of `r² = u`, `r² = ROOT·u` holds. Requires `u` canonical
     (`ct_eq` compares Montgomery limbs) and the tables initialised (`tb`'s regions). -/
-theorem sqrt_alt_spec {P : Prop} (s : MachineState) (ra sp a0 tb a2 : Word)
+theorem sqrt_alt_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 tb a2 : Word)
     (u0 u1 u2 u3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 5) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x780315c0#64) (hcode : CodeAt F_780315c0.base F_780315c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcodeP : CodeAt F_78029d94.base F_78029d94.prog s)
@@ -70,8 +70,8 @@ theorem sqrt_alt_spec {P : Prop} (s : MachineState) (ra sp a0 tb a2 : Word)
             leLimbsToNat [u0, u1, u2, u3] ↔
           ¬ Fp.mul (leLimbsToNat [r0, r1, r2, r3]) (leLimbsToNat [r0, r1, r2, r3]) =
             Fp.mul Fp.rootOfUnity (leLimbsToNat [u0, u1, u2, u3]))) →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x5c0#64) 184 := hstk.frame 184 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x170#64) 46 := hokW.sub' 138 46 (by decide) (by bv_omega)
   have hokD : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x170#64) 33 := hokF.sub' 0 33 (by decide) (by bv_omega)

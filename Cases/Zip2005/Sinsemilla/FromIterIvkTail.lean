@@ -18,7 +18,7 @@ to the output, the frame restored, and `from_iter` returns.
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_iter_ivk_tail {P : Prop} (s : MachineState) (sp sp0 out p bit0 w w64 : Word)
+theorem from_iter_ivk_tail {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out p bit0 w w64 : Word)
     (J A B I O : List Word) (j : Word) (hAl : A.length = 4) (hBl : B.length = 4) (hOl : O.length = 3)
     (hIl : I.length = 12) (hIv : ivkState sp0 J j 505 = I)
     (rav s0v s1v s2v s3v s4v s5v : Word) (hra1 : rav &&& ~~~1#64 = rav)
@@ -47,7 +47,7 @@ theorem from_iter_ivk_tail {P : Prop} (s : MachineState) (sp sp0 out p bit0 w w6
     (hdjOS : Disjoint out 3 sp 22) (hdjOW : Disjoint out 3 (p + 504#64) 2)
     (hdjFO : Disjoint (sp - 0x10#64) 2 out 3)
     (hdjOA : Disjoint out 3 (ptrA sp0) 4) (hdjOB : Disjoint out 3 (ptrB sp0) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ (t : MachineState) (I' : List Word) (w' : Word), t.pc = rav → t.code = s.code →
       Unchanged [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + 504#64, 2), (out, 3)] s t →
       t.getReg .x2 = sp + 0xb0#64 → t.getReg .x8 = s0v → t.getReg .x9 = s1v → t.getReg .x18 = s2v →
@@ -59,8 +59,8 @@ theorem from_iter_ivk_tail {P : Prop} (s : MachineState) (sp sp0 out p bit0 w w6
       I'.length = 12 → ivkState sp0 J j 511 = I' → Region (sp + 0x18#64) I' t →
       Region (p + 504#64) [w', w64] t →
       (∀ b, b < 6 → extractByte w' b = BitVec.truncate 8 (bw (ivkBit A B (504 + b)))) →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hstk.frame 2 (by decide)
   have hu := Unchanged.refl [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + 504#64, 2), (out, 3)] s
   have hlo := hstk.lo
@@ -79,7 +79,7 @@ theorem from_iter_ivk_tail {P : Prop} (s : MachineState) (sp sp0 out p bit0 w w6
         t.code = u.code → Unchanged [(sp - 0x10#64, 2), (sp + 0x18#64, 12)] u t →
         ivkState sp0 J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] → Region (sp + 0x18#64) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] t →
         bw (ivkBit A B k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
-        t.getReg .x10 = bit → Safe P t) → Safe P u :=
+        t.getReg .x10 = bit → SafeN G n P t) → SafeN G n P u :=
     fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 k hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hA hB hk' =>
       pad_next_ivk_cells_spec u 0x7801e228#64 sp sp0 (sp + 0x18#64) J A B i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hAl hBl j k hIv hk hpc
         hcode hcw hra (by decide) hsp' hstk10 hsp0_lo hsp0_hi ha0 hI hokBlk hA hokA hB hokB hdjBA hdjBB
@@ -94,7 +94,7 @@ theorem from_iter_ivk_tail {P : Prop} (s : MachineState) (sp sp0 out p bit0 w w6
       (∀ (t : MachineState) (i0' i1' i2' i3' i4' i5' i6' i7' i8' i9' i10' i11' : Word), t.pc = 0x7801e228#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x10#64, 2), (sp + 0x18#64, 12)] u t →
         ivkState sp0 J j 511 = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] → Region (sp + 0x18#64) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] t →
-        t.getReg .x10 = 2#64 → Safe P t) → Safe P u :=
+        t.getReg .x10 = 2#64 → SafeN G n P t) → SafeN G n P u :=
     fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hIv hpc hcode hcw hcodeEq hra hsp' ha0 hI hA hB hk' =>
       pad_next_ivk_end_cells_spec u 0x7801e228#64 sp sp0 (sp + 0x18#64) J A B i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hAl hBl j hIv hpc
         hcode hcw hra (by decide) hsp' hstk10 hsp0_lo hsp0_hi ha0 hI hokBlk hA hokA hB hokB hdjBA hdjBB

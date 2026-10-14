@@ -31,7 +31,7 @@ theorem boolByte_toNat (W : List Word) :
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem bool_reader_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem bool_reader_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 1)
     (hpc : s.pc = 0x78019dd8#64) (hcode : CodeAt F_78019dd8.base F_78019dd8.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
@@ -45,28 +45,28 @@ theorem bool_reader_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (hdO : Disjoint (sp - 0x60#64) 12 out 2) (hdD : Disjoint (sp - 0x60#64) 12 de 2)
     (heD : Disjoint out 2 de 2) (hOlo : out.toNat + 16 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → Safe P u)
+    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
     (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78019e80#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78019e80#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x60#64, 12), (out, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [replaceByte (replaceByte O[0]! 1 (boolByte W)) 0 0#8, O[1]!] t →
-      Region de [q + 8#64, l - 1#64] t → (boolByte W).toNat < 2 → 1 ≤ l.toNat → Safe P t)
+      Region de [q + 8#64, l - 1#64] t → (boolByte W).toNat < 2 → 1 ≤ l.toNat → SafeN G n P t)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x60#64, 12), (out, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [replaceByte O[0]! 0 1#8, e] t → Region de [d0, d1] t →
-      ¬ ((boolByte W).toNat < 2 ∧ 1 ≤ l.toNat) → Safe P t) :
-    Safe P s := by
+      ¬ ((boolByte W).toNat < 2 ∧ 1 ≤ l.toNat) → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x60#64) 12 := hstk.frame 12 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x20#64) 4 := hokS.sub' 8 4 (by decide) (by bv_omega)
   have hu := Unchanged.refl [(sp - 0x60#64, 12), (out, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
@@ -136,7 +136,7 @@ theorem bool_reader_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     sym_close hk
 
 /-- `Ok(b)`: a byte left, and it is 0 or 1. -/
-theorem bool_reader_ok_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem bool_reader_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 1)
     (hpc : s.pc = 0x78019dd8#64) (hcode : CodeAt F_78019dd8.base F_78019dd8.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
@@ -150,31 +150,31 @@ theorem bool_reader_ok_spec {P : Prop} (s : MachineState) (ra sp out de q l : Wo
     (hdO : Disjoint (sp - 0x60#64) 12 out 2) (hdD : Disjoint (sp - 0x60#64) 12 de 2)
     (heD : Disjoint out 2 de 2) (hOlo : out.toNat + 16 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → Safe P u)
+    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
     (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78019e80#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78019e80#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hl : 1 ≤ l.toNat) (hb : (boolByte W).toNat < 2)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x60#64, 12), (out, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [replaceByte (replaceByte O[0]! 1 (boolByte W)) 0 0#8, O[1]!] t →
-      Region de [q + 8#64, l - 1#64] t → Safe P t) :
-    Safe P s :=
+      Region de [q + 8#64, l - 1#64] t → SafeN G n P t) :
+    SafeN G n P s :=
   bool_reader_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeSh hcw hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
     (fun t h1 h2 h3 h4 h5 h6 _ _ => hk t h1 h2 h3 h4 h5 h6)
     (fun _ _ _ _ _ _ _ _ _ _ hn => absurd ⟨hb, hl⟩ hn)
 
 /-- `Err`: the reader is empty. -/
-theorem bool_reader_eof_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem bool_reader_eof_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 1)
     (hpc : s.pc = 0x78019dd8#64) (hcode : CodeAt F_78019dd8.base F_78019dd8.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
@@ -188,30 +188,30 @@ theorem bool_reader_eof_spec {P : Prop} (s : MachineState) (ra sp out de q l : W
     (hdO : Disjoint (sp - 0x60#64) 12 out 2) (hdD : Disjoint (sp - 0x60#64) 12 de 2)
     (heD : Disjoint out 2 de 2) (hOlo : out.toNat + 16 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → Safe P u)
+    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
     (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78019e80#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78019e80#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hl : l.toNat < 1)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x60#64, 12), (out, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
-      Region out [replaceByte O[0]! 0 1#8, e] t → Region de [d0, d1] t → Safe P t) :
-    Safe P s :=
+      Region out [replaceByte O[0]! 0 1#8, e] t → Region de [d0, d1] t → SafeN G n P t) :
+    SafeN G n P s :=
   bool_reader_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeSh hcw hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
     (fun _ _ _ _ _ _ _ _ hl' => absurd hl' (by omega))
     (fun t e d0 d1 h1 h2 h3 h4 h5 h6 _ => hkE t e d0 d1 h1 h2 h3 h4 h5 h6)
 
 /-- `Err`: the byte is neither 0 nor 1. -/
-theorem bool_reader_badbyte_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem bool_reader_badbyte_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 1)
     (hpc : s.pc = 0x78019dd8#64) (hcode : CodeAt F_78019dd8.base F_78019dd8.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
@@ -225,24 +225,24 @@ theorem bool_reader_badbyte_spec {P : Prop} (s : MachineState) (ra sp out de q l
     (hdO : Disjoint (sp - 0x60#64) 12 out 2) (hdD : Disjoint (sp - 0x60#64) 12 de 2)
     (heD : Disjoint out 2 de 2) (hOlo : out.toNat + 16 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → Safe P u)
+    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
     (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78019e80#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78019e80#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hb : 2 ≤ (boolByte W).toNat)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x60#64, 12), (out, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
-      Region out [replaceByte O[0]! 0 1#8, e] t → Region de [d0, d1] t → Safe P t) :
-    Safe P s :=
+      Region out [replaceByte O[0]! 0 1#8, e] t → Region de [d0, d1] t → SafeN G n P t) :
+    SafeN G n P s :=
   bool_reader_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeSh hcw hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
     (fun _ _ _ _ _ _ _ hb' _ => absurd hb' (by omega))
     (fun t e d0 d1 h1 h2 h3 h4 h5 h6 _ => hkE t e d0 d1 h1 h2 h3 h4 h5 h6)

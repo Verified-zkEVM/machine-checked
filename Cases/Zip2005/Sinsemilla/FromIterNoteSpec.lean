@@ -129,7 +129,7 @@ bytes. `sp` is the loop's frame (the entry stack pointer is `sp + 0xe0`); `sp0` 
 `NoteCommitment::derive`'s frame, where the 17-word message block lives (`G`, `K`, `[v]`, `R`, `Q`
 at `sp0 - 0xd0`, `- 0xb0`, `- 0x90`, `- 0x88`, `- 0x68`); `a1` holds the iterator block as
 `NoteCommitment::derive` built it (`noteState sp0 J j 0`). -/
-theorem from_iter_nc_spec {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : Word)
+theorem from_iter_nc_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : Word)
     (J G K R Q O : List Word) (j : Word) (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4)
     (hQl : Q.length = 4) (hOl : O.length = 3)
     (hpc : s.pc = 0x7801dfb4#64) (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s)
@@ -163,7 +163,7 @@ theorem from_iter_nc_spec {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : Wo
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e028#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → SafeN Gd n P t) → SafeN Gd n P u)
     -- `do_reserve_and_handle(&vec, C, 1, 1, 1)` (A5, this call's eight instances, `C` the full
     -- capacity): the block doubled, its contents copied, one word past it readable
     (hreserve : ∀ (u : MachineState) (C : Nat) (p : Word) (W : List Word),
@@ -178,16 +178,16 @@ theorem from_iter_nc_spec {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : Wo
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region sp [BitVec.ofNat 64 (2 * C), p', BitVec.ofNat 64 C] t → W'.length = C / 8 + 1 →
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
-        0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 → Safe P t) → Safe P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
+        0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 → SafeN Gd n P t) → SafeN Gd n P u)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN Gd n P u)
     (hk : ∀ (t : MachineState) (ptr : Word) (Bv I1 : List Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code →
       Unchanged [(sp - 0x180#64, 76), (out, 3), (a1, 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       I1.length = 18 → Region out [2048#64, ptr, 1090#64] t → Region a1 I1 t →
       Bv.length = 257 → (∀ o, o < 1090 → byteAt Bv o = bw (noteBit G K v R Q o)) → Region ptr Bv t →
       RegionOk Ro.layout.roBase Ro.layout.textHi ptr 257 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 257 ≤ 0x1c00000000 →
-      Safe P t) :
-    Safe P s := by
+      SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have E : NoteEnv sp sp0 out a1 G K R Q :=
     ⟨hGl, hKl, hRl, hQl, hstk, hokFr, hokO, hokC, hokM, hsp0_lo, hsp0_hi, hdjSM, hdjSO, hdjSC,
      hdjOM, hdjOC, hdjCM, hdjHM, hdjHO, hdjHC⟩
@@ -206,7 +206,7 @@ theorem from_iter_nc_spec {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : Wo
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region sp [BitVec.ofNat 64 (2 * C), p', BitVec.ofNat 64 C] t → W'.length = C / 8 + 1 →
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
-        0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 → Safe P t) → Safe P u :=
+        0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 → SafeN Gd n P t) → SafeN Gd n P u :=
     fun t hts C p hC u W hW hpc hcode hra hsp hstk h10 h11 h12 h13 h14 hV hW' hlo hhi hk' =>
       hreserve u C p W hC hW hpc (hcode.trans hts) hra hsp hstk h10 h11 h12 h13 h14 hV hW' hlo hhi hk'
   -- the prologue: byte 1, capacity 8

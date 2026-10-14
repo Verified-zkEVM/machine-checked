@@ -19,7 +19,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
-theorem compress1_seg1_65 {P : Prop} (s : MachineState) (ra sp blk wp c0 c1 ln fz : Word)
+theorem compress1_seg1_65 {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp blk wp c0 c1 ln fz : Word)
     (h0 h1 h2 h3 h4 h5 h6 h7 i0 i1 i2 i3 i4 i5 i6 i7 i8 : Word) (F : List Word) (hF : F.length = 74)
     (hpc : s.pc = 0x78033260#64) (hcode : CodeAt F_78033260.base F_78033260.prog s)
     (hcodeS : CodeAt F_7803f57c.base F_7803f57c.prog s) (hcodeC : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
@@ -39,8 +39,8 @@ theorem compress1_seg1_65 {P : Prop} (s : MachineState) (ra sp blk wp c0 c1 ln f
       u.getReg .x1 = 0#64 → u.getReg .x5 = i4 → u.getReg .x6 = 0#64 → u.getReg .x7 = 0#64 → u.getReg .x8 = w8 → u.getReg .x9 = w15 → u.getReg .x10 = w0 → u.getReg .x11 = w1 → u.getReg .x12 = w4 → u.getReg .x13 = w2 → u.getReg .x14 = w3 → u.getReg .x15 = w12 → u.getReg .x16 = w13 → u.getReg .x17 = g26 → u.getReg .x18 = w14 → u.getReg .x19 = g27 → u.getReg .x20 = w9 → u.getReg .x21 = w7 → u.getReg .x22 = w10 → u.getReg .x23 = i2 → u.getReg .x24 = 0#64 → u.getReg .x25 = w11 → u.getReg .x26 = w5 → u.getReg .x27 = w6 → u.getReg .x28 = i0 → u.getReg .x29 = (BitVec.zeroExtend 64 (extractByte i8 0)) → u.getReg .x30 = i5 → u.getReg .x31 = i1 →
       Unchanged [(sp - 0x250#64, 74), (wp, 8)] s u →
       Region (sp - 0x250#64) [wp, g0, g1, g2, g3, g4, 11912009170470909681#64, 6620516959819538809#64, 4354685564936845355#64, 2270897969802886507#64, 13503953896175478587#64, 11170449401992604703#64, 7640891576956012808#64, 5840696475078001361#64, 0#64, g5, g6, g7, g8, g9, h7, h3, h6, h2, h5, h0, h4, 0#64, h1, i4, 0#64, 0#64, (BitVec.zeroExtend 64 (extractByte i8 0)), 0#64, i3, 0#64, i1, 0#64, i6, 0#64, i0, i5, 0#64, i7, i2, g10, g11, g12, g13, g14, g15, g16, g17, g18, g19, g20, g21, g22, g23, g24, g25, s.getReg .x27, s.getReg .x26, s.getReg .x25, s.getReg .x24, s.getReg .x23, s.getReg .x22, s.getReg .x21, s.getReg .x20, s.getReg .x19, s.getReg .x18, s.getReg .x9, s.getReg .x8, ra] u → Region wp [h0, h1, h2, h3, h4, h5, h6, h7] u →
-      roundsTo [h0, h1, h2, h3, h4, h5, h6, h7] [i0, i1, i2, i3, i4, i5, i6, i7, (BitVec.zeroExtend 64 (extractByte i8 0)), 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64] (c0 + 65#64) (c1 + (if (c0 + 65#64).ult c0 = true then 1#64 else 0#64)) (fz + 18446744073709551615#64) ((ln ||| fz) + 18446744073709551615#64) 4 = [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15] → Safe P u) :
-    Safe P s := by
+      roundsTo [h0, h1, h2, h3, h4, h5, h6, h7] [i0, i1, i2, i3, i4, i5, i6, i7, (BitVec.zeroExtend 64 (extractByte i8 0)), 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64] (c0 + 65#64) (c1 + (if (c0 + 65#64).ult c0 = true then 1#64 else 0#64)) (fz + 18446744073709551615#64) ((ln ||| fz) + 18446744073709551615#64) 4 = [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15] → SafeN G n P u) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x250#64) 74 := hstk.frame 74 (by decide)
   have hlo := hstk.lo
   have hu := Unchanged.refl [(sp - 0x250#64, 74), (wp, 8)] s

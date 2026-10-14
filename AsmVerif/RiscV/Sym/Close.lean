@@ -3,7 +3,7 @@
 
   `sym_close hk`: finish a specification proof at a return.
 
-  After `sym_exec` stops at the return, the goal is `Safe P t` and the context
+  After `sym_exec` stops at the return, the goal is `SafeN G n P t` and the context
   holds the executor's facts about `t`. `sym_close hk` applies the
   specification's continuation `hk` and discharges each of its hypotheses:
 
@@ -291,7 +291,7 @@ end AsmVerif.RiscV.Sym.Close
 namespace AsmVerif.RiscV.Sym
 
 open Lean Elab Tactic in
-/-- Close `Safe P t` at a return by the specification's continuation. -/
+/-- Close `SafeN G n P t` at a return by the specification's continuation. -/
 elab "sym_close " h:term : tactic => do
   let g ← getMainGoal
   let hk ← g.withContext do

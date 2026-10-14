@@ -33,7 +33,7 @@ theorem frame_ivk_sub (sp : Word) : sp - 0xb0#64 - 0x1b0#64 = sp - 0x260#64 := b
   bv_omega
 
 set_option maxHeartbeats 4000000 in
-theorem from_iter_ivk_contract {P : Prop} (s : MachineState)
+theorem from_iter_ivk_contract {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState)
     (hcode : CodeAt F_7801e110.base F_7801e110.prog s) (hcodeN : CodeAt F_78021e7c.base F_78021e7c.prog s)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s) (hcodeZ : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -49,11 +49,11 @@ theorem from_iter_ivk_contract {P : Prop} (s : MachineState)
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
       Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t →
-        Disjoint 0x780488a8#64 10 ptr 1 → Disjoint iptr 138 ptr 1 → Disjoint tg0 1024 ptr 1 → Disjoint tg1 1024 ptr 1 → Disjoint tg2 1024 ptr 1 → Disjoint tg3 516 ptr 1 → Safe P t) → Safe P u)
+        Disjoint 0x780488a8#64 10 ptr 1 → Disjoint iptr 138 ptr 1 → Disjoint tg0 1024 ptr 1 → Disjoint tg1 1024 ptr 1 → Disjoint tg2 1024 ptr 1 → Disjoint tg3 516 ptr 1 → SafeN G nb P t) → SafeN G nb P u)
     (hcodeR : CodeAt F_780221a4.base F_780221a4.prog s) (hcodeG : CodeAt F_7802225c.base F_7802225c.prog s)
-    (hrealloc_fi : ReallocOrFi P s.code)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u) :
+    (hrealloc_fi : ReallocOrFi G nb P s.code)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G nb P u)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G nb P u) :
     ∀ (tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx : Word) (IV G0 G1 G2 G3 : List Word),
       ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (sp0 : Word)
       (J0 : List Word) (a0 a1 a2 a3 n0 n1 n2 n3 : Word), O1.length = 3 →
@@ -88,7 +88,7 @@ theorem from_iter_ivk_contract {P : Prop} (s : MachineState)
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 65 →
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe (P) t) → Safe (P) u := by
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G nb P t) → SafeN G nb P u := by
   intro tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx IV G0 G1 G2 G3 u sp' a0' a1' j O1 sp0 J0 a0 a1 a2 a3 n0 n1 n2 n3
     hO1l hpc hcu hra hsp hstk ha0 ha1 hO hC0 hCit hC58 hM hokO hokC hdjSO hdjSC hdjOC hTB hIVr hG0 hG1 hG2
     hG3 hIVl hG0l hG1l hG2l hG3l hlo1 hhi1 hlo2 hhi2 hlo3 hhi3 hlo4 hhi4 hlo5 hhi5 hok1 hok2 hok3 hok4
@@ -114,7 +114,7 @@ theorem from_iter_ivk_contract {P : Prop} (s : MachineState)
   have hhi0 := (Nat.le_trans hstk0.hi (Nat.le_of_eq Ro.layout_stackTop))
   have hal0 := hstk0.aligned
   have hsub : (sp' - 0xb0#64).toNat = sp'.toNat - 0xb0 := toNat_sub_lit sp' 0xb0 (by omega)
-  have hstk' : StackOk Ro.layout 0x1b0 (sp' - 0xb0#64) := ⟨by have := hstk.aligned; omega, by omega, by omega⟩
+  have hstk' : StackOk Ro.layout 0x1b0 (sp' - 0xb0#64) := ⟨by have := hstk.aligned; omega, by omega, by rw [Ro.layout_stackTop]; omega⟩
   have hokFr : RegionOk Ro.layout.roBase Ro.layout.textHi (sp' - 0xb0#64) 22 :=
     RegionOk.of_nat (by have := hstk.aligned; omega) (by unfold SP1_MAX_MEMORY; omega)
       (Or.inl (by simp only [Ro.layout_roBase]; omega))

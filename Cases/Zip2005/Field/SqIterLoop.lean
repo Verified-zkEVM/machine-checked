@@ -117,20 +117,20 @@ theorem toNat_sp_add (sp : Word) (c : Nat) (h : sp.toNat + c < 2 ^ 64) (hc : c <
   rw [BitVec.toNat_add, BitVec.toNat_ofNat]; omega
 
 set_option maxHeartbeats 4000000 in
-theorem sq_loop {P : Prop} (s t0 : MachineState) (sp out g x3v x4v : Word) (G S : List Word)
+theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : MachineState) (sp out g x3v x4v : Word) (G S : List Word)
     (hGl : G.length = 4) (hSl : S.length = 13) (E : SqEnv sp g)
     (hcode : CodeAt F_780326cc.base F_780326cc.prog s) (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hres : SqReserve P s.code)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hres : SqReserve Gd nb P s.code)
     (hx : ∀ (t : MachineState) (J : List Word) (c p l : Word), t.pc = 0x78032a40#64 → t.code = s.code →
       Unchanged (sqW sp) t0 t → t.getReg .x2 = sp → t.getReg .x3 = x3v → t.getReg .x4 = x4v →
       Region (sp + 8#64) [out, 0xac9fba6a4077fc57#64, 0xcf3f8e8753a769a9#64, c, p, l] t →
       J.length = 20 → Region (sp + 0x38#64) J t → Region (sp + 0xd8#64) S t →
       c.toNat = 256 → l.toNat = 256 →
       RegionOk Ro.layout.roBase Ro.layout.textHi p 1024 → 0x78048980 ≤ p.toNat → p.toNat + 0x2000 ≤ 0x1c00000000 →
-      RoImage Ro.layout t → Safe P t) :
+      RoImage Ro.layout t → SafeN Gd nb P t) :
     ∀ (n : Nat) (t : MachineState) (J : List Word) (k c p : Word), t.code = s.code → RoImage Ro.layout t →
       Unchanged (sqW sp) t0 t → SqHead sp out g x3v x4v G S J k c p t → 256 - k.toNat = n →
-      Safe P t := by
+      SafeN Gd nb P t := by
   intro n
   induction n with
   | zero => intro t J k c p _ _ _ H hn; have := H.k256; omega

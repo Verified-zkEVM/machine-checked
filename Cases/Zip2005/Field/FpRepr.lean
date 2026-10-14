@@ -15,7 +15,7 @@ set_option maxRecDepth 10000 in
 /-- `Fp::to_repr`: the canonical little-endian bytes of `x`, i.e. the
     Montgomery representative `x` reduced to `x·R⁻¹ mod p`. Software Montgomery
     reduction (four rounds, then a conditional subtraction), no calls. -/
-theorem fp_to_repr_spec {P : Prop} (s : MachineState) (ra a0 a1 : Word) (x0 x1 x2 x3 : Word)
+theorem fp_to_repr_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 : Word) (x0 x1 x2 x3 : Word)
     (hpc : s.pc = 0x78029468#64) (hcode : CodeAt F_78029468.base F_78029468.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -23,8 +23,8 @@ theorem fp_to_repr_spec {P : Prop} (s : MachineState) (ra a0 a1 : Word) (x0 x1 x
     (hx : Region a1 [x0, x1, x2, x3] s) (hok1 : RegionOk Ro.layout.roBase Ro.layout.textHi a1 4)
     (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi a0 4) (hd : Disjoint a0 4 a1 4)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(a0, 4)] s t →
-      Region a0 (natToLeLimbs 4 (leLimbsToNat [x0, x1, x2, x3] * Fp.rInv % Fp.p)) t → Safe P t) :
-    Safe P s := by
+      Region a0 (natToLeLimbs 4 (leLimbsToNat [x0, x1, x2, x3] * Fp.rInv % Fp.p)) t → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨O, hO, hOlen⟩ := Region.exists_junk a0 4 s
   have hu := Unchanged.refl [(a0, 4)] s
   sym_exec

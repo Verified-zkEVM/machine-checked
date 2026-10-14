@@ -23,7 +23,7 @@ set_option maxHeartbeats 20000000 in
 set_option maxRecDepth 10000 in
 /-- The loop over limb 1 of `p - 2` (`s3`), at its body with `s9 = j`: bits
     `j-2, …, 0` are left. -/
-theorem inv_loop3 {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
+theorem inv_loop3 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
     ∀ m j (t : MachineState) (A : Nat), j - 1 = m → 2 ≤ j → j ≤ 65 →
       t.pc = 0x78029050#64 → CodeAt F_78028d04.base F_78028d04.prog t →
       CodeAt F_7801bf5c.base F_7801bf5c.prog t → CodeWithin Ro.layout.textLo Ro.layout.textHi t →
@@ -52,8 +52,8 @@ theorem inv_loop3 {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
         Region (sp + 0x18#64) (natToLeLimbs 4
           (Fp.powBits (leLimbsToNat [x0, x1, x2, x3]) 2469829653914515739 (j - 1) A)) u →
         Fp.powBits (leLimbsToNat [x0, x1, x2, x3]) 2469829653914515739 (j - 1) A < Fp.p →
-        Safe P u) →
-      Safe P t := by
+        SafeN G n P u) →
+      SafeN G n P t := by
   intro m
   induction m with
   | zero => intro j t A hm hj; omega
@@ -126,7 +126,7 @@ set_option maxHeartbeats 20000000 in
 set_option maxRecDepth 10000 in
 /-- The loop over limb 0 of `p - 2` (`s10`), at its body with `s9 = j`: bits
     `j-2, …, 0` are left. -/
-theorem inv_loop4 {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
+theorem inv_loop4 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
     ∀ m j (t : MachineState) (A : Nat), j - 1 = m → 2 ≤ j → j ≤ 65 →
       t.pc = 0x780291fc#64 → CodeAt F_78028d04.base F_78028d04.prog t →
       CodeAt F_7801bf5c.base F_7801bf5c.prog t → CodeWithin Ro.layout.textLo Ro.layout.textHi t →
@@ -155,8 +155,8 @@ theorem inv_loop4 {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
         Region (sp + 0x18#64) (natToLeLimbs 4
           (Fp.powBits (leLimbsToNat [x0, x1, x2, x3]) 11037532056220336127 (j - 1) A)) u →
         Fp.powBits (leLimbsToNat [x0, x1, x2, x3]) 11037532056220336127 (j - 1) A < Fp.p →
-        Safe P u) →
-      Safe P t := by
+        SafeN G n P u) →
+      SafeN G n P t := by
   intro m
   induction m with
   | zero => intro j t A hm hj; omega
@@ -229,7 +229,7 @@ set_option maxHeartbeats 20000000 in
 set_option maxRecDepth 10000 in
 /-- The loop over limb 2 of `p - 2`, which is zero: squarings only. The body,
     at `s0 = j`, has bits `j-2, …, 0` left. -/
-theorem inv_loop2 {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
+theorem inv_loop2 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
     ∀ m j (t : MachineState) (A : Nat), j - 1 = m → 2 ≤ j → j ≤ 65 →
       t.pc = 0x78028f7c#64 → CodeAt F_78028d04.base F_78028d04.prog t →
       CodeAt F_7801bf5c.base F_7801bf5c.prog t → CodeWithin Ro.layout.textLo Ro.layout.textHi t →
@@ -256,8 +256,8 @@ theorem inv_loop2 {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
         Region (sp + 0x18#64) (natToLeLimbs 4
           (Fp.powBits (leLimbsToNat [x0, x1, x2, x3]) 0 (j - 1) A)) u →
         Fp.powBits (leLimbsToNat [x0, x1, x2, x3]) 0 (j - 1) A < Fp.p →
-        Safe P u) →
-      Safe P t := by
+        SafeN G n P u) →
+      SafeN G n P t := by
   intro m
   induction m with
   | zero => intro j t A hm hj; omega
@@ -298,7 +298,7 @@ set_option maxRecDepth 10000 in
 /-- The loop over limb 3 of `p - 2`, which is `2^62`, at its body with
     `s9 = j` and the started flag `s4 = f`: `pow_vartime` proper
     (`Fp.powBitsV`), since the first set bit is in this limb. -/
-theorem inv_loop1 {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
+theorem inv_loop1 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
     ∀ m j (t : MachineState) (A : Nat) (f : Bool), j - 1 = m → 2 ≤ j → j ≤ 65 →
       (f = false → 64 ≤ j) →
       t.pc = 0x78028dd4#64 → CodeAt F_78028d04.base F_78028d04.prog t →
@@ -328,8 +328,8 @@ theorem inv_loop1 {P : Prop} (sp xp : Word) (x0 x1 x2 x3 : Word) :
         Region (sp + 0x18#64) (natToLeLimbs 4
           (Fp.powBitsV (leLimbsToNat [x0, x1, x2, x3]) 4611686018427387904 (j - 1) A f)) u →
         Fp.powBitsV (leLimbsToNat [x0, x1, x2, x3]) 4611686018427387904 (j - 1) A f < Fp.p →
-        Safe P u) →
-      Safe P t := by
+        SafeN G n P u) →
+      SafeN G n P t := by
   intro m
   induction m with
   | zero => intro j t A f hm hj; omega
@@ -423,7 +423,7 @@ theorem leLimbs4_eq_zero (x0 x1 x2 x3 : Word) :
 set_option maxHeartbeats 40000000 in
 set_option maxRecDepth 10000 in
 /-- `Fp::invert`: `CtOption { value: x^(p-2), is_some: x ≠ 0 }` at `a0`. -/
-theorem fp_invert_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1 x2 x3 : Word)
+theorem fp_invert_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1 x2 x3 : Word)
     (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x78028d04#64) (hcode : CodeAt F_78028d04.base F_78028d04.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -440,8 +440,8 @@ theorem fp_invert_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1
       Unchanged [(sp - 0x110#64, 34), (a0, 5)] s t →
       Region a0 (natToLeLimbs 4 (Fp.invert (leLimbsToNat [x0, x1, x2, x3])) ++
         [replaceByte O[4]! 0 (if leLimbsToNat [x0, x1, x2, x3] = 0 then 0#8 else 1#8)]) t →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F0, hF0, hF0l⟩ := Region.exists_junk (sp - 0x100#64) 2 s
   obtain ⟨F1, hF1, hF1l⟩ := Region.exists_junk (sp - 0xf0#64) 1 s
   obtain ⟨F2, hF2, hF2l⟩ := Region.exists_junk (sp - 0xe8#64) 4 s
@@ -462,13 +462,13 @@ theorem fp_invert_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1
     have e : (sp + 18446744073709551360#64).toNat = sp.toNat - 256 := by
       rw [BitVec.toNat_add, Bn.toNat_ofNat']; omega
     exact ⟨by rw [e]; omega, by rw [e]; omega, by rw [e, Ro.layout_stackTop]; omega⟩
-  have L1 := fun t => inv_loop1 (P := P) (sp - 256#64) a1 x0 x1 x2 x3 64 65 t Fp.R false rfl
+  have L1 := fun t => inv_loop1 (G := G) (n := n) (P := P) (sp - 256#64) a1 x0 x1 x2 x3 64 65 t Fp.R false rfl
     (by decide) (by decide) (fun _ => by decide)
-  have L2 := fun t A => inv_loop2 (P := P) (sp - 256#64) a1 x0 x1 x2 x3 64 65 t A rfl
+  have L2 := fun t A => inv_loop2 (G := G) (n := n) (P := P) (sp - 256#64) a1 x0 x1 x2 x3 64 65 t A rfl
     (by decide) (by decide)
-  have L3 := fun t A => inv_loop3 (P := P) (sp - 256#64) a1 x0 x1 x2 x3 64 65 t A rfl
+  have L3 := fun t A => inv_loop3 (G := G) (n := n) (P := P) (sp - 256#64) a1 x0 x1 x2 x3 64 65 t A rfl
     (by decide) (by decide)
-  have L4 := fun t A => inv_loop4 (P := P) (sp - 256#64) a1 x0 x1 x2 x3 64 65 t A rfl
+  have L4 := fun t A => inv_loop4 (G := G) (n := n) (P := P) (sp - 256#64) a1 x0 x1 x2 x3 64 65 t A rfl
     (by decide) (by decide)
   sym_exec [uint256_mulmod_spec, black_box_spec, L1, L2, L3, L4]
   sym_close hk

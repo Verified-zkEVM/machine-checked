@@ -20,7 +20,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sq_iter_body {P : Prop} (s : MachineState) (sp out g p k c o q : Word)
+theorem sq_iter_body {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp out g p k c o q : Word)
     (q0 q1 q2 q3 : Word) (G J : List Word) (hGl : G.length = 4) (hJl : J.length = 20)
     (hkc : (k == c) = false) (hq : p + o = q)
     (hpc : s.pc = 0x7803292c#64) (hcode : CodeAt F_780326cc.base F_780326cc.prog s)
@@ -51,14 +51,14 @@ theorem sq_iter_body {P : Prop} (s : MachineState) (sp out g p k c o q : Word)
       t.getReg .x27 = sp + 0xb8#64 → t.getReg .x3 = s.getReg .x3 → t.getReg .x4 = s.getReg .x4 →
       Region (sp + 8#64) [out, 0xac9fba6a4077fc57#64, 0xcf3f8e8753a769a9#64, c, p, k + 1#64] t →
       J'.length = 20 → Region (sp + 0x38#64) J' t → Q'.length = 4 → Region q Q' t →
-      (k + 2#64 == 257#64) = false → Safe P t)
+      (k + 2#64 == 257#64) = false → SafeN Gd n P t)
     (hx : ∀ (t : MachineState) (J' Q' : List Word), t.pc = 0x78032a40#64 → t.code = s.code →
       Unchanged [(sp, 27), (q, 4)] s t →
       t.getReg .x2 = sp → t.getReg .x3 = s.getReg .x3 → t.getReg .x4 = s.getReg .x4 →
       Region (sp + 8#64) [out, 0xac9fba6a4077fc57#64, 0xcf3f8e8753a769a9#64, c, p, k + 1#64] t →
       J'.length = 20 → Region (sp + 0x38#64) J' t → Q'.length = 4 → Region q Q' t →
-      (k + 2#64 == 257#64) = true → Safe P t) :
-    Safe P s := by
+      (k + 2#64 == 257#64) = true → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have hu := Unchanged.refl [(sp, 27), (q, 4)] s
   sym_exec [uint256_mulmod_spec] stop [0x7803292c, 0x78032a40]
   · sym_close hx <;> rfl

@@ -9,7 +9,7 @@ namespace Cases.Zip2005
 open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 /-- `syscall_uint256_mulmod(x, y‖m)`: `x := x * y mod m`. -/
-theorem uint256_mulmod_spec {P : Prop} (s : MachineState) (ra a0 a1 : Word)
+theorem uint256_mulmod_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 m0 m1 m2 m3 : Word)
     (hpc : s.pc = 0x7801bf5c#64) (hcode : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -20,8 +20,8 @@ theorem uint256_mulmod_spec {P : Prop} (s : MachineState) (ra a0 a1 : Word)
     (hd : Disjoint a0 4 a1 8)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(a0, 4)] s t →
       Region a0 (Accel.natToLeLimbs 4 (Accel.leLimbsToNat [x0, x1, x2, x3] *
-        Accel.leLimbsToNat [y0, y1, y2, y3] % Accel.leLimbsToNat [m0, m1, m2, m3])) t → Safe P t) :
-    Safe P s := by
+        Accel.leLimbsToNat [y0, y1, y2, y3] % Accel.leLimbsToNat [m0, m1, m2, m3])) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(a0, 4)] s
   sym_exec
   sym_close hk
@@ -33,7 +33,7 @@ namespace Cases.Zip2005
 open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 /-- `syscall_pallas_add(p, q)`: `p := p + q` (the precompile's chord formula). -/
-theorem pallas_add_spec {P : Prop} (s : MachineState) (ra a0 a1 : Word) (p q : List Word)
+theorem pallas_add_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 : Word) (p q : List Word)
     (hpl : p.length = 8) (hql : q.length = 8)
     (hpc : s.pc = 0x7801bf3c#64) (hcode : CodeAt F_7801bf3c.base F_7801bf3c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -42,14 +42,14 @@ theorem pallas_add_spec {P : Prop} (s : MachineState) (ra a0 a1 : Word) (p q : L
     (hp : Region a0 p s) (hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi a0 8)
     (hq : Region a1 q s) (hd : Disjoint a0 8 a1 8)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(a0, 8)] s t →
-      Region a0 (Accel.curveAddL Sp1.pallasP 4 p q) t → Safe P t) :
-    Safe P s := by
+      Region a0 (Accel.curveAddL Sp1.pallasP 4 p q) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(a0, 8)] s
   sym_exec
   sym_close hk
 
 /-- `syscall_pallas_double(p)`: `p := 2p`. -/
-theorem pallas_double_spec {P : Prop} (s : MachineState) (ra a0 : Word) (p : List Word)
+theorem pallas_double_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 : Word) (p : List Word)
     (hpl : p.length = 8)
     (hpc : s.pc = 0x7801bf4c#64) (hcode : CodeAt F_7801bf4c.base F_7801bf4c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -57,8 +57,8 @@ theorem pallas_double_spec {P : Prop} (s : MachineState) (ra a0 : Word) (p : Lis
     (ha0 : s.getReg .x10 = a0)
     (hp : Region a0 p s) (hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi a0 8)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(a0, 8)] s t →
-      Region a0 (Accel.curveDblL Sp1.pallasP 4 p) t → Safe P t) :
-    Safe P s := by
+      Region a0 (Accel.curveDblL Sp1.pallasP 4 p) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(a0, 8)] s
   sym_exec
   sym_close hk

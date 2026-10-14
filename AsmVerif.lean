@@ -15,3 +15,4 @@ import AsmVerif.RiscV.Check.Fast
 import AsmVerif.RiscV.Exec.Basic
 import AsmVerif.RiscV.Exec.Arith
 import AsmVerif.RiscV.Exec.Tactic
+import AsmVerif.RiscV.Sym

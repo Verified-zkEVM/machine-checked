@@ -25,7 +25,7 @@ theorem sq_ok_of_nat {b : Word} {n : Nat} (h1 : b.toNat % 8 = 0) (h2 : b.toNat +
   RegionOk.of_nat h1 (by unfold SP1_MAX_MEMORY; omega) (Or.inl (by simp only [Ro.layout_roBase]; omega))
 
 set_option maxHeartbeats 4000000 in
-theorem sq_from_iter_spec {P : Prop} (s : MachineState) (ra sp out it g w2 w3 w4 w5 : Word)
+theorem sq_from_iter_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out it g w2 w3 w4 w5 : Word)
     (G O : List Word) (hGl : G.length = 4) (hOl : O.length = 3)
     (hpc : s.pc = 0x780326cc#64) (hcode : CodeAt F_780326cc.base F_780326cc.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -41,15 +41,15 @@ theorem sq_from_iter_spec {P : Prop} (s : MachineState) (ra sp out it g w2 w3 w4
     (hglo : sp.toNat ≤ g.toNat) (hghi : g.toNat + 32 ≤ 0x78000000)
     (hOlo : sp.toNat ≤ out.toNat) (hOhi : out.toNat + 24 ≤ 0x78000000)
     (hdIG : Disjoint it 6 g 4) (hdOI : Disjoint out 3 it 6)
-    (halloc : SqAlloc P s.code) (hres : SqReserve P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
+    (halloc : SqAlloc Gd n P s.code) (hres : SqReserve Gd n P s.code)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN Gd n P u)
     (hk : ∀ (t : MachineState) (ptr : Word) (T : List Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code →
       Unchanged [(sp - 0x240#64, 72), (out, 3), (it, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [256#64, ptr, 256#64] t → T.length = 1024 → Region ptr T t →
       RegionOk Ro.layout.roBase Ro.layout.textHi ptr 1024 →
-      0x78048980 ≤ ptr.toNat → ptr.toNat + 0x2000 ≤ 0x1c00000000 → Safe P t) :
-    Safe P s := by
+      0x78048980 ≤ ptr.toNat → ptr.toNat + 0x2000 ≤ 0x1c00000000 → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have hlo := hstk.lo
   have hhi := (Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop))
   have hal := hstk.aligned
@@ -79,7 +79,7 @@ theorem sq_from_iter_spec {P : Prop} (s : MachineState) (ra sp out it g w2 w3 w4
   have hS1l : [s.getReg .x27, s.getReg .x26, s.getReg .x25, s.getReg .x24, s.getReg .x23,
       s.getReg .x22, s.getReg .x21, s.getReg .x20, s.getReg .x19, s.getReg .x18, s.getReg .x9,
       s.getReg .x8, ra].length = 13 := rfl
-  refine sq_loop (P := P) s t1 (sp - 0x140#64) out g (s.getReg .x3) (s.getReg .x4) G _ hGl hS1l E
+  refine sq_loop (Gd := Gd) (nb := n) (P := P) s t1 (sp - 0x140#64) out g (s.getReg .x3) (s.getReg .x4) G _ hGl hS1l E
     hcode hcodeM hcw hres ?_ 255 t1 J 1#64 4#64 p hc1 (hro.of_unchanged hun1 ?_) (Unchanged.refl _ t1)
     (SqHead.mk hpc1 r2 r3 r4 r8 r9 r19 r20 r21 r22 r23 r24 r25 (by rw [r26]; rfl) r27 hH1 hJl hJ1 hS1
       hG1 hokP hplo (by have : (4#64 : Word).toNat = 4 := rfl; omega) (by unfold SqCap; decide) (by decide) (Or.inr rfl) (by decide)

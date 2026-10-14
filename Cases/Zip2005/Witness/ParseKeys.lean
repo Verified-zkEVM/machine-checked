@@ -18,9 +18,9 @@ namespace Cases.Zip2005
 open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 /-- `parse_nk(out, w)`: `NullifierDerivingKey::from_bytes(&w[0x440..0x460])`. -/
-theorem parse_nk_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
+theorem parse_nk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801d2c8#64) (hcode : CodeAt F_7801d2c8.base F_7801d2c8.prog s)
     (hcodeF : CodeAt F_78022848.base F_78022848.prog s) (hcodeR : CodeAt F_780297c0.base F_780297c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -36,8 +36,8 @@ theorem parse_nk_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b
       t.code = s.code → Unchanged [(sp - 0x120#64, 36), (a0, 5)] s t →
       tag = (if leLimbsToNat [b0, b1, b2, b3] < Fp.p then 1#64 else 0#64) → L.length = 4 →
       (leLimbsToNat [b0, b1, b2, b3] < Fp.p → L = natToLeLimbs 4 (Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2)) →
-      Region a0 (tag :: L) t → Safe P t) :
-    Safe P s := by
+      Region a0 (tag :: L) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x120#64) 36 := hstk.frame 36 (by decide)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hokW.sub' 34 2 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x10#64) 2 s
@@ -52,9 +52,9 @@ theorem parse_nk_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b
     | exact fun h => post6_8 rfl h
 
 /-- `parse_rivk(out, w)`: `CommitIvkRandomness::from_bytes(&w[0x480..0x4a0])`. -/
-theorem parse_rivk_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
+theorem parse_rivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801ce6c#64) (hcode : CodeAt F_7801ce6c.base F_7801ce6c.prog s)
     (hcodeF : CodeAt F_78022a74.base F_78022a74.prog s) (hcodeR : CodeAt F_7802ed10.base F_7802ed10.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -70,8 +70,8 @@ theorem parse_rivk_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1
       t.code = s.code → Unchanged [(sp - 0x120#64, 36), (a0, 5)] s t →
       tag = (if leLimbsToNat [b0, b1, b2, b3] < Fq.q then 1#64 else 0#64) → L.length = 4 →
       (leLimbsToNat [b0, b1, b2, b3] < Fq.q → L = natToLeLimbs 4 (Fq.mul (leLimbsToNat [b0, b1, b2, b3]) Fq.R2)) →
-      Region a0 (tag :: L) t → Safe P t) :
-    Safe P s := by
+      Region a0 (tag :: L) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x120#64) 36 := hstk.frame 36 (by decide)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hokW.sub' 34 2 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x10#64) 2 s
@@ -86,9 +86,9 @@ theorem parse_rivk_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1
     | exact fun h => post6_8 rfl h
 
 /-- `parse_rivk_ext(out, w)`: `CommitIvkRandomness::from_bytes(&w[0x460..0x480])`. -/
-theorem parse_rivk_ext_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
+theorem parse_rivk_ext_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801d074#64) (hcode : CodeAt F_7801d074.base F_7801d074.prog s)
     (hcodeF : CodeAt F_78022a74.base F_78022a74.prog s) (hcodeR : CodeAt F_7802ed10.base F_7802ed10.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -104,8 +104,8 @@ theorem parse_rivk_ext_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b
       t.code = s.code → Unchanged [(sp - 0x120#64, 36), (a0, 5)] s t →
       tag = (if leLimbsToNat [b0, b1, b2, b3] < Fq.q then 1#64 else 0#64) → L.length = 4 →
       (leLimbsToNat [b0, b1, b2, b3] < Fq.q → L = natToLeLimbs 4 (Fq.mul (leLimbsToNat [b0, b1, b2, b3]) Fq.R2)) →
-      Region a0 (tag :: L) t → Safe P t) :
-    Safe P s := by
+      Region a0 (tag :: L) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x120#64) 36 := hstk.frame 36 (by decide)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hokW.sub' 34 2 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x10#64) 2 s

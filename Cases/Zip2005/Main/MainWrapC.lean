@@ -23,7 +23,7 @@ set_option autoImplicit false
 
 /-- `parse_rho_spec` on canonical bytes: tag `1` and the limbs named, with their value and
 canonicity as facts. -/
-theorem parse_rho_ok_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
+theorem parse_rho_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x7801d360#64) (hcode : CodeAt F_7801d360.base F_7801d360.prog s)
     (hcodeRho : CodeAt F_7801ddd8.base F_7801ddd8.prog s)
@@ -42,8 +42,8 @@ theorem parse_rho_ok_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0
     (hk : ∀ (t : MachineState) (r0 r1 r2 r3 : Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code → Unchanged [(sp - 0x150#64, 42), (a0, 5)] s t →
       leLimbsToNat [r0, r1, r2, r3] = Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2 → leLimbsToNat [r0, r1, r2, r3] < Fp.p →
-      Region a0 [1#64, r0, r1, r2, r3] t → Safe P t) :
-    Safe P s :=
+      Region a0 [1#64, r0, r1, r2, r3] t → SafeN G n P t) :
+    SafeN G n P s :=
   parse_rho_spec s ra sp a0 a1 b0 b1 b2 b3 O hOl hpc hcode hcodeRho hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hok_a1 hO hok0 hd0 hd_a1 he_a1 (fun t tag L h1 h2 h3 h4 htag _ hLeq hR => by
     rw [if_pos hc] at htag; subst htag
     have e := hLeq hc; subst e
@@ -52,7 +52,7 @@ theorem parse_rho_ok_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0
     exact hk t _ _ _ _ h1 h2 h3 h4 hX (by rw [hX]; exact Fp.mul_lt _ _) hR)
 
 /-- `parse_rho_spec` on non-canonical bytes: tag `0` (`None`). -/
-theorem parse_rho_bad_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
+theorem parse_rho_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x7801d360#64) (hcode : CodeAt F_7801d360.base F_7801d360.prog s)
     (hcodeRho : CodeAt F_7801ddd8.base F_7801ddd8.prog s)
@@ -70,14 +70,14 @@ theorem parse_rho_bad_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b
     (hc : ¬ leLimbsToNat [b0, b1, b2, b3] < Fp.p)
     (hk : ∀ (t : MachineState) (L : List Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code → Unchanged [(sp - 0x150#64, 42), (a0, 5)] s t → L.length = 4 →
-      Region a0 (0#64 :: L) t → Safe P t) :
-    Safe P s :=
+      Region a0 (0#64 :: L) t → SafeN G n P t) :
+    SafeN G n P s :=
   parse_rho_spec s ra sp a0 a1 b0 b1 b2 b3 O hOl hpc hcode hcodeRho hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hok_a1 hO hok0 hd0 hd_a1 he_a1 (fun t tag L h1 h2 h3 h4 htag hL _ hR => by
     rw [if_neg hc] at htag; subst htag; exact hk t L h1 h2 h3 h4 hL hR)
 
 /-- `psi_spec` with the output limbs named (their value and canonicity as facts) and its frame's
 prior contents taken as junk, so a caller need not hold regions below its stack pointer. -/
-theorem psi_spec' {P : Prop} (s : MachineState) (ra sp out rs rho s0 s1 s2 s3 p0 p1 p2 p3 : Word)
+theorem psi_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out rs rho s0 s1 s2 s3 p0 p1 p2 p3 : Word)
     (hpc : s.pc = 0x7801d51c#64) (hcP : CodeAt F_7801d51c.base F_7801d51c.prog s)
     (hcR : CodeAt F_78029468.base F_78029468.prog s)
     (hcT : CodeAt F_78032c1c.base F_78032c1c.prog s) (hcU : CodeAt F_78032db4.base F_78032db4.prog s)
@@ -98,8 +98,8 @@ theorem psi_spec' {P : Prop} (s : MachineState) (ra sp out rs rho s0 s1 s2 s3 p0
     (hk : ∀ (t : MachineState) (q0 q1 q2 q3 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x4d0#64, 154), (out, 4)] s t →
       leLimbsToNat [q0, q1, q2, q3] = psiX s0 s1 s2 s3 p0 p1 p2 p3 → leLimbsToNat [q0, q1, q2, q3] < Fp.p →
-      Region out [q0, q1, q2, q3] t → Safe P t) :
-    Safe P s := by
+      Region out [q0, q1, q2, q3] t → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F1, hRF1, hF1⟩ := Region.exists_junk (sp - 0x4d0#64) 74 s
   obtain ⟨F3, hRF3, hF3⟩ := Region.exists_junk (sp - 0x280#64) 12 s
   obtain ⟨F2, hRF2, hF2⟩ := Region.exists_junk (sp - 0x220#64) 68 s
@@ -110,7 +110,7 @@ theorem psi_spec' {P : Prop} (s : MachineState) (ra sp out rs rho s0 s1 s2 s3 p0
 
 /-- `rcm_v3_spec` with its ghost encodings discharged (the cells of `to_bytes` of the points and of
 `ρ`, `ψ` out of Montgomery form) and the output related by `RcmRel`. -/
-theorem rcm_v3_spec' {P : Prop} (s : MachineState) (ra sp out rs rho gd pkd v psi : Word)
+theorem rcm_v3_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out rs rho gd pkd v psi : Word)
     (e0 e1 e2 e3 r0 r1 r2 r3 q0 q1 q2 q3 g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11 : Word)
     (hpc : s.pc = 0x7801d92c#64) (hcP : CodeAt F_7801d92c.base F_7801d92c.prog s)
     (hcT : CodeAt F_78032c1c.base F_78032c1c.prog s) (hcU : CodeAt F_78032db4.base F_78032db4.prog s)
@@ -140,14 +140,14 @@ theorem rcm_v3_spec' {P : Prop} (s : MachineState) (ra sp out rs rho gd pkd v ps
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x510#64, 162), (out, 4)] s t →
       ∀ x : Nat, Region out (natToLeLimbs 4 x) t →
-      RcmRel e0 e1 e2 e3 r0 r1 r2 r3 q0 q1 q2 q3 g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11 v x → Safe P t) :
-    Safe P s :=
+      RcmRel e0 e1 e2 e3 r0 r1 r2 r3 q0 q1 q2 q3 g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11 v x → SafeN G n P t) :
+    SafeN G n P s :=
   rcm_v3_spec s ra sp out rs rho gd pkd v psi e0 e1 e2 e3 r0 r1 r2 r3 q0 q1 q2 q3 g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11 (BitVec.ofNat 64 (tbX g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11)) (BitVec.ofNat 64 (tbX g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 >>> 64)) (BitVec.ofNat 64 (tbX g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 >>> 128)) (BitVec.ofNat 64 (tbX g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 >>> 192)) (BitVec.ofNat 64 (tbX k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11)) (BitVec.ofNat 64 (tbX k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11 >>> 64)) (BitVec.ofNat 64 (tbX k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11 >>> 128)) (BitVec.ofNat 64 (tbX k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11 >>> 192)) (BitVec.ofNat 64 (leLimbsToNat [r0, r1, r2, r3] * Fp.rInv % Fp.p)) (BitVec.ofNat 64 ((leLimbsToNat [r0, r1, r2, r3] * Fp.rInv % Fp.p) >>> 64)) (BitVec.ofNat 64 ((leLimbsToNat [r0, r1, r2, r3] * Fp.rInv % Fp.p) >>> 128)) (BitVec.ofNat 64 ((leLimbsToNat [r0, r1, r2, r3] * Fp.rInv % Fp.p) >>> 192)) (BitVec.ofNat 64 (leLimbsToNat [q0, q1, q2, q3] * Fp.rInv % Fp.p)) (BitVec.ofNat 64 ((leLimbsToNat [q0, q1, q2, q3] * Fp.rInv % Fp.p) >>> 64)) (BitVec.ofNat 64 ((leLimbsToNat [q0, q1, q2, q3] * Fp.rInv % Fp.p) >>> 128)) (BitVec.ofNat 64 ((leLimbsToNat [q0, q1, q2, q3] * Fp.rInv % Fp.p) >>> 192)) (natToLeLimbs_four (tbX g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11)) (natToLeLimbs_four (tbX k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11)) (natToLeLimbs_four (leLimbsToNat [r0, r1, r2, r3] * Fp.rInv % Fp.p)) (natToLeLimbs_four (leLimbsToNat [q0, q1, q2, q3] * Fp.rInv % Fp.p)) hpc hcP hcT hcU hcF hcL hcM hcC hcB hcB2 hcB3 hcB4 hcB5 hcR hcX hcX2 hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 ha4 ha5 ha6 hRS hokS hRR hokR hRQ hokQ hRGd hokGd hRK hokK hokO hd1 hd2 hd3 hd4 hd5 hd6 he1 he2 he3 he4 he5 (fun t h1 h2 h3 h4 x hR hx => hk t h1 h2 h3 h4 x hR
     ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, natToLeLimbs_four (tbX g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11), natToLeLimbs_four (tbX k0 k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 k11),
       natToLeLimbs_four (leLimbsToNat [r0, r1, r2, r3] * Fp.rInv % Fp.p), natToLeLimbs_four (leLimbsToNat [q0, q1, q2, q3] * Fp.rInv % Fp.p), hx⟩)
 
 /-- `ep_to_bytes_spec` with the four output cells named. -/
-theorem ep_to_bytes_spec' {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 : Word)
+theorem ep_to_bytes_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 : Word)
     (O : List Word) (hOl : O.length = 4)
     (hpc : s.pc = 0x78025654#64) (hcode : CodeAt F_78025654.base F_78025654.prog s)
     (hcodeTA : CodeAt F_78025164.base F_78025164.prog s)
@@ -166,13 +166,13 @@ theorem ep_to_bytes_spec' {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0
     (he1 : Disjoint a0 4 a1 12)
     (hk : ∀ (t : MachineState) (c0 c1 c2 c3 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x2f0#64, 94), (a0, 4)] s t →
-      [c0, c1, c2, c3] = natToLeLimbs 4 (tbX p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11) → Region a0 [c0, c1, c2, c3] t → Safe P t) :
-    Safe P s :=
+      [c0, c1, c2, c3] = natToLeLimbs 4 (tbX p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11) → Region a0 [c0, c1, c2, c3] t → SafeN G n P t) :
+    SafeN G n P s :=
   ep_to_bytes_spec s ra sp a0 a1 p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 O hOl hpc hcode hcodeTA hcodeI hcodeM hcodeB hcodeMS hcodeT hcw hro hra hra1 hsp hstk ha0 ha1 hp hok1 hO hok0 hd0 hd1 he1 (fun t h1 h2 h3 h4 hR => hk t _ _ _ _ h1 h2 h3 h4 (natToLeLimbs_four (tbX p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11)).symm
     (by rw [natToLeLimbs_four] at hR; exact hR))
 
 /-- `rivk_internal_spec` with the output cells named and the frame's prior contents taken as junk. -/
-theorem rivk_internal_spec' {P : Prop} (s : MachineState) (ra sp out fvk SC k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3 : Word)
+theorem rivk_internal_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out fvk SC k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3 : Word)
     (hpc : s.pc = 0x78022ca0#64) (hcR : CodeAt F_78022ca0.base F_78022ca0.prog s)
     (hcQ : CodeAt F_7802e9b8.base F_7802e9b8.prog s) (hcI : CodeAt F_78028ce8.base F_78028ce8.prog s)
     (hcI2 : CodeAt F_78029468.base F_78029468.prog s)
@@ -192,18 +192,18 @@ theorem rivk_internal_spec' {P : Prop} (s : MachineState) (ra sp out fvk SC k0 k
     (hd1 : Disjoint (sp - 0x570#64) 174 (fvk + 0x60#64) 12) (hd2 : Disjoint (sp - 0x570#64) 174 out 4)
     (hd3 : Disjoint out 4 (fvk + 0x60#64) 12)
     (hSC : SC = 1#64)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ (t : MachineState) (c0 c1 c2 c3 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x570#64, 174), (out, 4)] s t →
-      [c0, c1, c2, c3] = natToLeLimbs 4 (rivkIntX k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3) → Region out [c0, c1, c2, c3] t → Safe P t) :
-    Safe P s := by
+      [c0, c1, c2, c3] = natToLeLimbs 4 (rivkIntX k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3) → Region out [c0, c1, c2, c3] t → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨Fr, hRF, hFr⟩ := Region.exists_junk (sp - 0xe0#64) 28 s
   exact rivk_internal_spec s ra sp out fvk SC k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3 Fr hFr hRF hpc hcR hcQ hcI hcI2 hcW hcT hcU hcF hcL hcM hcC hcX hcX2 hcX3 hcw hro hra hra1 hsp hstk ha0 ha1 ha2 hK hokK hokO hd1 hd2 hd3 hSC hpp (fun t h1 h2 h3 h4 hR => hk t _ _ _ _ h1 h2 h3 h4 (natToLeLimbs_four (rivkIntX k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3)).symm
     (by rw [natToLeLimbs_four] at hR; exact hR))
 
 /-- `commit_ivk_spec` over the generic `from_iter` contract (any caller frame `sp0`, padding `J0`
 and key words), instantiated inside: a caller passes its own hypothesis unchanged. -/
-theorem commit_ivk_spec' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Word)
+theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Word)
     (a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 5) (hJl : J.length = 9)
     -- the sqrt/generator tables (`FP_TABLES`) in the heap, carried through: the allocator
@@ -229,10 +229,10 @@ theorem commit_ivk_spec' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : W
     (hbelow_rivk : rivk.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_ak : ak.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_nk : nk.toNat + 8 * 4 ≤ 0x78040620)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n P u)
+    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x780203dc#64) (hcode : CodeAt F_780203dc.base F_780203dc.prog s)
     -- callees: cached_commit_domain (+ from_raw, from_xy, is_on_curve, mulmod, black_box,
     -- to_curve), to_le_bits (+ to_repr), commit (`0x78021238`) and its callees,
@@ -308,7 +308,7 @@ theorem commit_ivk_spec' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : W
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 65 →
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) → Safe P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) → SafeN G n P u)
     (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 65 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780215d8#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = cap →
@@ -319,7 +319,7 @@ theorem commit_ivk_spec' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : W
       (∀ t, t.pc = 0x780215d8#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) → Safe P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xaa0#64, 340), (out, 5), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (extractPBottomW
@@ -330,14 +330,14 @@ theorem commit_ivk_spec' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : W
           (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))]) t →
       mulFacts rIvkW [k0, k1, k2, k3] →
       Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) :
-    Safe P s :=
+      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) :
+    SafeN G n P s :=
   commit_ivk_spec s ra sp out ak nk rivk a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 O J hOl hJl tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx IV G0 G1 G2 G3 hIVl hG0l hG1l hG2l hG3l hTB hIVr hG0 hG1 hG2 hG3 hok_iptr hok_g0 hok_g1 hok_g2 hok_g3 hlo_iptr hlo_g0 hlo_g1 hlo_g2 hlo_g3 hhi_iptr hhi_g0 hhi_g1 hhi_g2 hhi_g3 hbelow_out hbelow_rivk hbelow_ak hbelow_nk hpaf hpanic hunwrap hbounds hpc hcode hcodeCD hcodeLB hcodeCm hcodeEB hcodeC hcodeTA hcodeI hcodeM hcodeBB hcodeCo hcodeP hcodeRp hcodeL hcodeIA hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeU hcodeR hcodeXY hcodeOC hcodeFR hcodeTC hcodeF hcodeBt hcodeS hcodeCS hcodeB hcodeW hcodeMul hcodeRq hcodeA hcodeDbl hcodeD hcodeAF hcodeAFI hcodeEA hcodeED hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 hA hokA hN hokN hK hokK hO hokO hJ hd0 hd1 hd2 hd3 he0 he1 he2 hh0 hh1 (fun u sp' a0' a1' j O1 => hfrom u sp' a0' a1' j O1 sp J a0 a1 a2 a3 n0 n1 n2 n3) hdealloc hk
 
 /-- `commit_ivk_spec'` with the output cells named: `ivk`'s four limbs and the flag cell, each
 with its model equation, so the executor never sizes `extractPBottomW` (an `if` over the
 affine point). -/
-theorem commit_ivk_spec'' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Word)
+theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Word)
     (a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 5) (hJl : J.length = 9)
     -- the sqrt/generator tables (`FP_TABLES`) in the heap, carried through: the allocator
@@ -363,10 +363,10 @@ theorem commit_ivk_spec'' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : 
     (hbelow_rivk : rivk.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_ak : ak.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_nk : nk.toNat + 8 * 4 ≤ 0x78040620)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n P u)
+    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x780203dc#64) (hcode : CodeAt F_780203dc.base F_780203dc.prog s)
     -- callees: cached_commit_domain (+ from_raw, from_xy, is_on_curve, mulmod, black_box,
     -- to_curve), to_le_bits (+ to_repr), commit (`0x78021238`) and its callees,
@@ -442,7 +442,7 @@ theorem commit_ivk_spec'' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : 
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 65 →
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) → Safe P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) → SafeN G n P u)
     (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 65 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780215d8#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = cap →
@@ -453,7 +453,7 @@ theorem commit_ivk_spec'' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : 
       (∀ t, t.pc = 0x780215d8#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) → Safe P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ (t : MachineState) (j0 j1 j2 j3 fl : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xaa0#64, 340), (out, 5), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       [j0, j1, j2, j3] = extractPBottomW (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))
@@ -462,8 +462,8 @@ theorem commit_ivk_spec'' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : 
       fl = replaceByte O[4]! 0 (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65)) →
       Region out [j0, j1, j2, j3, fl] t → mulFacts rIvkW [k0, k1, k2, k3] →
       Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) :
-    Safe P s :=
+      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) :
+    SafeN G n P s :=
   commit_ivk_spec' s ra sp out ak nk rivk a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 O J hOl hJl tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx IV G0 G1 G2 G3 hIVl hG0l hG1l hG2l hG3l hTB hIVr hG0 hG1 hG2 hG3 hok_iptr hok_g0 hok_g1 hok_g2 hok_g3 hlo_iptr hlo_g0 hlo_g1 hlo_g2 hlo_g3 hhi_iptr hhi_g0 hhi_g1 hhi_g2 hhi_g3 hbelow_out hbelow_rivk hbelow_ak hbelow_nk hpaf hpanic hunwrap hbounds hpc hcode hcodeCD hcodeLB hcodeCm hcodeEB hcodeC hcodeTA hcodeI hcodeM hcodeBB hcodeCo hcodeP hcodeRp hcodeL hcodeIA hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeU hcodeR hcodeXY hcodeOC hcodeFR hcodeTC hcodeF hcodeBt hcodeS hcodeCS hcodeB hcodeW hcodeMul hcodeRq hcodeA hcodeDbl hcodeD hcodeAF hcodeAFI hcodeEA hcodeED hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 hA hokA hN hokN hK hokK hO hokO hJ hd0 hd1 hd2 hd3 he0 he1 he2 hh0 hh1 hfrom hdealloc (fun t h1 h2 h3 h4 hR hm b0 b1 b2 b3 b4 b5 => by
     generalize hL : extractPBottomW (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))
       (ivkW qIvkW rIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65)
@@ -474,7 +474,7 @@ theorem commit_ivk_spec'' {P : Prop} (s : MachineState) (ra sp out ak nk rivk : 
       exact hk t j0 j1 j2 j3 _ h1 h2 h3 h4 hL.symm rfl (by simpa using hR) hm b0 b1 b2 b3 b4 b5)
 
 /-- `nonzero_scalar_spec` with the output cells named (`nzScalarW` is an `if` on canonicity). -/
-theorem nonzero_scalar_spec' {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
+theorem nonzero_scalar_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
     (x0 x1 x2 x3 : Word) (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x7802018c#64) (hcode : CodeAt F_7802018c.base F_7802018c.prog s)
     (hcodeR : CodeAt F_7802ed10.base F_7802ed10.prog s)
@@ -492,8 +492,8 @@ theorem nonzero_scalar_spec' {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
     (hk : ∀ (t : MachineState) (i0 i1 i2 i3 fl : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x150#64, 42), (a0, 5)] s t →
       [i0, i1, i2, i3] = nzScalarW (leLimbsToNat [x0, x1, x2, x3]) → fl = replaceByte O[4]! 0 (nzScalarFlag (leLimbsToNat [x0, x1, x2, x3])) →
-      Region a0 [i0, i1, i2, i3, fl] t → Safe P t) :
-    Safe P s :=
+      Region a0 [i0, i1, i2, i3, fl] t → SafeN G n P t) :
+    SafeN G n P s :=
   nonzero_scalar_spec s ra a0 a1 sp x0 x1 x2 x3 O hOl hpc hcode hcodeR hcodeM hcodeB hcodeE hcodeZ hcw hro hra hra1 hsp hstk ha0 ha1 hx hok1 hO hok0 hd hd0 hd1 (fun t h1 h2 h3 h4 hR => by
     generalize hL : nzScalarW (leLimbsToNat [x0, x1, x2, x3]) = L at hR
     have hl : L.length = 4 := by rw [← hL]; unfold nzScalarW; split <;> rfl

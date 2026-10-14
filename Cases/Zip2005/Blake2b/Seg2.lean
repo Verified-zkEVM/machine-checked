@@ -19,7 +19,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
-theorem compress1_seg2 {P : Prop} (t : MachineState) (ra sp wp t0 t1 fb fn : Word)
+theorem compress1_seg2 {G : MachineState → Prop} {n : Nat} {P : Prop} (t : MachineState) (ra sp wp t0 t1 fb fn : Word)
     (h0 h1 h2 h3 h4 h5 h6 h7 m0 m1 m2 m3 m4 m5 m6 m7 m8 m9 m10 m11 m12 m13 m14 m15 w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 : Word) (g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 g12 g13 g14 g15 g16 g17 g18 g19 g20 g21 g22 g23 g24 g25 g26 g27 : Word) (r27 r26 r25 r24 r23 r22 r21 r20 r19 r18 r9 r8 : Word)
     (hpc : t.pc = 0x78034608#64) (hcode : CodeAt F_78033260.base F_78033260.prog t)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi t)
@@ -62,8 +62,8 @@ theorem compress1_seg2 {P : Prop} (t : MachineState) (ra sp wp t0 t1 fb fn : Wor
       u.getReg .x1 = m4 → u.getReg .x5 = m15 → u.getReg .x6 = m9 → u.getReg .x7 = m2 → u.getReg .x8 = w8 → u.getReg .x9 = w15 → u.getReg .x10 = w0 → u.getReg .x11 = w1 → u.getReg .x12 = w4 → u.getReg .x13 = w2 → u.getReg .x14 = w3 → u.getReg .x15 = w12 → u.getReg .x16 = w13 → u.getReg .x17 = g26 → u.getReg .x18 = w14 → u.getReg .x19 = g27 → u.getReg .x20 = w9 → u.getReg .x21 = m3 → u.getReg .x22 = w10 → u.getReg .x23 = w7 → u.getReg .x24 = m0 → u.getReg .x25 = w11 → u.getReg .x26 = w5 → u.getReg .x27 = w6 → u.getReg .x28 = m14 → u.getReg .x29 = m6 → u.getReg .x30 = m8 → u.getReg .x31 = m10 →
       Unchanged [(sp - 0x250#64, 74), (wp, 8)] t u →
       Region (sp - 0x250#64) [wp, g0, g1, g2, g3, g4, 11912009170470909681#64, 6620516959819538809#64, 4354685564936845355#64, 2270897969802886507#64, 13503953896175478587#64, 11170449401992604703#64, 7640891576956012808#64, 5840696475078001361#64, 0#64, g5, g6, g7, g8, g9, h7, h3, h6, h2, h5, h0, h4, 0#64, h1, m4, m13, m14, m8, m9, m3, m11, m1, m12, m6, m10, m0, m5, m15, m7, m2, g10, g11, g12, g13, g14, g15, g16, g17, g18, g19, g20, g21, g22, g23, g24, g25, r27, r26, r25, r24, r23, r22, r21, r20, r19, r18, r9, r8, ra] u → Region wp [h0, h1, h2, h3, h4, h5, h6, h7] u →
-      roundsTo [h0, h1, h2, h3, h4, h5, h6, h7] [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15] t0 t1 fb fn 8 = [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15] → Safe P u) :
-    Safe P t := by
+      roundsTo [h0, h1, h2, h3, h4, h5, h6, h7] [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15] t0 t1 fb fn 8 = [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15] → SafeN G n P u) :
+    SafeN G n P t := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x250#64) 74 := hstk.frame 74 (by decide)
   have hlo := hstk.lo
   have hu := Unchanged.refl [(sp - 0x250#64, 74), (wp, 8)] t

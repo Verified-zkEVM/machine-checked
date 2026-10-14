@@ -23,7 +23,7 @@ theorem sub32x32 (l : Word) : l - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
 set_option asmverif.sym.foldBytes true in
-theorem array_bytes32_ok_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem array_bytes32_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O WW : List Word) (hOl : O.length = 129) (hWl : WW.length = 129)
     (hpc : s.pc = 0x78016938#64) (hcode : CodeAt F_78016938.base F_78016938.prog s)
     (hcodeE : CodeAt F_78019a10.base F_78019a10.prog s)
@@ -44,11 +44,11 @@ theorem array_bytes32_ok_spec {P : Prop} (s : MachineState) (ra sp out de q l : 
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x900#64, 288), (out, 129), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
-      Region out (tagBytesW O WW 5 128) t → Region de [q + 1029#64, l - 1024#64] t → Safe P t) :
-    Safe P s := by
+      Region out (tagBytesW O WW 5 128) t → Region de [q + 1029#64, l - 1024#64] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x900#64) 288 := hstk.frame 288 (by decide)
   have hu := Unchanged.refl [(sp - 0x900#64, 288), (out, 129), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   have hlo := hstk.lo

@@ -15,12 +15,6 @@ namespace AsmVerif.RiscV.Sym
 
 open RiscvZkvm.Rv64
 
-/-! ## The run, snoc form -/
-
-theorem run_snoc {n : Nat} {s s₁ s₂ : MachineState} (h : run n s = some s₁)
-    (hstep : stepSp1 s₁ = some s₂) : run (n + 1) s = some s₂ := by
-  rw [run_add, h]; simpa [run_succ, hstep]
-
 /-! ## Well-placed regions -/
 
 /-- A region the code may access: 8-aligned, inside SP1's addressable space,

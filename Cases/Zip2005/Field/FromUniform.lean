@@ -16,7 +16,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 20000000 in
 set_option maxRecDepth 10000 in
-theorem fp_from_uniform_bytes_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x : List Word)
+theorem fp_from_uniform_bytes_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x : List Word)
     (hxl : x.length = 8)
     (hpc : s.pc = 0x7802e2b4#64) (hcode : CodeAt F_7802e2b4.base F_7802e2b4.prog s)
     (hcodeU : CodeAt F_78028718.base F_78028718.prog s)
@@ -32,8 +32,8 @@ theorem fp_from_uniform_bytes_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : 
       Unchanged [(sp - 0x140#64, 40), (a0, 4)] s t →
       Region a0 (natToLeLimbs 4 (Fp.add
         (Fp.mul (leLimbsToNat [x[0]!, x[1]!, x[2]!, x[3]!]) Fp.R2)
-        (Fp.mul (leLimbsToNat [x[4]!, x[5]!, x[6]!, x[7]!]) Fp.R3))) t → Safe P t) :
-    Safe P s := by
+        (Fp.mul (leLimbsToNat [x[4]!, x[5]!, x[6]!, x[7]!]) Fp.R3))) t → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   obtain ⟨O, hO, hOl⟩ := Region.exists_junk a0 4 s
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x50#64) 10 s
   obtain ⟨G, hG, hGl⟩ := Region.exists_junk (sp - 0x140#64) 30 s

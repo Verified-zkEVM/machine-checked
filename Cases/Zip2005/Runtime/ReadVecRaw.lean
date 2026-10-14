@@ -17,7 +17,7 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem read_vec_raw_spec {P : Prop} (s : MachineState) (ra dst b : Word) (I : List (BitVec 8))
+theorem read_vec_raw_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst b : Word) (I : List (BitVec 8))
     (D J : List Word) (hDl : D.length = 3) (hJl : J.length = 175)
     (hpc : s.pc = 0x7801beb0#64) (hcode : CodeAt F_7801beb0.base F_7801beb0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -27,10 +27,10 @@ theorem read_vec_raw_spec {P : Prop} (s : MachineState) (ra dst b : Word) (I : L
     (hB : Region 0x78040618#64 [b] s) (hb : 0x1c00000000 ≤ b.toNat)
     (hJ : Region b J s) (hokJ : RegionOk Ro.layout.textLo Ro.layout.textHi b 175)
     (hdD : dst.toNat + 24 ≤ 0x78040618)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
     (hk0 : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 3), (0x78040618#64, 1), (0x1c00000000#64, 0x80000000)] s t →
       t.privateInput = I → hlenW I = -1#64 → Region dst [0#64, 0#64, 0#64] t → Region b J t →
-      Region 0x78040618#64 [b] t → Safe P t)
+      Region 0x78040618#64 [b] t → SafeN G n P t)
     (hk1 : ∀ (t : MachineState) (L : Word) (B : List Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code →
       Unchanged [(dst, 3), (0x78040618#64, 1), (0x1c00000000#64, 0x80000000)] s t →
@@ -38,8 +38,8 @@ theorem read_vec_raw_spec {P : Prop} (s : MachineState) (ra dst b : Word) (I : L
       8 + L.toNat ≤ I.length → b.toNat + 8 * (L.toNat / 8 + 1) ≤ 0x2000000000 →
       hintWords ((I.drop 8).take L.toNat) = B → B.length = L.toNat / 8 + 1 → Region b (overlay B J) t →
       Region dst [b, L, L + 7#64 &&& 18446744073709551608#64] t →
-      Region 0x78040618#64 [b + (L + 7#64 &&& 18446744073709551608#64)] t → Safe P t) :
-    Safe P s := by
+      Region 0x78040618#64 [b + (L + 7#64 &&& 18446744073709551608#64)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokB : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040618#64 1 := ⟨by decide, by decide, Or.inr (by decide)⟩
   have hdB : Disjoint dst 3 0x78040618#64 1 := ⟨Or.inl (by simpa using hdD), by omega, by decide⟩
   have hJn := hokJ.inMem

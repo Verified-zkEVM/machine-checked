@@ -22,19 +22,19 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 set_option autoImplicit false
 
 /-- `__rust_alloc(1098, 1)` at `new`'s call (`0x7803120c`): the `inv` table. -/
-def SqAllocInv (P : Prop) (code : Word → Option Instr) : Prop :=
+def SqAllocInv (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word → Option Instr) : Prop :=
   ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = code →
     u.getReg .x1 = 0x7803120c#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
     u.getReg .x10 = 1098#64 → u.getReg .x11 = 1#64 →
     (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x7803120c#64 → CalleeSaved u t →
       t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
       t.getReg .x10 = ptr → B.length = 138 → Region ptr B t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 138 →
-      0x78048980 ≤ ptr.toNat → ptr.toNat + 1104 ≤ 0x1c00000000 → Safe P t) →
-    Safe P u
+      0x78048980 ≤ ptr.toNat → ptr.toNat + 1104 ≤ 0x1c00000000 → SafeN G n P t) →
+    SafeN G n P u
 
 /-- `__rust_realloc(p, 0x2000, 8, 0x1020)` at `new`'s call (`0x7803139c`): the last table, 256
 elements, shrunk to 129. -/
-def SqRealloc (P : Prop) (code : Word → Option Instr) : Prop :=
+def SqRealloc (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word → Option Instr) : Prop :=
   ∀ (u : MachineState) (sp' p0 : Word), u.pc = 0x7801bd38#64 → u.code = code →
     u.getReg .x1 = 0x7803139c#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x100 sp' →
     u.getReg .x10 = p0 → u.getReg .x11 = 0x2000#64 → u.getReg .x12 = 8#64 →
@@ -42,12 +42,12 @@ def SqRealloc (P : Prop) (code : Word → Option Instr) : Prop :=
     (∀ (t : MachineState) (p' : Word), t.pc = 0x7803139c#64 → CalleeSaved u t →
       t.code = u.code → Unchanged [(sp' - 0x100#64, 32), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
       t.getReg .x10 = p' → RegionOk Ro.layout.roBase Ro.layout.textHi p' 516 →
-      0x78048980 ≤ p'.toNat → p'.toNat + 0x1020 ≤ 0x1c00000000 → Safe P t) →
-    Safe P u
+      0x78048980 ≤ p'.toNat → p'.toNat + 0x1020 ≤ 0x1c00000000 → SafeN G n P t) →
+    SafeN G n P u
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sqrt_tables_new_spec {P : Prop} (s : MachineState) (ra sp out hxw : Word) (O : List Word)
+theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out hxw : Word) (O : List Word)
     (hOl : O.length = 9)
     (hpc : s.pc = 0x78030a94#64) (hcodeN : CodeAt F_78030a94.base F_78030a94.prog s)
     (hcodeFI : CodeAt F_780326cc.base F_780326cc.prog s)
@@ -61,11 +61,11 @@ theorem sqrt_tables_new_spec {P : Prop} (s : MachineState) (ra sp out hxw : Word
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = hxw) (ha2 : s.getReg .x12 = 1098#64)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.roBase Ro.layout.textHi out 9)
     (hOlo : sp.toNat ≤ out.toNat) (hOhi : out.toNat + 72 ≤ 0x78000000)
-    (halloc : SqAlloc P s.code) (hres : SqReserve P s.code) (halloci : SqAllocInv P s.code)
-    (hrealloc : SqRealloc P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (halloc : SqAlloc Gd nb P s.code) (hres : SqReserve Gd nb P s.code) (halloci : SqAllocInv Gd nb P s.code)
+    (hrealloc : SqRealloc Gd nb P s.code)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN Gd nb P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN Gd nb P u)
     (hk : ∀ (t : MachineState) (iptr tg0 tg1 tg2 tg3 : Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code →
       Unchanged [(sp - 0x3d0#64, 122), (out, 9), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
@@ -79,8 +79,8 @@ theorem sqrt_tables_new_spec {P : Prop} (s : MachineState) (ra sp out hxw : Word
       0x78048980 ≤ tg1.toNat → tg1.toNat + 0x2000 ≤ 0x1c00000000 →
       0x78048980 ≤ tg2.toNat → tg2.toNat + 0x2000 ≤ 0x1c00000000 →
       0x78048980 ≤ tg3.toNat → tg3.toNat + 0x1020 ≤ 0x1c00000000 →
-      RoImage Ro.layout t → Safe P t) :
-    Safe P s := by
+      RoImage Ro.layout t → SafeN Gd nb P t) :
+    SafeN Gd nb P s := by
   have hlo := hstk.lo
   have hhi := (Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop))
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x3d0#64) 122 := hstk.frame 122 (by decide)
@@ -114,7 +114,7 @@ theorem sqrt_tables_new_spec {P : Prop} (s : MachineState) (ra sp out hxw : Word
         Unchanged [(sp' - 0x240#64, 72), (out', 3), (it, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region out' [256#64, ptr, 256#64] t → T.length = 1024 → Region ptr T t →
         RegionOk Ro.layout.roBase Ro.layout.textHi ptr 1024 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x2000 ≤ 0x1c00000000 → Safe P t) → Safe P u :=
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x2000 ≤ 0x1c00000000 → SafeN Gd nb P t) → SafeN Gd nb P u :=
     fun u ra' sp' out' it g w2 w3 w4 w5 G O' hGl hOl' hpcu hcu hrou hrau hra1u hspu hstku ha0u ha1u
       hIu hokIu hGu hokGu hOu hokOu h1 h2 h3 h4 h5 h6 hdIG hdOI hku =>
       sq_from_iter_spec u ra' sp' out' it g w2 w3 w4 w5 G O' hGl hOl' hpcu
@@ -142,7 +142,7 @@ theorem sqrt_tables_new_spec {P : Prop} (s : MachineState) (ra sp out hxw : Word
   sym_reframe
   sym_exec [hpp] stop [0x7803127c]
   sym_reframe
-  refine sq_inv_loop (P := P) s s_2 post402_0 hxw post327_0 (sp + 18446744073709551216#64)
+  refine sq_inv_loop (G := Gd) (nb := nb) (P := P) s s_2 post402_0 hxw post327_0 (sp + 18446744073709551216#64)
     (s.getReg .x3) (s.getReg .x4) 256#64 post327_0 11037532056220336129#64 hcodeN hcodeL hcwS
     post402_9 post327_9 post327_11 hpp ?_ 255 s_2 0 post410_0 v8 hcode0 hro (Unchanged.refl _ _)
     (SqInvAt.mk hpc (hx10.trans v9_def.symm) hb (by rw [hx21]) (by rw [hx23])

@@ -17,9 +17,9 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sinsemilla_unpack_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem sinsemilla_unpack_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (b0 b1 b2 b3 c0 c1 c2 c3 : Word) (O : List Word) (hOl : O.length = 8)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x78023864#64) (hcode : CodeAt F_78023864.base F_78023864.prog s)
     (hcodeR : CodeAt F_780297c0.base F_780297c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -36,8 +36,8 @@ theorem sinsemilla_unpack_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word
       Unchanged [(sp - 0x140#64, 40), (a0, 8)] s t →
       leLimbsToNat [b0, b1, b2, b3] < Fp.p → leLimbsToNat [c0, c1, c2, c3] < Fp.p →
       Region a0 (natToLeLimbs 4 (Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2) ++
-        natToLeLimbs 4 (Fp.mul (leLimbsToNat [c0, c1, c2, c3]) Fp.R2)) t → Safe P t) :
-    Safe P s := by
+        natToLeLimbs 4 (Fp.mul (leLimbsToNat [c0, c1, c2, c3]) Fp.R2)) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x140#64) 40 := hstk.frame 40 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x90#64) 18 := hokW.sub' 22 18 (by decide) (by bv_omega)
   -- the frame: [8, 0x28) `x`, [0x28, 0x50) the `CtOption<Fp>`, [0x50, 0x70) the bytes, saved registers

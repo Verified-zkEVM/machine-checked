@@ -27,7 +27,7 @@ theorem trunc8_zext64 (b : BitVec 8) : BitVec.truncate 8 (BitVec.zeroExtend 64 b
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem next_u8_spec {P : Prop} (s : MachineState) (ra sp out acs de q l c : Word) (r : Nat)
+theorem next_u8_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out acs de q l c : Word) (r : Nat)
     (hr : r < 8) (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 1)
     (hpc : s.pc = 0x78019b50#64) (hcode : CodeAt F_78019b50.base F_78019b50.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -47,21 +47,21 @@ theorem next_u8_spec {P : Prop} (s : MachineState) (ra sp out acs de q l c : Wor
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hkN : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [replaceByte (replaceByte O[0]! 1 0#8) 0 0#8, O[1]!] t →
-      Region acs [de, c] t → Region de [q + BitVec.ofNat 64 r, l] t → c = 0#64 → Safe P t)
+      Region acs [de, c] t → Region de [q + BitVec.ofNat 64 r, l] t → c = 0#64 → SafeN G n P t)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [replaceByte (replaceByte (replaceByte O[0]! 1 1#8) 2 (extractByte W[0]! r)) 0 0#8, O[1]!] t →
       Region acs [de, c - 1#64] t → Region de [q + BitVec.ofNat 64 (r + 1), l - 1#64] t → c ≠ 0#64 →
-      l ≠ 0#64 → Safe P t)
+      l ≠ 0#64 → SafeN G n P t)
     (hkE : ∀ (t : MachineState) (e : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [replaceByte O[0]! 0 1#8, e] t → Region acs [de, c - 1#64] t →
-      Region de [q + BitVec.ofNat 64 r, l] t → c ≠ 0#64 → l = 0#64 → Safe P t) :
-    Safe P s := by
+      Region de [q + BitVec.ofNat 64 r, l] t → c ≠ 0#64 → l = 0#64 → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x50#64) 10 := hstk.frame 10 (by decide)
   have hlo := hstk.lo
   have hokHp : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040620#64 14780694332 := heapOk

@@ -19,7 +19,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
-theorem compress1_seg3 {P : Prop} (t : MachineState) (ra sp wp t0 t1 fb fn : Word)
+theorem compress1_seg3 {G : MachineState → Prop} {n : Nat} {P : Prop} (t : MachineState) (ra sp wp t0 t1 fb fn : Word)
     (h0 h1 h2 h3 h4 h5 h6 h7 m0 m1 m2 m3 m4 m5 m6 m7 m8 m9 m10 m11 m12 m13 m14 m15 w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 : Word) (g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 g12 g13 g14 g15 g16 g17 g18 g19 g20 g21 g22 g23 g24 g25 g26 g27 : Word) (r27 r26 r25 r24 r23 r22 r21 r20 r19 r18 r9 r8 : Word)
     (hpc : t.pc = 0x78035194#64) (hcode : CodeAt F_78033260.base F_78033260.prog t)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi t) (hra1 : ra &&& ~~~1#64 = ra)
@@ -60,8 +60,8 @@ theorem compress1_seg3 {P : Prop} (t : MachineState) (ra sp wp t0 t1 fb fn : Wor
       u.getReg .x2 = sp → u.getReg .x3 = t.getReg .x3 → u.getReg .x4 = t.getReg .x4 →
       u.getReg .x8 = r8 → u.getReg .x9 = r9 → u.getReg .x18 = r18 → u.getReg .x19 = r19 → u.getReg .x20 = r20 → u.getReg .x21 = r21 → u.getReg .x22 = r22 → u.getReg .x23 = r23 → u.getReg .x24 = r24 → u.getReg .x25 = r25 → u.getReg .x26 = r26 → u.getReg .x27 = r27 →
       Unchanged [(sp - 0x250#64, 74), (wp, 8)] t u → Region wp [o0, o1, o2, o3, o4, o5, o6, o7] u →
-      compress [h0, h1, h2, h3, h4, h5, h6, h7] [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15] t0 t1 fb fn = [o0, o1, o2, o3, o4, o5, o6, o7] → Safe P u) :
-    Safe P t := by
+      compress [h0, h1, h2, h3, h4, h5, h6, h7] [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15] t0 t1 fb fn = [o0, o1, o2, o3, o4, o5, o6, o7] → SafeN G n P u) :
+    SafeN G n P t := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x250#64) 74 := hstk.frame 74 (by decide)
   have hlo := hstk.lo
   have hu := Unchanged.refl [(sp - 0x250#64, 74), (wp, 8)] t

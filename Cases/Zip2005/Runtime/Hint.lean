@@ -87,16 +87,16 @@ eight bytes are left. -/
 def hlenW (I : List (BitVec 8)) : Word := if I.length < 8 then -1#64 else bytesToWordLE (I.take 8)
 
 /-- `read_vec_raw`'s `HINT_LEN` (`0x7801bebc`). -/
-theorem hint_len_spec {P : Prop} (u : MachineState) (I : List (BitVec 8)) (r1 r10 r12 : Word)
+theorem hint_len_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (u : MachineState) (I : List (BitVec 8)) (r1 r10 r12 : Word)
     (hpc : u.pc = 0x7801bebc#64) (hcode : CodeAt F_7801beb0.base F_7801beb0.prog u)
     (ht0 : u.getReg .x5 = 0xf0#64) (hI : u.privateInput = I)
     (h1 : u.getReg .x1 = r1) (h10 : u.getReg .x10 = r10) (h12 : u.getReg .x12 = r12)
     (hk : ∀ t, t.pc = 0x7801bec0#64 → t.code = u.code → CalleeSaved u t → Unchanged [] u t →
       t.privateInput = u.privateInput → t.getReg .x1 = r1 → t.getReg .x10 = r10 →
-      t.getReg .x12 = r12 → t.getReg .x5 = hlenW I → Safe P t) :
-    Safe P u := by
+      t.getReg .x12 = r12 → t.getReg .x5 = hlenW I → SafeN G n P t) :
+    SafeN G n P u := by
   have hf : u.code u.pc = some .ECALL := by rw [hpc]; exact hcode 3 (by decide)
-  refine Safe.step (stepSp1_hintLen hf (by rw [ht0]; rfl)) (hk _ ?_ rfl ?_ ?_ rfl ?_ ?_ ?_ ?_)
+  refine AsmVerif.RiscV.SafeN.step_of (stepSp1_hintLen hf (by rw [ht0]; rfl)) (hk _ ?_ rfl ?_ ?_ rfl ?_ ?_ ?_ ?_)
   · show u.pc + 4 = _; rw [hpc]; decide
   · intro r hr
     simp only [hintLen, MachineState.getReg_setPC]
@@ -200,7 +200,7 @@ theorem region_overlay {ptr : Word} {B J : List Word} {u t : MachineState} (hB :
 /-- `read_vec_raw`'s `HINT_READ` (`0x7801befc`). A trap (an exhausted stream, a length or alignment
 mismatch, a window past SP1's memory) is not an accepting halt, so the continuation is only asked
 for when the read goes through. -/
-theorem hint_read_spec {P : Prop} (u : MachineState) (I : List (BitVec 8)) (r1 ptr len r12 r13 : Word)
+theorem hint_read_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (u : MachineState) (I : List (BitVec 8)) (r1 ptr len r12 r13 : Word)
     (J : List Word)
     (hpc : u.pc = 0x7801befc#64) (hcode : CodeAt F_7801beb0.base F_7801beb0.prog u)
     (ht0 : u.getReg .x5 = 0xf1#64) (hI : u.privateInput = I)
@@ -214,18 +214,18 @@ theorem hint_read_spec {P : Prop} (u : MachineState) (I : List (BitVec 8)) (r1 p
       ptr.toNat + 8 * (len.toNat / 8 + 1) ≤ 0x2000000000 →
       hintWords ((I.drop 8).take len.toNat) = B → B.length = len.toNat / 8 + 1 →
       Region ptr (overlay B J) t →
-      Unchanged [(ptr, len.toNat / 8 + 1)] u t → Safe P t) :
-    Safe P u := by
+      Unchanged [(ptr, len.toNat / 8 + 1)] u t → SafeN G nb P t) :
+    SafeN G nb P u := by
   subst hI
   have hf : u.code u.pc = some .ECALL := by rw [hpc]; exact hcode 19 (by decide)
   have hstep := stepSp1_hintRead hf (by rw [ht0]; rfl)
   cases h : hintRead u with
   | none =>
     rw [h] at hstep
-    exact Safe.stuck hstep (fun ha => absurd (ha.2.1.symm.trans ht0) (by decide))
+    exact AsmVerif.RiscV.SafeN.stuck hstep (fun ha => absurd (ha.2.1.symm.trans ht0) (by decide))
   | some t =>
     rw [h] at hstep
-    refine Safe.step hstep ?_
+    refine AsmVerif.RiscV.SafeN.step_of hstep ?_
     unfold hintRead at h
     rcases hfl : frontHintLen u with _ | n
     · rw [hfl] at h; exact absurd h (by simp)

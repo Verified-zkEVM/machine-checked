@@ -85,7 +85,7 @@ theorem ivkState_zero (sp : Word) (J : List Word) (j : Word) :
   rw [ivkEndA_head_zero]
 
 set_option maxHeartbeats 4000000 in
-theorem pad_next_ivk_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (hAl : A.length = 4) (hBl : B.length = 4) (j : Word) (k : Nat) (hk510 : k ≤ 510)
     (hpc : s.pc = 0x78021e7c#64) (hcode : CodeAt F_78021e7c.base F_78021e7c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -100,12 +100,12 @@ theorem pad_next_ivk_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) 
     (hdjI : Disjoint iter 12 (ptrA sp) 4) (hdjI' : Disjoint iter 12 (ptrB sp) 4)
     (hdjS : Disjoint (spn - 0x10#64) 2 iter 12) (hdjSA : Disjoint (spn - 0x10#64) 2 (ptrA sp) 4)
     (hdjSB : Disjoint (spn - 0x10#64) 2 (ptrB sp) 4) (hdjAB : Disjoint (ptrA sp) 4 (ptrB sp) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       Region iter (ivkState sp J j (k + 1)) t →
-      t.getReg .x10 = (if k < 510 then bw (ivkBit A B k) else 2#64) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = (if k < 510 then bw (ivkBit A B k) else 2#64) → SafeN G n P t) :
+    SafeN G n P s := by
   rcases Nat.eq_zero_or_pos k with rfl | hk1
   · -- the first call
     rw [ivkState_0] at hI
@@ -165,7 +165,7 @@ theorem pad_next_ivk_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) 
     · rw [h6, if_neg (by decide)]
 
 /-- The calls that yield a bit: `k < 510`. -/
-theorem pad_next_ivk_lt_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_lt_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (hAl : A.length = 4) (hBl : B.length = 4) (j : Word) (k : Nat) (hk510 : k < 510)
     (hpc : s.pc = 0x78021e7c#64) (hcode : CodeAt F_78021e7c.base F_78021e7c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -180,12 +180,12 @@ theorem pad_next_ivk_lt_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wor
     (hdjI : Disjoint iter 12 (ptrA sp) 4) (hdjI' : Disjoint iter 12 (ptrB sp) 4)
     (hdjS : Disjoint (spn - 0x10#64) 2 iter 12) (hdjSA : Disjoint (spn - 0x10#64) 2 (ptrA sp) 4)
     (hdjSB : Disjoint (spn - 0x10#64) 2 (ptrB sp) 4) (hdjAB : Disjoint (ptrA sp) 4 (ptrB sp) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       Region iter (ivkState sp J j (k + 1)) t →
-      t.getReg .x10 = bw (ivkBit A B k) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (ivkBit A B k) → SafeN G n P t) :
+    SafeN G n P s := by
   refine pad_next_ivk_spec s ra spn sp iter J A B hAl hBl j k (by omega) hpc hcode hcw hra hra1 hsp hstk
     hsp_lo hsp_hi ha0 hI hokI hAr hokA hBr hokB hdjI hdjI' hdjS hdjSA hdjSB hdjAB hunwrap_opt ?_
   intro t h1 h2 h3 h4 h5 h6
@@ -193,7 +193,7 @@ theorem pad_next_ivk_lt_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wor
 
 /-- The same, with the block as a list variable related to the model (the form the executor
     matches at a call inside `from_iter`'s loop). -/
-theorem pad_next_ivk_var_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B I : List Word)
+theorem pad_next_ivk_var_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B I : List Word)
     (hAl : A.length = 4) (hBl : B.length = 4) (j : Word) (k : Nat) (hk510 : k < 510)
     (hIl : I.length = 12) (hIv : ivkState sp J j k = I)
     (hpc : s.pc = 0x78021e7c#64) (hcode : CodeAt F_78021e7c.base F_78021e7c.prog s)
@@ -209,12 +209,12 @@ theorem pad_next_ivk_var_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wo
     (hdjI : Disjoint iter 12 (ptrA sp) 4) (hdjI' : Disjoint iter 12 (ptrB sp) 4)
     (hdjS : Disjoint (spn - 0x10#64) 2 iter 12) (hdjSA : Disjoint (spn - 0x10#64) 2 (ptrA sp) 4)
     (hdjSB : Disjoint (spn - 0x10#64) 2 (ptrB sp) 4) (hdjAB : Disjoint (ptrA sp) 4 (ptrB sp) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ (t : MachineState) (I' : List Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       I'.length = 12 → ivkState sp J j (k + 1) = I' → Region iter I' t →
-      t.getReg .x10 = bw (ivkBit A B k) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (ivkBit A B k) → SafeN G n P t) :
+    SafeN G n P s := by
   subst hIv
   refine pad_next_ivk_lt_spec s ra spn sp iter J A B hAl hBl j k hk510 hpc hcode hcw hra hra1 hsp hstk
     hsp_lo hsp_hi ha0 hI hokI hAr hokA hBr hokB hdjI hdjI' hdjS hdjSA hdjSB hdjAB hunwrap_opt ?_
@@ -223,7 +223,7 @@ theorem pad_next_ivk_var_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wo
 
 /-- The same over the block's twelve cells (the form the executor unifies at a call inside
     `from_iter`'s loop: the model equation in the cells it tracks). -/
-theorem pad_next_ivk_cells_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_cells_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 : Word)
     (hAl : A.length = 4) (hBl : B.length = 4) (j : Word) (k : Nat)
     (hIv : ivkState sp J j k = [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11]) (hk510 : k < 510)
@@ -240,13 +240,13 @@ theorem pad_next_ivk_cells_spec {P : Prop} (s : MachineState) (ra spn sp iter : 
     (hdjI : Disjoint iter 12 (ptrA sp) 4) (hdjI' : Disjoint iter 12 (ptrB sp) 4)
     (hdjS : Disjoint (spn - 0x10#64) 2 iter 12) (hdjSA : Disjoint (spn - 0x10#64) 2 (ptrA sp) 4)
     (hdjSB : Disjoint (spn - 0x10#64) 2 (ptrB sp) 4) (hdjAB : Disjoint (ptrA sp) 4 (ptrB sp) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ (t : MachineState) (i0' i1' i2' i3' i4' i5' i6' i7' i8' i9' i10' i11' bit : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       ivkState sp J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] → Region iter [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] t →
       bw (ivkBit A B k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
-      t.getReg .x10 = bit → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bit → SafeN G n P t) :
+    SafeN G n P s := by
   refine pad_next_ivk_var_spec s ra spn sp iter J A B _ hAl hBl j k hk510 rfl hIv hpc hcode hcw hra hra1
     hsp hstk hsp_lo hsp_hi ha0 hI hokI hAr hokA hBr hokB hdjI hdjI' hdjS hdjSA hdjSB hdjAB hunwrap_opt ?_
   intro t I' h1 h2 h3 h4 hl hIv' h5 h6
@@ -254,7 +254,7 @@ theorem pad_next_ivk_cells_spec {P : Prop} (s : MachineState) (ra spn sp iter : 
   exact hk t _ _ _ _ _ _ _ _ _ _ _ _ _ h1 h2 h3 h4 hIv' h5 rfl (bw_ne_two _) (bw_and255 _) h6
 
 /-- Call 510, over the block's cells: `None` (2), `Pad` spent. -/
-theorem pad_next_ivk_end_cells_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_end_cells_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 : Word)
     (hAl : A.length = 4) (hBl : B.length = 4) (j : Word)
     (hIv : ivkState sp J j 510 = [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11])
@@ -271,12 +271,12 @@ theorem pad_next_ivk_end_cells_spec {P : Prop} (s : MachineState) (ra spn sp ite
     (hdjI : Disjoint iter 12 (ptrA sp) 4) (hdjI' : Disjoint iter 12 (ptrB sp) 4)
     (hdjS : Disjoint (spn - 0x10#64) 2 iter 12) (hdjSA : Disjoint (spn - 0x10#64) 2 (ptrA sp) 4)
     (hdjSB : Disjoint (spn - 0x10#64) 2 (ptrB sp) 4) (hdjAB : Disjoint (ptrA sp) 4 (ptrB sp) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ (t : MachineState) (i0' i1' i2' i3' i4' i5' i6' i7' i8' i9' i10' i11' : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       ivkState sp J j 511 = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] → Region iter [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] t →
-      t.getReg .x10 = 2#64 → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = 2#64 → SafeN G n P t) :
+    SafeN G n P s := by
   rw [← hIv] at hI
   refine pad_next_ivk_spec s ra spn sp iter J A B hAl hBl j 510 (by decide) hpc hcode hcw hra hra1
     hsp hstk hsp_lo hsp_hi ha0 hI hokI hAr hokA hBr hokB hdjI hdjI' hdjS hdjSA hdjSB hdjAB hunwrap_opt ?_

@@ -206,7 +206,7 @@ theorem addiw_pred (n : Nat) (h1 : 1 ≤ n) (h2 : n < 2 ^ 31) :
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 10000 in
 /-- The `sqr(x, 129)` loop: `X := X²` while the counter `s10` runs down. -/
-theorem sqr_loop1 {P : Prop} (sp : Word) :
+theorem sqr_loop1 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp : Word) :
     ∀ m (t : MachineState) (W : List Word), W.length = 4 →
       t.pc = 0x7802a1d8#64 → CodeAt F_78029d94.base F_78029d94.prog t →
       CodeAt F_7801bf5c.base F_7801bf5c.prog t → CodeWithin Ro.layout.textLo Ro.layout.textHi t →
@@ -236,8 +236,8 @@ theorem sqr_loop1 {P : Prop} (sp : Word) :
         (∃ W : List Word, W.length = 4 ∧ Region (sp + 0x370#64) W u) →
         (∃ W : List Word, W.length = 4 ∧ Region (sp + 0x390#64) W u) →
         (∃ W : List Word, W.length = 8 ∧ Region (sp + 0x3b0#64) W u) →
-        Safe P u) →
-      Safe P t := by
+        SafeN G n P u) →
+      SafeN G n P t := by
   intro m
   induction m with
   | zero =>
@@ -283,7 +283,7 @@ theorem sqr_loop1 {P : Prop} (sp : Word) :
 set_option maxHeartbeats 4000000 in
 set_option maxRecDepth 10000 in
 /-- The `sqr(rg, 10)` loop: as `sqr_loop1`, with the counter in `s9` and `p₃` in `s1`. -/
-theorem sqr_loop2 {P : Prop} (sp : Word) :
+theorem sqr_loop2 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp : Word) :
     ∀ m (t : MachineState) (W : List Word), W.length = 4 →
       t.pc = 0x7802b74c#64 → CodeAt F_78029d94.base F_78029d94.prog t →
       CodeAt F_7801bf5c.base F_7801bf5c.prog t → CodeWithin Ro.layout.textLo Ro.layout.textHi t →
@@ -313,8 +313,8 @@ theorem sqr_loop2 {P : Prop} (sp : Word) :
         (∃ W : List Word, W.length = 4 ∧ Region (sp + 0x370#64) W u) →
         (∃ W : List Word, W.length = 4 ∧ Region (sp + 0x390#64) W u) →
         (∃ W : List Word, W.length = 8 ∧ Region (sp + 0x3b0#64) W u) →
-        Safe P u) →
-      Safe P t := by
+        SafeN G n P u) →
+      SafeN G n P t := by
   intro m
   induction m with
   | zero =>
@@ -358,11 +358,11 @@ theorem sqr_loop2 {P : Prop} (sp : Word) :
 
 set_option maxHeartbeats 100000000 in
 set_option maxRecDepth 20000 in
-theorem pow_seg8 {P : Prop} (s0 : MachineState) (sp a0 : Word) (T0 T1 T2 T3 A : Nat) (t : MachineState)
+theorem pow_seg8 {G : MachineState → Prop} {n : Nat} {P : Prop} (s0 : MachineState) (sp a0 : Word) (T0 T1 T2 T3 A : Nat) (t : MachineState)
     (hstk : StackOk Ro.layout 0x450 sp)
     (h : PowCut true s0 sp a0 0x7802be04#64 T0 T1 T2 T3 A t)
     (hk : ∀ u, PowCut true s0 sp a0 0x7802c124#64 T0 T1 T2 T3 (Fp.powRun [T0, T1, T2, T3] Fp.powOps8 A) u →
-      Safe P u) : Safe P t := by
+      SafeN G n P u) : SafeN G n P t := by
   obtain ⟨w0, w1, t00, t01, t02, t03, t10, t11, t12, t13, t20, t21, t22, t23, t30, t31, t32, t33, d0, d1, d2, d3, b0, b1, b2, b3, hpc, hcode, hcA, hcM, hcw, hok, hU0, hx2, hx3, hx4, hx8, hx9, hx10, hx11, hx18, hx19, hx20, hx21, hx22, hx23, hx24, hx25, hx27, hB0, hX1, hB1, hX2, hB2, hC, hD1, hD2, hE, hS, eT0, eT1, eT2, eT3, eA, eB⟩ := h
   rw [if_pos rfl] at hx23
   clear hx25
@@ -421,7 +421,7 @@ theorem pow_seg8 {P : Prop} (s0 : MachineState) (sp a0 : Word) (T0 T1 T2 T3 A : 
       leLimbsToNat [t30', t31', t32', t33'] = T3 →
       leLimbsToNat [d0', d1', d2', d3'] = Fp.powRun [T0, T1, T2, T3] Fp.powOps8 A →
       [b0', b1', b2', b3'] = [d0', d1', d2', d3'] →
-      Safe P u := by
+      SafeN G n P u := by
     intro u w0' w1' t00' t01' t02' t03' t10' t11' t12' t13' t20' t21' t22' t23' t30' t31' t32' t33' d0' d1' d2' d3' b0' b1' b2' b3' upc ucode ucA ucM ucw rx2 rx3 rx4 rx8 rx9 rx10 rx11 rx18 rx19 rx20 rx21 rx22 rx23 rx24 rx27 uU uB0 uX1 uB1 uX2 uB2 uC uD1 uD2 uE uS f0 f1 f2 f3 fA hbd
     exact hk u ⟨w0', w1', t00', t01', t02', t03', t10', t11', t12', t13', t20', t21', t22', t23', t30', t31', t32', t33', d0', d1', d2', d3', b0', b1', b2', b3', upc, ucode.trans hcode, ucA, ucM, ucw, hok, hU0.trans uU, rx2, rx3.trans hx3, rx4.trans hx4, rx8, rx9, rx10, rx11, rx18, rx19, rx20, rx21, rx22, (by rw [if_pos rfl]; exact rx23), rx24, (fun h => absurd h (by decide)), rx27.trans hx27, uB0, uX1, uB1, uX2, uB2, uC, uD1, uD2, uE, uS, f0, f1, f2, f3, fA, by rw [hbd]; exact fA⟩
   sym_exec [uint256_mulmod_spec] stop [0x7802c124]

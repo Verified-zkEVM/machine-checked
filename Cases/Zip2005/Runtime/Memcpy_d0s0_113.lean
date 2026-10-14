@@ -13,7 +13,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-theorem memcpy_d0s0_113_spec {P : Prop} (s : MachineState) (ra dst src : Word) (D S : List Word)
+theorem memcpy_d0s0_113_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (D S : List Word)
     (hDl : D.length = 15) (hSl : S.length = 15)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -24,8 +24,8 @@ theorem memcpy_d0s0_113_spec {P : Prop} (s : MachineState) (ra dst src : Word) (
     (hdj : Disjoint dst 15 src 15)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → t.privateInput = s.privateInput →
       Unchanged [(dst, 15)] s t →
-      Region dst (mcpyW D S 0 0 113 15) t → Safe P t) :
-    Safe P s := by
+      Region dst (mcpyW D S 0 0 113 15) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 15)] s
   have hI : s.privateInput = s.privateInput := rfl
   have hm : dst &&& 7#64 = 0#64 := hokD.and7

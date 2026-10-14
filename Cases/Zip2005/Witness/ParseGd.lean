@@ -26,13 +26,13 @@ theorem nipFlag_one {f : BitVec 8} {z0 z1 z2 z3 : Word} (h : nipFlag f z0 z1 z2 
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem parse_g_d_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word)
+theorem parse_g_d_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 w : Word)
     (b0 b1 b2 b3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 13) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801d2ec#64) (hcode : CodeAt F_7801d2ec.base F_7801d2ec.prog s)
     (hcodeN : CodeAt F_7801fb1c.base F_7801fb1c.prog s)
     (hcodeU : CodeAt F_78026928.base F_78026928.prog s)
@@ -81,8 +81,8 @@ theorem parse_g_d_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word)
         (if leLimbsToNat [x0, x1, x2, x3] = 0 ∧ leLimbsToNat [y0, y1, y2, y3] = 0 then 0 else Fp.R) →
       tag = BitVec.zeroExtend 64 (nipFlag f z0 z1 z2 z3) → L.length = 12 →
       (nipFlag f z0 z1 z2 z3 = 1#8 → L = [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3]) →
-      Region a0 (tag :: L) t → Safe P t) :
-    Safe P s := by
+      Region a0 (tag :: L) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x970#64) 302 := hstk.frame 302 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x80#64) 16 := hokW.sub' 286 16 (by decide) (by bv_omega)
   -- the frame: [0, 0x68) the `NonIdentityPallasPoint` with its flag byte, saved registers at

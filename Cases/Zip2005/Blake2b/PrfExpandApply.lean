@@ -29,7 +29,7 @@ set_option autoImplicit false
 set_option asmverif.sym.foldBytes true in
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
-theorem prf_expand_apply2_spec {P : Prop} (s : MachineState) (ra sp out d sk ts pa pb s0 s1 s2 s3 a0 a1 a2 a3
+theorem prf_expand_apply2_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out d sk ts pa pb s0 s1 s2 s3 a0 a1 a2 a3
     b0 b1 b2 b3 : Word)
     (F1 F2 O : List Word) (hF1 : F1.length = 74) (hF2 : F2.length = 72) (hO : O.length = 8)
     (hpc : s.pc = 0x7801d3d4#64) (hcW : CodeAt F_7801d3d4.base F_7801d3d4.prog s)
@@ -54,8 +54,8 @@ theorem prf_expand_apply2_spec {P : Prop} (s : MachineState) (ra sp out d sk ts 
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x490#64, 146), (out, 8)] s t →
       (compress prfH [s0, s1, s2, s3, (a0 <<< 8) ||| BitVec.zeroExtend 64 (BitVec.truncate 8 d), (a1 <<< 8) ||| (a0 >>> 56), (a2 <<< 8) ||| (a1 >>> 56), (a3 <<< 8) ||| (a2 >>> 56), (b0 <<< 8) ||| (a3 >>> 56), (b1 <<< 8) ||| (b0 >>> 56), (b2 <<< 8) ||| (b1 >>> 56), (b3 <<< 8) ||| (b2 >>> 56), b3 >>> 56, 0#64, 0#64, 0#64] 97#64 0#64 0xFFFFFFFFFFFFFFFF#64 0#64).length = 8 →
-      Region out (compress prfH [s0, s1, s2, s3, (a0 <<< 8) ||| BitVec.zeroExtend 64 (BitVec.truncate 8 d), (a1 <<< 8) ||| (a0 >>> 56), (a2 <<< 8) ||| (a1 >>> 56), (a3 <<< 8) ||| (a2 >>> 56), (b0 <<< 8) ||| (a3 >>> 56), (b1 <<< 8) ||| (b0 >>> 56), (b2 <<< 8) ||| (b1 >>> 56), (b3 <<< 8) ||| (b2 >>> 56), b3 >>> 56, 0#64, 0#64, 0#64] 97#64 0#64 0xFFFFFFFFFFFFFFFF#64 0#64) t → Safe P t) :
-    Safe P s := by
+      Region out (compress prfH [s0, s1, s2, s3, (a0 <<< 8) ||| BitVec.zeroExtend 64 (BitVec.truncate 8 d), (a1 <<< 8) ||| (a0 >>> 56), (a2 <<< 8) ||| (a1 >>> 56), (a3 <<< 8) ||| (a2 >>> 56), (b0 <<< 8) ||| (a3 >>> 56), (b1 <<< 8) ||| (b0 >>> 56), (b2 <<< 8) ||| (b1 >>> 56), (b3 <<< 8) ||| (b2 >>> 56), b3 >>> 56, 0#64, 0#64, 0#64] 97#64 0#64 0xFFFFFFFFFFFFFFFF#64 0#64) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x490#64) 146 := hstk.frame 146 (by decide)
   have hokW1 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x490#64) 74 := hokW.sub' 0 74 (by decide) (by bv_omega)
   have hokW2 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x240#64) 72 := hokW.sub' 74 72 (by decide) (by bv_omega)
@@ -92,7 +92,7 @@ theorem prf_expand_apply2_spec {P : Prop} (s : MachineState) (ra sp out d sk ts 
 
 /-- `PrfExpand::apply(sk, &[a, b])` against `Zip2005.prfExpand`: the output bytes are
     `PRF^expand_sk([d] ‖ a ‖ b)`. -/
-theorem prf_expand_apply2_correct {P : Prop} (s : MachineState) (ra sp out d sk ts pa pb s0 s1 s2 s3 a0 a1 a2 a3
+theorem prf_expand_apply2_correct {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out d sk ts pa pb s0 s1 s2 s3 a0 a1 a2 a3
     b0 b1 b2 b3 : Word)
     (F1 F2 O : List Word) (hF1 : F1.length = 74) (hF2 : F2.length = 72) (hO : O.length = 8)
     (hpc : s.pc = 0x7801d3d4#64) (hcW : CodeAt F_7801d3d4.base F_7801d3d4.prog s)
@@ -120,8 +120,8 @@ theorem prf_expand_apply2_correct {P : Prop} (s : MachineState) (ra sp out d sk 
         Zip2005.prfExpand (Zip2005.Blake2b.stateBytes ([s0, s1, s2, s3].map BitVec.toNat))
           ([UInt8.ofNat d.toNat] ++ Zip2005.Blake2b.stateBytes ([a0, a1, a2, a3].map BitVec.toNat) ++
             Zip2005.Blake2b.stateBytes ([b0, b1, b2, b3].map BitVec.toNat)) →
-      Safe P t) :
-    Safe P s :=
+      SafeN G n P t) :
+    SafeN G n P s :=
   prf_expand_apply2_spec s ra sp out d sk ts pa pb s0 s1 s2 s3 a0 a1 a2 a3 b0 b1 b2 b3 F1 F2 O hF1 hF2 hO hpc
     hcW hcT hcU hcF hcL hcM hcC hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 ha4 ha5 hRF1 hRF2 hRS hokS hRT hokT
     hRA hokA hRB hokB hRO hokO hd1 hd2 hd3 hd4 hd5 he1 he2 he3 he4

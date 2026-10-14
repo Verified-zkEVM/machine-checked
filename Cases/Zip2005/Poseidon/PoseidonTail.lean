@@ -21,7 +21,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem sponge_tail {P : Prop} (s : MachineState) (ra sp out st mp rc : Word)
+theorem sponge_tail {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out st mp rc : Word)
     (y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 : Word)
     (f0 f18 r8 r9 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 : Word)
     (hpc : s.pc = 0x7801e640#64) (hcode : CodeAt F_7801e26c.base F_7801e26c.prog s)
@@ -58,8 +58,8 @@ theorem sponge_tail {P : Prop} (s : MachineState) (ra sp out st mp rc : Word)
       Region out [1#64, o0, o1, o2, o3, 1#64, o4, o5, o6, o7] u →
       (leLimbsToNat [o0, o1, o2, o3], leLimbsToNat [o4, o5, o6, o7], leLimbsToNat [o8, o9, o10, o11]) =
         Poseidon.roundsFrom 41 23 (leLimbsToNat [y0, y1, y2, y3], leLimbsToNat [y4, y5, y6, y7], leLimbsToNat [y8, y9, y10, y11]) →
-      Safe P u) :
-    Safe P s := by
+      SafeN G n P u) :
+    SafeN G n P s := by
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 256#64) 32 := hstk.frame 32 (by decide)
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x300#64) 96 := hstk.frame 96 (by decide)
   have hu := Unchanged.refl [(sp - 0x300#64, 96), (st, 12), (out, 10)] s

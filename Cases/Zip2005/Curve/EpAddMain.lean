@@ -18,7 +18,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem ep_add_main_spec {P : Prop} (t : MachineState) (ra sp a0 a1 a2 : Word)
+theorem ep_add_main_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (t : MachineState) (ra sp a0 a1 a2 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 : Word) (u0 u1 u2 u3 e0 e1 e2 e3 w0 w1 w2 w3 : Word)
     (k0 k1 k2 k3 l0 l1 l2 l3 m0 m1 m2 m3 n0 n1 n2 n3 p0 p1 p2 p3 q0 q1 q2 q3 g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 g12 g13 g14 g15 g16 g17 g18 g19 : Word) (o0 o1 o2 o3 o4 o5 o6 o7 o8 o9 o10 o11 : Word)
     (r8 r9 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 : Word)
@@ -59,8 +59,8 @@ theorem ep_add_main_spec {P : Prop} (t : MachineState) (ra sp a0 a1 a2 : Word)
       u.getReg .x24 = r24 → u.getReg .x25 = r25 → u.getReg .x26 = r26 → u.getReg .x27 = r27 →
       Unchanged [(sp - 0x430#64, 134), (a0, 12)] t u →
       Region a0 (natToLeLimbs 4 (Fp.addJ_main (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [w0, w1, w2, w3]) (leLimbsToNat [k0, k1, k2, k3]) (leLimbsToNat [l0, l1, l2, l3]) (leLimbsToNat [m0, m1, m2, m3]) (leLimbsToNat [n0, n1, n2, n3]) (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [q0, q1, q2, q3])).1 ++ natToLeLimbs 4 (Fp.addJ_main (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [w0, w1, w2, w3]) (leLimbsToNat [k0, k1, k2, k3]) (leLimbsToNat [l0, l1, l2, l3]) (leLimbsToNat [m0, m1, m2, m3]) (leLimbsToNat [n0, n1, n2, n3]) (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [q0, q1, q2, q3])).2.1 ++
-        natToLeLimbs 4 (Fp.addJ_main (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [w0, w1, w2, w3]) (leLimbsToNat [k0, k1, k2, k3]) (leLimbsToNat [l0, l1, l2, l3]) (leLimbsToNat [m0, m1, m2, m3]) (leLimbsToNat [n0, n1, n2, n3]) (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [q0, q1, q2, q3])).2.2) u → Safe P u) :
-    Safe P t := by
+        natToLeLimbs 4 (Fp.addJ_main (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [w0, w1, w2, w3]) (leLimbsToNat [k0, k1, k2, k3]) (leLimbsToNat [l0, l1, l2, l3]) (leLimbsToNat [m0, m1, m2, m3]) (leLimbsToNat [n0, n1, n2, n3]) (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [q0, q1, q2, q3])).2.2) u → SafeN G n P u) :
+    SafeN G n P t := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x430#64) 134 := hstk.frame 134 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x280#64) 67 := hokW.sub' 54 67 (by decide) (by bv_omega)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x68#64) 13 := hokW.sub' 121 13 (by decide) (by bv_omega)

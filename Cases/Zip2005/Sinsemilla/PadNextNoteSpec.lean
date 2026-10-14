@@ -96,7 +96,7 @@ theorem noteState_P (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk : 1087 
     if_neg (by omega), if_neg (by omega)]
 
 set_option maxHeartbeats 4000000 in
-theorem pad_next_note_spec {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
+theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
     (J G K R Q : List Word)
     (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4) (j : Word)
     (k : Nat) (hk1090 : k ≤ 1090)
@@ -123,8 +123,8 @@ theorem pad_next_note_spec {P : Prop} (s : MachineState) (ra spn sp iter v : Wor
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x180#64, 48), (iter, 18)] s t →
       Region iter (noteState sp J j (k + 1)) t →
-      t.getReg .x10 = (if k < 1090 then bw (noteBit G K v R Q k) else 2#64) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = (if k < 1090 then bw (noteBit G K v R Q k) else 2#64) → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   rcases Nat.eq_zero_or_pos k with rfl | hk1
   · -- the first call
     rw [noteState_0] at hI
@@ -254,7 +254,7 @@ theorem pad_next_note_spec {P : Prop} (s : MachineState) (ra spn sp iter v : Wor
     · rw [h6, if_neg (by decide)]
 
 /-- The calls that yield a bit: `k < 1090`. -/
-theorem pad_next_note_lt_spec {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
+theorem pad_next_note_lt_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
     (J G K R Q : List Word)
     (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4) (j : Word)
     (k : Nat) (hk1090 : k < 1090)
@@ -281,15 +281,15 @@ theorem pad_next_note_lt_spec {P : Prop} (s : MachineState) (ra spn sp iter v : 
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x180#64, 48), (iter, 18)] s t →
       Region iter (noteState sp J j (k + 1)) t →
-      t.getReg .x10 = bw (noteBit G K v R Q k) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (noteBit G K v R Q k) → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   refine pad_next_note_spec s ra spn sp iter v J G K R Q hGl hKl hRl hQl j k (by omega) hpc hcode hcw hra hra1 hsp hstk hsp_lo hsp_hi ha0 hI hokI hGr hokG hKr hokK hVr hokV hRr hokR hQr hokQ hdjIG hdjIK hdjIV hdjIR hdjIQ hdjS hdjSG hdjSK hdjSV hdjSR hdjSQ ?_
   intro t h1 h2 h3 h4 h5 h6
   exact hk t h1 h2 h3 h4 h5 (by rw [h6, if_pos hk1090])
 
 /-- The same, with the block as a list variable related to the model (the form the executor
     matches at a call inside `from_iter`'s loop). -/
-theorem pad_next_note_var_spec {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
+theorem pad_next_note_var_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
     (J G K R Q I : List Word)
     (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4) (j : Word)
     (k : Nat) (hk1090 : k < 1090) (hIl : I.length = 18) (hIv : noteState sp J j k = I)
@@ -316,8 +316,8 @@ theorem pad_next_note_var_spec {P : Prop} (s : MachineState) (ra spn sp iter v :
     (hk : ∀ (t : MachineState) (I' : List Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x180#64, 48), (iter, 18)] s t →
       I'.length = 18 → noteState sp J j (k + 1) = I' → Region iter I' t →
-      t.getReg .x10 = bw (noteBit G K v R Q k) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (noteBit G K v R Q k) → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   subst hIv
   refine pad_next_note_lt_spec s ra spn sp iter v J G K R Q hGl hKl hRl hQl j k hk1090 hpc hcode hcw hra hra1 hsp hstk hsp_lo hsp_hi ha0 hI hokI hGr hokG hKr hokK hVr hokV hRr hokR hQr hokQ hdjIG hdjIK hdjIV hdjIR hdjIQ hdjS hdjSG hdjSK hdjSV hdjSR hdjSQ ?_
   intro t h1 h2 h3 h4 h5 h6
@@ -325,7 +325,7 @@ theorem pad_next_note_var_spec {P : Prop} (s : MachineState) (ra spn sp iter v :
 
 /-- The same over the block's eighteen cells (the form the executor unifies at a call inside
     `from_iter`'s loop: the model equation in the cells it tracks). -/
-theorem pad_next_note_cells_spec {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
+theorem pad_next_note_cells_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
     (J G K R Q : List Word) (i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 : Word)
     (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4) (j : Word)
     (k : Nat) (hIv : noteState sp J j k = [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17]) (hk1090 : k < 1090)
@@ -353,8 +353,8 @@ theorem pad_next_note_cells_spec {P : Prop} (s : MachineState) (ra spn sp iter v
       t.code = s.code → Unchanged [(spn - 0x180#64, 48), (iter, 18)] s t →
       noteState sp J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] → Region iter [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] t →
       bw (noteBit G K v R Q k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
-      t.getReg .x10 = bit → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bit → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   refine pad_next_note_var_spec s ra spn sp iter v J G K R Q _ hGl hKl hRl hQl j k hk1090 rfl hIv
     hpc hcode hcw hra hra1 hsp hstk hsp_lo hsp_hi ha0 hI hokI hGr hokG hKr hokK hVr hokV hRr hokR hQr hokQ hdjIG hdjIK hdjIV hdjIR hdjIQ hdjS hdjSG hdjSK hdjSV hdjSR hdjSQ ?_
   intro t I' h1 h2 h3 h4 hl hIv' h5 h6
@@ -362,7 +362,7 @@ theorem pad_next_note_cells_spec {P : Prop} (s : MachineState) (ra spn sp iter v
   exact hk t _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ h1 h2 h3 h4 hIv' h5 rfl (bw_ne_two _) (bw_and255 _) h6
 
 /-- Call 1090, over the block's cells: `None` (2), `Pad` spent. -/
-theorem pad_next_note_end_cells_spec {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
+theorem pad_next_note_end_cells_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
     (J G K R Q : List Word) (i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 : Word)
     (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4) (j : Word)
     (hIv : noteState sp J j 1090 = [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, i15, i16, i17])
@@ -389,8 +389,8 @@ theorem pad_next_note_end_cells_spec {P : Prop} (s : MachineState) (ra spn sp it
     (hk : ∀ (t : MachineState) (i0' i1' i2' i3' i4' i5' i6' i7' i8' i9' i10' i11' i12' i13' i14' i15' i16' i17' : Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code → Unchanged [(spn - 0x180#64, 48), (iter, 18)] s t →
       noteState sp J j 1091 = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] → Region iter [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] t →
-      t.getReg .x10 = 2#64 → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = 2#64 → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   rw [← hIv] at hI
   refine pad_next_note_spec s ra spn sp iter v J G K R Q hGl hKl hRl hQl j 1090 (by decide) hpc hcode hcw hra hra1 hsp hstk hsp_lo hsp_hi ha0 hI hokI hGr hokG hKr hokK hVr hokV hRr hokR hQr hokQ hdjIG hdjIK hdjIV hdjIR hdjIQ hdjS hdjSG hdjSK hdjSV hdjSR hdjSQ ?_
   intro t h1 h2 h3 h4 h5 h6

@@ -26,7 +26,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem sponge_spec {P : Prop} (s : MachineState) (ra sp out st inp mp rc : Word)
+theorem sponge_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out st inp mp rc : Word)
     (x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 : Word) (t0 t1 i0 i1 i2 i3 i4 i5 i6 i7 : Word)
     (hpc : s.pc = 0x7801e26c#64) (hcode : CodeAt F_7801e26c.base F_7801e26c.prog s)
     (hcodeF : CodeAt F_7801f120.base F_7801f120.prog s) (hcodeP : CodeAt F_7801ed68.base F_7801ed68.prog s)
@@ -58,8 +58,8 @@ theorem sponge_spec {P : Prop} (s : MachineState) (ra sp out st inp mp rc : Word
       Region out [1#64, o0, o1, o2, o3, 1#64, o4, o5, o6, o7] t →
       (leLimbsToNat [o0, o1, o2, o3], leLimbsToNat [o4, o5, o6, o7], leLimbsToNat [o8, o9, o10, o11]) =
         Poseidon.permute (Fp.add (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [i0, i1, i2, i3]), Fp.add (leLimbsToNat [x4, x5, x6, x7]) (leLimbsToNat [i4, i5, i6, i7]), leLimbsToNat [x8, x9, x10, x11]) →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨O, hO, hOl⟩ := Region.exists_junk out 10 s
   -- the read-only image at any later state in the frame (as a function, so that the executor
   -- does not take it for its own image fact)
@@ -198,7 +198,7 @@ theorem sponge_spec {P : Prop} (s : MachineState) (ra sp out st inp mp rc : Word
       (leLimbsToNat [y0, y1, y2, y3], leLimbsToNat [y4, y5, y6, y7], leLimbsToNat [y8, y9, y10, y11]) =
         Poseidon.rounds 41 (Fp.add (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [i0, i1, i2, i3]), Fp.add (leLimbsToNat [x4, x5, x6, x7]) (leLimbsToNat [i4, i5, i6, i7]), leLimbsToNat [x8, x9, x10, x11]) →
       leLimbsToNat [y0, y1, y2, y3] < Fp.p → leLimbsToNat [y4, y5, y6, y7] < Fp.p → leLimbsToNat [y8, y9, y10, y11] < Fp.p →
-      Safe P u := by
+      SafeN G n P u := by
     intro u y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 upc ucode uc0 uc1 uc2 uc3 uc4 uc5 uc6 uc7 ucw uU uX uO uF uM uC rx2 rx3 rx4 rx8 rx9 rx10 rx14 rx18 rx19 rx20 rx21 rx22 rx23 rx24 rx25 rx26 rx27 hy hl0 hl1 hl2
     have hW : ∀ q ∈ [(sp - 0x300#64, 96), (st, 12), (out, 10)],
         q.1.toNat + 8 * q.2 ≤ Ro.layout.roBase ∨ Ro.layout.roBase + Ro.layout.roBytes ≤ q.1.toNat :=

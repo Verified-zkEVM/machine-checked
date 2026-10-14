@@ -20,7 +20,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem ep_add_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
+theorem ep_add_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 : Word) (u0 u1 u2 u3 e0 e1 e2 e3 w0 w1 w2 w3 : Word)
     (O : List Word) (hOl : O.length = 12)
     (hpc : s.pc = 0x78026b44#64) (hcode : CodeAt F_78026b44.base F_78026b44.prog s)
@@ -43,8 +43,8 @@ theorem ep_add_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x430#64, 134), (a0, 12)] s t →
       Region a0 (natToLeLimbs 4 (Fp.addJ (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [u0, u1, u2, u3]) (leLimbsToNat [e0, e1, e2, e3]) (leLimbsToNat [w0, w1, w2, w3])).1 ++ natToLeLimbs 4 (Fp.addJ (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [u0, u1, u2, u3]) (leLimbsToNat [e0, e1, e2, e3]) (leLimbsToNat [w0, w1, w2, w3])).2.1 ++
-        natToLeLimbs 4 (Fp.addJ (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [u0, u1, u2, u3]) (leLimbsToNat [e0, e1, e2, e3]) (leLimbsToNat [w0, w1, w2, w3])).2.2) t → Safe P t) :
-    Safe P s := by
+        natToLeLimbs 4 (Fp.addJ (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [u0, u1, u2, u3]) (leLimbsToNat [e0, e1, e2, e3]) (leLimbsToNat [w0, w1, w2, w3])).2.2) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x430#64) 134 := hstk.frame 134 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x280#64) 67 := hokW.sub' 54 67 (by decide) (by bv_omega)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x68#64) 13 := hokW.sub' 121 13 (by decide) (by bv_omega)
@@ -76,7 +76,7 @@ theorem ep_add_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
       leLimbsToNat [p0, p1, p2, p3] = Fp.mul (Fp.mul (leLimbsToNat [y0, y1, y2, y3]) (Fp.mul (leLimbsToNat [w0, w1, w2, w3]) (leLimbsToNat [w0, w1, w2, w3]))) (leLimbsToNat [w0, w1, w2, w3]) →
       leLimbsToNat [q0, q1, q2, q3] = Fp.mul (Fp.mul (leLimbsToNat [e0, e1, e2, e3]) (Fp.mul (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [z0, z1, z2, z3]))) (leLimbsToNat [z0, z1, z2, z3]) →
       leLimbsToNat [z0, z1, z2, z3] ≠ 0 → leLimbsToNat [w0, w1, w2, w3] ≠ 0 → leLimbsToNat [n0, n1, n2, n3] ≠ leLimbsToNat [m0, m1, m2, m3] →
-      Safe P u := by
+      SafeN G n P u := by
     intro u k0 k1 k2 k3 l0 l1 l2 l3 m0 m1 m2 m3 n0 n1 n2 n3 p0 p1 p2 p3 q0 q1 q2 q3 g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 g12 g13 g14 g15 g16 g17 g18 g19 upc ucode ucA ucM ucw uU uP uQ uO uF uS rx2 rx3 rx4 rx8 rx9 rx10 rx11 rx18 rx19 rx20
       rx21 rx22 rx23 rx24 rx25 rx26 rx27 fK fL fM fN fP fQ fz1 fz2 fne
     have hne : Fp.mul (leLimbsToNat [x0, x1, x2, x3]) (Fp.mul (leLimbsToNat [w0, w1, w2, w3]) (leLimbsToNat [w0, w1, w2, w3])) ≠ Fp.mul (leLimbsToNat [u0, u1, u2, u3]) (Fp.mul (leLimbsToNat [z0, z1, z2, z3]) (leLimbsToNat [z0, z1, z2, z3])) := by

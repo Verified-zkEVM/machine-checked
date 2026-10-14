@@ -60,16 +60,16 @@ set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
 /-- `try_from` on a representation held in four aligned words `r0 … r3`. -/
-theorem try_from_spec {P : Prop} (s : MachineState) (ra sp out a1 : Word)
+theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out a1 : Word)
     (r0 r1 r2 r3 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 21) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN Gd nb P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN Gd nb P u)
     (hpc : s.pc = 0x78022f5c#64) (hcode : CodeAt F_78022f5c.base F_78022f5c.prog s)
     (hcodeFR : CodeAt F_7802ed10.base F_7802ed10.prog s)
     (hcodeBP : CodeAt F_78023278.base F_78023278.prog s)
@@ -133,8 +133,8 @@ theorem try_from_spec {P : Prop} (s : MachineState) (ra sp out a1 : Word)
           (if leLimbsToNat [x0, x1, x2, x3] = 0 ∧ leLimbsToNat [y0, y1, y2, y3] = 0 then 0 else Fp.R) ∧
         mulFacts [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] (skW [r0, r1, r2, r3])) →
       Region out (tryFromW O [r0, r1, r2, r3] [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3]) t →
-      Safe P t) :
-    Safe P s := by
+      SafeN Gd nb P t) :
+    SafeN Gd nb P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x980#64) 304 := hstk.frame 304 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x160#64) 44 := hokW.sub' 260 44 (by decide) (by bv_omega)
   -- the frame: [8, 0x30) `from_repr`'s `CtOption<Fq>`, [0x30, 0x50) the scalar, [0x50, 0xf0) the
@@ -210,16 +210,16 @@ set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
 /-- `try_from` on a representation at byte offset 2 of the five aligned words `c0 … c4` (as
 `derive_unchecked` leaves `to_repr`'s bytes at `sp + 0x2a`). -/
-theorem try_from_off2_spec {P : Prop} (s : MachineState) (ra sp out b : Word)
+theorem try_from_off2_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out b : Word)
     (c0 c1 c2 c3 c4 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 21) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN Gd nb P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN Gd nb P u)
     (hpc : s.pc = 0x78022f5c#64) (hcode : CodeAt F_78022f5c.base F_78022f5c.prog s)
     (hcodeFR : CodeAt F_7802ed10.base F_7802ed10.prog s)
     (hcodeBP : CodeAt F_78023278.base F_78023278.prog s)
@@ -283,8 +283,8 @@ theorem try_from_off2_spec {P : Prop} (s : MachineState) (ra sp out b : Word)
           (if leLimbsToNat [x0, x1, x2, x3] = 0 ∧ leLimbsToNat [y0, y1, y2, y3] = 0 then 0 else Fp.R) ∧
         mulFacts [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] (skW [unsplice2 c0 c1, unsplice2 c1 c2, unsplice2 c2 c3, unsplice2 c3 c4])) →
       Region out (tryFromW O [unsplice2 c0 c1, unsplice2 c1 c2, unsplice2 c2 c3, unsplice2 c3 c4] [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3]) t →
-      Safe P t) :
-    Safe P s := by
+      SafeN Gd nb P t) :
+    SafeN Gd nb P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x980#64) 304 := hstk.frame 304 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x160#64) 44 := hokW.sub' 260 44 (by decide) (by bv_omega)
   -- the frame: [8, 0x30) `from_repr`'s `CtOption<Fq>`, [0x30, 0x50) the scalar, [0x50, 0xf0) the

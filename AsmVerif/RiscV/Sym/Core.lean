@@ -3,8 +3,6 @@
 
   The facts about the trusted stepper everything else rests on.
 
-  * `run k s`: `k` steps of `stepSp1`, the SP1 backend of `riscv-zkvm`'s RV64IM model
-    (`stepNOn .sp1`), with its composition lemmas.
   * The code facts the specifications take: `CodeAt base prog s` (the decoded
     instructions of one function are loaded at `base`, as `gen-image` emits them in a
     case's `Image` modules) and `CodeWithin lo hi s` (the code map is confined to the
@@ -12,66 +10,19 @@
     the code map (`code_stepSp1`), so both are preserved by every run.
   * One step equation per instruction shape (`stepSp1_plain`, `stepSp1_mem`, the
     syscalls), which the executor (`AsmVerif.RiscV.Sym.Sym`) rewrites with.
-  * `Accepted s`: the observation. An accepting state is at an `ECALL` with `t0 = 0`
-    (`HALT`) and `a0 = 0` (exit code 0), and it is stuck (`stepSp1_of_accepted`).
 
-  `stepSp1` is a function, so runs are deterministic: a state the run passes through
-  is on every longer run from the same start (`run_prefix`). The judgement the proofs
-  are written in is `AsmVerif.RiscV.Sym.Safe`.
+  The judgement the proofs are written in is `AsmVerif.RiscV.SafeN` (`AsmVerif.RiscV.Safe`),
+  over `stepSp1`, the SP1 backend of `riscv-zkvm`'s RV64IM model, and its runs `stepsSp1`.
 -/
 
 import RiscvZkvm.Rv64
 import RiscvZkvm.Rv64.StepOn
 import RiscvZkvm.Interpreter
-import AsmVerif.RiscV.Accept
+import AsmVerif.RiscV.Safe
 
 namespace AsmVerif.RiscV.Sym
 
 open RiscvZkvm.Rv64 RiscvZkvm.Interpreter
-
-/-! ## The run -/
-
-/-- `k` steps of the SP1 backend. This is the model's own iteration; it is
-    given a short name so statements stay readable. -/
-abbrev run (k : Nat) (s : MachineState) : Option MachineState := stepNOn .sp1 k s
-
-@[simp] theorem run_zero (s : MachineState) : run 0 s = some s := rfl
-
-theorem run_succ (k : Nat) (s : MachineState) :
-    run (k + 1) s = (stepSp1 s).bind (run k) := rfl
-
-theorem run_succ_of_step {k : Nat} {s s₁ : MachineState} (h : stepSp1 s = some s₁) :
-    run (k + 1) s = run k s₁ := by
-  rw [run_succ, h]; rfl
-
-theorem run_add (m n : Nat) (s : MachineState) :
-    run (m + n) s = (run m s).bind (run n) := by
-  induction m generalizing s with
-  | zero => simp
-  | succ m ih =>
-    rw [Nat.succ_add, run_succ, run_succ]
-    cases stepSp1 s with
-    | none => rfl
-    | some s₁ => simpa using ih s₁
-
-/-- Composition: a run of `m` steps to `s₁` followed by `n` steps to `s₂`. -/
-theorem run_trans {m n : Nat} {s s₁ s₂ : MachineState}
-    (h₁ : run m s = some s₁) (h₂ : run n s₁ = some s₂) : run (m + n) s = some s₂ := by
-  rw [run_add, h₁]; exact h₂
-
-/-- Determinism, in the form soundness needs: a longer run passes through the
-    state a shorter one reaches. -/
-theorem run_prefix {m n : Nat} {s s₁ s₂ : MachineState} (hmn : m ≤ n)
-    (h₁ : run m s = some s₁) (h₂ : run n s = some s₂) : run (n - m) s₁ = some s₂ := by
-  obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le hmn
-  rw [run_add, h₁] at h₂
-  simpa using h₂
-
-/-- A stuck run stays stuck. -/
-theorem run_none_of_le {m n : Nat} {s : MachineState} (hmn : m ≤ n)
-    (h : run m s = none) : run n s = none := by
-  obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le hmn
-  rw [run_add, h]; rfl
 
 /-! ## The code hypothesis -/
 
@@ -158,24 +109,24 @@ theorem code_stepSp1 {s s' : MachineState} (h : stepSp1 s = some s') :
       · simp at h                         -- outside SP1's addressable space
     · simp only [Option.some.injEq] at h; subst h; simp
 
-theorem code_run {k : Nat} {s s' : MachineState} (h : run k s = some s') : s'.code = s.code := by
+theorem code_steps {k : Nat} {s s' : MachineState} (h : stepsSp1 k s = some s') : s'.code = s.code := by
   induction k generalizing s with
   | zero => simp at h; subst h; rfl
   | succ k ih =>
-    rw [run_succ] at h
+    rw [stepsSp1_succ'] at h
     cases hs : stepSp1 s with
     | none => rw [hs] at h; exact absurd h (by simp)
     | some s₁ =>
       rw [hs] at h
       exact (ih (by simpa using h)).trans (code_stepSp1 hs)
 
-theorem codeAt_run {base : Word} {prog : List (Option Instr)} {k : Nat} {s s' : MachineState}
-    (h : run k s = some s') (hc : CodeAt base prog s) : CodeAt base prog s' :=
-  codeAt_of_code_eq (code_run h) hc
+theorem codeAt_steps {base : Word} {prog : List (Option Instr)} {k : Nat} {s s' : MachineState}
+    (h : stepsSp1 k s = some s') (hc : CodeAt base prog s) : CodeAt base prog s' :=
+  codeAt_of_code_eq (code_steps h) hc
 
-theorem codeWithin_run {lo hi : Nat} {k : Nat} {s s' : MachineState}
-    (h : run k s = some s') (hc : CodeWithin lo hi s) : CodeWithin lo hi s' :=
-  codeWithin_of_code_eq (code_run h) hc
+theorem codeWithin_steps {lo hi : Nat} {k : Nat} {s s' : MachineState}
+    (h : stepsSp1 k s = some s') (hc : CodeWithin lo hi s) : CodeWithin lo hi s' :=
+  codeWithin_of_code_eq (code_steps h) hc
 
 /-- The fetch fact a block lemma reads off its code hypothesis: the instruction
     at index `i` of `prog`, when the pc is `base + 4 i`. -/
@@ -271,62 +222,11 @@ theorem stepSp1_accel' {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
 /-! ## Accepting -/
 
 -- The accept observation (`AsmVerif.RiscV.Accepted`): the machine is at the `HALT`
--- syscall with exit code `0`.
-export AsmVerif.RiscV (Accepted)
+-- syscall with exit code `0`. It is stuck (`stepSp1_of_accepted`, `AsmVerif.RiscV.Safe`).
+export AsmVerif.RiscV (Accepted stepSp1_of_accepted)
 
-/-- Reaching a state the machine cannot step from is final: nothing after it
-    is `Accepted` (or anything else). -/
-theorem run_of_stuck {s s' : MachineState} {k : Nat} (hstuck : stepSp1 s = none)
-    (h : run k s = some s') : k = 0 ∧ s' = s := by
-  cases k with
-  | zero => simp at h; exact ⟨rfl, h.symm⟩
-  | succ k => rw [run_succ, hstuck] at h; exact absurd h (by simp)
-
-/-- An accepting state is itself stuck (`HALT` stops the machine). -/
-theorem stepSp1_of_accepted {s : MachineState} (h : Accepted s) : stepSp1 s = none :=
-  stepSp1_halt h.1 h.2.1
-
-/-- **The soundness transfer.** If the run from `s₀` reaches `s₁` and from
-    `s₁` never accepts, then the run from `s₀` never accepts *after* `s₁`; and
-    if the states strictly before `s₁` are also not accepting, the run from
-    `s₀` never accepts at all. Stated in the form `main`'s proof uses: a
-    forward execution to a state, then a verdict about the remainder. -/
-theorem not_accepted_of_run {s₀ s₁ : MachineState} {m : Nat} (h : run m s₀ = some s₁)
-    (hbefore : ∀ k s', k < m → run k s₀ = some s' → ¬ Accepted s')
-    (hafter : ∀ k s', run k s₁ = some s' → ¬ Accepted s') :
-    ∀ k s', run k s₀ = some s' → ¬ Accepted s' := by
-  intro k s' hk
-  by_cases hkm : k < m
-  · exact hbefore k s' hkm hk
-  · have := run_prefix (Nat.le_of_not_lt hkm) h hk
-    exact hafter _ _ this
-
-/-- A state before an accepting halt on a run that is still going cannot be
-    accepting: acceptance is stuck. -/
-theorem not_accepted_of_run_succ {s s' : MachineState} {k : Nat}
-    (h : run (k + 1) s = some s') : ¬ Accepted s := by
-  intro ha
-  rw [run_succ, stepSp1_of_accepted ha] at h
-  exact absurd h (by simp)
-
-/-- Along a run that continues for at least `m` steps, no intermediate state
-    is accepting -- so `hbefore` in `not_accepted_of_run` is automatic. -/
-theorem not_accepted_before {s₀ s₁ : MachineState} {m : Nat} (h : run m s₀ = some s₁) :
-    ∀ k s', k < m → run k s₀ = some s' → ¬ Accepted s' := by
-  intro k s' hkm hk
-  have hrest := run_prefix (Nat.le_of_lt hkm) hk h
-  obtain ⟨d, hd⟩ : ∃ d, m - k = d + 1 := ⟨m - k - 1, by omega⟩
-  rw [hd] at hrest
-  exact not_accepted_of_run_succ hrest
-
-/-- The forward-execution form of soundness: if the run from `s₀` reaches `s₁`
-    then any accepting state the run from `s₀` reaches is one the run from
-    `s₁` reaches. -/
-theorem accepted_of_run {s₀ s₁ : MachineState} {m : Nat} (h : run m s₀ = some s₁)
-    {k : Nat} {s' : MachineState} (hk : run k s₀ = some s') (ha : Accepted s') :
-    ∃ j, run j s₁ = some s' := by
-  by_cases hkm : k < m
-  · exact absurd ha (not_accepted_before h k s' hkm hk)
-  · exact ⟨k - m, run_prefix (Nat.le_of_not_lt hkm) h hk⟩
+-- The judgement (`AsmVerif.RiscV.Safe`), under the executor's namespace. Its lemmas are named
+-- in full (`AsmVerif.RiscV.SafeN.step_of`): an exported alias does not carry its namespace.
+export AsmVerif.RiscV (SafeN stepsSp1)
 
 end AsmVerif.RiscV.Sym

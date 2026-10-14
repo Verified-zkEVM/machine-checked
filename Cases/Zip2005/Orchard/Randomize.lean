@@ -52,16 +52,16 @@ theorem toBytesW_cells (J : Nat × Nat × Nat) (h1 : J.1 < 2 ^ 256) (h2 : J.2.1 
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem spend_validating_key_randomize_spec {P : Prop} (s : MachineState) (ra sp out ak alpha : Word)
+theorem spend_validating_key_randomize_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out ak alpha : Word)
     (a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 k0 k1 k2 k3 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 16) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN Gd n P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN Gd n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN Gd n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN Gd n P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN Gd n P u)
     (hpc : s.pc = 0x780227b4#64) (hcode : CodeAt F_780227b4.base F_780227b4.prog s)
     (hcodeBP : CodeAt F_78023278.base F_78023278.prog s)
     (hcodeU : CodeAt F_78026928.base F_78026928.prog s)
@@ -132,8 +132,8 @@ theorem spend_validating_key_randomize_spec {P : Prop} (s : MachineState) (ra sp
           (mulW [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] [k0, k1, k2, k3])) ++
         toBytesW (rkJ a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11
           (mulW [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] [k0, k1, k2, k3]))) t →
-      Safe P t) :
-    Safe P s := by
+      SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x960#64) 300 := hstk.frame 300 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x140#64) 40 := hokW.sub' 260 40 (by decide) (by bv_omega)
   -- the frame: [8, 0x68) the copy of `ak`, [0x68, 0xc8) `[α] G`, [0xc8, 0x128) `G` then the sum,

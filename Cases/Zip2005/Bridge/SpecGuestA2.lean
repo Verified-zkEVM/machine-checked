@@ -13,7 +13,7 @@ Montgomery form), so the segments before A2 can state it over the input.
 
 namespace Cases.Zip2005.Top
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.BridgeMul Cases.Zip2005.Poseidon
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.SpecMul Cases.Zip2005.Poseidon
 open Zcash.Circuits (Fp Fq Point)
 
 set_option autoImplicit false

@@ -119,7 +119,7 @@ theorem pack_shift (w : Word) :
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 1)`, both 8-aligned: the low byte of the destination cell. -/
-theorem memcpy1_spec {P : Prop} (s : MachineState) (ra dst src d0 s0 : Word)
+theorem memcpy1_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src d0 s0 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -128,8 +128,8 @@ theorem memcpy1_spec {P : Prop} (s : MachineState) (ra dst src d0 s0 : Word)
     (hS : Region src [s0] s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 1)
     (hdj : Disjoint dst 1 src 1)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 1)] s t →
-      Region dst [replaceByte d0 0 (extractByte s0 0)] t → Safe P t) :
-    Safe P s := by
+      Region dst [replaceByte d0 0 (extractByte s0 0)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 1)] s
   sym_exec
   sym_close hk
@@ -139,13 +139,13 @@ theorem memcpy1_spec {P : Prop} (s : MachineState) (ra dst src d0 s0 : Word)
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 0)`: nothing is read or written. -/
-theorem memcpy0_spec {P : Prop} (s : MachineState) (ra dst src : Word)
+theorem memcpy0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (ha0 : s.getReg .x10 = dst) (ha1 : s.getReg .x11 = src) (ha2 : s.getReg .x12 = 0#64)
-    (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [] s t → Safe P t) :
-    Safe P s := by
+    (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [] s t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [] s
   sym_exec
   all_goals sym_close hk
@@ -154,7 +154,7 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 32)` with `dst` one byte into an aligned doubleword, `src` aligned:
     byte by byte, the four words land shifted up one byte across five cells. -/
-theorem memcpy32_off1_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 d2 d3 d4 s0 s1 s2 s3 : Word)
+theorem memcpy32_off1_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src d0 d1 d2 d3 d4 s0 s1 s2 s3 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -163,8 +163,8 @@ theorem memcpy32_off1_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 d2 d3
     (hS : Region src [s0, s1, s2, s3] s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 4)
     (hdj : Disjoint (dst - 1#64) 5 src 4)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst - 1#64, 5)] s t →
-      Region (dst - 1#64) (shiftUp1 d0 d4 s0 s1 s2 s3) t → Safe P t) :
-    Safe P s := by
+      Region (dst - 1#64) (shiftUp1 d0 d4 s0 s1 s2 s3) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst - 1#64, 5)] s
   have hm : dst &&& 7#64 = 1#64 := and7_of_sub1 hokD.aligned
   sym_exec
@@ -175,7 +175,7 @@ theorem memcpy32_off1_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 d2 d3
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 33)`, both 8-aligned: four words and the low byte of the fifth cell. -/
-theorem memcpy33_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 d3 d4 s0 s1 s2 s3 s4 : Word)
+theorem memcpy33_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 d3 d4 s0 s1 s2 s3 s4 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -184,8 +184,8 @@ theorem memcpy33_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d
     (hS : Region src [s0, s1, s2, s3, s4] s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 5)
     (hdj : Disjoint dst 5 src 5)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 5)] s t →
-      Region dst [s0, s1, s2, s3, replaceByte d4 0 (extractByte s4 0)] t → Safe P t) :
-    Safe P s := by
+      Region dst [s0, s1, s2, s3, replaceByte d4 0 (extractByte s4 0)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 5)] s
   sym_exec
   sym_close hk
@@ -195,7 +195,7 @@ theorem memcpy33_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 65)`, both 8-aligned: eight words and the low byte of the ninth cell. -/
-theorem memcpy65_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 d3 d4 d5 d6 d7 d8 s0 s1 s2 s3 s4 s5 s6 s7 s8 : Word)
+theorem memcpy65_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 d3 d4 d5 d6 d7 d8 s0 s1 s2 s3 s4 s5 s6 s7 s8 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -204,8 +204,8 @@ theorem memcpy65_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d
     (hS : Region src [s0, s1, s2, s3, s4, s5, s6, s7, s8] s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 9)
     (hdj : Disjoint dst 9 src 9)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 9)] s t →
-      Region dst [s0, s1, s2, s3, s4, s5, s6, s7, replaceByte d8 0 (extractByte s8 0)] t → Safe P t) :
-    Safe P s := by
+      Region dst [s0, s1, s2, s3, s4, s5, s6, s7, replaceByte d8 0 (extractByte s8 0)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 9)] s
   sym_exec
   sym_close hk
@@ -215,7 +215,7 @@ theorem memcpy65_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 97)`, both 8-aligned: twelve words and the low byte of the thirteenth cell. -/
-theorem memcpy97_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 : Word)
+theorem memcpy97_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -224,8 +224,8 @@ theorem memcpy97_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d
     (hS : Region src [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12] s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 13)
     (hdj : Disjoint dst 13 src 13)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 13)] s t →
-      Region dst [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, replaceByte d12 0 (extractByte s12 0)] t → Safe P t) :
-    Safe P s := by
+      Region dst [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, replaceByte d12 0 (extractByte s12 0)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 13)] s
   sym_exec
   sym_close hk

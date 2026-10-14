@@ -20,7 +20,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 set_option asmverif.sym.foldBytes true in
-theorem pad_next_ivk_b_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_b_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (hAl : A.length = 4) (hBl : B.length = 4)
     (m : Nat) (hm1 : 1 ≤ m) (hm254 : m ≤ 254) (j nB pB : Word) (hB : BitVec 8)
     (hnB : BitVec.ofNat 64 (255 - m) = nB) (hpB : pB = ptrB sp + BitVec.ofNat 64 (8 * (m / 64)))
@@ -38,14 +38,14 @@ theorem pad_next_ivk_b_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word
     (hdjI : Disjoint iter 12 (ptrA sp) 4) (hdjI' : Disjoint iter 12 (ptrB sp) 4)
     (hdjS : Disjoint (spn - 0x10#64) 2 iter 12) (hdjSA : Disjoint (spn - 0x10#64) 2 (ptrA sp) 4)
     (hdjSB : Disjoint (spn - 0x10#64) 2 (ptrB sp) 4) (hdjAB : Disjoint (ptrA sp) 4 (ptrB sp) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       Region iter (padIvkB sp J j (BitVec.ofNat 64 (255 - (m + 1)))
         (ptrB sp + BitVec.ofNat 64 (8 * ((m + 1) / 64))) (BitVec.ofNat 8 ((m + 1) % 64))
         (BitVec.ofNat 64 (255 + (m + 1)))) t →
-      t.getReg .x10 = bw (wordsBit B m) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (wordsBit B m) → SafeN G n P t) :
+    SafeN G n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (spn - 0x10#64) 2 := hstk.frame 2 (by decide)
   have hu := Unchanged.refl [(spn - 0x10#64, 2), (iter, 12)] s
   have hlo := hstk.lo
@@ -129,7 +129,7 @@ theorem pad_next_ivk_b_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word
       Region iter [0#64, j, nB + 18446744073709551615#64, v97, v101, ivkEndB2 sp J, 0#64,
         ptrA sp + 24#64, replaceByte (ivkEndA sp J) 0 63#8, ivkEndA2 sp J,
         replaceByte J[8]! 0 (BitVec.truncate 8 2#64), v37 + 1#64] t →
-      t.getReg .x10 = v110 → Safe P t := by
+      t.getReg .x10 = v110 → SafeN G n P t := by
     intro t h1 h2 h3 h4 h5 h6
     refine hk t h1 h2 h3 h4 (Region.of_eq h5 ?_) ?_
     · simp only [padIvkB, List.cons.injEq, and_true, true_and, eq_self]

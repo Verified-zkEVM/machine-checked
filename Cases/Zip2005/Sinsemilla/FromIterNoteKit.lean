@@ -121,7 +121,7 @@ theorem framen_toNat {sp : Word} (h : StackOk Ro.layout 0x180 sp) :
 theorem framen_nowrap {sp : Word} (h : StackOk Ro.layout 0x180 sp) : (sp - 0x180#64).toNat + 8 * 76 ≤ 2 ^ 64 := by
   rw [framen_toNat h]; have := (Nat.le_trans h.hi (Nat.le_of_eq Ro.layout_stackTop)); have := h.lo; omega
 
-theorem _root_.Asm.Disjoint.heap_framen76 {sp : Word} (h : StackOk Ro.layout 0x180 sp) :
+theorem _root_.AsmVerif.RiscV.Sym.Disjoint.heap_framen76 {sp : Word} (h : StackOk Ro.layout 0x180 sp) :
     AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x180#64) 76 := by
   unfold AsmVerif.RiscV.Sym.Disjoint
   rw [framen_toNat h]

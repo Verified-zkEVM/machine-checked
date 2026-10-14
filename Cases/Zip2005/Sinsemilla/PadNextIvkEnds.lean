@@ -21,7 +21,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 set_option asmverif.sym.foldBytes true in
-theorem pad_next_ivk_255_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_255_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (hAl : A.length = 4) (hBl : B.length = 4) (j : Word)
     (hpc : s.pc = 0x78021e7c#64) (hcode : CodeAt F_78021e7c.base F_78021e7c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -39,8 +39,8 @@ theorem pad_next_ivk_255_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wo
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       Region iter (padIvkB sp J j 254#64 (ptrB sp) 1#8 256#64) t →
-      t.getReg .x10 = bw (wordsBit B 0) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (wordsBit B 0) → SafeN G n P t) :
+    SafeN G n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (spn - 0x10#64) 2 := hstk.frame 2 (by decide)
   have hu := Unchanged.refl [(spn - 0x10#64, 2), (iter, 12)] s
   have hlo := hstk.lo
@@ -110,7 +110,7 @@ theorem pad_next_ivk_255_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wo
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       Region iter [0#64, j, 254#64, ptrB sp, v106, ivkEndB2 sp J, 0#64, ptrA sp + 24#64,
         replaceByte (ivkEndA sp J) 0 63#8, ivkEndA2 sp J, v93, 256#64] t →
-      t.getReg .x10 = v115 → Safe P t := by
+      t.getReg .x10 = v115 → SafeN G n P t := by
     intro t h1 h2 h3 h4 h5 h6
     refine hk t h1 h2 h3 h4 (Region.of_eq h5 ?_) ?_
     · simp only [padIvkB, List.cons.injEq, and_true, true_and, eq_self]
@@ -125,7 +125,7 @@ theorem pad_next_ivk_255_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wo
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 set_option asmverif.sym.foldBytes true in
-theorem pad_next_ivk_510_spec {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_510_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (hAl : A.length = 4) (hBl : B.length = 4) (j : Word)
     (hpc : s.pc = 0x78021e7c#64) (hcode : CodeAt F_78021e7c.base F_78021e7c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -145,8 +145,8 @@ theorem pad_next_ivk_510_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wo
       Region iter [1#64, 0#64, 0#64, ptrB sp + 24#64, replaceByte (ivkEndB sp J) 0 63#8, ivkEndB2 sp J,
         0#64, ptrA sp + 24#64, replaceByte (ivkEndA sp J) 0 63#8, ivkEndA2 sp J,
         replaceByte J[8]! 0 (BitVec.truncate 8 2#64), 510#64] t →
-      t.getReg .x10 = 2#64 → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = 2#64 → SafeN G n P t) :
+    SafeN G n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (spn - 0x10#64) 2 := hstk.frame 2 (by decide)
   have hu := Unchanged.refl [(spn - 0x10#64, 2), (iter, 12)] s
   have hlo := hstk.lo
@@ -214,7 +214,7 @@ theorem pad_next_ivk_510_spec {P : Prop} (s : MachineState) (ra spn sp iter : Wo
       Region iter [1#64, v52, 0#64, ptrB sp + 24#64, replaceByte (ivkEndB sp J) 0 63#8, ivkEndB2 sp J,
         0#64, ptrA sp + 24#64, replaceByte (ivkEndA sp J) 0 63#8, ivkEndA2 sp J,
         replaceByte J[8]! 0 (BitVec.truncate 8 2#64), 510#64] t →
-      t.getReg .x10 = 2#64 → Safe P t := by
+      t.getReg .x10 = 2#64 → SafeN G n P t := by
     intro t h1 h2 h3 h4 h5 h6
     refine hk t h1 h2 h3 h4 (Region.of_eq h5 ?_) h6
     rw [h52]

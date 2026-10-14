@@ -53,7 +53,7 @@ theorem and7_of_sub2 {p : Word} (h : (p - 2#64).toNat % 8 = 0) : p &&& 7#64 = 2#
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 32)`, `dst` one byte and `src` two bytes into a doubleword. -/
-theorem memcpy32_d1s2_spec {P : Prop} (s : MachineState) (ra dst src : Word)
+theorem memcpy32_d1s2_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word)
     (d0 d1 d2 d3 d4 s0 s1 s2 s3 s4 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -64,8 +64,8 @@ theorem memcpy32_d1s2_spec {P : Prop} (s : MachineState) (ra dst src : Word)
     (hdj : Disjoint (dst - 1#64) 5 (src - 2#64) 5)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst - 1#64, 5)] s t →
       Region (dst - 1#64) (mcpyW [d0, d1, d2, d3, d4] [s0, s1, s2, s3, s4] 1 2 32 5) t →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst - 1#64, 5)] s
   have hm : dst &&& 7#64 = 1#64 := and7_of_sub1 hokD.aligned
   have hm2 : src &&& 7#64 = 2#64 := and7_of_sub2 hokS.aligned
@@ -84,7 +84,7 @@ theorem memcpy32_d1s2_spec {P : Prop} (s : MachineState) (ra dst src : Word)
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 17)`, both 8-aligned: two words and the low byte of the third cell. -/
-theorem memcpy17_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 s0 s1 s2 : Word)
+theorem memcpy17_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 s0 s1 s2 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -93,8 +93,8 @@ theorem memcpy17_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d
     (hS : Region src [s0, s1, s2] s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 3)
     (hdj : Disjoint dst 3 src 3)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 3)] s t →
-      Region dst [s0, s1, replaceByte d2 0 (extractByte s2 0)] t → Safe P t) :
-    Safe P s := by
+      Region dst [s0, s1, replaceByte d2 0 (extractByte s2 0)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 3)] s
   sym_exec
   sym_close hk

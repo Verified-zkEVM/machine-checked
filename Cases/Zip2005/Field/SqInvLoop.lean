@@ -86,22 +86,22 @@ theorem sq_inv_fetch {s : MachineState} (hcode : CodeAt F_78030a94.base F_78030a
   fetch_of_codeAt hcode 506 (by decide) (by rfl) (by rw [hpc]; rfl)
 
 set_option maxHeartbeats 4000000 in
-theorem sq_inv_loop {P : Prop} (s t0 : MachineState) (inv hx tb v2 v3 v4 v9 v25 v26 : Word)
+theorem sq_inv_loop {G : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : MachineState) (inv hx tb v2 v3 v4 v9 v25 v26 : Word)
     (hcode : CodeAt F_78030a94.base F_78030a94.prog s) (hcodeL : CodeAt F_78029b64.base F_78029b64.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hokIV : RegionOk Ro.layout.roBase Ro.layout.textHi inv 138) (hokTB : RegionOk Ro.layout.roBase Ro.layout.textHi tb 1024)
     (htb : tb.toNat + 0x2000 ≤ 0x1c00000000)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G nb P u)
     (hexit : ∀ (t : MachineState) (IV : List Word), t.pc = 0x78031280#64 → t.code = s.code →
       Unchanged [(inv, 138)] t0 t →
       t.getReg .x21 = 1#64 → t.getReg .x23 = tb + 0x2000#64 → t.getReg .x24 = 256#64 →
       t.getReg .x2 = v2 → t.getReg .x3 = v3 → t.getReg .x4 = v4 → t.getReg .x8 = 1098#64 →
       t.getReg .x9 = v9 → t.getReg .x18 = hx → t.getReg .x19 = 1#64 →
       t.getReg .x20 = tb + 0x2000#64 → t.getReg .x25 = v25 → t.getReg .x26 = v26 →
-      t.getReg .x27 = inv → IV.length = 138 → Region inv IV t → RoImage Ro.layout t → Safe P t) :
+      t.getReg .x27 = inv → IV.length = 138 → Region inv IV t → RoImage Ro.layout t → SafeN G nb P t) :
     ∀ (n : Nat) (t : MachineState) (i : Nat) (IV : List Word) (d : Word), t.code = s.code →
       RoImage Ro.layout t → Unchanged [(inv, 138)] t0 t →
-      SqInvAt inv hx tb v2 v3 v4 v9 v25 v26 i IV d t → 255 - i = n → Safe P t := by
+      SqInvAt inv hx tb v2 v3 v4 v9 v25 v26 i IV d t → 255 - i = n → SafeN G nb P t := by
   intro n
   induction n with
   | zero =>

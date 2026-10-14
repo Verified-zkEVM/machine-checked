@@ -22,7 +22,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem heap_init_spec {P : Prop} (s : MachineState) (ra sp : Word)
+theorem heap_init_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp : Word)
     (hpc : s.pc = 0x7801bfac#64) (hcode : CodeAt F_7801bfac.base F_7801bfac.prog s)
     (hcodeD : CodeAt F_7801beac.base F_7801beac.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -32,8 +32,8 @@ theorem heap_init_spec {P : Prop} (s : MachineState) (ra sp : Word)
     (hflag : Region 0x78040620#64 [0#64] s) (hhead : Region 0x78044598#64 [0#64] s)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → t.privateInput = s.privateInput →
       Unchanged [(sp - 0x20#64, 4), (0x78040620#64, 1), (0x78044598#64, 1), (0x78048720#64, 1),
-        (0x78048828#64, 1), (0x78048980#64, 4), (0x1bffffffe0#64, 2)] s t → Safe P t) :
-    Safe P s := by
+        (0x78048828#64, 1), (0x78048980#64, 4), (0x1bffffffe0#64, 2)] s t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x20#64) 4 := hstk.frame 4 (by decide)
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040620#64 1 := RegionOk.of_nat (by decide) (by decide) (Or.inr (by decide))
   have hok1 : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78044598#64 1 := RegionOk.of_nat (by decide) (by decide) (Or.inr (by decide))
@@ -51,7 +51,7 @@ theorem heap_init_spec {P : Prop} (s : MachineState) (ra sp : Word)
         (0x78048828#64, 1), (0x78048980#64, 4), (0x1bffffffe0#64, 2)] s
   have hd := fun (u : MachineState) (r : Word) (hpcu : u.pc = 0x7801beac#64) (hcu : u.code = s.code)
       (hr : u.getReg .x1 = r) (hr1 : r &&& ~~~1#64 = r) =>
-    syscall_dump_elf_spec (P := P) u r hpcu (codeAt_of_code_eq hcu hcodeD) (codeWithin_of_code_eq hcu hcw) hr hr1
+    syscall_dump_elf_spec (G := G) (n := n) (P := P) u r hpcu (codeAt_of_code_eq hcu hcodeD) (codeWithin_of_code_eq hcu hcw) hr hr1
   sym_exec [hd] stop [0x7801c104]
   -- the second-level index of the block's size class, which the executor keeps as atoms
   have h85 : v85 = 368#64 := by

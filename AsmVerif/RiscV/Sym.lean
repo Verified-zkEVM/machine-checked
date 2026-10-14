@@ -1,5 +1,4 @@
 import AsmVerif.RiscV.Sym.Core
-import AsmVerif.RiscV.Sym.Safe
 import AsmVerif.RiscV.Sym.Exec
 import AsmVerif.RiscV.Sym.Syscall
 import AsmVerif.RiscV.Sym.Region

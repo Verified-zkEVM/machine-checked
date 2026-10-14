@@ -38,7 +38,7 @@ theorem limbs4_eq_iff (a0 a1 a2 a3 b0 b1 b2 b3 : Word) :
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem is_on_curve_spec {P : Prop} (s : MachineState) (ra sp a0 : Word)
+theorem is_on_curve_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 : Word)
     (hpc : s.pc = 0x78026258#64) (hcode : CodeAt F_78026258.base F_78026258.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -52,8 +52,8 @@ theorem is_on_curve_spec {P : Prop} (s : MachineState) (ra sp a0 : Word)
     (hd0 : Disjoint (sp - 0x120#64) 36 a0 8)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x120#64, 36)] s t →
-      t.getReg .x10 = bw (decide (Fp.sub (Fp.mul (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [y0, y1, y2, y3])) (Fp.mul (Fp.mul (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [x0, x1, x2, x3])) (leLimbsToNat [x0, x1, x2, x3])) = Fp.mul 5 Fp.R2) || decide (x0 = 0#64 ∧ x1 = 0#64 ∧ x2 = 0#64 ∧ x3 = 0#64 ∧ y0 = 0#64 ∧ y1 = 0#64 ∧ y2 = 0#64 ∧ y3 = 0#64)) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (decide (Fp.sub (Fp.mul (leLimbsToNat [y0, y1, y2, y3]) (leLimbsToNat [y0, y1, y2, y3])) (Fp.mul (Fp.mul (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [x0, x1, x2, x3])) (leLimbsToNat [x0, x1, x2, x3])) = Fp.mul 5 Fp.R2) || decide (x0 = 0#64 ∧ x1 = 0#64 ∧ x2 = 0#64 ∧ x3 = 0#64 ∧ y0 = 0#64 ∧ y1 = 0#64 ∧ y2 = 0#64 ∧ y3 = 0#64)) → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x120#64) 36 := hstk.frame 36 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x110#64) 34 := hokW.sub' 2 34 (by decide) (by bv_omega)
   -- the frame: [8, 0x28) `y²`, [0x28, 0x48) `from_raw(5)`, [0x48, 0x68) the `mulmod` result,

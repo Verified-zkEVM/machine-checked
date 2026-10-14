@@ -26,10 +26,10 @@ set_option maxRecDepth 200000 in
 /-- The loop, by induction on the chunks left: from the loop head with `i` chunks folded and `n`
 to go, to the exit with all `i + n` folded. `Bv` holds the message bytes (`0`/`1` over the first
 `10 nc`), `T` the generator table. -/
-theorem sinsemilla_loop {P : Prop} (sp bp : Word) (T Bv : List Word) (nc : Nat)
+theorem sinsemilla_loop {G : MachineState → Prop} {nb : Nat} {P : Prop} (sp bp : Word) (T Bv : List Word) (nc : Nat)
     (c : Word → Option Instr) (g3 g4 g8 g9 g18 : Word) (a0 : List Word)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = c → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = c → Safe P u)
+    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = c → SafeN G nb P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = c → SafeN G nb P u)
     (hTl : T.length = 8192) (hBl : Bv.length = 137) (hnc : 10 * nc ≤ 1096)
     (hbool : ∀ o, o < 10 * nc → byteAt Bv o = 0#64 ∨ byteAt Bv o = 1#64) :
     ∀ n i (t : MachineState) (acc : List Word) (len p : Word), i + n ≤ nc → 1 ≤ n →
@@ -65,8 +65,8 @@ theorem sinsemilla_loop {P : Prop} (sp bp : Word) (T Bv : List Word) (nc : Nat)
         Unchanged [(sp - 0x130#64, 38), (sp, 9), (sp + 0x190#64, 9), (sp + 0x1d8#64, 4),
           (sp + 0x258#64, 4), (sp + 0x298#64, 9), (sp + 0x2f8#64, 9)] t u →
         Region (sp + 0x190#64) acc' u → AccRep (sinFold T (some a0) (chunks Bv (i + n))) acc' →
-        Safe P u) →
-      Safe P t := by
+        SafeN G nb P u) →
+      SafeN G nb P t := by
   intro n
   induction n with
   | zero => intro i t acc _ _ _ hn; exact absurd hn (by omega)

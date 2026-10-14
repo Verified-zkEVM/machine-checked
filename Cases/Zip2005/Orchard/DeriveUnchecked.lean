@@ -64,16 +64,16 @@ theorem unsplice_splice (W : List Word) (l0 l1 l2 l3 : Word) :
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem derive_unchecked_spec {P : Prop} (s : MachineState) (ra sp out sk neg s0 s1 s2 s3 : Word)
+theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out sk neg s0 s1 s2 s3 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 20) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G nb P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G nb P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G nb P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G nb P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G nb P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G nb P u)
     (hpc : s.pc = 0x7802233c#64) (hcode : CodeAt F_7802233c.base F_7802233c.prog s)
     -- `PrfExpand::with`
     (hcW : CodeAt F_78023308.base F_78023308.prog s)
@@ -143,8 +143,8 @@ theorem derive_unchecked_spec {P : Prop} (s : MachineState) (ra sp out sk neg s0
         leLimbsToNat [z0, z1, z2, z3] =
           (if leLimbsToNat [x0, x1, x2, x3] = 0 ∧ leLimbsToNat [y0, y1, y2, y3] = 0 then 0 else Fp.R) ∧
         mulFacts [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] (skW (askR neg s0 s1 s2 s3)) →
-      Region out (askW neg s0 s1 s2 s3 [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3]) t → Safe P t) :
-    Safe P s := by
+      Region out (askW neg s0 s1 s2 s3 [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3]) t → SafeN G nb P t) :
+    SafeN G nb P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xb50#64) 362 := hstk.frame 362 (by decide)
   -- the frame (`sp' = sp - 0x1d0`): [8, 0x28) `ask`, [0x28, 0x50) the bytes at offset 2,
   -- [0x50, 0xf0) the copied key, [0xf0, 0x110) `-ask` or the aligned bytes, [0x110, 0x1b8)
@@ -201,8 +201,8 @@ theorem derive_unchecked_spec {P : Prop} (s : MachineState) (ra sp out sk neg s0
     exact ⟨hfb, hz, hmf⟩
   · -- `neg ≠ 0`: the bytes of `-ask`, at `sp' + 0x2a`
     sym_reframe
-    have hTR := fq_to_repr_off2_spec (P := P) (b := sp - 0x1a8#64)
-    have hTF := try_from_off2_spec (P := P) (b := sp - 0x1a8#64)
+    have hTR := fq_to_repr_off2_spec (G := G) (n := nb) (P := P) (b := sp - 0x1a8#64)
+    have hTF := try_from_off2_spec (Gd := G) (nb := nb) (P := P) (b := sp - 0x1a8#64)
     sym_exec [hTR, hTF, memcpy160_spec, hunwrap, hpb, hpaf, hpp, hprz, hpanic]
     have hn0 : neg ≠ 0#64 := fun h => hbr18 (beq_iff_eq.mpr h)
     have hX : askX s0 s1 s2 s3 = acc17_0 := by rw [← acc17_0_def, ← acc12_0_def]; rfl

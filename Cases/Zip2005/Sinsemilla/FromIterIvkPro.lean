@@ -23,7 +23,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_iter_ivk_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word)
+theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word)
     (J A B Cb O : List Word) (j : Word) (hAl : A.length = 4) (hBl : B.length = 4)
     (hCbl : Cb.length = 12) (hCb : ivkState sp0 J j 0 = Cb) (hOl : O.length = 3)
     (hpc : s.pc = 0x7801e110#64) (hcode : CodeAt F_7801e110.base F_7801e110.prog s)
@@ -66,9 +66,9 @@ theorem from_iter_ivk_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → Safe P t) → Safe P u)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
+        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → SafeN G n P t) → SafeN G n P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u)
     (hk : ∀ (t : MachineState) (ptr w bit0 bit1 : Word) (I1 I2 : List Word), t.pc = 0x7801e230#64 →
       t.code = s.code →
       Unchanged [(sp - 0x30#64, 6), (sp, 22), (a1, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
@@ -86,8 +86,8 @@ theorem from_iter_ivk_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
       AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hokV : RegionOk Ro.layout.roBase Ro.layout.textHi sp 3 := hokFr.sub' 0 3 (by decide) (by simp)
   have hokBlk : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x18#64) 12 := hokFr.sub' 3 12 (by decide) rfl
   have hokSv : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x78#64) 7 := hokFr.sub' 15 7 (by decide) rfl
@@ -144,7 +144,7 @@ theorem from_iter_ivk_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word
         t.code = u.code → Unchanged [(sp - 0x10#64, 2), (a1, 12)] u t →
         ivkState sp0 J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] → Region (a1) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] t →
         bw (ivkBit A B k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
-        t.getReg .x10 = bit → Safe P t) → Safe P u :=
+        t.getReg .x10 = bit → SafeN G n P t) → SafeN G n P u :=
     fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 k hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hA hB hk' =>
       pad_next_ivk_cells_spec u 0x7801e144#64 sp sp0 (a1) J A B i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hAl hBl j k hIv hk hpc
         hcode hcw hra (by decide) hsp' hstk10 hsp0_lo hsp0_hi ha0 hI hokCb hA hokA hB hokB
@@ -160,7 +160,7 @@ theorem from_iter_ivk_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word
         t.code = u.code → Unchanged [(sp - 0x10#64, 2), (sp + 0x18#64, 12)] u t →
         ivkState sp0 J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] → Region (sp + 0x18#64) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] t →
         bw (ivkBit A B k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
-        t.getReg .x10 = bit → Safe P t) → Safe P u :=
+        t.getReg .x10 = bit → SafeN G n P t) → SafeN G n P u :=
     fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 k hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hA hB hk' =>
       pad_next_ivk_cells_spec u 0x7801e1bc#64 sp sp0 (sp + 0x18#64) J A B i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hAl hBl j k hIv hk hpc
         hcode hcw hra (by decide) hsp' hstk10 hsp0_lo hsp0_hi ha0 hI hokBlk hA hokA hB hokB
@@ -187,7 +187,7 @@ theorem from_iter_ivk_pro {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
       AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 →
-      Safe P t :=
+      SafeN G n P t :=
     fun t ptr w bit0 bit1 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4
         h3 h4 h22 h23 h24 h25 h26 h27 hI2 hR hR1 hO' hb0 hW hw hok hlo hhi hk1 hk2 hk3 hk4 hk5 hk6 hf1 hf2 hf3 hf4 hf5 hf6 =>
       hk t ptr w bit0 bit1 [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11] [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11] hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4

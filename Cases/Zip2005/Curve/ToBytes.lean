@@ -158,7 +158,7 @@ theorem to_bytes_identity_tail (X Y) (acc99_0 : List Word) (v10 v11 v15 v16 v17 
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem ep_to_bytes_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 : Word)
+theorem ep_to_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 : Word)
     (O : List Word) (hOl : O.length = 4)
     (hpc : s.pc = 0x78025654#64) (hcode : CodeAt F_78025654.base F_78025654.prog s)
     (hcodeTA : CodeAt F_78025164.base F_78025164.prog s)
@@ -179,8 +179,8 @@ theorem ep_to_bytes_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0 
       Unchanged [(sp - 0x2f0#64, 94), (a0, 4)] s t →
       Region a0 (natToLeLimbs 4
         ((Fp.toAffine (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [p4, p5, p6, p7]) (leLimbsToNat [p8, p9, p10, p11])).1 * Fp.rInv % Fp.p +
-          2 ^ 255 * ((Fp.toAffine (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [p4, p5, p6, p7]) (leLimbsToNat [p8, p9, p10, p11])).2 * Fp.rInv % Fp.p % 2))) t → Safe P t) :
-    Safe P s := by
+          2 ^ 255 * ((Fp.toAffine (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [p4, p5, p6, p7]) (leLimbsToNat [p8, p9, p10, p11])).2 * Fp.rInv % Fp.p % 2))) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x2f0#64) 94 := hstk.frame 94 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xc0#64) 24 := hokW.sub' 70 24 (by decide) (by bv_omega)
   -- the frame: [0, 0x40) the affine point, [0x40, 0x60) `x`, [0x60, 0x80) `y`,

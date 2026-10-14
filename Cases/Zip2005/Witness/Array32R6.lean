@@ -18,7 +18,7 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem array32_r6_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem array32_r6_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801775c#64) (hcode : CodeAt F_7801775c.base F_7801775c.prog s)
     (hcodeN : CodeAt F_78019b50.base F_78019b50.prog s)
@@ -39,15 +39,15 @@ theorem array32_r6_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN Gd n P t) → SafeN Gd n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x300#64, 96), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
-      Region out (arr32W O W 6) t → Region de [q + 38#64, l - 32#64] t → 32 ≤ l.toNat → Safe P t)
+      Region out (arr32W O W 6) t → Region de [q + 38#64, l - 32#64] t → 32 ≤ l.toNat → SafeN Gd n P t)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x300#64, 96), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [replaceByte O[0]! 0 1#8, e, O[2]!, O[3]!, O[4]!] t → Region de [d0, d1] t →
-      l.toNat < 32 → Safe P t) :
-    Safe P s := by
+      l.toNat < 32 → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x300#64) 96 := hstk.frame 96 (by decide)
   have hu := Unchanged.refl [(sp - 0x300#64, 96), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   have hlo := hstk.lo
@@ -275,7 +275,7 @@ theorem array32_r6_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     sym_close hk
 
 /-- `Ok`: the reader has the 32 bytes. -/
-theorem array32_r6_ok_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem array32_r6_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801775c#64) (hcode : CodeAt F_7801775c.base F_7801775c.prog s)
     (hcodeN : CodeAt F_78019b50.base F_78019b50.prog s)
@@ -295,19 +295,19 @@ theorem array32_r6_ok_spec {P : Prop} (s : MachineState) (ra sp out de q l : Wor
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x300#64, 96), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (arr32W O W 6) t → extractByte (arr32W O W 6)[0]! 0 = 0#8 →
-      Region de [q + 38#64, l - 32#64] t → Safe P t) :
-    Safe P s :=
+      Region de [q + 38#64, l - 32#64] t → SafeN G n P t) :
+    SafeN G n P s :=
   array32_r6_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeN hcw hra hra1 hsp hstk ha0 ha1 ha2
     hO hokO hD hokD hW hokW hdO hdD hdW heD heW hfW hhO hhD hhW hio
     (fun t h1 h2 h3 h4 h5 h6 _ => hk t h1 h2 h3 h4 h5 (arr32W_tag O W 6) h6)
     (fun _ _ _ _ _ _ _ _ _ _ hlt => absurd hl (by omega))
 
 /-- `Err`: fewer than 32 bytes left. -/
-theorem array32_r6_err_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem array32_r6_err_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801775c#64) (hcode : CodeAt F_7801775c.base F_7801775c.prog s)
     (hcodeN : CodeAt F_78019b50.base F_78019b50.prog s)
@@ -327,12 +327,12 @@ theorem array32_r6_err_spec {P : Prop} (s : MachineState) (ra sp out de q l : Wo
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x300#64, 96), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [replaceByte O[0]! 0 1#8, e, O[2]!, O[3]!, O[4]!] t → Region de [d0, d1] t →
-      Safe P t) :
-    Safe P s :=
+      SafeN G n P t) :
+    SafeN G n P s :=
   array32_r6_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeN hcw hra hra1 hsp hstk ha0 ha1 ha2
     hO hokO hD hokD hW hokW hdO hdD hdW heD heW hfW hhO hhD hhW hio
     (fun _ _ _ _ _ _ _ h32 => absurd h32 (by omega))

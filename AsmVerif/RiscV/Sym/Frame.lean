@@ -4,7 +4,7 @@
   What a function specification says about everything it does not compute:
   the registers the ABI preserves, the memory it may write, and the code.
 
-  A specification is written in continuation form (`AsmVerif.RiscV.Sym.Safe`):
+  A specification is written in continuation form (`AsmVerif.RiscV.SafeN`):
 
     Pre s → (∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
                   Unchanged W s t → … → Safe P t) → Safe P s

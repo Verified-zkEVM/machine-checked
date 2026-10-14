@@ -13,7 +13,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 set_option asmverif.sym.foldBytes true in
-theorem pad_next_note_512_spec {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
+theorem pad_next_note_512_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
     (J G K R Q : List Word)
     (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4) (j : Word)
     (hpc : s.pc = 0x78021720#64) (hcode : CodeAt F_78021720.base F_78021720.prog s)
@@ -39,8 +39,8 @@ theorem pad_next_note_512_spec {P : Prop} (s : MachineState) (ra spn sp iter v :
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x180#64, 48), (iter, 18)] s t →
       Region iter (noteBlkC sp J j (sp + 18446744073709551472#64) 1#8 513#64) t →
-      t.getReg .x10 = bw (noteBit G K v R Q (512)) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (noteBit G K v R Q (512)) → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (spn - 0x180#64) 48 := hstk.frame 48 (by decide)
   have hu := Unchanged.refl [(spn - 0x180#64, 48), (iter, 18)] s
   have hlo := hstk.lo
@@ -140,7 +140,7 @@ theorem pad_next_note_512_spec {P : Prop} (s : MachineState) (ra spn sp iter v :
   have hk' : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s_197.code →
       Unchanged [(spn - 0x180#64, 48), (iter, 18)] s_197 t →
       Region iter [0#64, j, 255#64, sp + 18446744073709551480#64, replaceByte (replaceByte (replaceByte (replaceByte (replaceByte (replaceByte (replaceByte (replaceByte J[2]! 3 (BitVec.truncate 8 ((sp + 18446744073709551512#64) >>> 16))) 4 (BitVec.truncate 8 ((sp + 18446744073709551512#64) >>> 24))) 5 (BitVec.truncate 8 ((sp + 18446744073709551512#64) >>> 32))) 6 (BitVec.truncate 8 ((sp + 18446744073709551512#64) >>> 40))) 0 (BitVec.truncate 8 0#64)) 1 (BitVec.truncate 8 (sp + 18446744073709551512#64))) 2 (BitVec.truncate 8 ((sp + 18446744073709551512#64) >>> 8))) 7 (BitVec.truncate 8 ((sp + 18446744073709551512#64) >>> 48)), replaceByte (replaceByte J[3]! 0 (BitVec.truncate 8 ((sp + 18446744073709551512#64) >>> 56))) 1 (BitVec.truncate 8 0#64), v132, replaceHalfword (replaceHalfword (replaceHalfword (replaceByte (replaceByte J[5]! 0 (BitVec.truncate 8 ((sp + 18446744073709551440#64) >>> 56))) 1 0#8) 1 (BitVec.truncate 16 (sp + 18446744073709551440#64))) 2 (BitVec.truncate 16 ((sp + 18446744073709551440#64) >>> 16))) 3 (BitVec.truncate 16 ((sp + 18446744073709551440#64) >>> 32)), replaceByte (replaceByte (replaceByte (replaceByte (replaceByte (replaceByte (replaceHalfword J[6]! 0 (BitVec.truncate 16 ((sp + 18446744073709551440#64) >>> 48))) 2 0#8) 3 (BitVec.truncate 8 (sp + 18446744073709551472#64))) 4 (BitVec.truncate 8 ((sp + 18446744073709551472#64) >>> 8))) 5 (BitVec.truncate 8 ((sp + 18446744073709551472#64) >>> 16))) 6 (BitVec.truncate 8 ((sp + 18446744073709551472#64) >>> 24))) 7 (BitVec.truncate 8 ((sp + 18446744073709551472#64) >>> 32)), replaceWord32 (replaceByte (replaceByte (replaceByte (replaceByte J[7]! 0 (BitVec.truncate 8 ((sp + 18446744073709551472#64) >>> 40))) 1 (BitVec.truncate 8 ((sp + 18446744073709551472#64) >>> 48))) 2 (BitVec.truncate 8 ((sp + 18446744073709551472#64) >>> 56))) 3 0#8) 1 (BitVec.truncate 32 (sp + 18446744073709551472#64)), v193, v195, replaceHalfword (replaceHalfword (replaceByte (replaceHalfword J[10]! 2 (BitVec.truncate 16 ((sp + 18446744073709551480#64) >>> 48))) 6 (BitVec.truncate 8 0#64)) 0 (BitVec.truncate 16 ((sp + 18446744073709551480#64) >>> 16))) 1 (BitVec.truncate 16 ((sp + 18446744073709551480#64) >>> 32)), 255#64, sp + 18446744073709551512#64, replaceByte (replaceByte (replaceByte (replaceByte (replaceByte (replaceByte (replaceByte (replaceByte J[13]! 4 (BitVec.truncate 8 ((sp + 18446744073709551544#64) >>> 24))) 5 (BitVec.truncate 8 ((sp + 18446744073709551544#64) >>> 32))) 6 (BitVec.truncate 8 ((sp + 18446744073709551544#64) >>> 40))) 7 (BitVec.truncate 8 ((sp + 18446744073709551544#64) >>> 48))) 0 (BitVec.truncate 8 0#64)) 1 (BitVec.truncate 8 (sp + 18446744073709551544#64))) 2 (BitVec.truncate 8 ((sp + 18446744073709551544#64) >>> 8))) 3 (BitVec.truncate 8 ((sp + 18446744073709551544#64) >>> 16)), replaceByte (replaceByte J[14]! 0 (BitVec.truncate 8 ((sp + 18446744073709551544#64) >>> 56))) 1 (BitVec.truncate 8 0#64), 513#64] t →
-      t.getReg .x10 = v8 → Safe P t := by
+      t.getReg .x10 = v8 → SafeN Gd n P t := by
     intro t h1 h2 h3 h4 h5 h6
     refine hk t h1 h2 (h3.trans hcode197) (hunch0.2.trans h4) (Region.of_eq h5 ?_) ?_
     · simp only [noteBlkC, List.cons.injEq, and_true, true_and]

@@ -11,7 +11,7 @@ set_option maxHeartbeats 20000000 in
 set_option maxRecDepth 10000 in
 /-- Poseidon's S-box on `Fp`: `out := x⁵`, in Montgomery form
     (`P128Pow5T3::sbox`, `val.pow_vartime([5])`). -/
-theorem sbox_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1 x2 x3 : Word)
+theorem sbox_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1 x2 x3 : Word)
     (hpc : s.pc = 0x78023a18#64) (hcode : CodeAt F_78023a18.base F_78023a18.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
@@ -24,8 +24,8 @@ theorem sbox_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1 x2 x
     (hd : Disjoint a0 4 a1 4)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xf0#64, 30), (a0, 4)] s t →
-      Region a0 (natToLeLimbs 4 (Fp.pow5 (leLimbsToNat [x0, x1, x2, x3]))) t → Safe P t) :
-    Safe P s := by
+      Region a0 (natToLeLimbs 4 (Fp.pow5 (leLimbsToNat [x0, x1, x2, x3]))) t → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨O, hO, hOlen⟩ := Region.exists_junk a0 4 s
   obtain ⟨F, hF, hFlen⟩ := Region.exists_junk (sp - 0xf0#64) 30 s
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xf0#64) 30 := hstk.frame 30 (by decide)

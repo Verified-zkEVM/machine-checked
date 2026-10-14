@@ -17,7 +17,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sq_iter_tail {P : Prop} (s : MachineState) (sp out c p l : Word) (O : List Word)
+theorem sq_iter_tail {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp out c p l : Word) (O : List Word)
     (hOl : O.length = 3)
     (s0v s1v s2v s3v s4v s5v s6v s7v s8v s9v s10v s11v rav : Word) (hra1 : rav &&& ~~~1#64 = rav)
     (hpc : s.pc = 0x78032a40#64) (hcode : CodeAt F_780326cc.base F_780326cc.prog s)
@@ -35,8 +35,8 @@ theorem sq_iter_tail {P : Prop} (s : MachineState) (sp out c p l : Word) (O : Li
       t.getReg .x22 = s6v → t.getReg .x23 = s7v → t.getReg .x24 = s8v → t.getReg .x25 = s9v →
       t.getReg .x26 = s10v → t.getReg .x27 = s11v →
       t.getReg .x3 = s.getReg .x3 → t.getReg .x4 = s.getReg .x4 →
-      Region out [c, p, l] t → Safe P t) :
-    Safe P s := by
+      Region out [c, p, l] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(out, 3)] s
   sym_exec
   sym_close hk

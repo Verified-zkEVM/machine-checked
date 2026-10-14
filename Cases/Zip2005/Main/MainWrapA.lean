@@ -83,7 +83,7 @@ theorem mcpyW_1383 (D S : List Word) (hSl : S.length = 173) :
         mcByte_in D S 1383 172 6 (by decide) (by decide), mcByte_out D S 1383 172 7 (by decide)]
 
 /-- `memcpy_d0s0_1383_spec` with the cells read off the source. -/
-theorem memcpy1383_take_spec {P : Prop} (s : MachineState) (ra dst src : Word) (D S : List Word)
+theorem memcpy1383_take_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (D S : List Word)
     (hDl : D.length = 173) (hSl : S.length = 173)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -96,23 +96,23 @@ theorem memcpy1383_take_spec {P : Prop} (s : MachineState) (ra dst src : Word) (
       Region dst (S.take 172 ++
         [word8 (extractByte S[172]! 0) (extractByte S[172]! 1) (extractByte S[172]! 2)
           (extractByte S[172]! 3) (extractByte S[172]! 4) (extractByte S[172]! 5)
-          (extractByte S[172]! 6) (extractByte D[172]! 7)]) t → Safe P t) :
-    Safe P s :=
+          (extractByte S[172]! 6) (extractByte D[172]! 7)]) t → SafeN Gd n P t) :
+    SafeN Gd n P s :=
   memcpy_d0s0_1383_spec s ra dst src D S hDl hSl hpc hcode hcw hra hra1 ha0 ha1 ha2 hD hokD hS hokS
     hdj (fun t h1 h2 h3 h4 h5 => hk t h1 h2 h3 h4 (h5.of_eq (mcpyW_1383 D S hSl)))
 
 /-- `derive_unchecked_spec` with the twenty output cells named: `askW` (the point `[ask] G`, its
 bytes, the scalar) is a model the executor cannot read cell by cell. -/
-theorem derive_unchecked_spec' {P : Prop} (s : MachineState) (ra sp out sk neg s0 s1 s2 s3 : Word)
+theorem derive_unchecked_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out sk neg s0 s1 s2 s3 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 20) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7802233c#64) (hcode : CodeAt F_7802233c.base F_7802233c.prog s)
     -- `PrfExpand::with`
     (hcW : CodeAt F_78023308.base F_78023308.prog s)
@@ -183,8 +183,8 @@ theorem derive_unchecked_spec' {P : Prop} (s : MachineState) (ra sp out sk neg s
           (if leLimbsToNat [x0, x1, x2, x3] = 0 ∧ leLimbsToNat [y0, y1, y2, y3] = 0 then 0 else Fp.R) ∧
         mulFacts [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] (skW (askR neg s0 s1 s2 s3)) →
       [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19] = askW neg s0 s1 s2 s3 [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] →
-      Region out [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19] t → Safe P t) :
-    Safe P s :=
+      Region out [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19] t → SafeN G n P t) :
+    SafeN G n P s :=
   derive_unchecked_spec s ra sp out sk neg s0 s1 s2 s3 cap iptr ilen g0 g1 g2 g3 hmod hx O IV G0 G1 G2 G3 hOl hIVl hG0l hG1l hG2l hG3l hpb hpaf hpp hprz hpanic hunwrap hpc hcode hcW hcT hcU hcF hcL hcodeFU hcodeU5 hcodeTF hcodeFR hcodeBP hcodeU hcodeF hcodeMC hcodeM hcodeP hcodeC hcodeL hcodeB hcodeA hcodeR hcodeT hcodeW hcodeMul hcodeMS hcodeTA hcodeI hcodeCo hcodeRq hcodeAs hcodeCmp hcodeAdd hcodeDbl hcodeD hcodeLn hcodeAF hcodeAFI hcodeTB hcw hro hra hra1 hsp hstk ha0 ha1 ha2 hRS hokS hO hok0 hTB hIV hok_iptr hG0 hok_g0 hG1 hok_g1 hG2 hok_g2 hG3 hok_g3 hilen hd0 hdS hd_tb hd_iptr hd_g0 hd_g1 hd_g2 hd_g3 heS he_tb he_iptr he_g0 he_g1 he_g2 he_g3 (fun t x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 h1 h2 h3 h4 hf hR => by
     generalize hL : askW neg s0 s1 s2 s3 [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] = L at hR
     have hl : L.length = 20 := by rw [← hL]; exact askW_length _ _ _ _ _ _
@@ -193,7 +193,7 @@ theorem derive_unchecked_spec' {P : Prop} (s : MachineState) (ra sp out sk neg s
       exact hk t x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c17 c18 c19 h1 h2 h3 h4 hf hL.symm hR)
 
 /-- `nk_from_spending_key_spec` with its frame obtained inside and its four output cells named (`nkW` hides a BLAKE2b compression the executor must not unfold). -/
-theorem nk_from_spending_key_spec' {P : Prop} (s : MachineState) (ra sp out sk s0 s1 s2 s3 : Word)
+theorem nk_from_spending_key_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out sk s0 s1 s2 s3 : Word)
     (hpc : s.pc = 0x780231e8#64) (hcode : CodeAt F_780231e8.base F_780231e8.prog s)
     (hcW : CodeAt F_78023308.base F_78023308.prog s)
     (hcT : CodeAt F_78032c1c.base F_78032c1c.prog s) (hcU : CodeAt F_78032db4.base F_78032db4.prog s)
@@ -213,8 +213,8 @@ theorem nk_from_spending_key_spec' {P : Prop} (s : MachineState) (ra sp out sk s
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x4d0#64, 154), (out, 4)] s t →
       ∀ c0 c1 c2 c3 : Word, [c0, c1, c2, c3] = nkW s0 s1 s2 s3 →
-      Region out [c0, c1, c2, c3] t → Safe P t) :
-    Safe P s := by
+      Region out [c0, c1, c2, c3] t → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F1, hRF1, hF1⟩ := Region.exists_junk (sp - 0x4d0#64) 74 s
   obtain ⟨F2, hRF2, hF2⟩ := Region.exists_junk (sp - 0x280#64) 70 s
   exact nk_from_spending_key_spec s ra sp out sk s0 s1 s2 s3 F1 F2 hF1 hF2 hpc hcode hcW hcT hcU hcF hcL hcM hcC hcodeFU hcodeU hcodeM hcw hro hra hra1 hsp hstk ha0 ha1 hRF1 hRF2 hRS hokS hokO hd1 hd2 hd3 (fun t h1 h2 h3 h4 _ hR => by
@@ -224,7 +224,7 @@ theorem nk_from_spending_key_spec' {P : Prop} (s : MachineState) (ra sp out sk s
     | [c0, c1, c2, c3], _, hL => exact hk t h1 h2 h3 h4 c0 c1 c2 c3 hL.symm hR)
 
 /-- `rivk_from_spending_key_spec` with its frame obtained inside and its four output cells named (`rivkW` hides a BLAKE2b compression the executor must not unfold). -/
-theorem rivk_from_spending_key_spec' {P : Prop} (s : MachineState) (ra sp out sk s0 s1 s2 s3 : Word)
+theorem rivk_from_spending_key_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out sk s0 s1 s2 s3 : Word)
     (hpc : s.pc = 0x78023230#64) (hcode : CodeAt F_78023230.base F_78023230.prog s)
     (hcW : CodeAt F_78023308.base F_78023308.prog s)
     (hcT : CodeAt F_78032c1c.base F_78032c1c.prog s) (hcU : CodeAt F_78032db4.base F_78032db4.prog s)
@@ -244,8 +244,8 @@ theorem rivk_from_spending_key_spec' {P : Prop} (s : MachineState) (ra sp out sk
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x4d0#64, 154), (out, 4)] s t →
       ∀ c0 c1 c2 c3 : Word, [c0, c1, c2, c3] = rivkW s0 s1 s2 s3 →
-      Region out [c0, c1, c2, c3] t → Safe P t) :
-    Safe P s := by
+      Region out [c0, c1, c2, c3] t → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F1, hRF1, hF1⟩ := Region.exists_junk (sp - 0x4d0#64) 74 s
   obtain ⟨F2, hRF2, hF2⟩ := Region.exists_junk (sp - 0x280#64) 70 s
   exact rivk_from_spending_key_spec s ra sp out sk s0 s1 s2 s3 F1 F2 hF1 hF2 hpc hcode hcW hcT hcU hcF hcL hcM hcC hcodeFU hcodeU hcodeM hcw hro hra hra1 hsp hstk ha0 ha1 hRF1 hRF2 hRS hokS hokO hd1 hd2 hd3 (fun t h1 h2 h3 h4 _ hR => by
@@ -255,9 +255,9 @@ theorem rivk_from_spending_key_spec' {P : Prop} (s : MachineState) (ra sp out sk
     | [c0, c1, c2, c3], _, hL => exact hk t h1 h2 h3 h4 c0 c1 c2 c3 hL.symm hR)
 
 /-- `parse_nk_spec` on canonical bytes: tag `1`, the limbs named, with their value and canonicity. -/
-theorem parse_nk_ok_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
+theorem parse_nk_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801d2c8#64) (hcode : CodeAt F_7801d2c8.base F_7801d2c8.prog s)
     (hcodeF : CodeAt F_78022848.base F_78022848.prog s) (hcodeR : CodeAt F_780297c0.base F_780297c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -274,8 +274,8 @@ theorem parse_nk_ok_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b
       t.code = s.code → Unchanged [(sp - 0x120#64, 36), (a0, 5)] s t →
       leLimbsToNat [r0, r1, r2, r3] = Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2 →
       leLimbsToNat [r0, r1, r2, r3] < Fp.p →
-      Region a0 [1#64, r0, r1, r2, r3] t → Safe P t) :
-    Safe P s :=
+      Region a0 [1#64, r0, r1, r2, r3] t → SafeN G n P t) :
+    SafeN G n P s :=
   parse_nk_spec s ra sp a0 w b0 b1 b2 b3 O hOl hpaf hpc hcode hcodeF hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hokB hO hok0 hd0 hdB heB (fun t tag L h1 h2 h3 h4 htag _ hLeq hR => by
     rw [if_pos hc] at htag; subst htag
     have e := hLeq hc; subst e
@@ -284,9 +284,9 @@ theorem parse_nk_ok_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b
     exact hk t _ _ _ _ h1 h2 h3 h4 hX (by rw [hX]; exact Fp.mul_lt _ _) hR)
 
 /-- `parse_nk_spec` on non-canonical bytes: tag `0` (`None`). -/
-theorem parse_nk_bad_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
+theorem parse_nk_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801d2c8#64) (hcode : CodeAt F_7801d2c8.base F_7801d2c8.prog s)
     (hcodeF : CodeAt F_78022848.base F_78022848.prog s) (hcodeR : CodeAt F_780297c0.base F_780297c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -301,8 +301,8 @@ theorem parse_nk_bad_spec {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 
     (hc : ¬ leLimbsToNat [b0, b1, b2, b3] < Fp.p)
     (hk : ∀ (t : MachineState) (L : List Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code → Unchanged [(sp - 0x120#64, 36), (a0, 5)] s t → L.length = 4 →
-      Region a0 (0#64 :: L) t → Safe P t) :
-    Safe P s :=
+      Region a0 (0#64 :: L) t → SafeN G n P t) :
+    SafeN G n P s :=
   parse_nk_spec s ra sp a0 w b0 b1 b2 b3 O hOl hpaf hpc hcode hcodeF hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hokB hO hok0 hd0 hdB heB (fun t tag L h1 h2 h3 h4 htag hL _ hR => by
     rw [if_neg hc] at htag; subst htag; exact hk t L h1 h2 h3 h4 hL hR)
 

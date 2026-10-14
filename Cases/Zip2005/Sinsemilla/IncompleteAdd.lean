@@ -21,7 +21,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem incomplete_add_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
+theorem incomplete_add_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (pt qt px0 px1 px2 px3 py0 py1 py2 py3 qx0 qx1 qx2 qx3 qy0 qy1 qy2 qy3 : Word) (O : List Word) (hOl : O.length = 9)
     (hpc : s.pc = 0x780235e8#64) (hcode : CodeAt F_780235e8.base F_780235e8.prog s)
     (hcodeCmp : CodeAt F_7803f54c.base F_7803f54c.prog s)
@@ -44,8 +44,8 @@ theorem incomplete_add_spec {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word
       L.length = 8 →
       (pt ≠ 0#64 → qt ≠ 0#64 → [px0, px1, px2, px3] ≠ [qx0, qx1, qx2, qx3] →
         L = Accel.curveAddL Sp1.pallasP 4 [px0, px1, px2, px3, py0, py1, py2, py3] [qx0, qx1, qx2, qx3, qy0, qy1, qy2, qy3]) →
-      Region a0 (tag :: L) t → Safe P t) :
-    Safe P s := by
+      Region a0 (tag :: L) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x130#64) 38 := hstk.frame 38 (by decide)
   -- the frame: the two affine points copied ([0, 0x40), [0x40, 0x80)), the two `sp1_lib`
   -- points ([0x80, 0xc8), [0xc8, 0x110)), saved registers

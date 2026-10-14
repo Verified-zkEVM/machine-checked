@@ -41,7 +41,7 @@ theorem get4 (W0 W1 W2 W3 : List Word) (h0 : W0.length = 4) (h1 : W1.length = 4)
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem instance_visitor_spec {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
     (O W0 W1 W2 W3 : List Word) (hOl : O.length = 17)
     (hW0l : W0.length = 4) (hW1l : W1.length = 4) (hW2l : W2.length = 4) (hW3l : W3.length = 4)
     (hpc : s.pc = 0x780191c4#64) (hcode : CodeAt F_780191c4.base F_780191c4.prog s)
@@ -65,18 +65,18 @@ theorem instance_visitor_spec {P : Prop} (s : MachineState) (ra sp out de q l : 
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         t.privateInput = u.privateInput →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        Safe P t) → Safe P u)
+        SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       t.privateInput = s.privateInput →
       Unchanged [(sp - 0x420#64, 132), (out, 17), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (instW O (W0 ++ W1 ++ W2 ++ W3)) t → Region de [q + 128#64, l - 128#64] t →
-      128 ≤ l.toNat → Safe P t)
+      128 ≤ l.toNat → SafeN G n P t)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       t.privateInput = s.privateInput →
       Unchanged [(sp - 0x420#64, 132), (out, 17), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (replaceByte O[0]! 0 1#8 :: e :: O.drop 2) t → Region de [d0, d1] t →
-      l.toNat < 128 → Safe P t) :
-    Safe P s := by
+      l.toNat < 128 → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x420#64) 132 := hstk.frame 132 (by decide)
   have hu := Unchanged.refl [(sp - 0x420#64, 132), (out, 17), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   have hI : s.privateInput = s.privateInput := rfl

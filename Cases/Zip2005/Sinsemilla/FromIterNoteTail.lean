@@ -18,7 +18,7 @@ to the output, the frame restored, and `from_iter` returns.
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_iter_note_tail {P : Prop} (s : MachineState) (sp sp0 out v p bit0 w w64 : Word)
+theorem from_iter_note_tail {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out v p bit0 w w64 : Word)
     (J G K R Q I O : List Word) (j : Word) (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4) (hOl : O.length = 3)
     (hIl : I.length = 18) (hIv : noteState sp0 J j 1089 = I)
     (rav s0v s1v s2v s3v s4v s5v : Word) (hra1 : rav &&& ~~~1#64 = rav)
@@ -76,8 +76,8 @@ theorem from_iter_note_tail {P : Prop} (s : MachineState) (sp sp0 out v p bit0 w
       I'.length = 18 → noteState sp0 J j 1091 = I' → Region (sp + 0x18#64) I' t →
       Region (p + 1088#64) [w', w64] t →
       (∀ b, b < 2 → extractByte w' b = BitVec.truncate 8 (bw (noteBit G K v R Q (1088 + b)))) →
-      Safe P t) :
-    Safe P s := by
+      SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x180#64) 48 := hstk.frame 48 (by decide)
   have hu := Unchanged.refl [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (p + 1088#64, 2), (out, 3)] s
   have hlo := hstk.lo
@@ -95,7 +95,7 @@ theorem from_iter_note_tail {P : Prop} (s : MachineState) (sp sp0 out v p bit0 w
         t.code = u.code → Unchanged [(sp - 0x180#64, 48), (sp + 0x18#64, 18)] u t →
         noteState sp0 J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] → Region (sp + 0x18#64) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] t →
         bw (noteBit G K v R Q k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
-        t.getReg .x10 = bit → Safe P t) → Safe P u :=
+        t.getReg .x10 = bit → SafeN Gd n P t) → SafeN Gd n P u :=
     fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 k hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hG hK hV hR hQ hk' =>
       pad_next_note_cells_spec u 0x7801e0cc#64 sp sp0 (sp + 0x18#64) v J G K R Q i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 hGl hKl hRl hQl j k hIv hk hpc
         hcode hcw hra (by decide) hsp' hstk hsp0_lo hsp0_hi ha0 hI hokBlk hG hokG hK hokK hV hokVv hR hokR hQ hokQ hdjBG hdjBK hdjBV hdjBR hdjBQ
@@ -110,7 +110,7 @@ theorem from_iter_note_tail {P : Prop} (s : MachineState) (sp sp0 out v p bit0 w
       (∀ (t : MachineState) (i0' i1' i2' i3' i4' i5' i6' i7' i8' i9' i10' i11' i12' i13' i14' i15' i16' i17' : Word), t.pc = 0x7801e0cc#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x180#64, 48), (sp + 0x18#64, 18)] u t →
         noteState sp0 J j 1091 = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] → Region (sp + 0x18#64) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11', i12', i13', i14', i15', i16', i17'] t →
-        t.getReg .x10 = 2#64 → Safe P t) → Safe P u :=
+        t.getReg .x10 = 2#64 → SafeN Gd n P t) → SafeN Gd n P u :=
     fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 hIv hpc hcode hcw hcodeEq hra hsp' ha0 hI hG hK hV hR hQ hk' =>
       pad_next_note_end_cells_spec u 0x7801e0cc#64 sp sp0 (sp + 0x18#64) v J G K R Q i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 i12 i13 i14 i15 i16 i17 hGl hKl hRl hQl j hIv hpc
         hcode hcw hra (by decide) hsp' hstk hsp0_lo hsp0_hi ha0 hI hokBlk hG hokG hK hokK hV hokVv hR hokR hQ hokQ hdjBG hdjBK hdjBV hdjBR hdjBQ

@@ -23,7 +23,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 /-- `conditional_select` with the flag register holding a byte `f ∈ {0, 1}` (as `from_bytes`
 leaves it), the choice stated as `f = 1#8`. -/
-theorem conditional_select_spec_byte {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
+theorem conditional_select_spec_byte {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (f : BitVec 8)
     (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 : Word)
     (O : List Word) (hOl : O.length = 12)
@@ -49,8 +49,8 @@ theorem conditional_select_spec_byte {P : Prop} (s : MachineState) (ra sp a0 a1 
         if f = 1#8 then q6 else p6, if f = 1#8 then q7 else p7,
         if f = 1#8 then q8 else p8, if f = 1#8 then q9 else p9,
         if f = 1#8 then q10 else p10, if f = 1#8 then q11 else p11] t →
-      Safe P t) :
-    Safe P s :=
+      SafeN G n P t) :
+    SafeN G n P s :=
   conditional_select_spec s ra sp a0 a1 a2 (decide (f = 1#8)) p0 p1 p2 p3 p4 p5 p6 p7 p8 p9
     p10 p11 q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 O hOl hpc hcode hcw hra hra1 hsp hstk ha0 ha1 ha2
     (by rw [ha3]; rcases hf with rfl | rfl <;> rfl) hA hok1 hB hok2 hO hok0 hd0 hd1 hd2 he1 he2
@@ -58,15 +58,15 @@ theorem conditional_select_spec_byte {P : Prop} (s : MachineState) (ra sp a0 a1 
 
 /-- `subtle::black_box::<u8>`, the `zip32` crate's instantiation (`0x780232f4`, the same five
 instructions as `0x7803a0fc`). -/
-theorem black_box_zip32_spec {P : Prop} (s : MachineState) (ra sp v : Word)
+theorem black_box_zip32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp v : Word)
     (hpc : s.pc = 0x780232f4#64) (hcode : CodeAt F_780232f4.base F_780232f4.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x10 sp) (ha0 : s.getReg .x10 = v)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x10#64, 2)] s t →
-      t.getReg .x10 = BitVec.zeroExtend 64 (BitVec.truncate 8 v) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = BitVec.zeroExtend 64 (BitVec.truncate 8 v) → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F, hF, hFlen⟩ := Region.exists_junk (sp - 0x10#64) 2 s
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hstk.frame 2 (by decide)
   have hu := Unchanged.refl [(sp - 0x10#64, 2)] s
@@ -95,13 +95,13 @@ theorem nip_flag_eq (f : BitVec 8) (hf : f = 1#8 ∨ f = 0#8) (z0 z1 z2 z3 : Wor
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem non_identity_pallas_point_from_bytes_spec {P : Prop} (s : MachineState) (ra sp out a1 : Word)
+theorem non_identity_pallas_point_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out a1 : Word)
     (b0 b1 b2 b3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 13) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801fb1c#64) (hcode : CodeAt F_7801fb1c.base F_7801fb1c.prog s)
     (hcodeU : CodeAt F_78026928.base F_78026928.prog s)
     (hcodeF : CodeAt F_78025a1c.base F_78025a1c.prog s)
@@ -154,8 +154,8 @@ theorem non_identity_pallas_point_from_bytes_spec {P : Prop} (s : MachineState) 
         if f = 1#8 then z0 else 0#64, if f = 1#8 then z1 else 0#64,
         if f = 1#8 then z2 else 0#64, if f = 1#8 then z3 else 0#64,
         replaceByte O[12]! 0 (nipFlag f z0 z1 z2 z3)] t →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x8f0#64) 286 := hstk.frame 286 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x150#64) 42 := hokW.sub' 244 42 (by decide) (by bv_omega)
   -- the frame: [8, 0x70) the `CtOption<Ep>`, [0x70, 0xd0) the selection, [0xd0, 0x130) the

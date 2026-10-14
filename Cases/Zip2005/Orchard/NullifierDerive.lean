@@ -301,10 +301,10 @@ theorem mask_cells (x0 x1 x2 x3 : Word) (c : Prop) [Decidable c]
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem nullifier_derive_spec {P : Prop} (s : MachineState) (ra sp out nk rho psi cm : Word)
+theorem nullifier_derive_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out nk rho psi cm : Word)
     (n0 n1 n2 n3 r0 r1 r2 r3 q0 q1 q2 q3 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 : Word)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x7801f780#64) (hcode : CodeAt F_7801f780.base F_7801f780.prog s)
     -- callees: from_raw, from_xy (+ is_on_curve, mulmod, black_box), to_curve, prf_nf and its
     -- callees, to_repr, Fq::from_repr, mul and its callees, memcpy, Ep::add (+ double), to_affine
@@ -360,14 +360,14 @@ theorem nullifier_derive_spec {P : Prop} (s : MachineState) (ra sp out nk rho ps
         Region a0' [64#64, ptr, 64#64] t → Region (a0' + 0x18#64) Poseidon.mdsWords t →
         Region (a0' + 0x138#64) MI t →
         Region ptr Poseidon.rcWords t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
     (hdealloc : ∀ (u : MachineState) (sp' ptr : Word) (C : List Word), C.length = 768 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x78020c64#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = 6144#64 →
       u.getReg .x12 = 8#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 768 ≤ 0x1c00000000 →
       (∀ t, t.pc = 0x78020c64#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe P t) → Safe P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xb40#64, 360), (out, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (natToLeLimbs 4 (nullifierX (leLimbsToNat [n0, n1, n2, n3])
@@ -375,8 +375,8 @@ theorem nullifier_derive_spec {P : Prop} (s : MachineState) (ra sp out nk rho ps
         [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11])) t →
       mulFacts kOrchardW (nullifierScalarW (leLimbsToNat [n0, n1, n2, n3])
         (leLimbsToNat [r0, r1, r2, r3]) (leLimbsToNat [q0, q1, q2, q3])) →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xb40#64) 360 := hstk.frame 360 (by decide)
   -- the frame (below it 0x9b0 bytes for the callees' frames): one cell, [0x8, 0x68), [0x68, 0xe8),
   -- [0xe8, 0x150), the save area

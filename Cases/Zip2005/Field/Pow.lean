@@ -14,7 +14,7 @@ theorem sqrN_succ_lt (x n : Nat) : Fp.sqrN x (n + 1) < Fp.p := by
 
 set_option maxHeartbeats 100000000 in
 set_option maxRecDepth 20000 in
-theorem pow_by_t_minus1_over2_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
+theorem pow_by_t_minus1_over2_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
     (x0 x1 x2 x3 : Word) (O : List Word) (hOl : O.length = 4)
     (hpc : s.pc = 0x78029d94#64) (hcode : CodeAt F_78029d94.base F_78029d94.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -27,8 +27,8 @@ theorem pow_by_t_minus1_over2_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : 
     (hd0 : Disjoint (sp - 0x450#64) 138 a0 4) (hd1 : Disjoint (sp - 0x450#64) 138 a1 4)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x450#64, 138), (a0, 4)] s t →
-      Region a0 (natToLeLimbs 4 (Fp.powT (leLimbsToNat [x0, x1, x2, x3]))) t → Safe P t) :
-    Safe P s := by
+      Region a0 (natToLeLimbs 4 (Fp.powT (leLimbsToNat [x0, x1, x2, x3]))) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokA : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x450#64) 138 := hstk.frame 138 (by decide)
   obtain ⟨B0, hB0, hB0l⟩ := Region.exists_junk (sp - 0x450#64) 18 s
   obtain ⟨X1, hX1, hX1l⟩ := Region.exists_junk (sp - 0x3c0#64) 4 s
@@ -49,8 +49,8 @@ theorem pow_by_t_minus1_over2_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : 
   have hokE : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xa0#64) 8 := hokA.sub' 118 8 (by decide) (by bv_omega)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x60#64) 12 := hokA.sub' 126 12 (by decide) (by bv_omega)
   have hu := Unchanged.refl [(sp - 1104#64, 138)] s
-  have L1 := fun t W => sqr_loop1 (P := P) (sp - 0x450#64) 128 t W
-  have K : ∀ u, PowCut false s sp a0 0x7802a430#64 (Fp.powR11 (leLimbsToNat [x0, x1, x2, x3])) (Fp.powR111 (leLimbsToNat [x0, x1, x2, x3])) (Fp.powR1001 (leLimbsToNat [x0, x1, x2, x3])) (Fp.powR1101 (leLimbsToNat [x0, x1, x2, x3])) (Fp.powRun [(Fp.powR11 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR111 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR1001 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR1101 (leLimbsToNat [x0, x1, x2, x3]))] Fp.powOps0 (Fp.mul (Fp.sqrN (leLimbsToNat [x0, x1, x2, x3]) 129) (leLimbsToNat [x0, x1, x2, x3]))) u → Safe P u := by
+  have L1 := fun t W => sqr_loop1 (G := G) (n := n) (P := P) (sp - 0x450#64) 128 t W
+  have K : ∀ u, PowCut false s sp a0 0x7802a430#64 (Fp.powR11 (leLimbsToNat [x0, x1, x2, x3])) (Fp.powR111 (leLimbsToNat [x0, x1, x2, x3])) (Fp.powR1001 (leLimbsToNat [x0, x1, x2, x3])) (Fp.powR1101 (leLimbsToNat [x0, x1, x2, x3])) (Fp.powRun [(Fp.powR11 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR111 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR1001 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR1101 (leLimbsToNat [x0, x1, x2, x3]))] Fp.powOps0 (Fp.mul (Fp.sqrN (leLimbsToNat [x0, x1, x2, x3]) 129) (leLimbsToNat [x0, x1, x2, x3]))) u → SafeN G n P u := by
     intro u hu
     refine pow_seg1 s sp a0 _ _ _ _ _ u hstk hu (fun u h => ?_)
     refine pow_seg2 s sp a0 _ _ _ _ _ u hstk h (fun u h => ?_)
@@ -110,7 +110,7 @@ theorem pow_by_t_minus1_over2_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : 
       leLimbsToNat [t30', t31', t32', t33'] = (Fp.powR1101 (leLimbsToNat [x0, x1, x2, x3])) →
       leLimbsToNat [d0', d1', d2', d3'] = (Fp.powRun [(Fp.powR11 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR111 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR1001 (leLimbsToNat [x0, x1, x2, x3])), (Fp.powR1101 (leLimbsToNat [x0, x1, x2, x3]))] Fp.powOps0 (Fp.mul (Fp.sqrN (leLimbsToNat [x0, x1, x2, x3]) 129) (leLimbsToNat [x0, x1, x2, x3]))) →
       [b0', b1', b2', b3'] = [d0', d1', d2', d3'] →
-      Safe P u := by
+      SafeN G n P u := by
     intro u w0' w1' t00' t01' t02' t03' t10' t11' t12' t13' t20' t21' t22' t23' t30' t31' t32' t33' d0' d1' d2' d3' b0' b1' b2' b3' j0 j1 j2 j3 upc ucode ucA ucM ucw rx2 rx3 rx4 rx8 rx9 rx10 rx11 rx18 rx19 rx20 rx21 rx22 rx23 rx24 rx25 rx27 uU uB0 uX1 uB1 uX2 uB2 uC uD uE uS f0 f1 f2 f3 fA hbd
     exact K u ⟨w0', w1', t00', t01', t02', t03', t10', t11', t12', t13', t20', t21', t22', t23', t30', t31', t32', t33', d0', d1', d2', d3', b0', b1', b2', b3', upc, ucode, ucA, ucM, ucw, hokA, uU, rx2, rx3, rx4, rx8, rx9, rx10, rx11, rx18, rx19, rx20, rx21, rx22, (by rw [if_neg (by decide)]; exact rx23), rx24, (fun _ => rx25), rx27, uB0, uX1, uB1, uX2, uB2, uC, (by simpa using uD.take 4), ⟨[j0, j1, j2, j3], rfl, by have h := uD.shift 4; rw [show sp - 224#64 + BitVec.ofNat 64 (8 * 4) = sp - 192#64 by bv_omega] at h; simpa using h⟩, uE, (by rw [← hra] at uS; exact uS), f0, f1, f2, f3, fA, by rw [hbd]; exact fA⟩
   sym_exec [uint256_mulmod_spec, L1] stop [0x7802a430]

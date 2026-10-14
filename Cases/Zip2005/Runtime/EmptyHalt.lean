@@ -39,7 +39,7 @@ theorem and_one_of_even {a : Word} (h : a.toNat % 2 = 0) : a &&& 1#64 = 0#64 := 
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem fmt_format_spec {P : Prop} (s : MachineState) (ra sp out tpl args : Word) (O : List Word)
+theorem fmt_format_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out tpl args : Word) (O : List Word)
     (hOl : O.length = 3)
     (hpc : s.pc = 0x78035e50#64) (hcode : CodeAt F_78035e50.base F_78035e50.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -54,11 +54,11 @@ theorem fmt_format_spec {P : Prop} (s : MachineState) (ra sp out tpl args : Word
       (∀ (t : MachineState) (S : List Word), t.pc = 0x78035e7c#64 → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp' - 0x400#64, 128), (d, 3), (0x78040620#64, 4162), (0x780488a8#64, 14780690155)] u t →
-        S.length = 3 → Region d S t → Safe P t) → Safe P u)
+        S.length = 3 → Region d S t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ (t : MachineState) (S : List Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x430#64, 134), (out, 3), (0x78040620#64, 4162), (0x780488a8#64, 14780690155)] s t →
-      S.length = 3 → Region out S t → Safe P t) :
-    Safe P s := by
+      S.length = 3 → Region out S t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x430#64) 134 := hstk.frame 134 (by decide)
   have hu := Unchanged.refl [(sp - 0x430#64, 134), (out, 3), (0x78040620#64, 4162), (0x780488a8#64, 14780690155)] s
   have hlo := hstk.lo
@@ -73,7 +73,7 @@ theorem fmt_format_spec {P : Prop} (s : MachineState) (ra sp out tpl args : Word
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem empty_input_stream_halt_spec {P : Prop} (s : MachineState) (sp len : Word)
+theorem empty_input_stream_halt_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp len : Word)
     (f h0 h1 h2 h3 cnt b0 b1 b2 b3 b4 b5 b6 b7 : Word)
     (hpc : s.pc = 0x78035f14#64) (hcode : CodeAt F_78035f14.base F_78035f14.prog s)
     (hcodeFmt : CodeAt F_78035e50.base F_78035e50.prog s)
@@ -92,9 +92,9 @@ theorem empty_input_stream_halt_spec {P : Prop} (s : MachineState) (sp len : Wor
       (∀ (t : MachineState) (S : List Word), t.pc = 0x78035e7c#64 → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp' - 0x400#64, 128), (d, 3), (0x78040620#64, 4162), (0x780488a8#64, 14780690155)] u t →
-        S.length = 3 → Region d S t → Safe P t) → Safe P u)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u) :
-    Safe P s := by
+        S.length = 3 → Region d S t → SafeN G n P t) → SafeN G n P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u) :
+    SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x4b0#64) 150 := hstk.frame 150 (by decide)
   have hu := Unchanged.refl [(sp - 0x4b0#64, 150), (0x78048830#64, 15), (0x78040620#64, 4162),
     (0x780488a8#64, 14780690155)] s

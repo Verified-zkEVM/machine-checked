@@ -24,7 +24,7 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
 set_option autoImplicit false
 
 /-- `compress1_loop(input, words, count, last_node, finalize, Serial)` with a 65-byte input. -/
-theorem compress1_65_spec {P : Prop} (s : MachineState) (ra sp blk wp c0 c1 ln fz : Word)
+theorem compress1_65_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp blk wp c0 c1 ln fz : Word)
     (h0 h1 h2 h3 h4 h5 h6 h7 i0 i1 i2 i3 i4 i5 i6 i7 i8 : Word) (F : List Word) (hF : F.length = 74)
     (hpc : s.pc = 0x78033260#64) (hcode : CodeAt F_78033260.base F_78033260.prog s)
     (hcodeS : CodeAt F_7803f57c.base F_7803f57c.prog s) (hcodeC : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
@@ -41,8 +41,8 @@ theorem compress1_65_spec {P : Prop} (s : MachineState) (ra sp blk wp c0 c1 ln f
     (hd3 : Disjoint wp 8 blk 9)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(sp - 0x250#64, 74), (wp, 8)] s t →
       (compress [h0, h1, h2, h3, h4, h5, h6, h7] [i0, i1, i2, i3, i4, i5, i6, i7, (BitVec.zeroExtend 64 (extractByte i8 0)), 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64] (c0 + 65#64) (c1 + (if (c0 + 65#64).ult c0 = true then 1#64 else 0#64)) (fz + 18446744073709551615#64) ((ln ||| fz) + 18446744073709551615#64)).length = 8 →
-      Region wp (compress [h0, h1, h2, h3, h4, h5, h6, h7] [i0, i1, i2, i3, i4, i5, i6, i7, (BitVec.zeroExtend 64 (extractByte i8 0)), 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64] (c0 + 65#64) (c1 + (if (c0 + 65#64).ult c0 = true then 1#64 else 0#64)) (fz + 18446744073709551615#64) ((ln ||| fz) + 18446744073709551615#64)) t → Safe P t) :
-    Safe P s := by
+      Region wp (compress [h0, h1, h2, h3, h4, h5, h6, h7] [i0, i1, i2, i3, i4, i5, i6, i7, (BitVec.zeroExtend 64 (extractByte i8 0)), 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64] (c0 + 65#64) (c1 + (if (c0 + 65#64).ult c0 = true then 1#64 else 0#64)) (fz + 18446744073709551615#64) ((ln ||| fz) + 18446744073709551615#64)) t → SafeN G n P t) :
+    SafeN G n P s := by
   refine compress1_seg1_65 s ra sp blk wp c0 c1 ln fz h0 h1 h2 h3 h4 h5 h6 h7 i0 i1 i2 i3 i4 i5 i6 i7 i8 F hF hpc hcode hcodeS hcodeC hcw hro hra hsp hstk
     ha0 ha1 ha2 ha3 ha4 ha5 ha6 ha7 hRF hRB hokB hRH hokH hd1 hd2 hd3 ?_
   intro u w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 g0 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 g12 g13 g14 g15 g16 g17 g18 g19 g20 g21 g22 g23 g24 g25 g26 g27 upc ucode ucA ucw ux2 ux3 ux4 ux1 ux5 ux6 ux7 ux8 ux9 ux10 ux11 ux12 ux13 ux14 ux15 ux16 ux17 ux18 ux19 ux20 ux21 ux22 ux23 ux24 ux25 ux26 ux27 ux28 ux29 ux30 ux31 uU uF uH hV4

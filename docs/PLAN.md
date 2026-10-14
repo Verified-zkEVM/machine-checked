@@ -255,28 +255,33 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   dependency for this directory only. **Done.** (One inherited `native_decide`: the order
   of the Pallas group, `CompElliptic`.) 44 linter warnings in 19 upstream files are to be
   cleaned.
-- F1. The symbolic executor as framework code. `AsmVerif/RiscV/Sym/`: the `Safe`
-  continuation-form specifications (`Safe P s`: every accepting state reachable from `s`
-  satisfies `P`), the executor (`sym_exec`, `sym_close`) with its region, frame, register
+- F1. The symbolic executor as framework code. `AsmVerif/RiscV/Sym/`: the executor
+  (`sym_exec`, `sym_close`), over the same judgement as the checker (`SafeN G n P s`,
+  `AsmVerif/RiscV/Safe.lean`: one module for `stepsSp1`, `SafeN`, `Safe` and their lemmas;
+  a step keeps the budget, so the executor threads `G` and `n` through unchanged and its
+  specifications compose with the checker's interfaces directly), with its region, frame, register
   and read-only-data vocabulary, generic in a `Layout` (text window, read-only segment,
   stack top) that `gen-image` emits per image (`Image/Ro.lean`: `layout`, the read-only
   chunks, the layout's constants as rewrite rules). Fetch goes through the packed program
   (`prog_packed`, one shift per instruction rather than a walk of the literal). **Done.**
 - F2. The function-level proofs. `Cases/Zip2005/{Blake2b,Bridge,Curve,Field,Kit,Main,Orchard,
   Poseidon,Precompile,Runtime,Sha256,Sinsemilla,Top,Witness}`: `main` and everything it calls,
-  down to the precompile wrappers, each function in continuation form against the executor;
+  down to the precompile wrappers, each function in continuation form over `SafeN G n P`
+  for every guard and budget;
   `Bridge` relates the machine-level results to the specification; `Top` composes them from
   the ELF's entry. The composition is conditional on `RunHyps` (`Top/Assumptions.lean`): the
   contracts of the allocator (`halloc*`, `hdealloc*`, `hrealloc*`), of `read_vec_raw`'s I/O
   error path (`hio`), of the lazy table build (`hinit`), of the formatter (`hfmt`), and
   twelve "never accepts" contracts for panic and reject-halt entries; and on an input
   condition (`hbp_eq`, `hokJ2`, `hbp`). **Ported; building.**
-- F3. Discharge `RunHyps` from D. Each contract is a theorem of phase D stated over the
-  checker's `SafeN`/`Iface.HoldsN` (the allocator against `Tlsf.Rep`, `read_vec_raw`, the
-  panic entries modulo `pwhIface.Holds`), so what is needed is (a) the bridge from `Safe`
-  to `SafeN` with a trivial control-flow guard, (b) the checker's `Post` implying each
-  contract's footprint and return facts, (c) a heap invariant (`Tlsf.Rep`) and a statics
-  invariant threaded through `main` where the contracts need them. The panic contracts
+- F3. Discharge `RunHyps` from D. Each contract is a theorem of phase D over the same
+  `SafeN` (the allocator against `Tlsf.Rep`, `read_vec_raw`, the panic entries modulo
+  `pwhIface.Holds`), so what is needed is (a) the checker's `Post` implying each
+  contract's footprint and return facts, (b) a heap invariant (`Tlsf.Rep`) and a statics
+  invariant threaded through `main` where the contracts need them, (c) the guard: the
+  contracts are stated for every `G`, phase D's interfaces for a `G` that implies
+  `Env.Cfi`, so the top theorem takes a `G` with that property (or the CFI premise is
+  discharged for the guest's indirect jumps). The panic contracts
   as stated (`∀ u, u.pc = entry → u.code = s.code → Safe P u`) are false: they quantify
   over every state at the entry, including one with a custom panic hook installed in the
   static `HOOK` or a formatter pointing at `syscall_halt(0)`, from which an accepting halt
@@ -287,6 +292,15 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   once that premise is discharged. (The return-address contracts carry `r' &&& ~~~1 = r'`
   already.) Both `Runtime/Start.lean` (the ported `_start`-to-`main` path) and
   `Runtime/Entry.lean` (D1) prove the same path; one goes.
+- **Milestone M1 (agreed 2026-10-14): one premise left.** The top theorem from
+  `Layout.image.state I` with exactly one remaining premise: `pwhIface.Holds`, that
+  `panic_with_hook` (`0x7803b8d0`) never accepts. Every other contract in `RunHyps` is
+  restated so it is true of the real run and then discharged from phase D, the input
+  condition included, so the theorem is not vacuous for any input except through that one
+  stated, true and unproved premise. Order: name the contracts (one definition per shape),
+  thread the heap and statics invariants, restate the panic contracts over them with pinned
+  payloads, discharge the allocator, I/O, init and halt contracts from D. The premise
+  itself is the next milestone, taken on together.
 - F4. The end theorem: from `Layout.image.state I`, an accepting run gives
   `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
   satisfiability witness.

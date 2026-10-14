@@ -60,7 +60,7 @@ theorem ite_cell (c : Prop) [Decidable c] (I k : Nat) :
 
 set_option maxHeartbeats 40000000 in
 set_option maxRecDepth 10000 in
-theorem to_affine_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (pt : List Word)
+theorem to_affine_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (pt : List Word)
     (hptl : pt.length = 12)
     (hpc : s.pc = 0x78025164#64) (hcode : CodeAt F_78025164.base F_78025164.prog s)
     (hcodeI : CodeAt F_78028d04.base F_78028d04.prog s)
@@ -80,8 +80,8 @@ theorem to_affine_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (pt : 
           (leLimbsToNat [pt[4]!, pt[5]!, pt[6]!, pt[7]!]) (leLimbsToNat [pt[8]!, pt[9]!, pt[10]!, pt[11]!])).1 ++
         natToLeLimbs 4 (Fp.toAffine (leLimbsToNat [pt[0]!, pt[1]!, pt[2]!, pt[3]!])
           (leLimbsToNat [pt[4]!, pt[5]!, pt[6]!, pt[7]!]) (leLimbsToNat [pt[8]!, pt[9]!, pt[10]!, pt[11]!])).2) t →
-      Safe P t) :
-    Safe P s := by
+      SafeN Gd n P t) :
+    SafeN Gd n P s := by
   obtain ⟨O, hO, hOlen⟩ := Region.exists_junk a0 8 s
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x120#64) 36 s
   obtain ⟨G, hG, hGl⟩ := Region.exists_junk (sp - 0x230#64) 34 s

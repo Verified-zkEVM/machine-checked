@@ -54,7 +54,7 @@ set_option autoImplicit false
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
 set_option asmverif.sym.foldBytes true in
-theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 vs5 vra r22 r23 r24 r25 r26 r27 : Word)
+theorem main_seg_a2r_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 vs5 vra r22 r23 r24 r25 r26 r27 : Word)
     (f0 f1 f2 f3 kr0 kr1 kr2 kr3 kb0 kb1 kb2 kb3 nb0 nb1 nb2 nb3 xb0 xb1 xb2 xb3 ib0 ib1 ib2 ib3 gb0 gb1 gb2 gb3 rb0 rb1 rb2 rb3 sd0 sd1 sd2 sd3 vv pw al0 al1 al2 al3 ng t0 t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11 tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx : Word) (H D X A Iv Gp Kp Rc Sc Ps Rm Gb Pb F16 F8 Ri Iv4 Wf Nk Re Rv Ak R16 Q4 IV G0 G1 G2 G3 : List Word)
     (hHl : H.length = 128) (hDl : D.length = 12) (hXl : X.length = 4) (hAl : A.length = 4) (hIvl : Iv.length = 4) (hGpl : Gp.length = 12) (hKpl : Kp.length = 12) (hRcl : Rc.length = 4) (hScl : Sc.length = 4) (hPsl : Ps.length = 4) (hRml : Rm.length = 4) (hGbl : Gb.length = 4) (hPbl : Pb.length = 4) (hF16l : F16.length = 16) (hF8l : F8.length = 8) (hRil : Ri.length = 4) (hIv4l : Iv4.length = 4) (hWfl : Wf.length = 16) (hNkl : Nk.length = 4) (hRel : Re.length = 4) (hRvl : Rv.length = 4) (hAkl : Ak.length = 4) (hR16l : R16.length = 16) (hQ4l : Q4.length = 4) (hIVl : IV.length = 138) (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
     (hpc : s.pc = 0x7801a34c#64)
@@ -246,15 +246,15 @@ theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 
     (hhi_g1 : tg1.toNat + 8 * 1024 ≤ 0x1c00000000)
     (hhi_g2 : tg2.toNat + 8 * 1024 ≤ 0x1c00000000)
     (hhi_g3 : tg3.toNat + 8 * 516 ≤ 0x1c00000000)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe P u)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → Safe P u)
-    (hpaf_nf : ∀ u : MachineState, u.pc = 0x78019da0#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G nb P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G nb P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G nb P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G nb P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G nb P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G nb P u)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G nb P u)
+    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G nb P u)
+    (hpaf_nf : ∀ u : MachineState, u.pc = 0x78019da0#64 → u.code = s.code → SafeN G nb P u)
     (hconst : ∀ (u : MachineState) (sp' a0' : Word) (O1 O2 O3 : List Word),
       O1.length = 3 → O2.length = 36 → O3.length = 36 →
       u.pc = 0x78023cbc#64 → u.code = s.code → u.getReg .x1 = 0x7802084c#64 →
@@ -268,20 +268,20 @@ theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 
         Region a0' [64#64, ptr, 64#64] t → Region (a0' + 0x18#64) Poseidon.mdsWords t →
         Region (a0' + 0x138#64) MI t →
         Region ptr Poseidon.rcWords t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u)
     (hdealloc_nf : ∀ (u : MachineState) (sp' ptr : Word) (C : List Word), C.length = 768 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x78020c64#64 → u.getReg .x2 = sp' →
       StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = 6144#64 → u.getReg .x12 = 8#64 →
       Region ptr C u → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 →
       (∀ t, t.pc = 0x78020c64#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe P t) → Safe P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G nb P t) → SafeN G nb P u)
     (halloc_mp : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x7801d114#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' → u.getReg .x10 = 0x80#64 →
       u.getReg .x11 = 8#64 →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x7801d114#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 16 → Region ptr B t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 16 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x80 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x80 ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u)
     (hreserve : ∀ (u : MachineState) (sp' hdr ptr : Word) (n : Nat) (B : List Word),
       u.pc = 0x7801cac0#64 → u.code = s.code → u.getReg .x1 = 0x7801d1e8#64 → u.getReg .x2 = sp' →
       StackOk Ro.layout 0x100 sp' → u.getReg .x10 = hdr → u.getReg .x11 = BitVec.ofNat 64 n →
@@ -292,18 +292,18 @@ theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 
         t.code = u.code → Unchanged [(sp' - 0x100#64, 32), (hdr, 3), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region hdr [BitVec.ofNat 64 (2 * n), ptr', BitVec.ofNat 64 n] t → B'.length = 4 * n →
         Region ptr' (B ++ B') t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr' (8 * n) → 0x78048980 ≤ ptr'.toNat →
-        ptr'.toNat + 64 * n ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        ptr'.toNat + 64 * n ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u)
     (hdealloc : ∀ (u : MachineState) (sp' r ptr sz : Word), u.pc = 0x7801bd08#64 → u.code = s.code →
       u.getReg .x1 = r → r &&& ~~~1#64 = r → u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr →
       u.getReg .x11 = sz → u.getReg .x12 = 8#64 → 0x78048980 ≤ ptr.toNat →
       (∀ t, t.pc = r → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe P t) → Safe P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G nb P t) → SafeN G nb P u)
     (hdealloc_cm : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 137 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780210f0#64 → u.getReg .x2 = sp' →
       StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = cap → u.getReg .x12 = 1#64 →
       Region ptr C u → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 →
       (∀ t, t.pc = 0x780210f0#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Safe P t) → Safe P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G nb P t) → SafeN G nb P u)
     (hfrom_nc : ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (sp0 : Word)
       (J0 : List Word) (g0 g1 g2 g3 p0 p1 p2 p3 v r0 r1 r2 r3 q0 q1 q2 q3 : Word), O1.length = 3 →
       u.pc = 0x7801dfb4#64 → u.code = s.code → u.getReg .x1 = 0x78020dc4#64 →
@@ -327,7 +327,7 @@ theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 
         (∀ o, o < 1090 → byteAt Bv o = bw (noteBit [g0, g1, g2, g3] [p0, p1, p2, p3] v
           (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]) o)) →
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 137 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → Safe P t) → Safe P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u)
 
     (hdealloc_ivk : ∀ (tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx : Word) (IV G0 G1 G2 G3 : List Word),
       ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 65 →
@@ -339,7 +339,7 @@ theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 
       (∀ t, t.pc = 0x780215d8#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) → Safe P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G nb P t) → SafeN G nb P u)
     (hfrom_ivk : ∀ (tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx : Word) (IV G0 G1 G2 G3 : List Word),
       ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (sp0 : Word)
       (J0 : List Word) (a0 a1 a2 a3 n0 n1 n2 n3 : Word), O1.length = 3 →
@@ -374,7 +374,7 @@ theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 65 →
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) → Safe P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G nb P t) → SafeN G nb P u)
     (hk : ∀ t : MachineState, t.pc = vra &&& ~~~1#64 → t.code = s.code →
       t.getReg .x1 = vra → t.getReg .x2 = sp + 0x10a0#64 →
       t.getReg .x3 = s.getReg .x3 → t.getReg .x4 = s.getReg .x4 →
@@ -400,8 +400,8 @@ theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 
             [Re[0]!, Re[1]!, Re[2]!, Re[3]!] [Rv[0]!, Rv[1]!, Rv[2]!, Rv[3]!]
             [BitVec.ofNat 64 (x >>> (64 * 0)), BitVec.ofNat 64 (x >>> (64 * 1)), BitVec.ofNat 64 (x >>> (64 * 2)),
               BitVec.ofNat 64 (x >>> (64 * 3))] [gb0, gb1, gb2, gb3] vv) ∧
-        extractByte t3 5 = 0#8 ∧ extractByte t7 6 = 0#8 ∧ extractByte pw 4 ≠ 0#8) → Safe P t) :
-    Safe P s := by
+        extractByte t3 5 = 0#8 ∧ extractByte t7 6 = 0#8 ∧ extractByte pw 4 ≠ 0#8) → SafeN G nb P t) :
+    SafeN G nb P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x1f60#64) 1536 := by
     have h1 := hstk.lo; have h2 := hstk.aligned; have h3 := hokF.offCode; have h4 := (Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop))
     have e : (sp - 0x1f60#64).toNat = sp.toNat - 0x1f60 := by bv_omega
@@ -534,8 +534,8 @@ theorem main_seg_a2r_spec {P : Prop} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 
   have hokT_1068_7 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp + 0x1068#64) 7 := hokF'.sub' 525 7 (by decide) (by bv_omega)
   have hokR_1068_7 : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x1068#64) 7 := hokF.sub' 525 7 (by decide) (by bv_omega)
   -- the table words pinned: a callee that reads the tables would otherwise get them as literals
-  have hprk := parse_rk_spec (P := P) (cap := tcap) (iptr := iptr) (ilen := ilen) (g0 := tg0) (g1 := tg1) (g2 := tg2) (g3 := tg3) (hmod := hmod) (hx := hx) (IV := IV) (G0 := G0) (G1 := G1) (G2 := G2) (G3 := G3)
-  have hfbu := ep_from_bytes_unchecked_spec (P := P) (cap := tcap) (iptr := iptr) (ilen := ilen) (g0 := tg0) (g1 := tg1) (g2 := tg2) (g3 := tg3) (hmod := hmod) (hx := hx) (IV := IV) (G0 := G0) (G1 := G1) (G2 := G2) (G3 := G3)
+  have hprk := parse_rk_spec (G := G) (n := nb) (P := P) (cap := tcap) (iptr := iptr) (ilen := ilen) (g0 := tg0) (g1 := tg1) (g2 := tg2) (g3 := tg3) (hmod := hmod) (hx := hx) (IV := IV) (G0 := G0) (G1 := G1) (G2 := G2) (G3 := G3)
+  have hfbu := ep_from_bytes_unchecked_spec (G := G) (n := nb) (P := P) (cap := tcap) (iptr := iptr) (ilen := ilen) (g0 := tg0) (g1 := tg1) (g2 := tg2) (g3 := tg3) (hmod := hmod) (hx := hx) (IV := IV) (G0 := G0) (G1 := G1) (G2 := G2) (G3 := G3)
   -- the output slot and the scratch above it as one block: `parse_rk` writes 17 words over the first 13 and
   -- the next 4 (a 13-word region there would leave the executor a stale read-only bound)
   obtain ⟨OY, hOY, hOYl⟩ := Region.exists_junk (sp + 0xaf8#64) 130 s

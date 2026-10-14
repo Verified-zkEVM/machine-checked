@@ -93,7 +93,7 @@ theorem cadd_add (hp0 : p[0]! ≠ 0) (hq0 : q[0]! ≠ 0)
 end cases
 
 set_option maxHeartbeats 20000000 in
-theorem complete_add_assign_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
+theorem complete_add_assign_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
     (p q : List Word) (hpl : p.length = 9) (hql : q.length = 9)
     (hpc : s.pc = 0x78035fe0#64) (hcode : CodeAt F_78035fe0.base F_78035fe0.prog s)
     (hcodeCmp : CodeAt F_7803f54c.base F_7803f54c.prog s)
@@ -110,8 +110,8 @@ theorem complete_add_assign_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Wo
     (hd : Disjoint a0 9 a1 9)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x20#64, 4), (a0, 9)] s t → (completeAddW p q).length = 9 →
-      Region a0 (completeAddW p q) t → Safe P t) :
-    Safe P s := by
+      Region a0 (completeAddW p q) t → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F, hF, hFlen⟩ := Region.exists_junk (sp - 0x20#64) 4 s
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x20#64) 4 := hstk.frame 4 (by decide)
   have hu := Unchanged.refl [(sp - 0x20#64, 4), (a0, 9)] s
@@ -150,7 +150,7 @@ theorem length_doubleW {p : List Word} (hpl : p.length = 9) : (doubleW p).length
   · exact hpl
   · simp [length_curveDblL]
 
-theorem double_spec {P : Prop} (s : MachineState) (ra a0 : Word) (p : List Word)
+theorem double_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 : Word) (p : List Word)
     (hpl : p.length = 9)
     (hpc : s.pc = 0x780360c8#64) (hcode : CodeAt F_780360c8.base F_780360c8.prog s)
     (hcodeDbl : CodeAt F_7801bf4c.base F_7801bf4c.prog s)
@@ -159,8 +159,8 @@ theorem double_spec {P : Prop} (s : MachineState) (ra a0 : Word) (p : List Word)
     (ha0 : s.getReg .x10 = a0)
     (hp : Region a0 p s) (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi a0 9)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
-      Unchanged [(a0, 9)] s t → (doubleW p).length = 9 → Region a0 (doubleW p) t → Safe P t) :
-    Safe P s := by
+      Unchanged [(a0, 9)] s t → (doubleW p).length = 9 → Region a0 (doubleW p) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(a0, 9)] s
   sym_exec [pallas_double_spec]
   all_goals sym_close hk

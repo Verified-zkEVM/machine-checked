@@ -96,13 +96,13 @@ set_option maxRecDepth 20000 in
     the projective point `(x, y, z)` with the flag; `x, y` satisfy `FromBytesPost` (they are
     zeroed under a clear flag, which the postcondition allows) and `z` is `R` (Montgomery one)
     unless `(x, y) = (0, 0)`, the affine identity, where `z = 0`. -/
-theorem ep_from_bytes_unchecked_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem ep_from_bytes_unchecked_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (b0 b1 b2 b3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 13) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → Safe P u)
+    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
     (hpc : s.pc = 0x78026928#64) (hcode : CodeAt F_78026928.base F_78026928.prog s)
     (hcodeF : CodeAt F_78025a1c.base F_78025a1c.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -143,8 +143,8 @@ theorem ep_from_bytes_unchecked_spec {P : Prop} (s : MachineState) (ra sp a0 a1 
       FromBytesPost b0 b1 b2 b3 (leLimbsToNat [x0, x1, x2, x3]) (leLimbsToNat [y0, y1, y2, y3]) f →
       leLimbsToNat [z0, z1, z2, z3] =
         (if leLimbsToNat [x0, x1, x2, x3] = 0 ∧ leLimbsToNat [y0, y1, y2, y3] = 0 then 0 else Fp.R) →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x7a0#64) 244 := hstk.frame 244 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xb0#64) 22 := hokW.sub' 222 22 (by decide) (by bv_omega)
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xb0#64) 9 := hokF.sub' 0 9 (by decide) (by bv_omega)

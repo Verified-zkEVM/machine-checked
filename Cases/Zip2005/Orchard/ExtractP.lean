@@ -17,7 +17,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem extract_p_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 : Word)
+theorem extract_p_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 : Word)
     (O : List Word) (hOl : O.length = 4)
     (hpc : s.pc = 0x78020ca0#64) (hcode : CodeAt F_78020ca0.base F_78020ca0.prog s)
     (hcodeTA : CodeAt F_78025164.base F_78025164.prog s)
@@ -35,8 +35,8 @@ theorem extract_p_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (p0 p1
     (he1 : Disjoint a0 4 a1 12)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x2d0#64, 90), (a0, 4)] s t →
-      Region a0 (natToLeLimbs 4 (Fp.toAffine (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [p4, p5, p6, p7]) (leLimbsToNat [p8, p9, p10, p11])).1) t → Safe P t) :
-    Safe P s := by
+      Region a0 (natToLeLimbs 4 (Fp.toAffine (leLimbsToNat [p0, p1, p2, p3]) (leLimbsToNat [p4, p5, p6, p7]) (leLimbsToNat [p8, p9, p10, p11])).1) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x2d0#64) 90 := hstk.frame 90 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xa0#64) 20 := hokW.sub' 70 20 (by decide) (by bv_omega)
   -- the frame: [8, 0x50) the coordinates, [0x50, 0x90) the affine point, saved registers

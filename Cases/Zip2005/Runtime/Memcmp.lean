@@ -82,11 +82,11 @@ theorem fold4 {xs : List Word} (h : xs.length = 4) : [xs[0]!, xs[1]!, xs[2]!, xs
 
 set_option maxHeartbeats 20000000 in
 /-- The byte loop of `memcmp` on two blocks of eight doublewords, from byte `j`. -/
-theorem memcmp_loop8 {P : Prop} (s₀ : MachineState) (ra a b : Word) (xs ys : List Word)
+theorem memcmp_loop8 {G : MachineState → Prop} {n : Nat} {P : Prop} (s₀ : MachineState) (ra a b : Word) (xs ys : List Word)
     (hxl : xs.length = 8) (hyl : ys.length = 8)
     (hk : ∀ u, u.pc = ra → CalleeSaved s₀ u → u.code = s₀.code → Unchanged [] s₀ u →
       (u.getReg .x10 = 0 ↔ xs = ys) →
-      BitVec.signExtend 64 ((u.getReg .x10).truncate 32) = u.getReg .x10 → Safe P u) :
+      BitVec.signExtend 64 ((u.getReg .x10).truncate 32) = u.getReg .x10 → SafeN G n P u) :
     ∀ m j (t : MachineState), 64 - j = m → j < 64 →
       t.pc = 0x7803f550#64 → CodeAt F_7803f54c.base F_7803f54c.prog t →
       CodeWithin Ro.layout.textLo Ro.layout.textHi t → t.getReg .x1 = ra → ra &&& ~~~1#64 = ra →
@@ -94,7 +94,7 @@ theorem memcmp_loop8 {P : Prop} (s₀ : MachineState) (ra a b : Word) (xs ys : L
       t.getReg .x12 = BitVec.ofNat 64 (64 - j) →
       Region a xs t → RegionOk Ro.layout.textLo Ro.layout.textHi a 8 → Region b ys t → RegionOk Ro.layout.textLo Ro.layout.textHi b 8 →
       CalleeSaved s₀ t → t.code = s₀.code → Unchanged [] s₀ t →
-      (∀ i, i < j → byteOf xs i = byteOf ys i) → Safe P t := by
+      (∀ i, i < j → byteOf xs i = byteOf ys i) → SafeN G n P t := by
   intro m
   induction m with
   | zero => intro j t hm hj; omega
@@ -157,7 +157,7 @@ theorem memcmp_loop8 {P : Prop} (s₀ : MachineState) (ra a b : Word) (xs ys : L
         exact hlast
 
 /-- `memcmp(a, b, 64)` on two blocks of eight doublewords: zero exactly when they are equal. -/
-theorem memcmp8_spec {P : Prop} (s : MachineState) (ra a b : Word) (xs ys : List Word)
+theorem memcmp8_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a b : Word) (xs ys : List Word)
     (hxl : xs.length = 8) (hyl : ys.length = 8)
     (hpc : s.pc = 0x7803f54c#64) (hcode : CodeAt F_7803f54c.base F_7803f54c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -167,19 +167,19 @@ theorem memcmp8_spec {P : Prop} (s : MachineState) (ra a b : Word) (xs ys : List
     (hy : Region b ys s) (hoky : RegionOk Ro.layout.textLo Ro.layout.textHi b 8)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [] s t →
       (t.getReg .x10 = 0 ↔ xs = ys) →
-      BitVec.signExtend 64 ((t.getReg .x10).truncate 32) = t.getReg .x10 → Safe P t) :
-    Safe P s := by
+      BitVec.signExtend 64 ((t.getReg .x10).truncate 32) = t.getReg .x10 → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl ([] : List (Word × Nat)) s
   sym_exec stop [0x7803f550]
   sym_close memcmp_loop8 s ra a b xs ys hxl hyl hk 64 0
 
 set_option maxHeartbeats 20000000 in
 /-- The byte loop of `memcmp` on two blocks of four doublewords, from byte `j`. -/
-theorem memcmp_loop4 {P : Prop} (s₀ : MachineState) (ra a b : Word) (xs ys : List Word)
+theorem memcmp_loop4 {G : MachineState → Prop} {n : Nat} {P : Prop} (s₀ : MachineState) (ra a b : Word) (xs ys : List Word)
     (hxl : xs.length = 4) (hyl : ys.length = 4)
     (hk : ∀ u, u.pc = ra → CalleeSaved s₀ u → u.code = s₀.code → Unchanged [] s₀ u →
       (u.getReg .x10 = 0 ↔ xs = ys) →
-      BitVec.signExtend 64 ((u.getReg .x10).truncate 32) = u.getReg .x10 → Safe P u) :
+      BitVec.signExtend 64 ((u.getReg .x10).truncate 32) = u.getReg .x10 → SafeN G n P u) :
     ∀ m j (t : MachineState), 32 - j = m → j < 32 →
       t.pc = 0x7803f550#64 → CodeAt F_7803f54c.base F_7803f54c.prog t →
       CodeWithin Ro.layout.textLo Ro.layout.textHi t → t.getReg .x1 = ra → ra &&& ~~~1#64 = ra →
@@ -187,7 +187,7 @@ theorem memcmp_loop4 {P : Prop} (s₀ : MachineState) (ra a b : Word) (xs ys : L
       t.getReg .x12 = BitVec.ofNat 64 (32 - j) →
       Region a xs t → RegionOk Ro.layout.textLo Ro.layout.textHi a 4 → Region b ys t → RegionOk Ro.layout.textLo Ro.layout.textHi b 4 →
       CalleeSaved s₀ t → t.code = s₀.code → Unchanged [] s₀ t →
-      (∀ i, i < j → byteOf xs i = byteOf ys i) → Safe P t := by
+      (∀ i, i < j → byteOf xs i = byteOf ys i) → SafeN G n P t := by
   intro m
   induction m with
   | zero => intro j t hm hj; omega
@@ -250,7 +250,7 @@ theorem memcmp_loop4 {P : Prop} (s₀ : MachineState) (ra a b : Word) (xs ys : L
         exact hlast
 
 /-- `memcmp(a, b, 32)` on two blocks of four doublewords: zero exactly when they are equal. -/
-theorem memcmp4_spec {P : Prop} (s : MachineState) (ra a b : Word) (xs ys : List Word)
+theorem memcmp4_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a b : Word) (xs ys : List Word)
     (hxl : xs.length = 4) (hyl : ys.length = 4)
     (hpc : s.pc = 0x7803f54c#64) (hcode : CodeAt F_7803f54c.base F_7803f54c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -260,8 +260,8 @@ theorem memcmp4_spec {P : Prop} (s : MachineState) (ra a b : Word) (xs ys : List
     (hy : Region b ys s) (hoky : RegionOk Ro.layout.textLo Ro.layout.textHi b 4)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [] s t →
       (t.getReg .x10 = 0 ↔ xs = ys) →
-      BitVec.signExtend 64 ((t.getReg .x10).truncate 32) = t.getReg .x10 → Safe P t) :
-    Safe P s := by
+      BitVec.signExtend 64 ((t.getReg .x10).truncate 32) = t.getReg .x10 → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl ([] : List (Word × Nat)) s
   sym_exec stop [0x7803f550]
   sym_close memcmp_loop4 s ra a b xs ys hxl hyl hk 32 0

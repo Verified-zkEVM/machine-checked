@@ -5,6 +5,7 @@
 -/
 
 import AsmVerif.RiscV.Frame.Domain
+import AsmVerif.RiscV.Safe
 
 namespace AsmVerif.RiscV.Frame
 
@@ -393,11 +394,7 @@ theorem CodeOk.of_code {f : Fn} {s s' : MachineState} (h : CodeOk f s) (hc : s'.
     CodeOk f s' := by
   unfold CodeOk; rw [hc]; exact h
 
-/-! ## Runs -/
-
-def stepsSp1 : Nat → MachineState → Option MachineState
-  | 0, s => some s
-  | n + 1, s => (stepSp1 s).bind (stepsSp1 n)
+/-! ## Runs (`stepsSp1`, `AsmVerif.RiscV.Safe`) -/
 
 /-- The number of instructions before a fragment's closing `jalr zero, 0(t0)`. -/
 def fragLen : List (Option Instr) → Option Nat
@@ -690,10 +687,6 @@ theorem call_sound {f : Fn} {anno} {E} {s s' : MachineState} {i : Nat} {A : ASta
     rw [hC] at hok
     refine ⟨j, C, by rw [hret.1]; exact hj, hC,
       AState.holds_of_le hok (afterCall_holds h hret), hc.of_code hret.2.1⟩
-
-theorem stepsSp1_succ {n : Nat} {s s' : MachineState} (h : stepsSp1 (n + 1) s = some s') :
-    ∃ s1, stepSp1 s = some s1 ∧ stepsSp1 n s1 = some s' := by
-  simpa [stepsSp1, Option.bind_eq_some_iff] using h
 
 theorem ofNat_four_mul_succ (n : Nat) :
     BitVec.ofNat 64 (4 * (n + 1)) = BitVec.ofNat 64 (4 * n) + 4 := by

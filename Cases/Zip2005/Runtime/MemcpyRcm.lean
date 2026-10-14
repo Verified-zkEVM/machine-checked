@@ -27,7 +27,7 @@ theorem and7_of_sub7 {p : Word} (h : (p - 7#64).toNat % 8 = 0) : p &&& 7#64 = 7#
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 8)`, `dst` one byte past alignment, `src` aligned. -/
-theorem memcpy8_off1_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 s0 : Word)
+theorem memcpy8_off1_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src d0 d1 s0 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -37,8 +37,8 @@ theorem memcpy8_off1_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 s0 : W
     (hdj : Disjoint (dst - 1#64) 2 src 1)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst - 1#64, 2)] s t →
       Region (dst - 1#64) [(s0 <<< 8) ||| (d0 &&& 0xff#64), (d1 &&& 0xffffffffffffff00#64) ||| (s0 >>> 56)] t →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst - 1#64, 2)] s
   have hm : dst &&& 7#64 = 1#64 := and7_of_sub1 hokD.aligned
   sym_exec
@@ -50,7 +50,7 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 23)`, `dst` one byte past alignment, `src` aligned: fills `dst - 1`'s three cells
     above their low byte. -/
-theorem memcpy23_off1_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 d2 s0 s1 s2 : Word)
+theorem memcpy23_off1_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src d0 d1 d2 s0 s1 s2 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -60,8 +60,8 @@ theorem memcpy23_off1_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 d2 s0
     (hdj : Disjoint (dst - 1#64) 3 src 3)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst - 1#64, 3)] s t →
       Region (dst - 1#64) [(s0 <<< 8) ||| (d0 &&& 0xff#64), (s1 <<< 8) ||| (s0 >>> 56), (s2 <<< 8) ||| (s1 >>> 56)] t →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst - 1#64, 3)] s
   have hm : dst &&& 7#64 = 1#64 := and7_of_sub1 hokD.aligned
   sym_exec
@@ -72,7 +72,7 @@ theorem memcpy23_off1_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 d2 s0
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 9)`, `dst` aligned, `src` seven bytes past alignment. -/
-theorem memcpy9_src7_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 a2 a3 : Word)
+theorem memcpy9_src7_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src d0 d1 a2 a3 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -81,8 +81,8 @@ theorem memcpy9_src7_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 a2 a3 
     (hS : Region (src - 7#64) [a2, a3] s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (src - 7#64) 2)
     (hdj : Disjoint dst 2 (src - 7#64) 2)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 2)] s t →
-      Region dst [(a3 <<< 8) ||| (a2 >>> 56), (d1 &&& 0xffffffffffffff00#64) ||| (a3 >>> 56)] t → Safe P t) :
-    Safe P s := by
+      Region dst [(a3 <<< 8) ||| (a2 >>> 56), (d1 &&& 0xffffffffffffff00#64) ||| (a3 >>> 56)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 2)] s
   have hm : src &&& 7#64 = 7#64 := and7_of_sub7 hokS.aligned
   sym_exec
@@ -93,7 +93,7 @@ theorem memcpy9_src7_spec {P : Prop} (s : MachineState) (ra dst src d0 d1 a2 a3 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 41)`, both 8-aligned. -/
-theorem memcpy41_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 d3 d4 d5 s0 s1 s2 s3 s4 s5 : Word)
+theorem memcpy41_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d2 d3 d4 d5 s0 s1 s2 s3 s4 s5 : Word)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
@@ -102,8 +102,8 @@ theorem memcpy41_spec {P : Prop} (s : MachineState) (ra dst src : Word) (d0 d1 d
     (hS : Region src [s0, s1, s2, s3, s4, s5] s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 6)
     (hdj : Disjoint dst 6 src 6)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 6)] s t →
-      Region dst [s0, s1, s2, s3, s4, replaceByte d5 0 (extractByte s5 0)] t → Safe P t) :
-    Safe P s := by
+      Region dst [s0, s1, s2, s3, s4, replaceByte d5 0 (extractByte s5 0)] t → SafeN G n P t) :
+    SafeN G n P s := by
   have hu := Unchanged.refl [(dst, 6)] s
   sym_exec
   sym_close hk

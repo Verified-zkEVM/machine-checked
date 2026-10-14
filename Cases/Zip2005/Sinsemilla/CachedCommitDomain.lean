@@ -71,9 +71,9 @@ theorem fromXyOk_of_flag {x y : List Word} {X Y : Nat} (hX : Fp.mul (leLimbsToNa
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 100000 in
 set_option asmverif.sym.foldBytes true in
-theorem cached_commit_domain_spec {P : Prop} (s : MachineState) (ra sp out qx qy rx ry : Word)
+theorem cached_commit_domain_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out qx qy rx ry : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 u0 u1 u2 u3 w0 w1 w2 w3 : Word) (O : List Word) (hOl : O.length = 24)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN Gd n P u)
     (hpc : s.pc = 0x78020548#64) (hcode : CodeAt F_78020548.base F_78020548.prog s)
     -- callees: from_raw, from_xy (+ is_on_curve, mulmod, black_box), to_curve
     (hcodeR : CodeAt F_78028298.base F_78028298.prog s) (hcodeXY : CodeAt F_78026878.base F_78026878.prog s)
@@ -99,8 +99,8 @@ theorem cached_commit_domain_spec {P : Prop} (s : MachineState) (ra sp out qx qy
       Region out (domainPtW [x0, x1, x2, x3] [y0, y1, y2, y3]) t →
       Region (out + 0x60#64) (domainPtW [u0, u1, u2, u3] [w0, w1, w2, w3]) t →
       fromXyOk [x0, x1, x2, x3] [y0, y1, y2, y3] → fromXyOk [u0, u1, u2, u3] [w0, w1, w2, w3] →
-      Safe P t) :
-    Safe P s := by
+      SafeN Gd n P t) :
+    SafeN Gd n P s := by
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x2a0#64) 84 := hstk.frame 84 (by decide)
   -- the frame (below it 0x170 bytes for `from_xy`): the two raw copies, the affine point,
   -- `from_xy`'s output, `from_raw`'s first output, the flag byte's cell, the save area

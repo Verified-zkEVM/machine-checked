@@ -97,7 +97,7 @@ theorem ivkFlag_01 (Q Bv : List Word) : ivkFlag Q Bv = 1#8 ∨ ivkFlag Q Bv = 0#
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem commit_ivk_spec {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Word)
+theorem commit_ivk_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Word)
     (a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 5) (hJl : J.length = 9)
     -- the sqrt/generator tables (`FP_TABLES`) in the heap, carried through: the allocator
@@ -123,10 +123,10 @@ theorem commit_ivk_spec {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Wo
     (hbelow_rivk : rivk.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_ak : ak.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_nk : nk.toNat + 8 * 4 ≤ 0x78040620)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → Safe P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → Safe P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → Safe P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → Safe P u)
+    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G nb P u)
+    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G nb P u)
+    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G nb P u)
+    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G nb P u)
     (hpc : s.pc = 0x780203dc#64) (hcode : CodeAt F_780203dc.base F_780203dc.prog s)
     -- callees: cached_commit_domain (+ from_raw, from_xy, is_on_curve, mulmod, black_box,
     -- to_curve), to_le_bits (+ to_repr), commit (`0x78021238`) and its callees,
@@ -201,7 +201,7 @@ theorem commit_ivk_spec {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Wo
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 65 →
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) → Safe P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G nb P t) → SafeN G nb P u)
     -- `__rust_dealloc` of that `Vec` (ledger T2)
     (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 65 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780215d8#64 →
@@ -213,7 +213,7 @@ theorem commit_ivk_spec {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Wo
       (∀ t, t.pc = 0x780215d8#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) → Safe P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G nb P t) → SafeN G nb P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xaa0#64, 340), (out, 5), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (extractPBottomW
@@ -224,8 +224,8 @@ theorem commit_ivk_spec {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Wo
           (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))]) t →
       mulFacts rIvkW [k0, k1, k2, k3] →
       Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Safe P t) :
-    Safe P s := by
+      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G nb P t) :
+    SafeN G nb P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xaa0#64) 340 := hstk.frame 340 (by decide)
   -- the frame (below it 0x8c0 bytes for `commit`): the domain `[Q, R]`, the iterator, the two
   -- bit vectors, `commit`'s output, the save area
@@ -281,7 +281,7 @@ theorem commit_ivk_spec {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Wo
   have hR5' := Eq.mp (congrArg (fun L => Region (sp - 0xaa0#64 + 0x9c8#64) L s_76) eM) hR5
   clear hR5
   sym_reframe
-  have hcommit := sinsemilla_commit_ivk_spec (P := P) (M := sp - 0xaa0#64 + 0x9c8#64)
+  have hcommit := sinsemilla_commit_ivk_spec (G := G) (n := nb) (P := P) (M := sp - 0xaa0#64 + 0x9c8#64)
     (tcap := tcap) (iptr := iptr) (ilen := ilen) (tg0 := tg0) (tg1 := tg1) (tg2 := tg2) (tg3 := tg3)
     (hmod := hmod) (hx := hx) (IV := IV) (G0 := G0) (G1 := G1) (G2 := G2) (G3 := G3)
     (Mw := ivkMsgW [a0, a1, a2, a3] [n0, n1, n2, n3])

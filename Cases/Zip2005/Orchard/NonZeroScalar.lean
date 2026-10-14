@@ -21,15 +21,15 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 set_option autoImplicit false
 
 /-- The `zip32` crate's copy of `subtle::black_box::<u8>` (`0x780232f4`). -/
-theorem black_box_zip32_spec {P : Prop} (s : MachineState) (ra sp v : Word)
+theorem black_box_zip32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp v : Word)
     (hpc : s.pc = 0x780232f4#64) (hcode : CodeAt F_780232f4.base F_780232f4.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x10 sp) (ha0 : s.getReg .x10 = v)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x10#64, 2)] s t →
-      t.getReg .x10 = BitVec.zeroExtend 64 (BitVec.truncate 8 v) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = BitVec.zeroExtend 64 (BitVec.truncate 8 v) → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F, hF, hFlen⟩ := Region.exists_junk (sp - 0x10#64) 2 s
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hstk.frame 2 (by decide)
   have hu := Unchanged.refl [(sp - 0x10#64, 2)] s
@@ -107,7 +107,7 @@ theorem nz_flag (x : Nat) (f v107 v108 v109 v110 v111 v112 v113 v114 v115 v129 v
 
 /-! ## The function -/
 
-theorem nonzero_scalar_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
+theorem nonzero_scalar_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
     (x0 x1 x2 x3 : Word) (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x7802018c#64) (hcode : CodeAt F_7802018c.base F_7802018c.prog s)
     (hcodeR : CodeAt F_7802ed10.base F_7802ed10.prog s)
@@ -125,8 +125,8 @@ theorem nonzero_scalar_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x150#64, 42), (a0, 5)] s t →
       Region a0 (nzScalarW (leLimbsToNat [x0, x1, x2, x3]) ++
-        [replaceByte O[4]! 0 (nzScalarFlag (leLimbsToNat [x0, x1, x2, x3]))]) t → Safe P t) :
-    Safe P s := by
+        [replaceByte O[4]! 0 (nzScalarFlag (leLimbsToNat [x0, x1, x2, x3]))]) t → SafeN Gd n P t) :
+    SafeN Gd n P s := by
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0xa0#64) 20 s
   obtain ⟨G, hG, hGl⟩ := Region.exists_junk (sp - 0x150#64) 22 s
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x150#64) 42 := hstk.frame 42 (by decide)

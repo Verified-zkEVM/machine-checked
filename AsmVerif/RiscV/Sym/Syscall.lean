@@ -22,7 +22,7 @@
 -/
 
 import AsmVerif.RiscV.Sym.Mem
-import AsmVerif.RiscV.Sym.Safe
+import AsmVerif.RiscV.Sym.Core
 import Precompile.Sp1
 
 namespace AsmVerif.RiscV.Sym
@@ -269,24 +269,24 @@ theorem commitShape_code {s : MachineState} {p : Word} : ((s.sp1Commit).setPC p)
 /-! ## Syscalls in `Safe` form
 
 An accelerator whose operands fail the model's check traps, and a trap is not
-an accepting halt, so in `Safe` form the operand checks cost nothing: the
+an accepting halt, so in `SafeN` form the operand checks cost nothing: the
 continuation is only asked for on the path where the model continues. -/
 
-theorem Safe.accel {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
+theorem SafeN.accel {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (hid : Sp1.isAccelId (s.getReg .x5) = true) (hne : s.getReg .x5 ≠ 0)
     (h : s.sp1AccelValid (s.getReg .x5) = true →
-      Safe P ((s.execSp1Accel (s.getReg .x5)).setPC (s.pc + 4))) : Safe P s := by
+      SafeN G n P ((s.execSp1Accel (s.getReg .x5)).setPC (s.pc + 4))) : SafeN G n P s := by
   cases hv : s.sp1AccelValid (s.getReg .x5) with
-  | false => exact Safe.stuck (stepSp1_accel_trap hfetch hid hv) (fun ha => absurd ha.2.1 hne)
-  | true => exact Safe.step (stepSp1_accel hfetch hid hv) (h hv)
+  | false => exact SafeN.stuck (stepSp1_accel_trap hfetch hid hv) (fun ha => absurd ha.2.1 hne)
+  | true => exact SafeN.step_of (stepSp1_accel hfetch hid hv) (h hv)
 
-theorem Safe.uint256Mul {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
+theorem SafeN.uint256Mul {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ht0 : s.getReg .x5 = Sp1.UINT256_MUL) {a0 a1 : Word} (ha0 : s.getReg .x10 = a0)
     (ha1 : s.getReg .x11 = a1) {x ym : List Word} (hx : Region a0 x s) (hxl : x.length = 4)
     (hym : Region a1 ym s) (hyml : ym.length = 8)
     (k : ∀ s', (s.writeWords a0 (Accel.natToLeLimbs 4
       (Accel.leLimbsToNat x * Accel.leLimbsToNat (ym.take 4) % Accel.leLimbsToNat (ym.drop 4)))).setPC
-      (s.pc + 4) = s' → Safe P s') : Safe P s := by
+      (s.pc + 4) = s' → SafeN G n P s') : SafeN G n P s := by
   have hy : s.readWords a1 4 = ym.take 4 := by
     have := (hym.take 4).readWords
     rwa [List.length_take, hyml] at this
@@ -295,48 +295,48 @@ theorem Safe.uint256Mul {P : Prop} {s : MachineState} (hfetch : s.code s.pc = so
     rw [List.length_drop, hyml] at this
     simpa using this
   have hxr : s.readWords a0 4 = x := hx.readWords' hxl
-  refine Safe.accel (P := P) hfetch (by rw [ht0]; decide) (by rw [ht0]; decide) ?_
+  refine SafeN.accel (P := P) hfetch (by rw [ht0]; decide) (by rw [ht0]; decide) ?_
   intro _
   apply k
   unfold MachineState.execSp1Accel
   rw [ht0, Precompile.sp1AccelWrite_uint256Mul, ha0, ha1, hxr, hy, hmod]
   rfl
 
-theorem Safe.pallasAdd {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
+theorem SafeN.pallasAdd {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ht0 : s.getReg .x5 = Sp1.PALLAS_ADD) {a0 a1 : Word} (ha0 : s.getReg .x10 = a0)
     (ha1 : s.getReg .x11 = a1) {p q : List Word} (hp : Region a0 p s) (hpl : p.length = 8)
     (hq : Region a1 q s) (hql : q.length = 8)
     (k : ∀ s', (s.writeWords a0 (Accel.curveAddL Sp1.pallasP 4 p q)).setPC (s.pc + 4) = s' →
-      Safe P s') : Safe P s := by
+      SafeN G n P s') : SafeN G n P s := by
   have hpr : s.readWords a0 8 = p := hp.readWords' hpl
   have hqr : s.readWords a1 8 = q := hq.readWords' hql
-  refine Safe.accel (P := P) hfetch (by rw [ht0]; decide) (by rw [ht0]; decide) ?_
+  refine SafeN.accel (P := P) hfetch (by rw [ht0]; decide) (by rw [ht0]; decide) ?_
   intro _
   apply k
   unfold MachineState.execSp1Accel
   rw [ht0, Precompile.sp1AccelWrite_pallasAdd, ha0, ha1, hpr, hqr]
 
-theorem Safe.pallasDouble {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
+theorem SafeN.pallasDouble {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ht0 : s.getReg .x5 = Sp1.PALLAS_DOUBLE) {a0 : Word} (ha0 : s.getReg .x10 = a0)
     {p : List Word} (hp : Region a0 p s) (hpl : p.length = 8)
     (k : ∀ s', (s.writeWords a0 (Accel.curveDblL Sp1.pallasP 4 p)).setPC (s.pc + 4) = s' →
-      Safe P s') : Safe P s := by
+      SafeN G n P s') : SafeN G n P s := by
   have hpr : s.readWords a0 8 = p := hp.readWords' hpl
-  refine Safe.accel (P := P) hfetch (by rw [ht0]; decide) (by rw [ht0]; decide) ?_
+  refine SafeN.accel (P := P) hfetch (by rw [ht0]; decide) (by rw [ht0]; decide) ?_
   intro _
   apply k
   unfold MachineState.execSp1Accel
   rw [ht0, Precompile.sp1AccelWrite_pallasDouble, ha0, hpr]
 
-theorem Safe.commit {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
+theorem SafeN.commit {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ht0 : s.getReg .x5 = Sp1.COMMIT)
-    (k : ∀ s', (s.sp1Commit).setPC (s.pc + 4) = s' → Safe P s') : Safe P s :=
-  Safe.step_gen (stepSp1_commit hfetch ht0) k
+    (k : ∀ s', (s.sp1Commit).setPC (s.pc + 4) = s' → SafeN G n P s') : SafeN G n P s :=
+  SafeN.step_gen (stepSp1_commit hfetch ht0) k
 
-theorem Safe.commitDeferred {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
+theorem SafeN.commitDeferred {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ht0 : s.getReg .x5 = Sp1.COMMIT_DEFERRED_PROOFS)
-    (k : ∀ s', s.setPC (s.pc + 4) = s' → Safe P s') : Safe P s :=
-  Safe.step_gen (stepSp1_commit_deferred hfetch ht0) k
+    (k : ∀ s', s.setPC (s.pc + 4) = s' → SafeN G n P s') : SafeN G n P s :=
+  SafeN.step_gen (stepSp1_commit_deferred hfetch ht0) k
 
 /-! ## Writing a block inside a region -/
 

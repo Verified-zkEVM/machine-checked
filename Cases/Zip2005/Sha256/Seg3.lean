@@ -13,7 +13,7 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- Segment 3: `0x78039184` to the return. -/
-theorem compress256_seg3 {P : Prop} (u : MachineState) (ra sp st blk : Word) (r8 r9 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 : Word)
+theorem compress256_seg3 {G : MachineState → Prop} {n : Nat} {P : Prop} (u : MachineState) (ra sp st blk : Word) (r8 r9 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 : Word)
     (J1 J3 S B : List Word) (hJ1 : J1.length = 64) (hJ3 : J3.length = 34) (hS : S.length = 4) (hB : B.length = 8)
     (hpc : u.pc = 0x78039184#64) (hcode : CodeAt F_780361e0.base F_780361e0.prog u)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi u)
@@ -28,8 +28,8 @@ theorem compress256_seg3 {P : Prop} (u : MachineState) (ra sp st blk : Word) (r8
     (hk : ∀ v, v.pc = ra → v.code = u.code → CodeAt F_780361e0.base F_780361e0.prog v → CodeWithin Ro.layout.textLo Ro.layout.textHi v →
       v.getReg .x2 = sp → v.getReg .x3 = u.getReg .x3 → v.getReg .x4 = u.getReg .x4 →
       v.getReg .x8 = r8 → v.getReg .x9 = r9 → v.getReg .x18 = r18 → v.getReg .x19 = r19 → v.getReg .x20 = r20 → v.getReg .x21 = r21 → v.getReg .x22 = r22 → v.getReg .x23 = r23 → v.getReg .x24 = r24 → v.getReg .x25 = r25 → v.getReg .x26 = r26 → v.getReg .x27 = r27 →
-      Unchanged [(sp - 0x390#64, 114), (st, 4)] u v → (∃ S', S'.length = 4 ∧ Region st S' v) → Safe P v) :
-    Safe P u := by
+      Unchanged [(sp - 0x390#64, 114), (st, 4)] u v → (∃ S', S'.length = 4 ∧ Region st S' v) → SafeN G n P v) :
+    SafeN G n P u := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x390#64) 114 := hstk.frame 114 (by decide)
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x390#64) 1 := hokW.sub' 0 1 (by decide) (by bv_omega)
   have hok1 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x388#64) 64 := hokW.sub' 1 64 (by decide) (by bv_omega)

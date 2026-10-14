@@ -24,7 +24,7 @@ theorem remu1098_lt (x : Word) : (rv64_remu x 1098#64).toNat < 1098 := by
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sq_inv_step {P : Prop} (s : MachineState) (inv hx e f n j : Word) (x0 x1 x2 x3 : Word)
+theorem sq_inv_step {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (inv hx e f n j : Word) (x0 x1 x2 x3 : Word)
     (IV : List Word) (hIVl : IV.length = 138) (hn : (n + 18446744073709551615#64 != 0#64) = true)
     (hpc : s.pc = 0x78031280#64) (hcode : CodeAt F_78030a94.base F_78030a94.prog s)
     (hcodeL : CodeAt F_78029b64.base F_78029b64.prog s)
@@ -34,7 +34,7 @@ theorem sq_inv_step {P : Prop} (s : MachineState) (inv hx e f n j : Word) (x0 x1
     (hs8 : s.getReg .x24 = j) (hs11 : s.getReg .x27 = inv)
     (hIV : Region inv IV s) (hokIV : RegionOk Ro.layout.roBase Ro.layout.textHi inv 138)
     (hE : Region e [x0, x1, x2, x3] s) (hokE : RegionOk Ro.layout.roBase Ro.layout.textHi e 4)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → Safe P u)
+    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G nb P u)
     (hk : ∀ (t : MachineState) (d e' : Word), t.pc = 0x7803127c#64 → t.code = s.code →
       Unchanged [] s t → t.getReg .x10 = inv + d → d.toNat < 1098 →
       t.getReg .x21 = n + 18446744073709551615#64 → t.getReg .x22 = -j → t.getReg .x23 = e' →
@@ -44,8 +44,8 @@ theorem sq_inv_step {P : Prop} (s : MachineState) (inv hx e f n j : Word) (x0 x1
       t.getReg .x8 = 1098#64 → t.getReg .x9 = s.getReg .x9 → t.getReg .x18 = hx →
       t.getReg .x19 = 1#64 → t.getReg .x20 = f → t.getReg .x25 = s.getReg .x25 →
       t.getReg .x26 = s.getReg .x26 → t.getReg .x27 = inv →
-      Region inv IV t → Safe P t) :
-    Safe P s := by
+      Region inv IV t → SafeN G nb P t) :
+    SafeN G nb P s := by
   have hu := Unchanged.refl [] s
   sym_exec [fp_get_lower_32_spec] stop [0x78031274, 0x780312a0]
   pick_goal 2

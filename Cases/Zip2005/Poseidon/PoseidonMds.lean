@@ -22,7 +22,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
-theorem mds_spec {P : Prop} (s : MachineState) (ra sp mp st : Word)
+theorem mds_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp mp st : Word)
     (m0 m1 m2 m3 m4 m5 m6 m7 m8 m9 m10 m11 m12 m13 m14 m15 m16 m17 m18 m19 m20 m21 m22 m23 m24 m25 m26 m27 m28 m29 m30 m31 m32 m33 m34 m35 : Word) (x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 : Word)
     (hpc : s.pc = 0x7801e704#64) (hcode : CodeAt F_7801e704.base F_7801e704.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeS : CodeAt F_7803f57c.base F_7803f57c.prog s)
@@ -39,8 +39,8 @@ theorem mds_spec {P : Prop} (s : MachineState) (ra sp mp st : Word)
       Unchanged [(sp - 0x170#64, 46), (st, 12)] s t → ∀ o0 o1 o2 o3 o4 o5 o6 o7 o8 o9 o10 o11 : Word, Region st [o0, o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11] t →
       leLimbsToNat [o0, o1, o2, o3] = Fp.add (Fp.add (Fp.add 0 (Fp.mul (leLimbsToNat [m0, m1, m2, m3]) (leLimbsToNat [x0, x1, x2, x3]))) (Fp.mul (leLimbsToNat [m4, m5, m6, m7]) (leLimbsToNat [x4, x5, x6, x7]))) (Fp.mul (leLimbsToNat [m8, m9, m10, m11]) (leLimbsToNat [x8, x9, x10, x11])) →
       leLimbsToNat [o4, o5, o6, o7] = Fp.add (Fp.add (Fp.add 0 (Fp.mul (leLimbsToNat [m12, m13, m14, m15]) (leLimbsToNat [x0, x1, x2, x3]))) (Fp.mul (leLimbsToNat [m16, m17, m18, m19]) (leLimbsToNat [x4, x5, x6, x7]))) (Fp.mul (leLimbsToNat [m20, m21, m22, m23]) (leLimbsToNat [x8, x9, x10, x11])) →
-      leLimbsToNat [o8, o9, o10, o11] = Fp.add (Fp.add (Fp.add 0 (Fp.mul (leLimbsToNat [m24, m25, m26, m27]) (leLimbsToNat [x0, x1, x2, x3]))) (Fp.mul (leLimbsToNat [m28, m29, m30, m31]) (leLimbsToNat [x4, x5, x6, x7]))) (Fp.mul (leLimbsToNat [m32, m33, m34, m35]) (leLimbsToNat [x8, x9, x10, x11])) → Safe P t) :
-    Safe P s := by
+      leLimbsToNat [o8, o9, o10, o11] = Fp.add (Fp.add (Fp.add 0 (Fp.mul (leLimbsToNat [m24, m25, m26, m27]) (leLimbsToNat [x0, x1, x2, x3]))) (Fp.mul (leLimbsToNat [m28, m29, m30, m31]) (leLimbsToNat [x4, x5, x6, x7]))) (Fp.mul (leLimbsToNat [m32, m33, m34, m35]) (leLimbsToNat [x8, x9, x10, x11])) → SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x170#64) 46 s
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x170#64) 46 := hstk.frame 46 (by decide)
   have hu := Unchanged.refl [(sp - 0x170#64, 46), (st, 12)] s

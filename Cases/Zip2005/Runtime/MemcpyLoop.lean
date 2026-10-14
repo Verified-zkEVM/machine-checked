@@ -49,11 +49,11 @@ theorem ofNat_mul_add4 (j : Nat) :
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- The loop from its back-edge check, `m` iterations left, `j` words copied so far. -/
-theorem memcpy_loop32 {P : Prop} (s₀ : MachineState) (ra dst src : Word) (S : List Word) (N : Nat)
+theorem memcpy_loop32 {G : MachineState → Prop} {nb : Nat} {P : Prop} (s₀ : MachineState) (ra dst src : Word) (S : List Word) (N : Nat)
     (hSl : S.length = N) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi dst N) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src N)
     (hdj : Disjoint dst N src N)
     (hk : ∀ u, u.pc = ra → CalleeSaved s₀ u → u.code = s₀.code → Unchanged [(dst, N)] s₀ u →
-      Region dst S u → Safe P u) :
+      Region dst S u → SafeN G nb P u) :
     ∀ m j (t : MachineState) (p q : Word), N - j = 4 * m → j ≤ N →
       p = src + BitVec.ofNat 64 (8 * j) → q = dst + BitVec.ofNat 64 (8 * j) →
       t.pc = 0x7801b66c#64 → CodeAt F_7801b4d8.base F_7801b4d8.prog t → CodeWithin Ro.layout.textLo Ro.layout.textHi t →
@@ -61,7 +61,7 @@ theorem memcpy_loop32 {P : Prop} (s₀ : MachineState) (ra dst src : Word) (S : 
       t.getReg .x11 = p → t.getReg .x13 = q → t.getReg .x12 = BitVec.ofNat 64 (8 * (N - j)) →
       t.getReg .x14 = 31#64 →
       Keep (Region p (S.drop j) t) → Keep (Region dst (S.take j) t) →
-      CalleeSaved s₀ t → t.code = s₀.code → Unchanged [(dst, N)] s₀ t → Safe P t := by
+      CalleeSaved s₀ t → t.code = s₀.code → Unchanged [(dst, N)] s₀ t → SafeN G nb P t := by
   intro m
   induction m with
   | zero =>
@@ -140,7 +140,7 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `memcpy(dst, src, 6144)` on 8-aligned, disjoint regions of 768 doublewords: the first
     iteration stepped, the loop lemma for the other 191. -/
-theorem memcpy6144_spec {P : Prop} (s : MachineState) (ra dst src : Word) (S : List Word)
+theorem memcpy6144_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst src : Word) (S : List Word)
     (hSl : S.length = 768)
     (hpc : s.pc = 0x7801b4d8#64) (hcode : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -150,8 +150,8 @@ theorem memcpy6144_spec {P : Prop} (s : MachineState) (ra dst src : Word) (S : L
     (hS : Region src S s) (hokS : RegionOk Ro.layout.textLo Ro.layout.textHi src 768)
     (hdj : Disjoint dst 768 src 768)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 768)] s t →
-      Region dst S t → Safe P t) :
-    Safe P s := by
+      Region dst S t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokD4 : RegionOk Ro.layout.textLo Ro.layout.textHi dst 4 := hokD.sub' 0 4 (by omega) (by simp)
   have hokS4 : RegionOk Ro.layout.textLo Ro.layout.textHi src 4 := hokS.sub' 0 4 (by omega) (by simp)
   have e4 : [S[0]!, S[1]!, S[2]!, S[3]!] = S.take 4 := by

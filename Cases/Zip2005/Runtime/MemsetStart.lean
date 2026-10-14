@@ -18,7 +18,7 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 set_option autoImplicit false
 
 set_option maxHeartbeats 40000000 in
-theorem memset73_spec {P : Prop} (s : MachineState) (ra a0 : Word) (O : List Word)
+theorem memset73_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 : Word) (O : List Word)
     (hOl : O.length = 10)
     (hpc : s.pc = 0x7803f57c#64) (hcode : CodeAt F_7803f57c.base F_7803f57c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
@@ -27,8 +27,8 @@ theorem memset73_spec {P : Prop} (s : MachineState) (ra a0 : Word) (O : List Wor
     (hO : Region a0 O s) (hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi a0 10)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → t.privateInput = s.privateInput →
       Unchanged [(a0, 10)] s t →
-      (∃ W : List Word, W.length = 10 ∧ Region a0 W t) → Safe P t) :
-    Safe P s := by
+      (∃ W : List Word, W.length = 10 ∧ Region a0 W t) → SafeN G n P t) :
+    SafeN G n P s := by
   have hI : s.privateInput = s.privateInput := rfl
   have hu := Unchanged.refl [(a0, 10)] s
   sym_exec

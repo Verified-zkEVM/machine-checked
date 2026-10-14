@@ -14,7 +14,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 20000000 in
 set_option maxRecDepth 10000 in
-theorem fq_from_repr_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1 x2 x3 : Word)
+theorem fq_from_repr_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0 x1 x2 x3 : Word)
     (O : List Word) (hOl : O.length = 5)
     (hpc : s.pc = 0x7802ed10#64) (hcode : CodeAt F_7802ed10.base F_7802ed10.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
@@ -30,8 +30,8 @@ theorem fq_from_repr_spec {P : Prop} (s : MachineState) (ra a0 a1 sp : Word) (x0
       Unchanged [(sp - 0xb0#64, 22), (a0, 5)] s t →
       Region a0 (natToLeLimbs 4 (Fq.mul (leLimbsToNat [x0, x1, x2, x3]) Fq.R2) ++
         [replaceByte O[4]! 0 (if leLimbsToNat [x0, x1, x2, x3] < Fq.q then 1#8 else 0#8)]) t →
-      Safe P t) :
-    Safe P s := by
+      SafeN G n P t) :
+    SafeN G n P s := by
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0xa0#64) 20 s
   obtain ⟨FB, hFB, hFBl⟩ := Region.exists_junk (sp - 0xb0#64) 2 s
   have hokA : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xb0#64) 22 := hstk.frame 22 (by decide)

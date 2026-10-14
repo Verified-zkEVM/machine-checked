@@ -39,7 +39,7 @@ def rivkW (s0 s1 s2 s3 : Word) : List Word :=
     (Fq.mul (leLimbsToNat [(prfExpandW 8#64 s0 s1 s2 s3)[4]!, (prfExpandW 8#64 s0 s1 s2 s3)[5]!,
       (prfExpandW 8#64 s0 s1 s2 s3)[6]!, (prfExpandW 8#64 s0 s1 s2 s3)[7]!]) Fq.R3))
 
-theorem nk_from_spending_key_spec {P : Prop} (s : MachineState) (ra sp out sk s0 s1 s2 s3 : Word)
+theorem nk_from_spending_key_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out sk s0 s1 s2 s3 : Word)
     (F1 F2 : List Word) (hF1 : F1.length = 74) (hF2 : F2.length = 70)
     (hpc : s.pc = 0x780231e8#64) (hcode : CodeAt F_780231e8.base F_780231e8.prog s)
     (hcW : CodeAt F_78023308.base F_78023308.prog s)
@@ -61,8 +61,8 @@ theorem nk_from_spending_key_spec {P : Prop} (s : MachineState) (ra sp out sk s0
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x4d0#64, 154), (out, 4)] s t →
       (prfExpandW 7#64 s0 s1 s2 s3).length = 8 →
-      Region out (nkW s0 s1 s2 s3) t → Safe P t) :
-    Safe P s := by
+      Region out (nkW s0 s1 s2 s3) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x4d0#64) 154 := hstk.frame 154 (by decide)
   have hokF1 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x4d0#64) 74 := hokW.sub' 0 74 (by decide) (by bv_omega)
   have hokF2 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x280#64) 70 := hokW.sub' 74 70 (by decide) (by bv_omega)
@@ -78,7 +78,7 @@ theorem nk_from_spending_key_spec {P : Prop} (s : MachineState) (ra sp out sk s0
   rw [← acc15_0_def, acc10_0_def]
   simp only [List.getElem!_cons_zero, List.getElem!_cons_succ]
 
-theorem rivk_from_spending_key_spec {P : Prop} (s : MachineState) (ra sp out sk s0 s1 s2 s3 : Word)
+theorem rivk_from_spending_key_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out sk s0 s1 s2 s3 : Word)
     (F1 F2 : List Word) (hF1 : F1.length = 74) (hF2 : F2.length = 70)
     (hpc : s.pc = 0x78023230#64) (hcode : CodeAt F_78023230.base F_78023230.prog s)
     (hcW : CodeAt F_78023308.base F_78023308.prog s)
@@ -100,8 +100,8 @@ theorem rivk_from_spending_key_spec {P : Prop} (s : MachineState) (ra sp out sk 
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x4d0#64, 154), (out, 4)] s t →
       (prfExpandW 8#64 s0 s1 s2 s3).length = 8 →
-      Region out (rivkW s0 s1 s2 s3) t → Safe P t) :
-    Safe P s := by
+      Region out (rivkW s0 s1 s2 s3) t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x4d0#64) 154 := hstk.frame 154 (by decide)
   have hokF1 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x4d0#64) 74 := hokW.sub' 0 74 (by decide) (by bv_omega)
   have hokF2 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x280#64) 70 := hokW.sub' 74 70 (by decide) (by bv_omega)

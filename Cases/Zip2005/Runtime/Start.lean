@@ -23,7 +23,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem start_to_main {P : Prop} (s : MachineState)
+theorem start_to_main {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     (hpcS : s.pc = 0x7801bcd0#64) (hc0 : CodeAt F_7801bcd0.base F_7801bcd0.prog s)
     (hc1 : CodeAt F_7801be34.base F_7801be34.prog s) (hc2 : CodeAt F_7801bdec.base F_7801bdec.prog s)
     (hc3 : CodeAt F_7801bfac.base F_7801bfac.prog s) (hcD : CodeAt F_7801beac.base F_7801beac.prog s)
@@ -34,8 +34,8 @@ theorem start_to_main {P : Prop} (s : MachineState)
       t.getReg .x2 = 0x77fffff0#64 → t.privateInput = s.privateInput →
       Unchanged [(0x77ffffd0#64, 4), (0x77fffff0#64, 2), (0x78040620#64, 1), (0x78044598#64, 1),
         (0x78048720#64, 1), (0x78048828#64, 1), (0x78048980#64, 4), (0x1bffffffe0#64, 2),
-        (0x78048830#64, 5), (0x78048858#64, 10)] s t → RoImage Ro.layout t → Safe P t) :
-    Safe P s := by
+        (0x78048830#64, 5), (0x78048858#64, 10)] s t → RoImage Ro.layout t → SafeN G n P t) :
+    SafeN G n P s := by
   have hokF0 : RegionOk Ro.layout.textLo Ro.layout.textHi 0x77ffffd0#64 4 := RegionOk.of_nat (by decide) (by decide) (Or.inl (by decide))
   have hokF1 : RegionOk Ro.layout.textLo Ro.layout.textHi 0x77fffff0#64 2 := RegionOk.of_nat (by decide) (by decide) (Or.inl (by decide))
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040620#64 1 := RegionOk.of_nat (by decide) (by decide) (Or.inr (by decide))
@@ -59,11 +59,11 @@ theorem start_to_main {P : Prop} (s : MachineState)
         (0x78048720#64, 1), (0x78048828#64, 1), (0x78048980#64, 4), (0x1bffffffe0#64, 2),
         (0x78048830#64, 5), (0x78048858#64, 10)] s
   have hh := fun (u : MachineState) (r sp' : Word) (hpcu : u.pc = 0x7801bfac#64) (hcu : u.code = s.code) =>
-    heap_init_spec (P := P) u r sp' hpcu (codeAt_of_code_eq hcu hc3) (codeAt_of_code_eq hcu hcD)
+    heap_init_spec (G := G) (n := n) (P := P) u r sp' hpcu (codeAt_of_code_eq hcu hc3) (codeAt_of_code_eq hcu hcD)
       (codeWithin_of_code_eq hcu hcw)
   have hm := fun (u : MachineState) (r a0 : Word) (O : List Word) (hOl : O.length = 10)
       (hpcu : u.pc = 0x7803f57c#64) (hcu : u.code = s.code) =>
-    memset73_spec (P := P) u r a0 O hOl hpcu (codeAt_of_code_eq hcu hcM) (codeWithin_of_code_eq hcu hcw)
+    memset73_spec (G := G) (n := n) (P := P) u r a0 O hOl hpcu (codeAt_of_code_eq hcu hcM) (codeWithin_of_code_eq hcu hcw)
   sym_exec [hh, hm] stop [0x78019ff4]
   sym_close hk
 

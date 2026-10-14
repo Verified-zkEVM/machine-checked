@@ -32,7 +32,7 @@ theorem beq_zero_decide (x : Word) : (x == 0#64) = decide (x = 0#64) := rfl
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem fp_ct_eq_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem fp_ct_eq_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 : Word)
     (hpc : s.pc = 0x78028b34#64) (hcode : CodeAt F_78028b34.base F_78028b34.prog s)
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -45,8 +45,8 @@ theorem fp_ct_eq_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (hd0 : Disjoint (sp - 0x30#64) 6 a0 4) (hd1 : Disjoint (sp - 0x30#64) 6 a1 4)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x30#64, 6)] s t →
-      t.getReg .x10 = bw (decide (x0 = y0 ∧ x1 = y1 ∧ x2 = y2 ∧ x3 = y3)) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (decide (x0 = y0 ∧ x1 = y1 ∧ x2 = y2 ∧ x3 = y3)) → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x30#64) 6 := hstk.frame 6 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x20#64) 4 := hokW.sub' 2 4 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x20#64) 4 s
@@ -63,7 +63,7 @@ theorem fp_ct_eq_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem fq_ct_eq_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem fq_ct_eq_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 : Word)
     (hpc : s.pc = 0x7802e8ec#64) (hcode : CodeAt F_7802e8ec.base F_7802e8ec.prog s)
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -76,8 +76,8 @@ theorem fq_ct_eq_spec {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
     (hd0 : Disjoint (sp - 0x30#64) 6 a0 4) (hd1 : Disjoint (sp - 0x30#64) 6 a1 4)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x30#64, 6)] s t →
-      t.getReg .x10 = bw (decide (x0 = y0 ∧ x1 = y1 ∧ x2 = y2 ∧ x3 = y3)) → Safe P t) :
-    Safe P s := by
+      t.getReg .x10 = bw (decide (x0 = y0 ∧ x1 = y1 ∧ x2 = y2 ∧ x3 = y3)) → SafeN G n P t) :
+    SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x30#64) 6 := hstk.frame 6 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x20#64) 4 := hokW.sub' 2 4 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x20#64) 4 s

@@ -21,7 +21,7 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 set_option autoImplicit false
 
 /-- `__rust_realloc(p0, 32 n, 8, 64 n)` at `finish_grow`'s call (`0x7801cdfc`). -/
-def ReallocMp (P : Prop) (code : Word → Option Instr) : Prop :=
+def ReallocMp (G : MachineState → Prop) (nb : Nat) (P : Prop) (code : Word → Option Instr) : Prop :=
   ∀ (u : MachineState) (sp' p0 : Word) (n : Nat) (B : List Word), 4 ≤ n → n ≤ 16 →
     u.pc = 0x7801bd38#64 → u.code = code → u.getReg .x1 = 0x7801cdfc#64 → u.getReg .x2 = sp' →
     StackOk Ro.layout 0x60 sp' → u.getReg .x10 = p0 → u.getReg .x11 = BitVec.ofNat 64 (32 * n) →
@@ -32,8 +32,8 @@ def ReallocMp (P : Prop) (code : Word → Option Instr) : Prop :=
       Unchanged [(sp' - 0x60#64, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
       t.getReg .x10 = p' → B'.length = 4 * n → Region p' (B ++ B') t →
       RegionOk Ro.layout.roBase Ro.layout.textHi p' (8 * n) → 0x78048980 ≤ p'.toNat → p'.toNat + 64 * n ≤ 0x1c00000000 →
-      Safe P t) →
-    Safe P u
+      SafeN G nb P t) →
+    SafeN G nb P u
 
 /-- A block the executor holds cell by cell is the list it was made from. -/
 theorem cells_eq_append {B B' A : List Word} {n : Nat} (hA : B ++ B' = A) (hlen : A.length = n) :
@@ -44,11 +44,11 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `do_reserve_and_handle(hdr, n)` on a full `Vec<Fp>` of `n` elements (`4 ≤ n ≤ 16`), returning
     to `0x7801d1e8`: the block doubled through `finish_grow`'s `__rust_realloc`. -/
-theorem reserve_mp_spec {P : Prop} (s : MachineState) (sp' hdr ptr : Word) (n : Nat) (B : List Word)
+theorem reserve_mp_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (sp' hdr ptr : Word) (n : Nat) (B : List Word)
     (hpcS : s.pc = 0x7801cac0#64)
     (hcd : CodeAt F_7801cac0.base F_7801cac0.prog s) (hcf : CodeAt F_7801cdb4.base F_7801cdb4.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hrealloc : ReallocMp P s.code)
-    (hhr : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hrealloc : ReallocMp G nb P s.code)
+    (hhr : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G nb P u)
     (hra : s.getReg .x1 = 0x7801d1e8#64) (hsp : s.getReg .x2 = sp')
     (hstk : StackOk Ro.layout 0x100 sp') (ha0 : s.getReg .x10 = hdr) (ha1 : s.getReg .x11 = BitVec.ofNat 64 n)
     (hR : Region hdr [BitVec.ofNat 64 n, ptr, BitVec.ofNat 64 n] s) (hokR : RegionOk Ro.layout.roBase Ro.layout.textHi hdr 3)
@@ -59,8 +59,8 @@ theorem reserve_mp_spec {P : Prop} (s : MachineState) (sp' hdr ptr : Word) (n : 
         t.code = s.code → Unchanged [(sp' - 0x100#64, 32), (hdr, 3), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
         Region hdr [BitVec.ofNat 64 (2 * n), ptr', BitVec.ofNat 64 n] t → B'.length = 4 * n →
         Region ptr' (B ++ B') t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr' (8 * n) → 0x78048980 ≤ ptr'.toNat →
-        ptr'.toNat + 64 * n ≤ 0x1c00000000 → Safe P t) :
-    Safe P s := by
+        ptr'.toNat + 64 * n ≤ 0x1c00000000 → SafeN G nb P t) :
+    SafeN G nb P s := by
   unfold ReallocMp at hrealloc
   have hrea := fun v sp'' p1 m B1 h1 h2 hpcv (hcv : v.code = s.code) => hrealloc v sp'' p1 m B1 h1 h2 hpcv hcv
   clear hrealloc
@@ -128,10 +128,10 @@ theorem reserve_mp_spec {P : Prop} (s : MachineState) (sp' hdr ptr : Word) (n : 
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
 
 /-- `reserve_mp_spec` as its callers' contract (`hreserve`, ledger A5). -/
-theorem reserve_mp_contract {P : Prop} (s : MachineState)
+theorem reserve_mp_contract {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState)
     (hcodeD : CodeAt F_7801cac0.base F_7801cac0.prog s) (hcodeF : CodeAt F_7801cdb4.base F_7801cdb4.prog s)
-    (hcwS : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hrealloc : ReallocMp P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → Safe P u) :
+    (hcwS : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hrealloc : ReallocMp G nb P s.code)
+    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G nb P u) :
     ∀ (u : MachineState) (sp' hdr ptr : Word) (n : Nat) (B : List Word),
       u.pc = 0x7801cac0#64 → u.code = s.code → u.getReg .x1 = 0x7801d1e8#64 → u.getReg .x2 = sp' →
       StackOk Ro.layout 0x100 sp' → u.getReg .x10 = hdr → u.getReg .x11 = BitVec.ofNat 64 n →
@@ -142,7 +142,7 @@ theorem reserve_mp_contract {P : Prop} (s : MachineState)
         t.code = u.code → Unchanged [(sp' - 0x100#64, 32), (hdr, 3), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region hdr [BitVec.ofNat 64 (2 * n), ptr', BitVec.ofNat 64 n] t → B'.length = 4 * n →
         Region ptr' (B ++ B') t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr' (8 * n) → 0x78048980 ≤ ptr'.toNat →
-        ptr'.toNat + 64 * n ≤ 0x1c00000000 → Safe P t) → Safe P u :=
+        ptr'.toNat + 64 * n ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u :=
   fun u sp' hdr ptr n B hpc hc hra hsp hstk ha0 ha1 hR hokR hdS hdH hn4 hn16 hBl hB hplo hphi hk =>
     reserve_mp_spec u sp' hdr ptr n B hpc (codeAt_of_code_eq hc hcodeD) (codeAt_of_code_eq hc hcodeF)
       (fun a ha => hcwS a (hc ▸ ha)) (hc ▸ hrealloc) (fun v hv hcv => hhandle_rv v hv (hcv.trans hc))
