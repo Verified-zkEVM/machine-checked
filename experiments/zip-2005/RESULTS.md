@@ -1,6 +1,6 @@
 # ELF experiments on zip-2005-asm's guest (2026-10-12)
 
-These experiments test the toolchain claims marked **[K]** in [`../../ELF.md`](../../ELF.md)
+These experiments test the toolchain claims marked **[K]** in [`../../docs/ELF.md`](../../docs/ELF.md)
 against zip-2005-asm's SP1 guest. Nothing in `../../../zip-2005-asm` was modified. Every
 build ran from a copy of its workspace.
 

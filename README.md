@@ -38,7 +38,7 @@ The basic pipeline:
 ## Strategies
 
 - TODO proof optimised, formally verified interpreters for each of riscv, x86, and arm
-    - each is formally verified wrt the canonical spec (e.g. [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm); the specs are in [ISA.md](ISA.md)).
+    - each is formally verified wrt the canonical spec (e.g. [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm); the specs are in [docs/ISA.md](docs/ISA.md)).
     - the interpreter should be speicalized in some sense for proof-friendliness (whatever that means exactly)
 - TODO a strategy for dealing with the ELF (we can tolerate some trust to the compiler - fine);
     - preferably, a generic framework that handles ELFs so that we can focus verification on the bytecode in question

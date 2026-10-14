@@ -6,7 +6,7 @@ the SAIL spec
 
 ## x86
 
-Kraken probably?
+Probably use Kraken; the 
 
 ## ARM
 
