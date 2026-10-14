@@ -330,6 +330,15 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
      `of_unchanged` lemma for calls); function specifications take them as preconditions;
      `main` gets them from `Runtime.Entry` (`MainEntry.prot`, `Owned.mainEntry_inv`, the
      heap's one free block).
+  **Finding (2026-10-14): a second formatting path.** `__rust_alloc_error_handler_should_panic`
+  (`0x7801aec8`) returns 0 in this binary, so `handle_alloc_error` (`0x7803d1a8`) does not
+  panic: `rust_oom` runs `default_alloc_error_hook` (`0x7803af60`), which prints "memory
+  allocation of N bytes failed" through `Stderr::write_fmt` (`core::fmt::write` over the
+  stderr adapter, no heap `String`) and then aborts. The proved `alloc` may return null, and
+  the callers' null branches lead there. So M1 has two premises, both "a formatting path
+  never accepts": `panic_with_hook` and the default allocation-error hook (stated at
+  `rust_oom`, `0x7803b100`, or at `handle_alloc_error`). The second needs no heap reasoning
+  (the stderr adapter is the unit kind E2 already plans) and may be the smaller proof.
 - F4. The end theorem: from `Layout.image.state I`, an accepting run gives
   `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
   satisfiability witness.
