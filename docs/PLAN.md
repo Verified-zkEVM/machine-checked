@@ -350,6 +350,31 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   (`Cases/Zip2005/ISSUES.md` #2). `pwhIface.Holds` as stated quantifies over states with an
   arbitrary allocator control block, and is then probably false. M1 states every
   formatting premise, and every restated panic contract, under the heap invariant.
+  **M1 implementation (2026-10-14).**
+  - *The carried invariant* (`AsmVerif.RiscV.Sym.Carry`): `Carry R Q L s`, every memory
+    agreeing with `s`'s off the open addresses (fixed ranges `R`, live buffers `L`)
+    satisfies `Q L`. Stores to open addresses and calls whose write set is open keep it;
+    the executor carries it as it carries `RoImage`.
+  - *The run's invariant* (`Cases.Zip2005.Run.Heap`): `HeapAt L s := Carry ranges Q L s`,
+    with `Q L m` the hasher's invariant, `Tlsf.Rep` with the sentinel at `7 << 34 - 32`, and
+    each live buffer null or a used block's payload from its start. `q_frame`: `Q` reads
+    closed memory only (the control block, headers, back links, free blocks, the hasher's
+    tag and position). `mainEntry_heapAt`: it holds, with nothing live, at `main`.
+  - *The environment of the premises*: `HeapEnv.env` (hasher and allocator owned) with no
+    control-flow premise (`cfi := []`), so the formatting premises are stated for every
+    guard and the top theorem keeps an arbitrary `G`. The two `jalr` sites of `Env.cfi` are
+    inside `core::fmt::write`, i.e. inside the premises.
+  - *Allocator contracts* keep their call-site shapes, plus `HeapAt L` before and
+    `HeapAt ((ptr, k) :: L)` after, and admit null (`ptr.toNat = 0 ∨ BASE ≤ ptr.toNat`):
+    the callers' null branches reach `handle_alloc_error`. A heap block a contract keeps
+    (the `FP_TABLES` tables across `from_iter`'s allocation) is one of `L`'s.
+  - *Phase D additions*: `Alloc`/`Dealloc`'s `Out` record the private input (the
+    contracts carry it).
+  - *`hinit`* (the lazy table build at `0x7801a258`, a "behaves as if built" contract) is
+    replaced, not discharged: `0x7801a258` is the call of `SpendValidatingKey::from_bytes`,
+    the first decompression, and `EpAffine::from_bytes` (`0x78025a1c`) holds the only call
+    of the `Once` slow path (`0x78026250`), whose build `fp_tables_init_spec` proves. So
+    segment A2 starts with the `Once` uninitialised and that first call builds the tables.
 - F4. The end theorem: from `Layout.image.state I`, an accepting run gives
   `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
   satisfiability witness.
