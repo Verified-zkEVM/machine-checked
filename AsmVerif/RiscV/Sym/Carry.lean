@@ -4,10 +4,11 @@
   A memory invariant the executor carries through stores and calls, as it carries `RoImage`.
 
   `Carry R Q L s`: every memory that agrees with `s`'s outside the *open* addresses satisfies
-  `Q L`. An address is open when it lies in one of the fixed ranges `R` (`Nat` bounds) or in
-  one of the buffers of the live list `L` (`(base, cells)` pairs). So a store to an open
-  address keeps the fact (`Carry.setMem`), and so does a call whose write set lies in open
-  memory (`Carry.of_unchanged`). What `Q` says is the program's: the allocator's control
+  `Q L'` for every sublist `L'` of `L`. An address is open when it lies in one of the fixed
+  ranges `R` (`Nat` bounds) or in one of the buffers of the live list `L` (`(base, cells)`
+  pairs). So a store to an open address keeps the fact (`Carry.setMem`), so does a call whose
+  write set lies in open memory (`Carry.of_unchanged`), and buffers may be dropped from the
+  list (`Carry.sublist`). What `Q` says is the program's: the allocator's control
   block and block headers, an owned static. A specification that changes closed memory (the
   allocator itself) states `Carry` of its return state, possibly with a longer live list.
 -/
@@ -22,10 +23,10 @@ open RiscvZkvm.Rv64
 def Open (R : List (Nat × Nat)) (L : List (Word × Nat)) (a : Word) : Prop :=
   (∃ r ∈ R, r.1 ≤ a.toNat ∧ a.toNat < r.2) ∨ ∃ r ∈ L, InRegion a r.1 r.2
 
-/-- Memory `s` satisfies `Q L`, through its closed addresses only. -/
+/-- Memory `s` satisfies `Q` of every sublist of `L`, through its closed addresses only. -/
 def Carry (R : List (Nat × Nat)) (Q : List (Word × Nat) → (Word → Word) → Prop)
     (L : List (Word × Nat)) (s : MachineState) : Prop :=
-  ∀ m : Word → Word, (∀ a, ¬ Open R L a → m a = s.getMem a) → Q L m
+  ∀ m : Word → Word, (∀ a, ¬ Open R L a → m a = s.getMem a) → ∀ L', L'.Sublist L → Q L' m
 
 /-- Every address of `[b, b + 8 n)` is open. -/
 def OpenBlock (R : List (Nat × Nat)) (L : List (Word × Nat)) (b : Word) (n : Nat) : Prop :=
@@ -34,11 +35,29 @@ def OpenBlock (R : List (Nat × Nat)) (L : List (Word × Nat)) (b : Word) (n : N
 variable {R : List (Nat × Nat)} {Q : List (Word × Nat) → (Word → Word) → Prop}
   {L : List (Word × Nat)} {s t : MachineState}
 
-theorem Carry.holds (h : Carry R Q L s) : Q L s.getMem := h _ fun _ _ => rfl
+theorem Carry.holds (h : Carry R Q L s) : Q L s.getMem := h _ (fun _ _ => rfl) L (List.Sublist.refl L)
+
+theorem Open.sublist {L' : List (Word × Nat)} {a : Word} (hs : L'.Sublist L) (h : Open R L' a) :
+    Open R L a := by
+  rcases h with h | ⟨r, hr, hin⟩
+  · exact .inl h
+  · exact .inr ⟨r, hs.subset hr, hin⟩
+
+/-- Dropping live buffers keeps the invariant. -/
+theorem Carry.sublist {L' : List (Word × Nat)} (h : Carry R Q L s) (hs : L'.Sublist L) :
+    Carry R Q L' s :=
+  fun m hm L'' h'' => h m (fun a ha => hm a fun h' => ha (h'.sublist hs)) L'' (h''.trans hs)
 
 theorem Carry.of_getMem (h : Carry R Q L s) (hm : ∀ a, ¬ Open R L a → t.getMem a = s.getMem a) :
     Carry R Q L t :=
   fun m hm' => h m fun a ha => (hm' a ha).trans (hm a ha)
+
+/-- `Carry` from `Q` at the state, when `Q` reads closed memory only and survives dropping
+    live buffers. -/
+theorem Carry.intro (hQ : Q L s.getMem)
+    (hframe : ∀ m m' : Word → Word, Q L m → (∀ a, ¬ Open R L a → m' a = m a) → Q L m')
+    (hsub : ∀ L', L'.Sublist L → ∀ m, Q L m → Q L' m) : Carry R Q L s :=
+  fun m hm L' hs => hsub L' hs m (hframe _ m hQ hm)
 
 theorem Carry.of_mem_eq (h : Carry R Q L s) (hm : t.mem = s.mem) : Carry R Q L t :=
   h.of_getMem fun a _ => by simp [MachineState.getMem, hm]

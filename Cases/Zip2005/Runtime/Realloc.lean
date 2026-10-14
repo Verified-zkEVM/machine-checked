@@ -359,7 +359,8 @@ theorem a32_mod {x : Word} (h : x &&& 31#64 = 0#64) : x.toNat % 32 = 0 := by
 
 /-- What `realloc`'s caller gets back: the return, with the callee-saved registers and the
     code as they were; the owned statics' invariant and the protected memory kept; the heap well
-    formed again; below the heap, off the stack window and the owned statics, nothing changed;
+    formed again; below the arena, off the control block, the stack window and the owned
+    statics, nothing changed;
     every other live byte kept; and either null, with every used block kept, or a new block
     granted for the new size, with the old one freed. -/
 def Done (env : Env) (s0 : MachineState) (base : Word) (bs : List Tlsf.Blk) (b : Tlsf.Blk)
@@ -368,7 +369,8 @@ def Done (env : Env) (s0 : MachineState) (base : Word) (bs : List Tlsf.Blk) (b :
   t.code = s0.code ∧ env.Inv t.getMem ∧
   (∀ a, Aligned a → env.InProt a → t.getMem a = s0.getMem a) ∧
   ∃ bs' L', Tlsf.Rep HEAP base t.getMem bs' L' ∧
-  (∀ a, Aligned a → a.toNat < HEAP.toNat → ¬ env.InOwn a →
+  (∀ a, Aligned a → a.toNat < base.toNat →
+    ¬ (HEAP.toNat ≤ a.toNat ∧ a.toNat < HEAP.toNat + Tlsf.ctlSize) → ¬ env.InOwn a →
     (a.toNat + 0x60 < (s0.getReg .x2).toNat ∨ (s0.getReg .x2).toNat ≤ a.toNat) →
     t.getMem a = s0.getMem a) ∧
   (∀ a, Aligned a → Live bs a → ¬ (b.a.toNat ≤ a.toNat ∧ a.toNat < b.a.toNat + b.sz.toNat) →
@@ -533,12 +535,12 @@ theorem spec (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
     · intro a _ hp'
       rw [hmt]; simp only [MachineState.getMem_setReg, MachineState.getMem_setPC]
       exact hA a (hEN a (.inr hp')) (.inl (hEnvS a (.inr hp')))
-    · refine ⟨bs1, L1, rep_congr hrep1 fun a ha => ?_, fun a _ h1 _ h2 => ?_,
+    · refine ⟨bs1, L1, rep_congr hrep1 fun a ha => ?_, fun a _ h1 hc _ h2 => ?_,
         fun a _ hl hnb => ?_, .inl ⟨by rw [hrt]; xregs; rw [ores, hr0], hused1⟩⟩
       · rw [hmt]; simp only [MachineState.getMem_setReg, MachineState.getMem_setPC]
         exact om _ (fun h => by unfold Alloc.InFrame at h; rw [hsp1] at h; omega)
       · rw [hmt]; simp only [MachineState.getMem_setReg, MachineState.getMem_setPC]
-        exact hA a (notMine_low hsh0 h1) (by omega)
+        exact hA a (hNM a h1 (by simpa only [Tlsf.ctlSize] using hc)) (by omega)
       · rw [hmt]; simp only [MachineState.getMem_setReg, MachineState.getMem_setPC]
         obtain ⟨c, hc, hcu, h1, h2⟩ := hl
         have := (hsh0.blkA hc).2.1
@@ -756,10 +758,12 @@ theorem spec (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
           (fun h => by unfold Dealloc.InFrame at h; rw [hsp1] at h; omega),
         hwr a hal' (hPO a hp') (fun h => (hEnvA a (by omega)).1 hp'),
         hA a (hEN a (.inr hp')) (.inl this)]
-    · intro a hal' h1 hno h2
-      rw [hfr a (notMine_low hsh1 h1) (fun h => by omega)
+    · intro a hal' h1 hc hno h2
+      simp only [Tlsf.ctlSize] at hc
+      have hr16' := hr16
+      rw [hfr a (hNM1 a h1 hc) (fun h => by omega)
           (fun h => by unfold Dealloc.InFrame at h; rw [hsp1] at h; omega),
-        hwr a hal' hno (fun h => by omega), hA a (notMine_low hsh0 h1) h2.symm]
+        hwr a hal' hno (fun h => by omega), hA a (hNM a h1 hc) h2.symm]
     · intro a hal' hl hnb
       obtain ⟨c, hc, hcu, h1, h2⟩ := hl
       have hc1 := hused1 c hc hcu

@@ -207,15 +207,19 @@ theorem q_frame {L : List (Word × Nat)} {m m' : Word → Word} (h : Q L m)
     refine Tlsf.rep_iff.mpr ⟨?_, hsh.congr fun a ha => hm a (not_open_key hrep hs hL ha)⟩
     rw [hcl _ (by decide) (by decide)]; exact hl
 
+/-- The invariant survives dropping live buffers. -/
+theorem q_sub {L L' : List (Word × Nat)} (hs : L'.Sublist L) {m : Word → Word} (h : Q L m) :
+    Q L' m := by
+  obtain ⟨hk, hh, hD, bs, Lf, hr, hsn, hL⟩ := h
+  exact ⟨hk, hh, hD.sublist hs, bs, Lf, hr, hsn, fun r hr => hL r (hs.subset hr)⟩
+
 /-- The invariant of a state, from its memory's. -/
 theorem heapAt_of {L : List (Word × Nat)} {s : MachineState} (h : Q L s.getMem) : HeapAt L s :=
-  fun _ hm => q_frame h hm
+  Carry.intro h (fun _ _ h hm => q_frame h hm) fun _ hs _ h => q_sub hs h
 
 /-- A shorter live list. -/
 theorem HeapAt.sub {L L' : List (Word × Nat)} {s : MachineState} (h : HeapAt L s)
-    (hsub : L'.Sublist L) : HeapAt L' s := by
-  obtain ⟨hk, hh, hD, bs, Lf, hr, hs, hL⟩ := h.holds
-  exact heapAt_of ⟨hk, hh, hD.sublist hsub, bs, Lf, hr, hs, fun r hr => hL r (hsub.subset hr)⟩
+    (hsub : L'.Sublist L) : HeapAt L' s := h.sublist hsub
 
 /-- At `main`'s entry: the hasher set up, the heap one free block, nothing live. -/
 theorem mainEntry_heapAt {input : List (BitVec 8)} {t : MachineState}
