@@ -37,6 +37,8 @@
   * `CodeAt base prog s`, `CodeWithin lo hi s`
   * `Unchanged W s₀ s` (else `Unchanged [] s s`); stores must land in `W`
   * `s.privateInput = e`
+  * `Carry R Q L s` (also through a reducible name): the carried memory invariant, kept
+    across stores and calls whose write set is open (`AsmVerif.RiscV.Sym.Carry`)
   * `StackOk L room sp`, unpacked into `Nat` facts for `omega`; `L : Layout` (also
     through `RoImage L s` or a `RegionOk L.roBase …` fact) gives the executor the guest's
     text window, read-only segment and stack top
@@ -48,6 +50,7 @@ import Lean
 import AsmVerif.RiscV.Image
 import AsmVerif.RiscV.Sym.Regs
 import AsmVerif.RiscV.Sym.Ro
+import AsmVerif.RiscV.Sym.Carry
 import AsmVerif.RiscV.Sym.ByteFold
 
 namespace AsmVerif.RiscV.Sym
@@ -361,6 +364,10 @@ structure St where
   hroM : Option Expr := none       -- : RoImage sM
   okFacts : Bool := false          -- the `RegionOk` facts' bounds have been added for `omega`
   hro : Option Expr := none        -- : RoImage L s
+  hcarryM : Option Expr := none    -- : Carry R Q L sM
+  hcarry : Option Expr := none     -- : Carry R Q L s
+  /-- `OpenBlock R L b n` facts proved for the carried invariant: (b, n, proof). -/
+  openCache : Array (Expr × Nat × Expr) := #[]
   layout : Option LayoutInfo := none
   priv : Option (Expr × Expr)      -- (value, proof : s.privateInput = value)
   disj : Array (Expr × Expr × Expr × Expr × Expr)  -- (b₁, n₁, b₂, n₂, proof)
@@ -443,6 +450,68 @@ def rflOf (ty : Expr) (rhs : Expr) : MetaM Expr := do
   let pf ← mkEqRefl rhs
   mkExpectedTypeHint pf ty
 
+/-- `Carry R Q L s`, through reducible names (`HeapAt L s`): its parts. -/
+def carryParts? (ty : Expr) : MetaM (Option (Expr × Expr × Expr × Expr)) := do
+  let ty ← whnfR (← instantiateMVars ty)
+  match_expr ty with
+  | AsmVerif.RiscV.Sym.Carry R Q L s => return some (R, Q, L, s)
+  | _ => return none
+
+/-- A list as its literal prefix and its tail (`[]` for a literal). -/
+def listPrefix (e : Expr) : MetaM (Array Expr × Expr) := do
+  let mut e ← whnfR e
+  let mut out := #[]
+  repeat
+    match_expr e with
+    | List.cons _ a t => out := out.push a.headBeta; e ← whnfR t
+    | _ => break
+  return (out, e)
+
+/-- The list `elems[i:] ++ tail`, as conses. -/
+def consTail (ty : Expr) (elems : Array Expr) (i : Nat) (tail : Expr) : Expr :=
+  (elems.extract i elems.size).foldr (fun x acc => mkApp3 (mkConst ``List.cons [0]) ty x acc) tail
+
+/-- Membership of the `i`-th element of a list literal. -/
+def memLit (ty : Expr) (elems : Array Expr) (i : Nat) : MetaM Expr := do
+  let mut pf ← mkAppOptM ``List.mem_cons_self #[some ty, some elems[i]!, some (mkListLit ty (elems.extract (i+1) elems.size))]
+  for j in (List.range i).reverse do
+    pf ← mkAppM ``List.mem_cons_of_mem #[elems[j]!, pf]
+  return pf
+
+/-- Membership of the `i`-th element of a list's literal prefix, over its tail. -/
+def memPrefix (ty : Expr) (elems : Array Expr) (tail : Expr) (i : Nat) : MetaM Expr := do
+  let mut pf ← mkAppOptM ``List.mem_cons_self #[some ty, some elems[i]!, some (consTail ty elems (i+1) tail)]
+  for j in (List.range i).reverse do
+    pf ← mkAppM ``List.mem_cons_of_mem #[elems[j]!, pf]
+  return pf
+
+/-- `xs[i:] ++ tx <+ ys[j:] ++ ty`: `xs`'s elements matched in order by `ys`'s, the rest skipped,
+    the tails equal or `tx` empty. -/
+partial def sublistGo (el : Expr) (xs : Array Expr) (tx : Expr) (ys : Array Expr) (ty : Expr)
+    (i j : Nat) : MetaM (Option Expr) := do
+  if i == xs.size then
+    if tx.isAppOf ``List.nil then
+      return some (← mkAppOptM ``List.nil_sublist #[some el, some (consTail el ys j ty)])
+    if j == ys.size then
+      unless ← isDefEq tx ty do return none
+      return some (← mkAppOptM ``List.Sublist.refl #[some el, some ty])
+    let some h ← sublistGo el xs tx ys ty i (j + 1) | return none
+    return some (← mkAppM ``List.Sublist.cons #[ys[j]!, h])
+  if j == ys.size then return none
+  if ← isDefEq xs[i]! ys[j]! then
+    if let some h ← sublistGo el xs tx ys ty (i + 1) (j + 1) then
+      return some (← mkAppM ``List.Sublist.cons₂ #[ys[j]!, h])
+  let some h ← sublistGo el xs tx ys ty i (j + 1) | return none
+  return some (← mkAppM ``List.Sublist.cons #[ys[j]!, h])
+
+/-- `L'.Sublist L`, for lists given as literal prefixes over a common tail. -/
+def sublistProof (L' L : Expr) : MetaM (Option Expr) := do
+  let (xs, tx) ← listPrefix L'
+  let (ys, ty) ← listPrefix L
+  let el ← mkAppM ``Prod #[wordTy, natTy]
+  let some h ← sublistGo el xs tx ys ty 0 0 | return none
+  mkExpectedTypeHint h (← mkAppM ``List.Sublist #[L', L])
+
 /-- Instantiate lemma `lem` so that its conclusion is `target`; remaining
     propositional arguments are discharged by `decide`. -/
 def lemmaApp (lem : Name) (target : Expr) : MetaM Expr := do
@@ -487,7 +556,10 @@ def St.refresh (st : St) : MetaM St := do
   let hro ← match st.hroM with
     | none => pure none
     | some h => if sameM then pure (some h) else some <$> mkAppM ``AsmVerif.RiscV.Sym.RoImage.of_mem_eq #[h, st.hmem]
-  return { st with regs, regions, codes, hcw, hunch, hro }
+  let hcarry ← match st.hcarryM with
+    | none => pure none
+    | some h => if sameM then pure (some h) else some <$> mkAppM ``AsmVerif.RiscV.Sym.Carry.of_mem_eq #[h, st.hmem]
+  return { st with regs, regions, codes, hcw, hunch, hro, hcarry }
 
 /-- `Regs s l` with `l` a literal: the literal of `l.set i v`. -/
 def regListSet (l : Expr) (i : Nat) (v : Expr) : MetaM Expr := do
@@ -1314,6 +1386,7 @@ def initCore (g : MVarId) (specs : Array SpecInfo) (stops : Array Nat) : MetaM (
   let mut priv : Option (Expr × Expr) := none
   let mut lens : Array (Expr × Expr × Expr) := #[]
   let mut ro : Option Expr := none
+  let mut carry : Option Expr := none
   let mut roOuts : Array (Expr × Expr) := #[]
   for d in lctx do
     if d.isImplementationDetail then continue
@@ -1350,7 +1423,9 @@ def initCore (g : MVarId) (specs : Array SpecInfo) (stops : Array Nat) : MetaM (
     | AsmVerif.RiscV.Sym.Disjoint b₁ n₁ b₂ n₂ => disj := disj.push (b₁, n₁, b₂, n₂, pf)
     | AsmVerif.RiscV.Sym.Unchanged W _ sb => if sb == s0 then unch := some (W, pf)
     | AsmVerif.RiscV.Sym.RoImage _ s => if s == s0 then ro := some pf
-    | _ => pure ()
+    | _ =>
+      if let some (_, _, _, s) ← carryParts? ty then
+        if s == s0 then carry := some pf
   let some (hpcPf, pcv) := hpc | throwError "sym_exec: no literal `pc` fact for {s0}"
   let some hcwPf := hcw | throwError "sym_exec: no `CodeWithin` fact for {s0}"
   -- the register file: every register has a value, `s₀.getReg xᵢ` if nothing else
@@ -1423,7 +1498,7 @@ def initCore (g : MVarId) (specs : Array SpecInfo) (stops : Array Nat) : MetaM (
       alignFacts := alignFacts.push h'
   let hmem0 ← mkEqRefl (mkApp (mkConst ``MachineState.mem) s0)
   let hcode0 ← mkEqRefl (mkApp (mkConst ``MachineState.code) s0)
-  let st : St := { s0 := s0, s := s0, pc := some pcv, pcE := mkWordLit pcv, hpc := hpcPf, regs := regs, regList := regList, hregs := default, sM := s0, hmem := hmem0, regions := regions, codes := codes, hcode := hcode0, hcw0 := hcwPf, hcw := hcwPf, k := 0, W := W, wEntries := wEntries, hunchM := hunch, hunch := hunch, hroM := ro, hro := ro, layout := layout?, priv := priv, disj := disj, toClear := #[], pureFacts := (← pureRules) ++ alignFacts, specs := specs, stops := stops }
+  let st : St := { s0 := s0, s := s0, pc := some pcv, pcE := mkWordLit pcv, hpc := hpcPf, regs := regs, regList := regList, hregs := default, sM := s0, hmem := hmem0, regions := regions, codes := codes, hcode := hcode0, hcw0 := hcwPf, hcw := hcwPf, k := 0, W := W, wEntries := wEntries, hunchM := hunch, hunch := hunch, hroM := ro, hro := ro, hcarryM := carry, hcarry := carry, layout := layout?, priv := priv, disj := disj, toClear := #[], pureFacts := (← pureRules) ++ alignFacts, specs := specs, stops := stops }
   pure (st, mkApp2 (mkConst ``AsmVerif.RiscV.Sym.Regs) s0 regList, hregsPf)
 
 /-- A known `Disjoint a m b n`, in either order. -/
@@ -1751,6 +1826,50 @@ def roOutOfEntry (st : St) (b n : Expr) : TacticM (Option Expr) := do
     return some (← mkAppM ``AsmVerif.RiscV.Sym.roOut_sub #[roOut, hnw, mkNatLit i, mkNatLit nv, ha, him])
   return none
 
+/-- `OpenBlock R L b n` for the carried invariant: the block inside one of its fixed ranges, else
+    inside a live buffer over the same base atom, by `omega`; cached. -/
+def openBlockOf (b : Expr) (n : Nat) : SymM (Option Expr) := do
+  let st ← get
+  let some hc := st.hcarry | return none
+  if let some (_, _, pf) := st.openCache.find? (fun (b', n', _) => b' == b && n' == n) then
+    return some pf
+  let r? ← withMainContext do
+    let some (R, _, L, _) ← carryParts? (← inferType hc) | return none
+    let target := mkApp4 (mkConst ``AsmVerif.RiscV.Sym.OpenBlock) R L b (mkNatLit n)
+    if n == 0 then
+      return some (← mkAppM ``AsmVerif.RiscV.Sym.openBlock_zero #[R, L, b])
+    let toN ← mkAppM ``BitVec.toNat #[b]
+    let ext ← mkAppM ``HAdd.hAdd #[toN, ← mkAppM ``HMul.hMul #[mkNatLit 8, mkNatLit n]]
+    let bl ← normLin b
+    let (ls, lt) ← listPrefix L
+    let pairTy ← mkAppM ``Prod #[wordTy, natTy]
+    for i in [0:ls.size] do
+      let e ← whnfD ls[i]!
+      let p := e.getAppArgs[2]!; let k := e.getAppArgs[3]!
+      unless (← normLin p).sameAtom bl do continue
+      let pN ← mkAppM ``BitVec.toNat #[p]
+      let some h1 ← proveByOmega (natLeE pN toN) | continue
+      let some h2 ← proveByOmega (natLeE ext (← mkAppM ``HAdd.hAdd #[pN, ← mkAppM ``HMul.hMul #[mkNatLit 8, k]])) | continue
+      let hm ← memPrefix pairTy ls lt i
+      let pf ← mkAppM ``AsmVerif.RiscV.Sym.openBlock_live #[R, L, hm, h1, h2]
+      return some (← mkExpectedTypeHint pf target)
+    let natPair ← mkAppM ``Prod #[natTy, natTy]
+    let rs ← listElems R
+    for i in [0:rs.size] do
+      let e ← whnfD rs[i]!
+      let lo := e.getAppArgs[2]!; let hi := e.getAppArgs[3]!
+      let some h2 ← proveByOmega (natLeE ext hi) | continue
+      let some h1 ← proveByOmega (natLeE lo toN) | continue
+      let hm ← memLit natPair rs i
+      let pf ← mkAppM ``AsmVerif.RiscV.Sym.openBlock_range #[R, L, hm, h1, h2]
+      return some (← mkExpectedTypeHint pf target)
+    return none
+  if let some pf := r? then
+    modify fun st => { st with openCache := st.openCache.push (b, n, pf) }
+  else
+    trace[AsmVerif.sym] "the carried invariant: the block at {b} ({n} cells) is not shown open"
+  return r?
+
 /-- `hd : Disjoint R.base R.n b n` as `Disjoint R.base R.listExpr.length b n`, the form the frame
     lemmas take; a cast through `lenPf` for an opaque region (a literal list's length is `R.n`
     by `rfl`). -/
@@ -1831,6 +1950,7 @@ def finish (sh : Step) (close : Expr → MetaM Expr) : SymM Unit := do
   let mut hmem := st.hmem
   let mut hunchM := st.hunchM
   let mut hroM := st.hroM
+  let mut hcarryM := st.hcarryM
   let mut clearNow : Array FVarId := st.toClear
   let mut newClear : Array FVarId := #[hpcF.fvarId!, hregsF.fvarId!, hcodeF.fvarId!, hdef.fvarId!]
   if let some (_, pf) := priv' then newClear := newClear.push pf.fvarId!
@@ -1945,6 +2065,36 @@ def finish (sh : Step) (close : Expr → MetaM Expr) : SymM Unit := do
       let fv ← addFact `hro (mkApp2 (mkConst ``AsmVerif.RiscV.Sym.RoImage) li.L s') pf
       if let some h := st.hroM then if h.isFVar then clearNow := clearNow.push h.fvarId!
       hroM := some fv
+    -- the carried invariant survives a write to open memory
+    if let some hc := st.hcarry then
+      let T := match sh.kind with
+        | .mem tri .. => st.regions[tri]!
+        | .ww tri .. => st.regions[tri]!
+        | _ => default
+      let pf? ← match ← openBlockOf T.base T.n with
+        | none => pure none
+        | some hb => withMainContext do
+          let hnw ← mkAppM ``AsmVerif.RiscV.Sym.RegionOk.nowrap #[← T.okE]
+          match sh.kind with
+          | .mem _ ci _ v =>
+            let hopen ← mkAppM ``AsmVerif.RiscV.Sym.OpenBlock.cell #[hb, ← natLt ci T.n, hnw]
+            let pf ← mkAppM ``AsmVerif.RiscV.Sym.Carry.setMem #[hc, hopen, v, sh.newPcE]
+            some <$> mkAppM ``AsmVerif.RiscV.Sym.Carry.of_eq #[pf, hdef]
+          | .ww _ off a _ wsE =>
+            let hlen ← mkDecideProof (natLeE (← mkAppM ``HAdd.hAdd #[mkNatLit off,
+              ← mkAppM ``List.length #[wsE]]) (mkNatLit T.n))
+            let ha ← proveAddrEq st a (← cellAddr T.base off 0)
+            let pf ← mkAppM ``AsmVerif.RiscV.Sym.Carry.writeWords_block #[hc, hb, hnw, hlen, ha, sh.newPcE]
+            some <$> mkAppM ``AsmVerif.RiscV.Sym.Carry.of_eq #[pf, hdef]
+          | _ => pure none
+      if let some h := st.hcarryM then if h.isFVar then clearNow := clearNow.push h.fvarId!
+      match pf? with
+      | some pf =>
+        let fv ← addFact `hcarry (← withMainContext (inferType pf)) pf
+        hcarryM := some fv
+      | none =>
+        trace[AsmVerif.sym] "the carried invariant is dropped: a store into the block at {T.base}"
+        hcarryM := none
     let hunchTy ← withMainContext do inferType hunch'
     let hunchF ← addFact `hunch hunchTy hunch'
     if st.hunchM.isFVar then clearNow := clearNow.push st.hunchM.fvarId!
@@ -1962,7 +2112,7 @@ def finish (sh : Step) (close : Expr → MetaM Expr) : SymM Unit := do
   -- clear the superseded facts (a state still named by a fact survives)
   clearFacts clearNow
   if st.k > 0 && st.s != st.sM && st.s != st.s0 then clearFacts #[st.s.fvarId!]
-  let st' := { st with s := s', pc := sh.newPc, pcE := sh.newPcE, hpc := hpcF, regs := regs', regList := list', hregs := hregsF, sM := sM, hmem := hmem, regions := regions', hcode := hcodeF, k := st.k + 1, hunchM := hunchM, hroM := hroM, priv := priv', toClear := newClear, pureFacts := ← liveFacts st.pureFacts }
+  let st' := { st with s := s', pc := sh.newPc, pcE := sh.newPcE, hpc := hpcF, regs := regs', regList := list', hregs := hregsF, sM := sM, hmem := hmem, regions := regions', hcode := hcodeF, k := st.k + 1, hunchM := hunchM, hroM := hroM, hcarryM := hcarryM, openCache := (← get).openCache, priv := priv', toClear := newClear, pureFacts := ← liveFacts st.pureFacts }
   set (← withMainContext st'.refresh)
 
 /-- The `execInstrBr` unfold lemma for a constructor. -/
@@ -2998,6 +3148,15 @@ partial def discharge (ty : Expr) : SymM Expr := do
         return none
       | throwError "sym_exec: no hypothesis for the continuation-shaped precondition {ty}"
     return pf
+  -- the carried invariant, or with fewer live buffers
+  if let some (_, _, L', s') ← carryParts? ty then
+    if s' == s then
+      let some hc := st.hcarry | throwError "sym_exec: no carried invariant for{indentExpr ty}"
+      let some (_, _, L, _) ← carryParts? (← inferType hc) | throwError "sym_exec: carried invariant"
+      if ← isDefEq L' L then return hc
+      if let some hs ← sublistProof L' L then
+        return ← mkAppM ``AsmVerif.RiscV.Sym.Carry.sublist #[hc, hs]
+      throwError "sym_exec: precondition{indentExpr ty}\nnot a sublist of the carried live list{indentExpr L}"
   match_expr ty with
   | AsmVerif.RiscV.Sym.CodeAt b prog s' =>
     if s' == s then
@@ -3147,9 +3306,14 @@ def readPost (old : St) (t : Expr) (hyps : Array Expr) : SymM Unit := do
   let mut disj := old.disj
   let mut consumed : Array FVarId := #[]
   let mut purePost : Array Expr := #[]
+  let mut postCarry : Option Expr := none
   regs := regs.set! 0 (some ⟨mkWordLit 0, Lin.lit 0, mkApp (mkConst ``AsmVerif.RiscV.Sym.getReg_x0) t⟩)
   for h in hyps do
     let ty ← withMainContext do instantiateMVars (← inferType h)
+    if let some (_, _, _, t') ← withMainContext (carryParts? ty) then
+      if t' == t then
+        postCarry := some h
+        continue
     match_expr ty with
     | Eq _ lhs rhs =>
       match_expr lhs with
@@ -3648,6 +3812,36 @@ def readPost (old : St) (t : Expr) (hyps : Array Expr) : SymM Unit := do
         let p ← withMainContext do mkAppM ``AsmVerif.RiscV.Sym.RoImage.of_unchanged #[hro, hU, pf]
         pure (some (← addFact `hro (mkApp2 (mkConst ``AsmVerif.RiscV.Sym.RoImage) li.L t) p))
       else pure none
+  -- the carried invariant: the callee's own, else kept if its write set is open
+  let hcarryT ← match postCarry with
+    | some h => pure (some h)
+    | none => match old.hcarry with
+      | none => pure none
+      | some hc => do
+        let some (R, _, L, _) ← withMainContext do carryParts? (← inferType hc)
+          | pure none
+        let mut pf ← withMainContext do mkAppM ``AsmVerif.RiscV.Sym.openW_nil #[R, L]
+        let mut ok := true
+        for j in (List.range wEntries'.size).reverse do
+          let e ← withMainContext do whnfD wEntries'[j]!
+          let b := e.getAppArgs[2]!
+          let nv? ← withMainContext do getNatValue? (← whnfD e.getAppArgs[3]!)
+          let hb? ← match nv? with
+            | some nv => openBlockOf b nv
+            | none => pure none
+          let some hb := hb?
+            | do
+              trace[AsmVerif.sym] "the carried invariant is dropped: the callee writes {b}"
+              ok := false
+              break
+          pf ← withMainContext do
+            let ty := mkApp4 (mkConst ``AsmVerif.RiscV.Sym.OpenBlock) R L (← mkAppM ``Prod.fst #[e])
+              (← mkAppM ``Prod.snd #[e])
+            mkAppM ``AsmVerif.RiscV.Sym.openW_cons #[← mkExpectedTypeHint hb ty, pf]
+        if ok then
+          let p ← withMainContext do mkAppM ``AsmVerif.RiscV.Sym.Carry.of_unchanged #[hc, hU, pf]
+          pure (some (← addFact `hcarry (← withMainContext (inferType p)) p))
+        else pure none
   let priv' ← match priv with
     | some (v, pf) => pure (some (v, ← addFact `hpriv (← withMainContext do inferType pf) pf))
     | none => pure none
@@ -3655,12 +3849,13 @@ def readPost (old : St) (t : Expr) (hyps : Array Expr) : SymM Unit := do
   for R in old.regions do if R.hypM.isFVar && R.outW.isNone then oldClear := oldClear.push R.hypM.fvarId!
   if old.hunchM.isFVar then oldClear := oldClear.push old.hunchM.fvarId!
   if let some h := old.hroM then if h.isFVar then oldClear := oldClear.push h.fvarId!
+  if let some h := old.hcarryM then if h.isFVar then oldClear := oldClear.push h.fvarId!
   oldClear := oldClear ++ postClear
   clearFacts oldClear
   let mut newClear : Array FVarId := #[hpcF.fvarId!, hregsF.fvarId!, hcodeF.fvarId!]
   if let some (_, pf) := priv' then newClear := newClear.push pf.fvarId!
   let hmem ← withMainContext do mkEqRefl (mkApp (mkConst ``MachineState.mem) t)
-  let st' := { old with s := t, pc := pcLit, pcE := pcv, hpc := hpcF, regs := regsT, regList := regList, hregs := hregsF, sM := t, hmem := hmem, regions := regions', hcode := hcodeF, k := old.k + 1, hunchM := hunchF, hroM := hroT, priv := priv', disj := disj, toClear := newClear, pureFacts := ← liveFacts (old.pureFacts ++ purePost) }
+  let st' := { old with s := t, pc := pcLit, pcE := pcv, hpc := hpcF, regs := regsT, regList := regList, hregs := hregsF, sM := t, hmem := hmem, regions := regions', hcode := hcodeF, k := old.k + 1, hunchM := hunchF, hroM := hroT, hcarryM := hcarryT, openCache := (← get).openCache, priv := priv', disj := disj, toClear := newClear, pureFacts := ← liveFacts (old.pureFacts ++ purePost) }
   set (← withMainContext st'.refresh)
 where
   mkNatLitOf (hcw : Expr) (i : Nat) : MetaM Expr := do
@@ -4069,6 +4264,12 @@ def materialize : SymM Unit := do
         if !pf.isFVar then
           let _ ← addFact `hro (← withMainContext (inferType pf)) pf
     catch ex => trace[AsmVerif.sym] "materialize: read-only image fact failed: {ex.toMessageData}"
+  -- the carried invariant, likewise
+  if let some h := st.hcarry then
+    if !h.isFVar then
+      try
+        let _ ← addFact `hcarry (← withMainContext (inferType h)) h
+      catch ex => trace[AsmVerif.sym] "materialize: carried invariant failed: {ex.toMessageData}"
   for c in st.codes do
     if !c.hyp.isFVar then
       let _ ← addFact `hcode' (← withMainContext (inferType c.hyp)) c.hyp
@@ -4105,6 +4306,27 @@ partial def runPath (budget : IO.Ref Nat) (first : Bool) : SymM (Array MVarId) :
           let r ← simpWith ty #[] branchLemmas
           if r.expr == ty then pure h else mkEqMP (← r.getProof) h
         set { st with pureFacts := st.pureFacts.push h }
+        -- a word (dis)equality, also as one of `toNat`s, for `omega` (a null check on a pointer
+        -- the facts bound only for non-null)
+        let _ ← withMainContext do
+          let ty ← instantiateMVars (← inferType h)
+          let natFact? : Option Expr ← match_expr ty with
+            | Not e => match_expr e with
+              | Eq α _ _ =>
+                if ← isDefEq α wordTy then
+                  some <$> mkAppM ``AsmVerif.RiscV.Sym.toNat_ne_of_ne #[h]
+                else pure none
+              | _ => pure none
+            | Eq α _ _ =>
+              if ← isDefEq α wordTy then some <$> mkAppM ``congrArg #[mkApp (mkConst ``BitVec.toNat) (mkNatLit 64), h]
+              else pure none
+            | _ => pure none
+          if let some pf := natFact? then
+            let fty ← inferType pf
+            let r ← simpWith fty #[] omegaNormLemmas (dec := false)
+            let pf' ← if r.expr == fty then pure pf else mkEqMP (← r.getProof) pf
+            let _ ← addFact (Name.mkSimple s!"hbrN{st.k}") (← inferType pf') pf'
+          pure ()
         -- an arm whose condition contradicts the facts (`omega`, with the branch facts as
         -- `Nat`): closed here, so no load on it picks a region by a vacuous bound
         let seed ← withMainContext do return (← (← inferType h).collectFVars.run {}).2.fvarIds

@@ -84,20 +84,24 @@ theorem Carry.of_unchanged {W : List (Word × Nat)} (h : Carry R Q L s) (hu : Un
   h.of_getMem fun a ha => hu a fun r hr hin => ha (hW r hr a hin)
 
 /-- A block inside a fixed range is open. -/
-theorem openBlock_range {lo hi : Nat} (hr : (lo, hi) ∈ R) {b : Word} {n : Nat}
+theorem openBlock_range (R : List (Nat × Nat)) (L : List (Word × Nat)) {lo hi : Nat}
+    (hr : (lo, hi) ∈ R) {b : Word} {n : Nat}
     (h1 : lo ≤ b.toNat) (h2 : b.toNat + 8 * n ≤ hi) : OpenBlock R L b n :=
   fun a ha => Or.inl ⟨(lo, hi), hr, by unfold InRegion at ha; omega, by unfold InRegion at ha; omega⟩
 
 /-- A block inside a live buffer is open. -/
-theorem openBlock_live {p : Word} {k : Nat} (hr : (p, k) ∈ L) {b : Word} {n : Nat}
+theorem openBlock_live (R : List (Nat × Nat)) (L : List (Word × Nat)) {p : Word} {k : Nat}
+    (hr : (p, k) ∈ L) {b : Word} {n : Nat}
     (h1 : p.toNat ≤ b.toNat) (h2 : b.toNat + 8 * n ≤ p.toNat + 8 * k) : OpenBlock R L b n :=
   fun a ha => Or.inr ⟨(p, k), hr, by show InRegion a p k; unfold InRegion at ha ⊢; omega⟩
 
 /-- The empty block is open. -/
-theorem openBlock_zero {b : Word} : OpenBlock R L b 0 :=
+theorem openBlock_zero (R : List (Nat × Nat)) (L : List (Word × Nat)) (b : Word) :
+    OpenBlock R L b 0 :=
   fun a ha => by unfold InRegion at ha; omega
 
-theorem openW_nil : ∀ r ∈ ([] : List (Word × Nat)), OpenBlock R L r.1 r.2 :=
+theorem openW_nil (R : List (Nat × Nat)) (L : List (Word × Nat)) :
+    ∀ r ∈ ([] : List (Word × Nat)), OpenBlock R L r.1 r.2 :=
   fun _ h => absurd h (by simp)
 
 theorem openW_cons {r : Word × Nat} {rs : List (Word × Nat)} (hd : OpenBlock R L r.1 r.2)
@@ -133,5 +137,9 @@ theorem Carry.writeWords_block (h : Carry R Q L s) {b : Word} {n off : Nat} (hb 
     simp only [BitVec.toNat_add, BitVec.toNat_ofNat]
     omega
   rw [this]; exact hc
+
+/-- A word disequality, as one of `toNat`s (a branch fact, for `omega`). -/
+theorem toNat_ne_of_ne {a b : Word} (h : ¬ a = b) : ¬ a.toNat = b.toNat :=
+  fun e => h (BitVec.eq_of_toNat_eq e)
 
 end AsmVerif.RiscV.Sym

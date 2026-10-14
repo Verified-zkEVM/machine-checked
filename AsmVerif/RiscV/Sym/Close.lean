@@ -178,6 +178,14 @@ def closeOne (g : MVarId) : TacticM (List MVarId) := g.withContext do
   -- an assumption
   if let some d ← findHyp (fun t => withReducible (isDefEq t ty)) then
     g.assign d.toExpr; return []
+  -- the carried invariant with fewer live buffers
+  if let some (_, _, L', u) ← carryParts? ty then
+    for d in ← getLCtx do
+      if d.isImplementationDetail then continue
+      let some (_, _, L, u') ← carryParts? d.type | continue
+      unless u' == u do continue
+      if let some hs ← sublistProof L' L then
+        g.assign (← mkAppM ``AsmVerif.RiscV.Sym.Carry.sublist #[d.toExpr, hs]); return []
   match_expr ty with
   | AsmVerif.RiscV.Sym.CalleeSaved s t => g.assign (← closeCalleeSaved s t); return []
   | AsmVerif.RiscV.Sym.Unchanged W s u =>
