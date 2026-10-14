@@ -29,8 +29,10 @@ In the order to take them:
    relation (`exit` only, `unimp` ends the run, the fixed memory map, the advice region),
    which every leanVM target then shares.
 2. **SHA-256 `compress256` in zip-2005** (`0x780361e0`). Image, step and a certified footprint
-   contract already exist; only the functional link to `Hash.SHA2` is missing. On zip-2005's own
-   critical path: the public-values hasher whose invariant `Owned.env` carries is SHA-256.
+   contract already exist; only the functional link to `Hash.SHA2` is missing. Not on zip-2005's
+   critical path as it stands: the public-values hasher is SHA-256, but the guest commits no
+   public values, so its statement needs only the hasher's invariant (`Owned.env`), not the
+   digest. It becomes necessary if the guest is changed to commit values.
 3. **Keccak-f[1600] and keccak256 in the leanVM SDK** (`sdk/src/keccak.rs`, used by the
    `stateproof` guest). Ethereum's hash, in software (no Keccak instruction), written with
    shifts and ORs since rv64im has no rotate; spec `Hash.Keccak`.
