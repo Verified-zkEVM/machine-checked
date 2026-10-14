@@ -1,1 +1,23 @@
 # Issues found during verification and documented here
+## 1. The specification depends on a `native_decide` axiom (open, 2026-10-14)
+
+**What.** `#print axioms Cases.Zip2005.guest_loaded_run` lists, besides `propext`,
+`Classical.choice` and `Quot.sound`,
+`CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt._native.native_decide.ax_1_1`. The lemma
+`q_nsmul_Gpt : PALLAS_SCALAR_CARD • Gpt = 0` (the order of the Pallas generator) is proved
+by `native_decide` in the vendored `CompElliptic`, and the specification's own definitions
+use it: `Spec/Zip2005.lean` asserts it in the axioms of `commitIvk`, `noteCommit`,
+`DerivesComponents`, `RecoveryStatement` and the key-binding statements. So it is in the
+trust base of the statement itself, not only of a proof about it.
+
+**Why it matters.** The repository's rules allow no `native_decide`: it trusts the
+compiled evaluator and the code generator, not just the kernel. The end theorem
+currently does not meet that rule, independently of anything about the guest.
+
+**Options.** (a) Prove `q_nsmul_Gpt` by kernel computation (`decide +kernel` over a
+scalar multiplication by a 255-bit number, by double-and-add with GMP-backed `Nat`
+arithmetic; the Sinsemilla table check in `Bridge/SinsemillaTable.lean` already does
+comparable kernel work). (b) Restructure the definitions so the group order enters only
+as a hypothesis of the theorems that need it. (c) Accept it explicitly as a stated trust
+assumption. (a) is the first thing to try; it needs editing the vendored `CompElliptic`
+file, which is a third-party source kept under its own licence.
