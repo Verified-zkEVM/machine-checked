@@ -346,6 +346,10 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   `panic_with_hook` never accepts, the default allocation-error hook never accepts, and
   `format_inner` returns a `String`. A `fmt::write` specification generic in its writer is
   the common root they would all follow from.
+  **Finding (2026-10-14): the formatting premises must constrain the heap**
+  (`Cases/Zip2005/ISSUES.md` #2). `pwhIface.Holds` as stated quantifies over states with an
+  arbitrary allocator control block, and is then probably false. M1 states every
+  formatting premise, and every restated panic contract, under the heap invariant.
 - F4. The end theorem: from `Layout.image.state I`, an accepting run gives
   `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
   satisfiability witness.

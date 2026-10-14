@@ -21,3 +21,26 @@ comparable kernel work). (b) Restructure the definitions so the group order ente
 as a hypothesis of the theorems that need it. (c) Accept it explicitly as a stated trust
 assumption. (a) is the first thing to try; it needs editing the vendored `CompElliptic`
 file, which is a third-party source kept under its own licence.
+
+## 2. The `panic_with_hook` premise does not constrain the heap (open, 2026-10-14)
+
+**What.** `Runtime.Panic.pwhIface.Holds Owned.env C` says `panic_with_hook` (`0x7803b8d0`)
+never accepts from any state satisfying `Pre Owned.env C pwhIface`: the image's code, the
+stack in range, the protected statics (both hooks) at their load values, and the owned
+hasher invariant. Nothing in that precondition says the TLSF heap is well formed
+(`Owned.env.inv` sees only the hasher's two doublewords). The same holds for the second
+formatting premise added in M1 (`Runtime.PanicEntries.oomIface`).
+
+**Why it is likely false.** `panic_with_hook` formats the message into a heap `String`: it
+calls `__rust_alloc`/`__rust_realloc` and writes the returned buffer. From a state whose
+allocator control block is arbitrary, `alloc` can return a pointer into the stack, the
+formatting writes then overwrite a saved return address, and control can reach an accepting
+`syscall_halt(0)`. So the premise, as stated, is not known to be satisfiable and is probably
+false, which would make every theorem resting on it vacuous on inputs the statement
+rejects (the T1 pattern again, one level down).
+
+**Fix (part of M1).** State both formatting premises under the heap invariant the allocator
+proofs already use (`Tlsf.Rep` for the control block at `0x78040620` and the arena at
+`0x78048980`, with the guest's live blocks as used blocks), and thread that invariant to
+every panic call site. No theorem has been weakened; the premises are restated before
+anything is built on them.
