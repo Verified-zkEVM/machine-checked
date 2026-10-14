@@ -13,6 +13,14 @@ name = "riscv-zkvm"
 git = "https://github.com/Verified-zkEVM/riscv-zkvm"
 rev = "4634e41b229da4256e4a1f1688b94133fffa4af0"
 
+# Mathlib, as a direct require at the tag matching `lean-toolchain`. Only the ZIP 2005
+# specification and its closure (`Cases/Zip2005/Spec`) use it; `AsmVerif` and `Tools` do
+# not import it. Run `lake exe cache get` for the oleans.
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.33.0"
+
 # The framework: ISA-independent definitions at the top level, RISC-V under `AsmVerif.RiscV`.
 [[lean_lib]]
 name = "AsmVerif"
@@ -41,3 +49,4 @@ supportInterpreter = true
 [[lean_exe]]
 name = "infer-contracts"
 root = "Tools.Infer"
+
