@@ -22,6 +22,19 @@ The basic pipeline:
 
 * RiscV, x86, ARM
 
+(open question on how context-aware this needs to be)
+
+```
+        :                  :                  :       
+┌───────┴──────┐   ┌───────┴──────┐   ┌───────┴──────┐
+|    riscv     |   |      x86     |   |      arm     |
+└──────────────┘   └──────────────┘   └──────────────┘
+        /\                /\                  /\
+┌───────┐┌───────┐
+|  SP1  || Zisk  |        ...                 ...
+└───────┘└───────┘
+```
+
 ## Strategies
 
 - TODO proof optimised, formally verified interpreters for each of riscv, x86, and arm
