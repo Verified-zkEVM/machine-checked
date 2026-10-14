@@ -5,9 +5,11 @@ state and prove what its own functions compute. Everything else is a theorem her
 loaded image, the calling convention, memory footprints, the stack, statics, indirect
 control flow, syscalls and the SP1 runtime (entry, allocator, libc routines, panics).
 
-zip-2005 is the worked example. Its program logic, `main` and the crypto, is phase F and out of
-scope for now. The bar is zip-2005-asm's lesson: no hypothesis that the real run does not
-satisfy, and no contract quantified over states the run never reaches.
+zip-2005 is the worked example. Its program logic, `main` and the crypto, is phase F: the
+function-level proofs and the specification live in `Cases/Zip2005/`, and the end theorem is
+that an accepting run of the loaded ELF on an input implies `Zip2005.GuestStatement` of the
+decoded input. The bar: no hypothesis that the real run does not satisfy, and no contract
+quantified over states the run never reaches.
 
 ## Architecture
 
@@ -246,8 +248,48 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   facts, `Infer`'s certificate search (Fourier–Motzkin) and `wtr`/`fws` emission, the
   leaf checks, and the roots that discharge `pwhIface.Holds`.
 
-**E/F (later).** A specification format for program logic, and the port of zip-2005's
-program proofs.
+**F. The program logic of zip-2005**
+- F0. The specification. `Cases/Zip2005/Spec/`: `Zip2005.GuestStatement` over the ironwood
+  circuit specifications (`Zcash.Circuits.*`, with `Clean`, `CompElliptic` and `CompPoly`),
+  as first-class sources of this repository under their upstream licences; Mathlib is a
+  dependency for this directory only. **Done.** (One inherited `native_decide`: the order
+  of the Pallas group, `CompElliptic`.) 44 linter warnings in 19 upstream files are to be
+  cleaned.
+- F1. The symbolic executor as framework code. `AsmVerif/RiscV/Sym/`: the `Safe`
+  continuation-form specifications (`Safe P s`: every accepting state reachable from `s`
+  satisfies `P`), the executor (`sym_exec`, `sym_close`) with its region, frame, register
+  and read-only-data vocabulary, generic in a `Layout` (text window, read-only segment,
+  stack top) that `gen-image` emits per image (`Image/Ro.lean`: `layout`, the read-only
+  chunks, the layout's constants as rewrite rules). Fetch goes through the packed program
+  (`prog_packed`, one shift per instruction rather than a walk of the literal). **Done.**
+- F2. The function-level proofs. `Cases/Zip2005/{Blake2b,Bridge,Curve,Field,Kit,Main,Orchard,
+  Poseidon,Precompile,Runtime,Sha256,Sinsemilla,Top,Witness}`: `main` and everything it calls,
+  down to the precompile wrappers, each function in continuation form against the executor;
+  `Bridge` relates the machine-level results to the specification; `Top` composes them from
+  the ELF's entry. The composition is conditional on `RunHyps` (`Top/Assumptions.lean`): the
+  contracts of the allocator (`halloc*`, `hdealloc*`, `hrealloc*`), of `read_vec_raw`'s I/O
+  error path (`hio`), of the lazy table build (`hinit`), of the formatter (`hfmt`), and
+  twelve "never accepts" contracts for panic and reject-halt entries; and on an input
+  condition (`hbp_eq`, `hokJ2`, `hbp`). **Ported; building.**
+- F3. Discharge `RunHyps` from D. Each contract is a theorem of phase D stated over the
+  checker's `SafeN`/`Iface.HoldsN` (the allocator against `Tlsf.Rep`, `read_vec_raw`, the
+  panic entries modulo `pwhIface.Holds`), so what is needed is (a) the bridge from `Safe`
+  to `SafeN` with a trivial control-flow guard, (b) the checker's `Post` implying each
+  contract's footprint and return facts, (c) a heap invariant (`Tlsf.Rep`) and a statics
+  invariant threaded through `main` where the contracts need them. The panic contracts
+  as stated (`∀ u, u.pc = entry → u.code = s.code → Safe P u`) are false: they quantify
+  over every state at the entry, including one with a custom panic hook installed in the
+  static `HOOK` or a formatter pointing at `syscall_halt(0)`, from which an accepting halt
+  is reachable. So for an input the statement rejects no state satisfies `RunHyps`, and
+  the theorem says nothing about such inputs. They are restated over the statics and the
+  heap as `main` keeps them, with the payload pinned to the call sites' constants, which
+  is D5's `..._neverAccepts` under `pwhIface.Holds`; the theorem stops being vacuous only
+  once that premise is discharged. (The return-address contracts carry `r' &&& ~~~1 = r'`
+  already.) Both `Runtime/Start.lean` (the ported `_start`-to-`main` path) and
+  `Runtime/Entry.lean` (D1) prove the same path; one goes.
+- F4. The end theorem: from `Layout.image.state I`, an accepting run gives
+  `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
+  satisfiability witness.
 
 ## Rules
 

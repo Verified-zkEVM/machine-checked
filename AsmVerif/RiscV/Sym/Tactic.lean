@@ -770,6 +770,8 @@ partial def omegaWith (prop : Expr) (keep : LocalDecl → MetaM Bool) (extras : 
     for d in ← getLCtx do
       if d.isImplementationDetail then continue
       let n := d.userName.toString
+      -- the layout's equations stay: the `simp` below rewrites with them by name
+      if n.startsWith "hL_" then continue
       if n.startsWith "acc" && n.endsWith "_def" then drop := drop.push d.fvarId
       else if n.startsWith "hdj" && !(← keep d) then drop := drop.push d.fvarId
       else if let some f := filter then
@@ -1572,12 +1574,10 @@ def fetch (st : St) (pc : Nat) : MetaM Fetched := do
           let decE := mkApp (mkConst ``RiscvZkvm.Interpreter.decode) wordE
           let hdec ← rflOf (mkApp3 (mkConst ``Eq [1]) optInstr decE someIns) someIns
           let hget ← mkAppM ``AsmVerif.RiscV.getElem!_decodeWords_unpack #[hi, hdec]
-          -- prog[i]! = some ins, by rewriting `prog` with `hpk`
-          let motive := mkLambda `p .default (mkApp (mkConst ``List [0]) optInstr)
-            (mkApp3 (mkConst ``Eq [1]) optInstr (mkApp2 (mkConst ``GetElem?.getElem! [0, 0, 0]) (mkBVar 0) (mkNatLit i)) someIns)
-          let _ := motive
-          mkAppM ``Eq.mpr #[← mkAppM ``congrArg #[← withLocalDeclD `p (mkApp (mkConst ``List [0]) optInstr) fun p => do
-              mkLambdaFVars #[p] (← mkAppM ``GetElem?.getElem! #[p, mkNatLit i]), hpk], hget]
+          -- prog[i]! = some ins, by rewriting `prog` with `hpk` under `fun p => p[i]! = some ins`
+          let motive ← withLocalDeclD `p (mkApp (mkConst ``List [0]) optInstr) fun p => do
+            mkLambdaFVars #[p] (← mkEq (← mkAppM ``GetElem?.getElem! #[p, mkNatLit i]) someIns)
+          mkAppM ``Eq.mpr #[← mkAppM ``congrArg #[motive, hpk], hget]
         | none => rflOf (mkApp3 (mkConst ``Eq [1]) optInstr getBang someIns) someIns
       let pcTarget ← mkAdd (mkWordLit c.base) (mkApp2 (mkConst ``BitVec.ofNat) (mkNatLit 64)
         (← mkMulN (mkNatLit 4) (mkNatLit i)))

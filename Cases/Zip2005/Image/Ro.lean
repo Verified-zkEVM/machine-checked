@@ -372,7 +372,7 @@ def roChunk : Nat → List Word
 theorem roChunk_eq : ∀ k, k < 173 → roChunk k = ((Data_0.chunk.words ++ List.replicate Data_0.chunk.zeros 0).drop (64 * k)).take 64 := by
   decide +kernel
 
-noncomputable def layout : Sym.Layout where
+def layout : Sym.Layout where
   textLo := 0x78016938
   textHi := 0x7803f614
   roBase := 0x78000000

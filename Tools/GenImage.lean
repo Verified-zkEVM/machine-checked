@@ -115,7 +115,7 @@ def emitRo (modPrefix : String) (roIdx : Nat) (c : AsmVerif.RiscV.DataChunk) (te
   s := s ++ "  | _ => []\n\n"
   s := s ++ "/-- The chunks are the segment's cells, 64 at a time. -/\n"
   s := s ++ s!"theorem roChunk_eq : ∀ k, k < {nChunks} → roChunk k = ((Data_{roIdx}.chunk.words ++ List.replicate Data_{roIdx}.chunk.zeros 0).drop (64 * k)).take 64 := by\n  decide +kernel\n\n"
-  s := s ++ "noncomputable def layout : Sym.Layout where\n"
+  s := s ++ "def layout : Sym.Layout where\n"
   s := s ++ s!"  textLo := 0x{hex textLo 1}\n  textHi := 0x{hex textHi 1}\n"
   s := s ++ s!"  roBase := 0x{hex c.base.toNat 1}\n  roBytes := {8 * size}\n  roChunks := {nChunks}\n  roChunk := roChunk\n"
   s := s ++ s!"  stackTop := 0x{hex stackTop 1}\n"
