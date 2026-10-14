@@ -301,6 +301,35 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   thread the heap and statics invariants, restate the panic contracts over them with pinned
   payloads, discharge the allocator, I/O, init and halt contracts from D. The premise
   itself is the next milestone, taken on together.
+
+  **M1 design (2026-10-14).** What a restated panic contract must give the proved
+  `Runtime.Panic.*_neverAccepts`: the checker's `Pre Owned.env C σ` at the entry, that is
+  the image's code, `σ.depth ≤ sp ≤ stackTop` and aligned (from `StackOk`, whose `0x10000`
+  slack covers `σ.depth`), the protected statics at their load values (both hooks), the
+  owned hasher invariant, and the payload registers in `σ.vals` (the T5 condition, already
+  derived from the call sites). So:
+  1. *New modules first (cheap rebuilds).* The contracts assume nine more panic or halt
+     entries: `assert_failed` (two instances), `panic_const_rem_by_zero`,
+     `result::unwrap_failed`, `option::unwrap_failed`, `raw_vec::handle_error`,
+     `alloc::handle_alloc_error`, `halt_invalid_hint`, `empty_input_stream_halt`. The
+     frame checker's inference gives up on all nine ("recursion"), as it did on the four
+     in `Runtime.Panic`. Check them the same way: an interface with `returns := false` and
+     pinned `vals`, a certificate against `Runtime.Panic.tbl`. `handle_alloc_error` calls
+     `0x7803aebc`, which reads `std::alloc::HOOK` (protected); it needs that frame too.
+  2. *Discharge lemmas.* For each contract shape, a theorem from the runtime results:
+     panic contracts from `tbl_holds hpwh` plus `StaticsOk` (protected statics and the
+     owned invariant, a state predicate) and the stack; the allocator contracts from
+     `Alloc.spec`/`Dealloc.spec`/`Realloc.spec` through `__rust_alloc` (`0x7801bcec`) under
+     the heap invariant (`Tlsf.Rep` with the guest's live blocks as used blocks). The
+     allocator may return null, which the contracts hide; with the real spec the callers'
+     null branches go to `handle_alloc_error`, a panic entry.
+  3. *The restatement, one rebuild.* Contracts become named definitions taking
+     `StaticsOk` (and the heap invariant where they allocate); the executor carries those
+     predicates across steps and calls the way it carries `RoImage` (a generic "carried
+     invariant" mechanism: a `setMem` lemma for stores outside the regions and an
+     `of_unchanged` lemma for calls); function specifications take them as preconditions;
+     `main` gets them from `Runtime.Entry` (`MainEntry.prot`, `Owned.mainEntry_inv`, the
+     heap's one free block).
 - F4. The end theorem: from `Layout.image.state I`, an accepting run gives
   `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
   satisfiability witness.
