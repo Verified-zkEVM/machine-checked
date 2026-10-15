@@ -5,6 +5,8 @@ import Cases.Zip2005.Image.F_7801e110
 import Cases.Zip2005.Sinsemilla.HasherKept
 import Cases.Zip2005.Image.F_7801aed0
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `from_iter`'s prologue (0x7801e110 to the loop head at byte 1)
@@ -23,18 +25,21 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word)
-    (J A B Cb O : List Word) (j : Word) (hAl : A.length = 4) (hBl : B.length = 4)
+theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp sp0 out a1 ra : Word)
+    (J A B Cb O : List Word) (j : Word) (T : HasherT) (hAl : A.length = 4) (hBl : B.length = 4)
     (hCbl : Cb.length = 12) (hCb : ivkState sp0 J j 0 = Cb) (hOl : O.length = 3)
     (hpc : s.pc = 0x7801e110#64) (hcode : CodeAt F_7801e110.base F_7801e110.prog s)
     (hcodeN : CodeAt F_78021e7c.base F_78021e7c.prog s)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s) (hcodeZ : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    -- the run's heap invariant, the hasher's blocks live
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt (T.live L) s)
     (hra : s.getReg .x1 = ra)
     (hsp : s.getReg .x2 = sp + 0xb0#64) (hstk : StackOk Ro.layout 0x1b0 sp) (hokFr : RegionOk Ro.layout.roBase Ro.layout.textHi sp 22)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = a1)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.roBase Ro.layout.textHi out 3)
     (hCbr : Region a1 Cb s) (hokCb : RegionOk Ro.layout.roBase Ro.layout.textHi a1 12)
+    (ha1hi : a1.toNat + 8 * 12 ≤ 0x78040620)
     (hAr : Region (ptrA sp0) A s) (hokA : RegionOk Ro.layout.roBase Ro.layout.textHi (ptrA sp0) 4)
     (hBr : Region (ptrB sp0) B s) (hokB : RegionOk Ro.layout.roBase Ro.layout.textHi (ptrB sp0) 4)
     (hsp0_lo : 0x10000 ≤ sp0.toNat) (hsp0_hi : sp0.toNat ≤ 0x78000000)
@@ -55,20 +60,23 @@ theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
     (hdjHO : Disjoint 0x78040620#64 14780694332 out 3)
     (hdjHC : Disjoint 0x78040620#64 14780694332 a1 12)
     -- the hasher's six regions (`T`): in the arena, held, kept by the allocator
-    (T : HasherT) (hT : Kept6 T s) (hTA : Arena6 T) (hTO : Ok6 T)
+    (hT : Kept6 T s) (hTA : Arena6 T) (hTO : Ok6 T)
     -- `__rust_alloc(8, 1)` (A4, this call's instance): a fresh word in the arena
-    (halloc : ∀ (u : MachineState), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (halloc : ∀ (u : MachineState) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x7801e184#64 → u.getReg .x2 = sp → StackOk Ro.layout 0x30 sp →
       u.getReg .x10 = 8#64 → u.getReg .x11 = 1#64 →
       Region T.b1 T.L1 u → Region T.b2 T.L2 u → Region T.b3 T.L3 u → Region T.b4 T.L4 u → Region T.b5 T.L5 u → Region T.b6 T.L6 u →
+      RoImage Ro.layout u → Run.HeapAt (T.live L') u →
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e184#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → SafeN G n P t) → SafeN G n P u)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u)
+        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → Run.HeapAt ((ptr, 1) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
+    (hunwrap_opt : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803f364#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_f364 → SafeN G n P u)
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hk : ∀ (t : MachineState) (ptr w bit0 bit1 : Word) (I1 I2 : List Word), t.pc = 0x7801e230#64 →
       t.code = s.code →
       Unchanged [(sp - 0x30#64, 6), (sp, 22), (a1, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
@@ -86,7 +94,7 @@ theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
       AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 →
-      SafeN G n P t) :
+      RoImage Ro.layout t → Run.HeapAt ((ptr, 1) :: T.live L) t → SafeN G n P t) :
     SafeN G n P s := by
   have hokV : RegionOk Ro.layout.roBase Ro.layout.textHi sp 3 := hokFr.sub' 0 3 (by decide) (by simp)
   have hokBlk : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x18#64) 12 := hokFr.sub' 3 12 (by decide) rfl
@@ -134,38 +142,42 @@ theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
   have hl6 := T.l6
   have hCb' : ivkState sp0 J j 0 = [Cb[0]!, Cb[1]!, Cb[2]!, Cb[3]!, Cb[4]!, Cb[5]!, Cb[6]!, Cb[7]!, Cb[8]!, Cb[9]!, Cb[10]!, Cb[11]!] := by
     rw [hCb]; exact list12_cells Cb hCbl
-  have hnext0 : ∀ (u : MachineState) (i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 : Word) (k : Nat),
+  have hiterB : (sp + 0x18#64).toNat + 8 * 12 ≤ 0x78040620 := by
+    have h := hstk.hi; rw [Ro.layout_stackTop] at h; rw [BitVec.toNat_add]; simp only [BitVec.toNat_ofNat]; omega
+  have hnext0 : ∀ (u : MachineState) (i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 : Word) (k : Nat) (L' : List (Word × Nat)),
       ivkState sp0 J j k = [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11] → k < 510 →
       u.pc = 0x78021e7c#64 → CodeAt F_78021e7c.base F_78021e7c.prog u → CodeWithin Ro.layout.textLo Ro.layout.textHi u →
       u.code = s.code →
       u.getReg .x1 = 0x7801e144#64 → u.getReg .x2 = sp → u.getReg .x10 = a1 →
       Region (a1) [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11] u → Region (ptrA sp0) A u → Region (ptrB sp0) B u →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (i0' i1' i2' i3' i4' i5' i6' i7' i8' i9' i10' i11' bit : Word), t.pc = 0x7801e144#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x10#64, 2), (a1, 12)] u t →
         ivkState sp0 J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] → Region (a1) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] t →
         bw (ivkBit A B k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
         t.getReg .x10 = bit → SafeN G n P t) → SafeN G n P u :=
-    fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 k hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hA hB hk' =>
-      pad_next_ivk_cells_spec u 0x7801e144#64 sp sp0 (a1) J A B i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hAl hBl j k hIv hk hpc
-        hcode hcw hra (by decide) hsp' hstk10 hsp0_lo hsp0_hi ha0 hI hokCb hA hokA hB hokB
+    fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 k L' hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hA hB hro' hheap' hk' =>
+      pad_next_ivk_cells_spec (L := L') u 0x7801e144#64 sp sp0 (a1) J A B i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hAl hBl j k hIv hk hpc
+        hcode hcw hro' hheap' hra (by decide) hsp' hstk10 hsp0_lo hsp0_hi ha0 hI hokCb ha1hi hA hokA hB hokB
         hdjCA hdjCB hdjFC hdjFA hdjFB hdjAB
-        (fun u' h1 h2 => hunwrap_opt u' h1 (h2.trans hcodeEq)) hk'
-  have hnext1 : ∀ (u : MachineState) (i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 : Word) (k : Nat),
+        (fun u' sp'' L'' h1 h2 => hunwrap_opt u' sp'' L'' h1 (h2.trans hcodeEq)) hk'
+  have hnext1 : ∀ (u : MachineState) (i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 : Word) (k : Nat) (L' : List (Word × Nat)),
       ivkState sp0 J j k = [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11] → k < 510 →
       u.pc = 0x78021e7c#64 → CodeAt F_78021e7c.base F_78021e7c.prog u → CodeWithin Ro.layout.textLo Ro.layout.textHi u →
       u.code = s.code →
       u.getReg .x1 = 0x7801e1bc#64 → u.getReg .x2 = sp → u.getReg .x10 = sp + 0x18#64 →
       Region (sp + 0x18#64) [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11] u → Region (ptrA sp0) A u → Region (ptrB sp0) B u →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (i0' i1' i2' i3' i4' i5' i6' i7' i8' i9' i10' i11' bit : Word), t.pc = 0x7801e1bc#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x10#64, 2), (sp + 0x18#64, 12)] u t →
         ivkState sp0 J j (k + 1) = [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] → Region (sp + 0x18#64) [i0', i1', i2', i3', i4', i5', i6', i7', i8', i9', i10', i11'] t →
         bw (ivkBit A B k) = bit → (bit == 2#64) = false → bit &&& 255#64 = bit →
         t.getReg .x10 = bit → SafeN G n P t) → SafeN G n P u :=
-    fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 k hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hA hB hk' =>
-      pad_next_ivk_cells_spec u 0x7801e1bc#64 sp sp0 (sp + 0x18#64) J A B i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hAl hBl j k hIv hk hpc
-        hcode hcw hra (by decide) hsp' hstk10 hsp0_lo hsp0_hi ha0 hI hokBlk hA hokA hB hokB
+    fun u i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 k L' hIv hk hpc hcode hcw hcodeEq hra hsp' ha0 hI hA hB hro' hheap' hk' =>
+      pad_next_ivk_cells_spec (L := L') u 0x7801e1bc#64 sp sp0 (sp + 0x18#64) J A B i0 i1 i2 i3 i4 i5 i6 i7 i8 i9 i10 i11 hAl hBl j k hIv hk hpc
+        hcode hcw hro' hheap' hra (by decide) hsp' hstk10 hsp0_lo hsp0_hi ha0 hI hokBlk hiterB hA hokA hB hokB
         hdjBA hdjBB hdjFBlk hdjFA hdjFB hdjAB
-        (fun u' h1 h2 => hunwrap_opt u' h1 (h2.trans hcodeEq)) hk'
+        (fun u' sp'' L'' h1 h2 => hunwrap_opt u' sp'' L'' h1 (h2.trans hcodeEq)) hk'
   have hO3 : O = [O[0]!, O[1]!, O[2]!] := by
     match O, hOl with
     | [_, _, _], _ => rfl
@@ -187,11 +199,11 @@ theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
       AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 →
-      SafeN G n P t :=
+      RoImage Ro.layout t → Run.HeapAt ((ptr, 1) :: T.live L) t → SafeN G n P t :=
     fun t ptr w bit0 bit1 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4
-        h3 h4 h22 h23 h24 h25 h26 h27 hI2 hR hR1 hO' hb0 hW hw hok hlo hhi hk1 hk2 hk3 hk4 hk5 hk6 hf1 hf2 hf3 hf4 hf5 hf6 =>
+        h3 h4 h22 h23 h24 h25 h26 h27 hI2 hR hR1 hO' hb0 hW hw hok hlo hhi hk1 hk2 hk3 hk4 hk5 hk6 hf1 hf2 hf3 hf4 hf5 hf6 hro' hheap' =>
       hk t ptr w bit0 bit1 [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11] [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11] hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4
-        h3 h4 h22 h23 h24 h25 h26 h27 rfl hI2 hR rfl hR1 (by rw [hO3]; exact hO') hb0 hW hw hok hlo hhi hk1 hk2 hk3 hk4 hk5 hk6 hf1 hf2 hf3 hf4 hf5 hf6
+        h3 h4 h22 h23 h24 h25 h26 h27 rfl hI2 hR rfl hR1 (by rw [hO3]; exact hO') hb0 hW hw hok hlo hhi hk1 hk2 hk3 hk4 hk5 hk6 hf1 hf2 hf3 hf4 hf5 hf6 hro' hheap'
   sym_exec [hnext0, hnext1, halloc, hhandle_rv, memcpy96_spec] stop [0x7801e230]
   sym_close hk' _ post26_0 v29 post13_12 post42_12 post13_0 post13_1 post13_2 post13_3 post13_4 post13_5 post13_6 post13_7 post13_8 post13_9 post13_10 post13_11 post42_0 post42_1 post42_2 post42_3 post42_4 post42_5 post42_6 post42_7 post42_8 post42_9 post42_10 post42_11
   all_goals first

@@ -107,10 +107,6 @@ theorem pad_next_note_831_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop}
     simp only [BitVec.toNat_ofNat] at this
     omega
   sym_exec []
-  -- `ρ`'s cursor: its pointer not null; its count is zero
-  all_goals (first
-    | (exfalso; simp only [beq_iff_eq] at hbr49; have := congrArg BitVec.toNat hbr49; rw [BitVec.toNat_add] at this; simp only [BitVec.toNat_ofNat] at this; omega)
-    | skip)
   -- `ψ`'s cursor: its end from the block's bytes; not exhausted
   all_goals (have hv68 : v68 = sp + 18446744073709551544#64 := by rw [← v68_def, ← v67_def, ← v66_def, ← v65_def, ← v64_def, ← v63_def, ← v62_def, ← v61_def, ← v60_def, ← v59_def, ← v58_def, ← v57_def, ← v56_def, ← v55_def, ← v21_def, ← v22_def, ← v23_def, ← v24_def, ← v25_def, ← v26_def, ← v27_def, ← v28_def]; exact bytes_word_trunc _)
   all_goals (have hv73 : v73 = 0#64 := by rw [← v73_def, ← v72_def, ← v69_def, hv68]; exact seqz_xor0 _ _ (add_lit_ne sp _ _ (by decide) (by decide) (by decide)))

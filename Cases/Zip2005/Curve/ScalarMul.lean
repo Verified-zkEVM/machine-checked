@@ -14,6 +14,8 @@ import Cases.Zip2005.Curve.ToAffine
 import Cases.Zip2005.Image.F_78031be8
 import Cases.Zip2005.Image.F_780360e0
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
@@ -108,9 +110,10 @@ set_option maxHeartbeats 40000000 in
 set_option maxRecDepth 10000 in
 /-- The loop at its body (`0x78031ef8`) with `a0 = i` and `m` rounds left, up to
     its exit (`0x78032034`). -/
-theorem mul_loop {G : MachineState → Prop} {n : Nat} {P : Prop} (sp : Word) (S : List Word) (c : Word → Option Instr)
+theorem mul_loop {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (sp : Word) (S : List Word) (c : Word → Option Instr)
     (g3 g4 g8 g24 g25 g26 g27 : Word)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = c → SafeN G n P u) :
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = c →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u) :
     ∀ m i (t : MachineState) (acc base : List Word), i + m = 255 → 1 ≤ m →
       acc.length = 9 → base.length = 9 →
       t.pc = 0x78031ef8#64 → t.code = c → CodeAt F_78031be8.base F_78031be8.prog t →
@@ -118,6 +121,7 @@ theorem mul_loop {G : MachineState → Prop} {n : Nat} {P : Prop} (sp : Word) (S
       CodeAt F_7801b4d8.base F_7801b4d8.prog t → CodeAt F_7801bf3c.base F_7801bf3c.prog t →
       CodeAt F_7801bf4c.base F_7801bf4c.prog t → CodeAt F_780360c8.base F_780360c8.prog t →
       CodeAt F_780360e0.base F_780360e0.prog t → CodeWithin Ro.layout.textLo Ro.layout.textHi t →
+      RoImage Ro.layout t → Run.HeapAt L t →
       t.getReg .x2 = sp → StackOk Ro.layout 0x20 sp →
       t.getReg .x3 = g3 → t.getReg .x4 = g4 → t.getReg .x8 = g8 → t.getReg .x24 = g24 →
       t.getReg .x25 = g25 → t.getReg .x26 = g26 → t.getReg .x27 = g27 →
@@ -139,7 +143,7 @@ theorem mul_loop {G : MachineState → Prop} {n : Nat} {P : Prop} (sp : Word) (S
         (mulLoop (scalarBit S) i m acc base).1.length = 9 →
         Region (sp + 0xa0#64) (mulLoop (scalarBit S) i m acc base).2 u →
         Region (sp + 0xe8#64) (mulLoop (scalarBit S) i m acc base).1 u →
-        mulOk (scalarBit S) i m acc base →
+        mulOk (scalarBit S) i m acc base → RoImage Ro.layout u → Run.HeapAt L u →
         SafeN G n P u) →
       SafeN G n P t := by
   intro m
@@ -147,7 +151,7 @@ theorem mul_loop {G : MachineState → Prop} {n : Nat} {P : Prop} (sp : Word) (S
   | zero => intro i t acc base hm hm1; omega
   | succ m ih =>
     intro i t acc base hm hm1 hal hbl hpc hc hcode hcodeA hcodeCmp hcodeCpy hcodeAdd hcodeDbl
-      hcodeD hcodeL hcw hsp hstk h3 h4 h8 h24 h25 h26 h27 h10 h18 h19 h21 hB hokB hA hokA hS hSl
+      hcodeD hcodeL hcw hro hheap hsp hstk h3 h4 h8 h24 h25 h26 h27 h10 h18 h19 h21 hB hokB hA hokA hS hSl
       hokS hTex hokT hFex hokF hk
     obtain ⟨T, hTl, hT⟩ := hTex
     obtain ⟨F, hFl, hF⟩ := hFex
@@ -168,13 +172,13 @@ theorem mul_loop {G : MachineState → Prop} {n : Nat} {P : Prop} (sp : Word) (S
       all_goals (rw [Bn.ne_lit (i + 1) 255 (by omega) (by omega)] at hbr135
                  simp only [decide_eq_true_eq] at hbr135)
       · omega
-      · intro u hp hc r2 r3 r4 r8 r24 r25 r26 r27 hU hlb hla hRb hRa hok
+      · intro u hp hc r2 r3 r4 r8 r24 r25 r26 r27 hU hlb hla hRb hRa hok hro' hh'
         simp only [bitW _ i (by omega : i < 18446744073709551616), sel_bit, fold9 hbl,
           acc_step _ _ _ _ _ _ _ _ _ hbl,
           base_step hbl (scalarBit [s0, s1, s2, s3] i) [a0, a1, a2, a3, a4, a5, a6, a7, a8]]
           at hRa hRb hok hbr77 hla hlb
         exact hk u hp hc r2 r3 r4 r8 r24 r25 r26 r27 (hunch.trans hU) hlb hla hRb hRa
-          ⟨by simpa using hbr77, hok⟩
+          ⟨by simpa using hbr77, hok⟩ hro' hh'
     · sym_close hk
       all_goals sym_subst
       all_goals (rw [Bn.ne_lit (i + 1) 255 (by omega) (by omega)] at hbr135

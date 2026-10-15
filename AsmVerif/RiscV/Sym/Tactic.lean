@@ -368,6 +368,10 @@ structure St where
   hcarry : Option Expr := none     -- : Carry R Q L s
   /-- `OpenBlock R L b n` facts proved for the carried invariant: (b, n, proof). -/
   openCache : Array (Expr × Nat × Expr) := #[]
+  /-- Why the carried invariant, or the read-only image, was last dropped (for the error a
+      precondition that needs it reports). -/
+  carryLost : Option MessageData := none
+  roLost : Option MessageData := none
   layout : Option LayoutInfo := none
   priv : Option (Expr × Expr)      -- (value, proof : s.privateInput = value)
   disj : Array (Expr × Expr × Expr × Expr × Expr)  -- (b₁, n₁, b₂, n₂, proof)
@@ -512,6 +516,33 @@ def sublistProof (L' L : Expr) : MetaM (Option Expr) := do
   let some h ← sublistGo el xs tx ys ty 0 0 | return none
   mkExpectedTypeHint h (← mkAppM ``List.Sublist #[L', L])
 
+
+/-- `hc : Carry R Q L s` as `Carry R Q L' s` when `L'`'s literal head buffers are in `L`
+    (in any order) and the rest is a sublist: each needed buffer moved to the front
+    (`Carry.toFront`), the last needed first, then `Carry.sublist`. -/
+def carryReorder (hc L' : Expr) : MetaM (Option Expr) := do
+  let some (R, Q, L, s) ← carryParts? (← inferType hc) | return none
+  let pairTy ← mkAppM ``Prod #[wordTy, natTy]
+  let (ys, _) ← listPrefix (← instantiateMVars L')
+  if ys.isEmpty then return none
+  let mut pf := hc
+  let mut cur := L
+  for y in ys.reverse do
+    let (ls, lt) ← listPrefix cur
+    let some i ← (List.range ls.size).findM? (fun i => isDefEq y ls[i]!) | return none
+    if i == 0 then continue
+    let l1 := mkListLit pairTy (ls.extract 0 i)
+    let l2 := consTail pairTy ls (i + 1) lt
+    let mid ← mkAppM ``HAppend.hAppend #[l1, mkApp3 (mkConst ``List.cons [0]) pairTy ls[i]! l2]
+    let pf0 ← mkExpectedTypeHint pf (mkApp4 (mkConst ``AsmVerif.RiscV.Sym.Carry) R Q mid s)
+    let pf1 ← mkAppM ``AsmVerif.RiscV.Sym.Carry.toFront #[pf0]
+    cur := mkApp3 (mkConst ``List.cons [0]) pairTy ls[i]!
+      (consTail pairTy (ls.extract 0 i ++ ls.extract (i + 1) ls.size) 0 lt)
+    pf ← mkExpectedTypeHint pf1 (mkApp4 (mkConst ``AsmVerif.RiscV.Sym.Carry) R Q cur s)
+  if ← isDefEq L' cur then return some pf
+  if let some hs ← sublistProof L' cur then
+    return some (← mkAppM ``AsmVerif.RiscV.Sym.Carry.sublist #[pf, hs])
+  return none
 /-- Instantiate lemma `lem` so that its conclusion is `target`; remaining
     propositional arguments are discharged by `decide`. -/
 def lemmaApp (lem : Name) (target : Expr) : MetaM Expr := do
@@ -1843,27 +1874,55 @@ def openBlockOf (b : Expr) (n : Nat) : SymM (Option Expr) := do
     let bl ← normLin b
     let (ls, lt) ← listPrefix L
     let pairTy ← mkAppM ``Prod #[wordTy, natTy]
-    for i in [0:ls.size] do
+    -- live buffers over the same base atom first, then the fixed ranges, then the other buffers
+    -- (a pointer into a buffer named by an atom of its own, related to the buffer's by a fact)
+    let idx := (List.range ls.size).toArray
+    let mut same : Array Nat := #[]
+    let mut other : Array Nat := #[]
+    for i in idx do
       let e ← whnfD ls[i]!
-      let p := e.getAppArgs[2]!; let k := e.getAppArgs[3]!
-      unless (← normLin p).sameAtom bl do continue
-      let pN ← mkAppM ``BitVec.toNat #[p]
-      let some h1 ← proveByOmega (natLeE pN toN) | continue
-      let some h2 ← proveByOmega (natLeE ext (← mkAppM ``HAdd.hAdd #[pN, ← mkAppM ``HMul.hMul #[mkNatLit 8, k]])) | continue
-      let hm ← memPrefix pairTy ls lt i
-      let pf ← mkAppM ``AsmVerif.RiscV.Sym.openBlock_live #[R, L, hm, h1, h2]
-      return some (← mkExpectedTypeHint pf target)
+      if (← normLin e.getAppArgs[2]!).sameAtom bl then same := same.push i else other := other.push i
     let natPair ← mkAppM ``Prod #[natTy, natTy]
     let rs ← listElems R
-    for i in [0:rs.size] do
-      let e ← whnfD rs[i]!
-      let lo := e.getAppArgs[2]!; let hi := e.getAppArgs[3]!
-      let some h2 ← proveByOmega (natLeE ext hi) | continue
-      let some h1 ← proveByOmega (natLeE lo toN) | continue
-      let hm ← memLit natPair rs i
-      let pf ← mkAppM ``AsmVerif.RiscV.Sym.openBlock_range #[R, L, hm, h1, h2]
-      return some (← mkExpectedTypeHint pf target)
-    return none
+    -- each candidate first over the facts connected to it (cheap), then over the whole context:
+    -- most candidates fail, and a failing whole-context `omega` costs seconds
+    let attempt (cheap : Bool) : TacticM (Option Expr) := do
+      let om (prop : Expr) := proveByOmega prop (clusterOnly := cheap)
+      let live (i : Nat) : TacticM (Option Expr) := do
+        let e ← whnfD ls[i]!
+        let p := e.getAppArgs[2]!; let k := e.getAppArgs[3]!
+        let pN ← mkAppM ``BitVec.toNat #[p]
+        let some h1 ← om (natLeE pN toN) | return none
+        let some h2 ← om (natLeE ext (← mkAppM ``HAdd.hAdd #[pN, ← mkAppM ``HMul.hMul #[mkNatLit 8, k]])) | return none
+        let hm ← memPrefix pairTy ls lt i
+        let pf ← mkAppM ``AsmVerif.RiscV.Sym.openBlock_live #[R, L, hm, h1, h2]
+        return some (← mkExpectedTypeHint pf target)
+      for i in same do
+        if let some pf ← live i then return some pf
+      for i in [0:rs.size] do
+        let e ← whnfD rs[i]!
+        let lo := e.getAppArgs[2]!; let hi := e.getAppArgs[3]!
+        let some h2 ← om (natLeE ext hi) | continue
+        let some h1 ← om (natLeE lo toN) | continue
+        let hm ← memLit natPair rs i
+        let pf ← mkAppM ``AsmVerif.RiscV.Sym.openBlock_range #[R, L, hm, h1, h2]
+        return some (← mkExpectedTypeHint pf target)
+      for i in other do
+        if let some pf ← live i then return some pf
+      -- in one of two ranges (a disjointness fact: below the one, or above the other)
+      for i in [0:rs.size] do
+        for j in [i+1:rs.size] do
+          let e ← whnfD rs[i]!; let e' ← whnfD rs[j]!
+          let inR (e : Expr) : MetaM Expr := do
+            mkAppM ``And #[natLeE e.getAppArgs[2]! toN, natLeE ext e.getAppArgs[3]!]
+          let prop ← mkAppM ``Or #[← inR e, ← inR e']
+          let some h ← om prop | continue
+          let pf ← mkAppM ``AsmVerif.RiscV.Sym.openBlock_range2 #[R, L, ← memLit natPair rs i,
+            ← memLit natPair rs j, h]
+          return some (← mkExpectedTypeHint pf target)
+      return none
+    if let some pf ← attempt true then return some pf
+    attempt false
   if let some pf := r? then
     modify fun st => { st with openCache := st.openCache.push (b, n, pf) }
   else
@@ -2041,7 +2100,7 @@ def finish (sh : Step) (close : Expr → MetaM Expr) : SymM Unit := do
     -- the read-only image survives a write outside it
     if let some hro := st.hro then
       let li ← st.layoutE
-      let pf ← withMainContext do
+      let pf? ← try some <$> withMainContext do
         match sh.kind with
         | .mem tri ci _ v =>
           let T := st.regions[tri]!
@@ -2062,9 +2121,16 @@ def finish (sh : Step) (close : Expr → MetaM Expr) : SymM Unit := do
           let pf ← mkAppM ``AsmVerif.RiscV.Sym.RoImage.writeWords #[hro, ha, hnw, sh.newPcE]
           mkAppM ``AsmVerif.RiscV.Sym.RoImage.of_eq #[pf, hdef]
         | _ => throwError "unreachable"
-      let fv ← addFact `hro (mkApp2 (mkConst ``AsmVerif.RiscV.Sym.RoImage) li.L s') pf
+        catch e => do
+          trace[AsmVerif.sym] "the read-only image is dropped: {e.toMessageData}"
+          modify fun s => { s with roLost := some m!"a store at pc {repr st.pc}: {e.toMessageData}" }
+          pure none
       if let some h := st.hroM then if h.isFVar then clearNow := clearNow.push h.fvarId!
-      hroM := some fv
+      match pf? with
+      | some pf =>
+        let fv ← addFact `hro (mkApp2 (mkConst ``AsmVerif.RiscV.Sym.RoImage) li.L s') pf
+        hroM := some fv
+      | none => hroM := none
     -- the carried invariant survives a write to open memory
     if let some hc := st.hcarry then
       let T := match sh.kind with
@@ -2072,7 +2138,21 @@ def finish (sh : Step) (close : Expr → MetaM Expr) : SymM Unit := do
         | .ww tri .. => st.regions[tri]!
         | _ => default
       let pf? ← match ← openBlockOf T.base T.n with
-        | none => pure none
+        | none => match sh.kind with
+          -- the block straddles closed memory: the cell itself
+          | .mem _ ci _ v => do
+            let a ← withMainContext do
+              mkAppM ``HAdd.hAdd #[T.base, ← mkAppM ``BitVec.ofNat #[mkNatLit 64, mkNatLit (8 * ci)]]
+            match ← openBlockOf a 1 with
+            | none => pure none
+            | some hb1 => withMainContext do
+              let hnwP := natLeE (← mkAppM ``HAdd.hAdd #[← mkAppM ``BitVec.toNat #[a], mkNatLit 8])
+                (mkNatLit (2 ^ 64))
+              let some hnw1 ← proveByOmega hnwP | pure none
+              let hopen ← mkAppM ``AsmVerif.RiscV.Sym.OpenBlock.at #[hb1, hnw1]
+              let pf ← mkAppM ``AsmVerif.RiscV.Sym.Carry.setMem #[hc, hopen, v, sh.newPcE]
+              some <$> mkAppM ``AsmVerif.RiscV.Sym.Carry.of_eq #[pf, hdef]
+          | _ => pure none
         | some hb => withMainContext do
           let hnw ← mkAppM ``AsmVerif.RiscV.Sym.RegionOk.nowrap #[← T.okE]
           match sh.kind with
@@ -2094,6 +2174,7 @@ def finish (sh : Step) (close : Expr → MetaM Expr) : SymM Unit := do
         hcarryM := some fv
       | none =>
         trace[AsmVerif.sym] "the carried invariant is dropped: a store into the block at {T.base}"
+        modify fun s => { s with carryLost := some m!"a store at pc {repr st.pc} into the block at {T.base} ({toString T.n} cells), not shown open" }
         hcarryM := none
     let hunchTy ← withMainContext do inferType hunch'
     let hunchF ← addFact `hunch hunchTy hunch'
@@ -2112,7 +2193,7 @@ def finish (sh : Step) (close : Expr → MetaM Expr) : SymM Unit := do
   -- clear the superseded facts (a state still named by a fact survives)
   clearFacts clearNow
   if st.k > 0 && st.s != st.sM && st.s != st.s0 then clearFacts #[st.s.fvarId!]
-  let st' := { st with s := s', pc := sh.newPc, pcE := sh.newPcE, hpc := hpcF, regs := regs', regList := list', hregs := hregsF, sM := sM, hmem := hmem, regions := regions', hcode := hcodeF, k := st.k + 1, hunchM := hunchM, hroM := hroM, hcarryM := hcarryM, openCache := (← get).openCache, priv := priv', toClear := newClear, pureFacts := ← liveFacts st.pureFacts }
+  let st' := { st with s := s', pc := sh.newPc, pcE := sh.newPcE, hpc := hpcF, regs := regs', regList := list', hregs := hregsF, sM := sM, hmem := hmem, regions := regions', hcode := hcodeF, k := st.k + 1, hunchM := hunchM, hroM := hroM, hcarryM := hcarryM, openCache := (← get).openCache, carryLost := (← get).carryLost, roLost := (← get).roLost, priv := priv', toClear := newClear, pureFacts := ← liveFacts st.pureFacts }
   set (← withMainContext st'.refresh)
 
 /-- The `execInstrBr` unfold lemma for a constructor. -/
@@ -3082,6 +3163,25 @@ partial def discharge (ty : Expr) : SymM Expr := do
           return pf
         if ← withMainContext (isDefEq rhs v) then return pf
     | _ => pure ()
+  -- a register among a contract's values (a panic payload, `u.getReg .x10 ∈ vals`): its
+  -- value, then `decide`
+  if ty.isAppOfArity ``Membership.mem 5 then
+    let coll := ty.appFn!.appArg!
+    let x := ty.appArg!
+    match_expr x with
+    | MachineState.getReg s' r =>
+      if s' == s then
+        let f ← valueOf (← regIdx r)
+        return ← withMainContext do
+          let target ← mkAppM ``Membership.mem #[coll, f.val]
+          let r ← withAtLeastTransparency .default <| whnf (← mkDecide target)
+          unless r.isConstOf ``Bool.true do
+            throwError "sym_exec: precondition {ty}: the register holds {f.val}, not among them"
+          let hdec ← mkDecideProof target
+          let motive ← withLocalDeclD `v wordTy fun v => do
+            mkLambdaFVars #[v] (← mkAppM ``Membership.mem #[coll, v])
+          mkAppM ``Eq.mpr #[← mkAppM ``congrArg #[motive, f.proof], hdec]
+    | _ => pure ()
   -- `∃ ws, ws.length = n ∧ Region b ws s`: the region the executor has at `b`
   if ty.isAppOfArity ``Exists 2 then
     let p := ty.appArg!
@@ -3151,9 +3251,12 @@ partial def discharge (ty : Expr) : SymM Expr := do
   -- the carried invariant, or with fewer live buffers
   if let some (_, _, L', s') ← carryParts? ty then
     if s' == s then
-      let some hc := st.hcarry | throwError "sym_exec: no carried invariant for{indentExpr ty}"
+      let some hc := st.hcarry | throwError "sym_exec: no carried invariant for{indentExpr ty}{match st.carryLost with | some m => m!"\nit was dropped at {m}" | none => m!""}"
       let some (_, _, L, _) ← carryParts? (← inferType hc) | throwError "sym_exec: carried invariant"
       if ← isDefEq L' L then return hc
+      -- buffers deeper in the carried list, needed first (freed or reallocated): to the front,
+      -- before a sublist match (which would fill an open tail `?L'` with fewer buffers)
+      if let some pf ← carryReorder hc L' then return pf
       if let some hs ← sublistProof L' L then
         return ← mkAppM ``AsmVerif.RiscV.Sym.Carry.sublist #[hc, hs]
       throwError "sym_exec: precondition{indentExpr ty}\nnot a sublist of the carried live list{indentExpr L}"
@@ -3250,7 +3353,7 @@ partial def discharge (ty : Expr) : SymM Expr := do
   | AsmVerif.RiscV.Sym.RoImage _ s' =>
     if s' == s then
       if let some h := st.hro then return h
-    throwError "sym_exec: no read-only image fact for {ty}"
+    throwError "sym_exec: no read-only image fact for {ty}{match st.roLost with | some m => m!"\nit was dropped at {m}" | none => m!""}"
   | _ =>
     -- an assumption?
     for d in ← getLCtx do
@@ -3265,6 +3368,18 @@ partial def discharge (ty : Expr) : SymM Expr := do
     if ty.isAppOf ``AsmVerif.RiscV.Sym.StackOk then
       let args := ty.getAppArgs
       let L := args[0]!; let room := args[1]!; let sp := args[2]!
+      -- a hypothesis about the same pointer, with at least this room
+      if let some r := ← getNatValue? (← whnfD room) then
+        for d in ← getLCtx do
+          if d.isImplementationDetail then continue
+          let dty ← instantiateMVars d.type
+          unless dty.isAppOfArity ``AsmVerif.RiscV.Sym.StackOk 3 do continue
+          let dargs := dty.getAppArgs
+          let some r' := ← getNatValue? (← whnfD dargs[1]!) | continue
+          unless r ≤ r' do continue
+          unless ← withReducible (isDefEq dargs[2]! sp) do continue
+          unless ← withReducible (isDefEq dargs[0]! L) do continue
+          return ← mkAppM ``AsmVerif.RiscV.Sym.StackOk.mono #[d.toExpr, ← natLe r r']
       let toN ← mkAppM ``BitVec.toNat #[sp]
       let some h1 ← proveByOmega (← mkEq (← mkAppM ``HMod.hMod #[toN, mkNatLit 16]) (mkNatLit 0)) | throwError "StackOk alignment"
       let some h2 ← proveByOmega (natLeE (← mkAppM ``HAdd.hAdd #[room, mkNatLit 0x10000]) toN) | throwError "StackOk room"
@@ -3799,7 +3914,7 @@ def readPost (old : St) (t : Expr) (hyps : Array Expr) : SymM Unit := do
           pure (prop, ty)
         let mut hd? ← withMainContext (proveByOmega prop)
         if hd?.isNone then
-          hd? ← withMainContext (roOutOfEntry old e.getAppArgs[2]! e.getAppArgs[3]!)
+          hd? ← try withMainContext (roOutOfEntry old e.getAppArgs[2]! e.getAppArgs[3]!) catch _ => pure none
         match hd? with
         | none =>
           trace[AsmVerif.sym] "the read-only image fact is not carried past the call: the write set's entry {e} is not shown off the segment"
@@ -3832,6 +3947,7 @@ def readPost (old : St) (t : Expr) (hyps : Array Expr) : SymM Unit := do
           let some hb := hb?
             | do
               trace[AsmVerif.sym] "the carried invariant is dropped: the callee writes {b}"
+              modify fun s => { s with carryLost := some m!"a call returning to {pcLit}: the callee writes {b}, not shown open, and gives no carried invariant" }
               ok := false
               break
           pf ← withMainContext do
@@ -3855,7 +3971,10 @@ def readPost (old : St) (t : Expr) (hyps : Array Expr) : SymM Unit := do
   let mut newClear : Array FVarId := #[hpcF.fvarId!, hregsF.fvarId!, hcodeF.fvarId!]
   if let some (_, pf) := priv' then newClear := newClear.push pf.fvarId!
   let hmem ← withMainContext do mkEqRefl (mkApp (mkConst ``MachineState.mem) t)
-  let st' := { old with s := t, pc := pcLit, pcE := pcv, hpc := hpcF, regs := regsT, regList := regList, hregs := hregsF, sM := t, hmem := hmem, regions := regions', hcode := hcodeF, k := old.k + 1, hunchM := hunchF, hroM := hroT, hcarryM := hcarryT, openCache := (← get).openCache, priv := priv', disj := disj, toClear := newClear, pureFacts := ← liveFacts (old.pureFacts ++ purePost) }
+  -- the open-block facts were for the old live list
+  let cacheNow := (← get).openCache
+  let cache' := if postCarry.isSome then #[] else cacheNow
+  let st' := { old with s := t, pc := pcLit, pcE := pcv, hpc := hpcF, regs := regsT, regList := regList, hregs := hregsF, sM := t, hmem := hmem, regions := regions', hcode := hcodeF, k := old.k + 1, hunchM := hunchF, hroM := hroT, hcarryM := hcarryT, openCache := cache', carryLost := (← get).carryLost, roLost := (← get).roLost, priv := priv', disj := disj, toClear := newClear, pureFacts := ← liveFacts (old.pureFacts ++ purePost) }
   set (← withMainContext st'.refresh)
 where
   mkNatLitOf (hcw : Expr) (i : Nat) : MetaM Expr := do
@@ -3886,9 +4005,40 @@ where
       setGoals saved
       return none
 
-/-- Apply a specification at the current state; `true` when it closes the path (it has no continuation:
-    a `Safe P s` fact about every state at its pc, such as a panic entry). -/
-def applySpec (spec : SpecInfo) : SymM Bool := do
+/-- What applying a specification did: closed the path, continued it, or split it on a
+    disjunctive postcondition (each arm with its goal and its state). -/
+inductive ApplyRes where
+  | closed
+  | cont
+  | arms (a : Array (MVarId × St))
+
+/-- `h : A₁ ∧ A₂ ∧ …`: its conjuncts as hypotheses of a new goal. -/
+partial def splitAnds (g : MVarId) (h : Expr) : MetaM (MVarId × Array Expr) := g.withContext do
+  let ty ← whnfR (← instantiateMVars (← inferType h))
+  let some (a, b) := ty.and? | return (g, #[h])
+  let T ← g.getType
+  let g' ← mkFreshExprSyntheticOpaqueMVar (← mkArrow a (← mkArrow b T))
+  g.assign (mkApp2 g' (← mkAppM ``And.left #[h]) (← mkAppM ``And.right #[h]))
+  let (fa, g1) ← g'.mvarId!.intro `hpost
+  let (fb, g2) ← g1.intro `hpost
+  let (g3, ha) ← splitAnds g2 (mkFVar fa)
+  let (g4, hb) ← splitAnds g3 (mkFVar fb)
+  return (g4, ha ++ hb)
+
+/-- A postcondition fact to split the path on: a disjunction with a region of the state after
+    the call in an arm (`p' = 0 ∨ (BASE ≤ p' ∧ Region p' W t)`, a reallocation). -/
+def splitPost? (t : Expr) (hyps : Array Expr) : MetaM (Option Expr) := do
+  for h in hyps do
+    let ty ← instantiateMVars (← inferType h)
+    if ty.isAppOfArity ``Or 2 then
+      let regionOfT (e : Expr) : Bool :=
+        (e.find? fun x => x.isAppOfArity ``AsmVerif.RiscV.Sym.Region 3 && x.appArg! == t).isSome
+      if regionOfT ty.appFn!.appArg! || regionOfT ty.appArg! then return some h
+  return none
+
+/-- Apply a specification at the current state; `closed` when it closes the path (it has no
+    continuation: a `Safe P s` fact about every state at its pc, such as a panic entry). -/
+def applySpec (spec : SpecInfo) : SymM ApplyRes := do
   let st ← get
   let g ← getMainGoal
   let (c, mvs) ← g.withContext do
@@ -3988,7 +4138,7 @@ def applySpec (spec : SpecInfo) : SymM Bool := do
       g.assign (← instantiateMVars (mkAppN c mvs))
     replaceMainGoal []
     logInfo m!"sym_exec: applied {spec.name} at pc {spec.entry}, closing the path"
-    return true
+    return .closed
   let g ← getMainGoal
   let (t, hyps) ← g.withContext do
     for mv in mvs do
@@ -4007,10 +4157,35 @@ def applySpec (spec : SpecInfo) : SymM Bool := do
       (fvs.extract 1 fvs.size).filterM fun fv => do isProp (← inferType (mkFVar fv))
     pure (mkFVar fvs[0]!, props.map mkFVar)
   trace[AsmVerif.sym] "{spec.name}: preconditions discharged"
+  -- a disjunctive postcondition: one path per arm
+  if let some h ← (← getMainGoal).withContext (splitPost? t hyps) then
+    let g ← getMainGoal
+    let stPre ← get
+    let arms ← g.withContext do
+      let ty ← instantiateMVars (← inferType h)
+      let A := ty.appFn!.appArg!; let B := ty.appArg!
+      let T ← g.getType
+      let gl ← mkFreshExprSyntheticOpaqueMVar (← mkArrow A T)
+      let gr ← mkFreshExprSyntheticOpaqueMVar (← mkArrow B T)
+      g.assign (← mkAppOptM ``Or.elim #[A, B, T, h, gl, gr])
+      let (hl, gl') ← gl.mvarId!.intro `hpost
+      let (hr, gr') ← gr.mvarId!.intro `hpost
+      pure #[(gl', mkFVar hl), (gr', mkFVar hr)]
+    let mut out : Array (MVarId × St) := #[]
+    for (ga, ha) in arms do
+      let (ga', hs) ← splitAnds ga ha
+      setGoals [ga']
+      set stPre
+      let hyps' := (hyps.filter (· != h)) ++ hs
+      try readPost st t hyps'
+      catch e => throwError "sym_exec: {spec.name}: reading the postcondition back: {e.toMessageData}"
+      out := out.push ((← getMainGoal), (← get))
+    logInfo m!"sym_exec: applied {spec.name} at pc {spec.entry}, splitting on its postcondition"
+    return .arms out
   try readPost st t hyps
   catch e => throwError "sym_exec: {spec.name}: reading the postcondition back: {e.toMessageData}"
   logInfo m!"sym_exec: applied {spec.name} at pc {spec.entry}"
-  return false
+  return .cont
 
 /-! ## Branches -/
 
@@ -4019,6 +4194,7 @@ inductive Res where
   | stop
   | split (branches : Array (MVarId × Expr × Nat))   -- goal, hypothesis, target pc
   | splitHere (branches : Array (MVarId × Expr))    -- goal, hypothesis; the pc unchanged
+  | splitSt (arms : Array (MVarId × St))            -- goal and state of each arm
   | done                                              -- the path is closed
 
 def branchStep (f : Fetched) (rs1 rs2 off : Nat) (kind : String) : SymM Res := do
@@ -4153,8 +4329,10 @@ def stepOnce (first : Bool) : SymM (Res × Option Fetched) := do
         let stSaved ← get
         try
           set { stSaved with undecided := none, multiSpec := cands.size > 1 }
-          let closed ← applySpec sp
-          return (if closed then .done else .cont, none)
+          match ← applySpec sp with
+          | .closed => return (.done, none)
+          | .cont => return (.cont, none)
+          | .arms a => return (.splitSt a, none)
         catch e =>
           let u := (← get).undecided
           (restoreState saved : TacticM Unit)
@@ -4337,6 +4515,13 @@ partial def runPath (budget : IO.Ref Nat) (first : Bool) : SymM (Array MVarId) :
           logInfo m!"sym_exec: the arm to pc {target} at pc {st.pc} is infeasible, pruned"
           continue
         branchArm f?.get! target
+        out := out ++ (← runPath budget false)
+      return out
+    | .splitSt arms =>
+      let mut out := #[]
+      for (g, st') in arms do
+        setGoals [g]
+        set st'
         out := out ++ (← runPath budget false)
       return out
     | .splitHere bs =>

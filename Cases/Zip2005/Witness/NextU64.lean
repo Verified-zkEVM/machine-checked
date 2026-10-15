@@ -2,6 +2,8 @@ import Cases.Zip2005.Kit.ByteShift32
 import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Image.F_78019cb8
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `SeqAccess::next_element::<u64>` (0x78019cb8), the witness's `u64` at residue 1
@@ -38,39 +40,41 @@ theorem pack64_r1 (a b : Word) :
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 set_option asmverif.sym.foldBytes true in
-theorem next_u64_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out acs de q l c : Word)
+theorem next_u64_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out acs de q l c : Word)
     (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 2)
     (hpc : s.pc = 0x78019cb8#64) (hcode : CodeAt F_78019cb8.base F_78019cb8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x50 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = acs)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.textLo Ro.layout.textHi out 2)
     (hA : Region acs [de, c] s) (hokA : RegionOk Ro.layout.textLo Ro.layout.textHi acs 2)
-    (hD : Region de [q + 1#64, l] s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi de 2)
+    (hD : Region de [q + 1#64, l] s) (hokD : RegionOk Ro.layout.roBase Ro.layout.textHi de 2)
     (hW : Region q W s) (hq : 0x1c00000000 ≤ q.toNat) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi q 2)
     (hdO : Disjoint (sp - 0x50#64) 10 out 2) (hdA : Disjoint (sp - 0x50#64) 10 acs 2)
     (hdD : Disjoint (sp - 0x50#64) 10 de 2)
     (heA : Disjoint out 2 acs 2) (heD : Disjoint out 2 de 2) (hAD : Disjoint acs 2 de 2)
     (hOlo : out.toNat + 16 ≤ 0x78000000) (hAlo : acs.toNat + 16 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
+    (hio : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        SafeN G n P t) → SafeN G n P u)
+        Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hkN : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [0#64, O[1]!] t → Region acs [de, c] t → Region de [q + 1#64, l] t → c = 0#64 →
-      SafeN G n P t)
+      Run.HeapAt L t → SafeN G n P t)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [1#64, u64r1 W] t → Region acs [de, c - 1#64] t → Region de [q + 9#64, l - 8#64] t →
-      c ≠ 0#64 → 8 ≤ l.toNat → SafeN G n P t)
+      c ≠ 0#64 → 8 ≤ l.toNat → Run.HeapAt L t → SafeN G n P t)
     (hkE : ∀ (t : MachineState) (e : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [2#64, e] t → Region acs [de, c - 1#64] t → Region de [q + 1#64, l] t →
-      c ≠ 0#64 → l.toNat < 8 → SafeN G n P t) :
+      c ≠ 0#64 → l.toNat < 8 → Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x50#64) 10 := hstk.frame 10 (by decide)
   have hu := Unchanged.refl [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2),
@@ -113,68 +117,72 @@ theorem next_u64_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
     sym_close hk
 
 /-- `Ok(Some(v))`: a field left and eight bytes. -/
-theorem next_u64_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out acs de q l c : Word)
+theorem next_u64_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out acs de q l c : Word)
     (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 2)
     (hpc : s.pc = 0x78019cb8#64) (hcode : CodeAt F_78019cb8.base F_78019cb8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x50 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = acs)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.textLo Ro.layout.textHi out 2)
     (hA : Region acs [de, c] s) (hokA : RegionOk Ro.layout.textLo Ro.layout.textHi acs 2)
-    (hD : Region de [q + 1#64, l] s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi de 2)
+    (hD : Region de [q + 1#64, l] s) (hokD : RegionOk Ro.layout.roBase Ro.layout.textHi de 2)
     (hW : Region q W s) (hq : 0x1c00000000 ≤ q.toNat) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi q 2)
     (hdO : Disjoint (sp - 0x50#64) 10 out 2) (hdA : Disjoint (sp - 0x50#64) 10 acs 2)
     (hdD : Disjoint (sp - 0x50#64) 10 de 2)
     (heA : Disjoint out 2 acs 2) (heD : Disjoint out 2 de 2) (hAD : Disjoint acs 2 de 2)
     (hOlo : out.toNat + 16 ≤ 0x78000000) (hAlo : acs.toNat + 16 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
+    (hio : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        SafeN G n P t) → SafeN G n P u)
+        Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hc : c ≠ 0#64) (hl : 8 ≤ l.toNat)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [1#64, u64r1 W] t → Region acs [de, c - 1#64] t → Region de [q + 9#64, l - 8#64] t →
-      SafeN G n P t) :
+      Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s :=
-  next_u64_spec s ra sp out acs de q l c O W hOl hWl hpc hcode hcw hra hra1 hsp hstk ha0 ha1 hO hokO hA hokA hD hokD hW hq hokW hdO hdA hdD heA heD hAD hOlo hAlo hDlo hio
-    (fun _ _ _ _ _ _ _ _ hc' => absurd hc' hc)
-    (fun t h1 h2 h3 h4 h5 h6 h7 _ _ => hk t h1 h2 h3 h4 h5 h6 h7)
-    (fun _ _ _ _ _ _ _ _ _ _ hlt => absurd hl (by omega))
+  next_u64_spec s ra sp out acs de q l c O W hOl hWl hpc hcode hcw hro hheap hra hra1 hsp hstk ha0 ha1 hO hokO hA hokA hD hokD hW hq hokW hdO hdA hdD heA heD hAD hOlo hAlo hDlo hio
+    (fun _ _ _ _ _ _ _ _ hc' _ => absurd hc' hc)
+    (fun t h1 h2 h3 h4 h5 h6 h7 _ _ hH => hk t h1 h2 h3 h4 h5 h6 h7 hH)
+    (fun _ _ _ _ _ _ _ _ _ _ hlt _ => absurd hl (by omega))
 
 /-- `Err`: a field left, fewer than eight bytes. -/
-theorem next_u64_err_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out acs de q l c : Word)
+theorem next_u64_err_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out acs de q l c : Word)
     (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 2)
     (hpc : s.pc = 0x78019cb8#64) (hcode : CodeAt F_78019cb8.base F_78019cb8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x50 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = acs)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.textLo Ro.layout.textHi out 2)
     (hA : Region acs [de, c] s) (hokA : RegionOk Ro.layout.textLo Ro.layout.textHi acs 2)
-    (hD : Region de [q + 1#64, l] s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi de 2)
+    (hD : Region de [q + 1#64, l] s) (hokD : RegionOk Ro.layout.roBase Ro.layout.textHi de 2)
     (hW : Region q W s) (hq : 0x1c00000000 ≤ q.toNat) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi q 2)
     (hdO : Disjoint (sp - 0x50#64) 10 out 2) (hdA : Disjoint (sp - 0x50#64) 10 acs 2)
     (hdD : Disjoint (sp - 0x50#64) 10 de 2)
     (heA : Disjoint out 2 acs 2) (heD : Disjoint out 2 de 2) (hAD : Disjoint acs 2 de 2)
     (hOlo : out.toNat + 16 ≤ 0x78000000) (hAlo : acs.toNat + 16 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
+    (hio : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        SafeN G n P t) → SafeN G n P u)
+        Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hc : c ≠ 0#64) (hl : l.toNat < 8)
     (hkE : ∀ (t : MachineState) (e : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
-      Region out [2#64, e] t → Region acs [de, c - 1#64] t → Region de [q + 1#64, l] t → SafeN G n P t) :
+      Region out [2#64, e] t → Region acs [de, c - 1#64] t → Region de [q + 1#64, l] t → Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s :=
-  next_u64_spec s ra sp out acs de q l c O W hOl hWl hpc hcode hcw hra hra1 hsp hstk ha0 ha1 hO hokO hA hokA hD hokD hW hq hokW hdO hdA hdD heA heD hAD hOlo hAlo hDlo hio
-    (fun _ _ _ _ _ _ _ _ hc' => absurd hc' hc)
-    (fun _ _ _ _ _ _ _ _ _ hge => absurd hl (by omega))
-    (fun t e h1 h2 h3 h4 h5 h6 h7 _ _ => hkE t e h1 h2 h3 h4 h5 h6 h7)
+  next_u64_spec s ra sp out acs de q l c O W hOl hWl hpc hcode hcw hro hheap hra hra1 hsp hstk ha0 ha1 hO hokO hA hokA hD hokD hW hq hokW hdO hdA hdD heA heD hAD hOlo hAlo hDlo hio
+    (fun _ _ _ _ _ _ _ _ hc' _ => absurd hc' hc)
+    (fun _ _ _ _ _ _ _ _ _ hge _ => absurd hl (by omega))
+    (fun t e h1 h2 h3 h4 h5 h6 h7 _ _ hH => hkE t e h1 h2 h3 h4 h5 h6 h7 hH)
 
 end Cases.Zip2005

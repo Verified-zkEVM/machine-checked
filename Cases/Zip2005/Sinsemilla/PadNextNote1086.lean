@@ -109,9 +109,6 @@ theorem pad_next_note_1086_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop
   sym_exec []
   -- `ψ`'s cursor: its pointer not null; its count is zero, so the padding: 1086 ≡ 6 (mod 10),
   -- four zero bits to come
-  all_goals (first
-    | (exfalso; simp only [beq_iff_eq] at hbr33; have := congrArg BitVec.toNat hbr33; rw [BitVec.toNat_add] at this; simp only [BitVec.toNat_ofNat] at this; omega)
-    | skip)
   all_goals (have hv49 : v49 = 4#64 := by rw [← v49_def, ← v47_def, ← v45_def, ← v44_def, ← v43_def, ← v42_def, ← v41_def, ← v40_def, ← v39_def]; decide)
   all_goals (first
     | (exfalso; rw [hv49] at hbr53; exact absurd (by decide) hbr53)

@@ -2,6 +2,8 @@ import Cases.Zip2005.Runtime.Stubs
 import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Image.F_780326cc
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `Vec<Fp>::from_iter` of `SqrtTables::new`: the growing iteration (0x7803292c, `len = cap`)
@@ -20,27 +22,30 @@ set_option autoImplicit false
 /-- `do_reserve_and_handle` at `from_iter`'s call (`0x78032a24`): the full buffer of `n` elements
 moves to a block of `2 n` in the heap. -/
 def SqReserve (G : MachineState → Prop) (nb : Nat) (P : Prop) (code : Word → Option Instr) : Prop :=
-  ∀ (u : MachineState) (sp' p0 n : Word), u.pc = 0x78032560#64 → u.code = code →
+  ∀ (u : MachineState) (sp' p0 n : Word) (L' : List (Word × Nat)), u.pc = 0x78032560#64 → u.code = code →
     u.getReg .x1 = 0x78032a24#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x100 sp' →
     u.getReg .x10 = sp' + 0x20#64 → u.getReg .x11 = n → u.getReg .x12 = 1#64 →
     Region (sp' + 0x20#64) [n, p0, n] u → RegionOk Ro.layout.roBase Ro.layout.textHi (sp' + 0x20#64) 3 →
     (n.toNat = 4 ∨ n.toNat = 8 ∨ n.toNat = 16 ∨ n.toNat = 32 ∨ n.toNat = 64 ∨ n.toNat = 128) →
     0x78048980 ≤ p0.toNat → p0.toNat + 32 * n.toNat ≤ 0x1c00000000 →
+    RoImage Ro.layout u → Run.HeapAt ((p0, 4 * n.toNat) :: L') u →
     (∀ (t : MachineState) (p' : Word), t.pc = 0x78032a24#64 → CalleeSaved u t → t.code = u.code →
       Unchanged [(sp' - 0x100#64, 32), (sp' + 0x20#64, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
       Region (sp' + 0x20#64) [n + n, p'] t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (8 * n.toNat) →
-      0x78048980 ≤ p'.toNat → p'.toNat + 64 * n.toNat ≤ 0x1c00000000 → SafeN G nb P t) →
+      0x78048980 ≤ p'.toNat → p'.toNat + 64 * n.toNat ≤ 0x1c00000000 →
+      Run.HeapAt ((p', 8 * n.toNat) :: L') t → SafeN G nb P t) →
     SafeN G nb P u
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sq_iter_grow {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp out g p k o : Word)
+theorem sq_iter_grow {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp out g p k o : Word)
     (G J : List Word) (hGl : G.length = 4) (hJl : J.length = 20)
     (hkC : k.toNat = 4 ∨ k.toNat = 8 ∨ k.toNat = 16 ∨ k.toNat = 32 ∨ k.toNat = 64 ∨ k.toNat = 128)
     (ho : o.toNat = 32 * k.toNat)
     (hpc : s.pc = 0x7803292c#64) (hcode : CodeAt F_780326cc.base F_780326cc.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hheap : Run.HeapAt ((p, 4 * k.toNat) :: L) s)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x100 sp)
     (hs0 : s.getReg .x8 = o) (hs1 : s.getReg .x9 = p)
     (hs3 : s.getReg .x19 = g) (hs4 : s.getReg .x20 = 0x224698fc094cf91b#64)
@@ -67,7 +72,7 @@ theorem sq_iter_grow {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
       Region (sp + 8#64) [out, 0xac9fba6a4077fc57#64, 0xcf3f8e8753a769a9#64, k + k, p', k + 1#64] t →
       J'.length = 20 → Region (sp + 0x38#64) J' t →
       RegionOk Ro.layout.roBase Ro.layout.textHi p' (8 * k.toNat) → 0x78048980 ≤ p'.toNat →
-      p'.toNat + 64 * k.toNat ≤ 0x1c00000000 → SafeN Gd n P t) :
+      p'.toNat + 64 * k.toNat ≤ 0x1c00000000 → Run.HeapAt ((p', 8 * k.toNat) :: L) t → SafeN Gd n P t) :
     SafeN Gd n P s := by
   have hu := Unchanged.refl [(sp - 0x100#64, 32), (sp, 27), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x100#64) 32 := hstk.frame 32 (by decide)

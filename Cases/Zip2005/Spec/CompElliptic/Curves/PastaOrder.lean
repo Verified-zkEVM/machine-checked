@@ -5,6 +5,7 @@ as described in the files LICENSE-APACHE and LICENSE-MIT.
 Authors: Daira-Emma Hopwood, Gregor Mitscha-Baude
 -/
 import Cases.Zip2005.Spec.CompElliptic.Curves.Pasta
+import Cases.Zip2005.Spec.CompElliptic.Curves.PallasOrderCert
 import Cases.Zip2005.Spec.CompElliptic.Curves.IsoPasta
 import Cases.Zip2005.Spec.CompElliptic.CurveOrder
 import Cases.Zip2005.Spec.CompElliptic.Isogenies.Homomorphism
@@ -45,9 +46,10 @@ argument does not apply, but none is needed — a `y = 0` point of iso-Vesta wou
 has none.
 
 Per the *Independently re-checkable trust* principle every obligation here is a closed numeric fact
-(`2p + 1 < 2q`, `2q + 1 < 3p`), discharged by kernel `decide`; the only trust is the prime-order
-witnesses (`q_nsmul_Gpt`, `p_nsmul_Gpt`), proved by `native_decide` and appearing in `#print axioms`
-for the two theorems below.
+(`2p + 1 < 2q`, `2q + 1 < 3p`), discharged by kernel `decide`. Of the prime-order witnesses,
+`q_nsmul_Gpt` is a kernel-checked certificate (`PallasOrderCert`); `q_nsmul_isoGpt`, `p_nsmul_Gpt`
+and `p_nsmul_isoGpt` are proved by `native_decide` and appear in `#print axioms` for their
+theorems.
 -/
 
 namespace CompElliptic.Curves.Pasta
@@ -62,7 +64,7 @@ def Gpt : SWPoint curve := ⟨-1, 2, Or.inl (by decide)⟩
 theorem Gpt_ne_zero : Gpt ≠ 0 := by decide
 
 /-- `[q] G = 𝒪`, where `q = PALLAS_SCALAR_CARD` is the Pallas group order. -/
-theorem q_nsmul_Gpt : PALLAS_SCALAR_CARD • Gpt = 0 := by native_decide
+theorem q_nsmul_Gpt : PALLAS_SCALAR_CARD • Gpt = 0 := q_nsmul_G Gpt rfl
 
 /-- **The Pallas curve group has order `PALLAS_SCALAR_CARD`**, unconditionally.
 

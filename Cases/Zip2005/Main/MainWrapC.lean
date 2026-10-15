@@ -6,6 +6,8 @@ import Cases.Zip2005.Main.MainAccept
 import Cases.Zip2005.Orchard.CommitIvk
 import Cases.Zip2005.Orchard.NonZeroScalar
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # Wrappers for `main`'s segment C
@@ -172,7 +174,7 @@ theorem ep_to_bytes_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
     (by rw [natToLeLimbs_four] at hR; exact hR))
 
 /-- `rivk_internal_spec` with the output cells named and the frame's prior contents taken as junk. -/
-theorem rivk_internal_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out fvk SC k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3 : Word)
+theorem rivk_internal_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out fvk SC k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3 : Word)
     (hpc : s.pc = 0x78022ca0#64) (hcR : CodeAt F_78022ca0.base F_78022ca0.prog s)
     (hcQ : CodeAt F_7802e9b8.base F_7802e9b8.prog s) (hcI : CodeAt F_78028ce8.base F_78028ce8.prog s)
     (hcI2 : CodeAt F_78029468.base F_78029468.prog s)
@@ -182,7 +184,7 @@ theorem rivk_internal_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s 
     (hcM : CodeAt F_7803f57c.base F_7803f57c.prog s) (hcC : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcX : CodeAt F_7802f038.base F_7802f038.prog s) (hcX2 : CodeAt F_7802e5b4.base F_7802e5b4.prog s)
     (hcX3 : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x570 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = fvk) (ha2 : s.getReg .x12 = SC)
@@ -192,18 +194,19 @@ theorem rivk_internal_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s 
     (hd1 : Disjoint (sp - 0x570#64) 174 (fvk + 0x60#64) 12) (hd2 : Disjoint (sp - 0x570#64) 174 out 4)
     (hd3 : Disjoint out 4 (fvk + 0x60#64) 12)
     (hSC : SC = 1#64)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN G n P u)
     (hk : ∀ (t : MachineState) (c0 c1 c2 c3 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x570#64, 174), (out, 4)] s t →
       [c0, c1, c2, c3] = natToLeLimbs 4 (rivkIntX k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3) → Region out [c0, c1, c2, c3] t → SafeN G n P t) :
     SafeN G n P s := by
   obtain ⟨Fr, hRF, hFr⟩ := Region.exists_junk (sp - 0xe0#64) 28 s
-  exact rivk_internal_spec s ra sp out fvk SC k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3 Fr hFr hRF hpc hcR hcQ hcI hcI2 hcW hcT hcU hcF hcL hcM hcC hcX hcX2 hcX3 hcw hro hra hra1 hsp hstk ha0 ha1 ha2 hK hokK hokO hd1 hd2 hd3 hSC hpp (fun t h1 h2 h3 h4 hR => hk t _ _ _ _ h1 h2 h3 h4 (natToLeLimbs_four (rivkIntX k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3)).symm
+  exact rivk_internal_spec s ra sp out fvk SC k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3 Fr hFr hRF hpc hcR hcQ hcI hcI2 hcW hcT hcU hcF hcL hcM hcC hcX hcX2 hcX3 hcw hro hheap hra hra1 hsp hstk ha0 ha1 ha2 hK hokK hokO hd1 hd2 hd3 hSC hpp (fun t h1 h2 h3 h4 hR => hk t _ _ _ _ h1 h2 h3 h4 (natToLeLimbs_four (rivkIntX k0 k1 k2 k3 n0 n1 n2 n3 r0 r1 r2 r3)).symm
     (by rw [natToLeLimbs_four] at hR; exact hR))
 
 /-- `commit_ivk_spec` over the generic `from_iter` contract (any caller frame `sp0`, padding `J0`
 and key words), instantiated inside: a caller passes its own hypothesis unchanged. -/
-theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Word)
+theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out ak nk rivk : Word)
     (a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 5) (hJl : J.length = 9)
     -- the sqrt/generator tables (`FP_TABLES`) in the heap, carried through: the allocator
@@ -229,10 +232,14 @@ theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
     (hbelow_rivk : rivk.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_ak : ak.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_nk : nk.toNat + 8 * 4 ≤ 0x78040620)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (hunwrap : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dc7c#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_dc7c_10 → u.getReg .x13 ∈ Run.vals_dc7c_13 → u.getReg .x14 ∈ Run.vals_dc7c_14 → SafeN G n P u)
+    (hbounds : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G n P u)
     (hpc : s.pc = 0x780203dc#64) (hcode : CodeAt F_780203dc.base F_780203dc.prog s)
     -- callees: cached_commit_domain (+ from_raw, from_xy, is_on_curve, mulmod, black_box,
     -- to_curve), to_le_bits (+ to_repr), commit (`0x78021238`) and its callees,
@@ -257,7 +264,7 @@ theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
     (hcodeD : CodeAt F_780360c8.base F_780360c8.prog s) (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s) (hcodeEA : CodeAt F_78026b44.base F_78026b44.prog s)
     (hcodeED : CodeAt F_7802413c.base F_7802413c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L) s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0xaa0 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = ak) (ha2 : s.getReg .x12 = nk)
@@ -276,7 +283,7 @@ theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
     -- `commit_ivk` builds it over the message words at `+0x9c8` (`ak`'s bits, then `nk`'s)
     -- yields 510 bytes, byte `o` the message bit `o`
     (hfrom : ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (sp0 : Word)
-      (J0 : List Word) (a0 a1 a2 a3 n0 n1 n2 n3 : Word), O1.length = 3 →
+      (J0 : List Word) (a0 a1 a2 a3 n0 n1 n2 n3 : Word) (L' : List (Word × Nat)), O1.length = 3 →
       u.pc = 0x7801e110#64 → u.code = s.code → u.getReg .x1 = 0x780212ac#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x260 sp' → u.getReg .x10 = a0' → u.getReg .x11 = a1' →
       Region a0' O1 u → Region a1' [0#64, j] u →
@@ -299,6 +306,8 @@ theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
       StackOk Ro.layout 0xaa0 sp0 →
       Disjoint (sp' - 0x260#64) 76 (sp0 - 0xaa0#64 + 0x9c8#64) 8 → Disjoint a0' 3 (sp0 - 0xaa0#64 + 0x9c8#64) 8 → Disjoint a1' 12 (sp0 - 0xaa0#64 + 0x9c8#64) 8 →
       Disjoint 0x78040620#64 14780694332 a0' 3 → Disjoint 0x78040620#64 14780694332 a1' 12 →
+      a0'.toNat + 8 * 3 ≤ 0x78040620 → a1'.toNat + 8 * 12 ≤ 0x78040620 →
+      RoImage Ro.layout u → Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L') u →
       (∀ (t : MachineState) (cap ptr : Word) (J Bv : List Word), t.pc = 0x780212ac#64 →
         CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x260#64, 76), (a0', 3), (a1', 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
@@ -308,18 +317,19 @@ theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 65 →
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) → SafeN G n P u)
-    (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 65 →
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Run.HeapAt ((ptr, 64) :: (iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L') t → SafeN G n P t) → SafeN G n P u)
+    (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word) (k : Nat) (L' : List (Word × Nat)), C.length = 65 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780215d8#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = cap →
       u.getReg .x12 = 1#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
       Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] u → Region iptr IV u →
       Region tg0 G0 u → Region tg1 G1 u → Region tg2 G2 u → Region tg3 G3 u →
+      RoImage Ro.layout u → Run.HeapAt ((ptr, k) :: (iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L') u →
       (∀ t, t.pc = 0x780215d8#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) → SafeN G n P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L') t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xaa0#64, 340), (out, 5), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (extractPBottomW
@@ -330,14 +340,14 @@ theorem commit_ivk_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
           (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))]) t →
       mulFacts rIvkW [k0, k1, k2, k3] →
       Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) :
+      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L) t → SafeN G n P t) :
     SafeN G n P s :=
-  commit_ivk_spec s ra sp out ak nk rivk a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 O J hOl hJl tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx IV G0 G1 G2 G3 hIVl hG0l hG1l hG2l hG3l hTB hIVr hG0 hG1 hG2 hG3 hok_iptr hok_g0 hok_g1 hok_g2 hok_g3 hlo_iptr hlo_g0 hlo_g1 hlo_g2 hlo_g3 hhi_iptr hhi_g0 hhi_g1 hhi_g2 hhi_g3 hbelow_out hbelow_rivk hbelow_ak hbelow_nk hpaf hpanic hunwrap hbounds hpc hcode hcodeCD hcodeLB hcodeCm hcodeEB hcodeC hcodeTA hcodeI hcodeM hcodeBB hcodeCo hcodeP hcodeRp hcodeL hcodeIA hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeU hcodeR hcodeXY hcodeOC hcodeFR hcodeTC hcodeF hcodeBt hcodeS hcodeCS hcodeB hcodeW hcodeMul hcodeRq hcodeA hcodeDbl hcodeD hcodeAF hcodeAFI hcodeEA hcodeED hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 hA hokA hN hokN hK hokK hO hokO hJ hd0 hd1 hd2 hd3 he0 he1 he2 hh0 hh1 (fun u sp' a0' a1' j O1 => hfrom u sp' a0' a1' j O1 sp J a0 a1 a2 a3 n0 n1 n2 n3) hdealloc hk
+  commit_ivk_spec s ra sp out ak nk rivk a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 O J hOl hJl tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx IV G0 G1 G2 G3 hIVl hG0l hG1l hG2l hG3l hTB hIVr hG0 hG1 hG2 hG3 hok_iptr hok_g0 hok_g1 hok_g2 hok_g3 hlo_iptr hlo_g0 hlo_g1 hlo_g2 hlo_g3 hhi_iptr hhi_g0 hhi_g1 hhi_g2 hhi_g3 hbelow_out hbelow_rivk hbelow_ak hbelow_nk hpaf hpanic hunwrap hbounds hpc hcode hcodeCD hcodeLB hcodeCm hcodeEB hcodeC hcodeTA hcodeI hcodeM hcodeBB hcodeCo hcodeP hcodeRp hcodeL hcodeIA hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeU hcodeR hcodeXY hcodeOC hcodeFR hcodeTC hcodeF hcodeBt hcodeS hcodeCS hcodeB hcodeW hcodeMul hcodeRq hcodeA hcodeDbl hcodeD hcodeAF hcodeAFI hcodeEA hcodeED hcw hro hheap hra hra1 hsp hstk ha0 ha1 ha2 ha3 hA hokA hN hokN hK hokK hO hokO hJ hd0 hd1 hd2 hd3 he0 he1 he2 hh0 hh1 (fun u sp' a0' a1' j O1 L' => hfrom u sp' a0' a1' j O1 sp J a0 a1 a2 a3 n0 n1 n2 n3 L') hdealloc hk
 
 /-- `commit_ivk_spec'` with the output cells named: `ivk`'s four limbs and the flag cell, each
 with its model equation, so the executor never sizes `extractPBottomW` (an `if` over the
 affine point). -/
-theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out ak nk rivk : Word)
+theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out ak nk rivk : Word)
     (a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 5) (hJl : J.length = 9)
     -- the sqrt/generator tables (`FP_TABLES`) in the heap, carried through: the allocator
@@ -363,10 +373,14 @@ theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
     (hbelow_rivk : rivk.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_ak : ak.toNat + 8 * 4 ≤ 0x78040620)
     (hbelow_nk : nk.toNat + 8 * 4 ≤ 0x78040620)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (hunwrap : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dc7c#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_dc7c_10 → u.getReg .x13 ∈ Run.vals_dc7c_13 → u.getReg .x14 ∈ Run.vals_dc7c_14 → SafeN G n P u)
+    (hbounds : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G n P u)
     (hpc : s.pc = 0x780203dc#64) (hcode : CodeAt F_780203dc.base F_780203dc.prog s)
     -- callees: cached_commit_domain (+ from_raw, from_xy, is_on_curve, mulmod, black_box,
     -- to_curve), to_le_bits (+ to_repr), commit (`0x78021238`) and its callees,
@@ -391,7 +405,7 @@ theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
     (hcodeD : CodeAt F_780360c8.base F_780360c8.prog s) (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s) (hcodeEA : CodeAt F_78026b44.base F_78026b44.prog s)
     (hcodeED : CodeAt F_7802413c.base F_7802413c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L) s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0xaa0 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = ak) (ha2 : s.getReg .x12 = nk)
@@ -410,7 +424,7 @@ theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
     -- `commit_ivk` builds it over the message words at `+0x9c8` (`ak`'s bits, then `nk`'s)
     -- yields 510 bytes, byte `o` the message bit `o`
     (hfrom : ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (sp0 : Word)
-      (J0 : List Word) (a0 a1 a2 a3 n0 n1 n2 n3 : Word), O1.length = 3 →
+      (J0 : List Word) (a0 a1 a2 a3 n0 n1 n2 n3 : Word) (L' : List (Word × Nat)), O1.length = 3 →
       u.pc = 0x7801e110#64 → u.code = s.code → u.getReg .x1 = 0x780212ac#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x260 sp' → u.getReg .x10 = a0' → u.getReg .x11 = a1' →
       Region a0' O1 u → Region a1' [0#64, j] u →
@@ -433,6 +447,8 @@ theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
       StackOk Ro.layout 0xaa0 sp0 →
       Disjoint (sp' - 0x260#64) 76 (sp0 - 0xaa0#64 + 0x9c8#64) 8 → Disjoint a0' 3 (sp0 - 0xaa0#64 + 0x9c8#64) 8 → Disjoint a1' 12 (sp0 - 0xaa0#64 + 0x9c8#64) 8 →
       Disjoint 0x78040620#64 14780694332 a0' 3 → Disjoint 0x78040620#64 14780694332 a1' 12 →
+      a0'.toNat + 8 * 3 ≤ 0x78040620 → a1'.toNat + 8 * 12 ≤ 0x78040620 →
+      RoImage Ro.layout u → Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L') u →
       (∀ (t : MachineState) (cap ptr : Word) (J Bv : List Word), t.pc = 0x780212ac#64 →
         CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x260#64, 76), (a0', 3), (a1', 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
@@ -442,18 +458,19 @@ theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 65 →
         0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) → SafeN G n P u)
-    (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 65 →
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Run.HeapAt ((ptr, 64) :: (iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L') t → SafeN G n P t) → SafeN G n P u)
+    (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word) (k : Nat) (L' : List (Word × Nat)), C.length = 65 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780215d8#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = cap →
       u.getReg .x12 = 1#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
       Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] u → Region iptr IV u →
       Region tg0 G0 u → Region tg1 G1 u → Region tg2 G2 u → Region tg3 G3 u →
+      RoImage Ro.layout u → Run.HeapAt ((ptr, k) :: (iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L') u →
       (∀ t, t.pc = 0x780215d8#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) → SafeN G n P u)
+        Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L') t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ (t : MachineState) (j0 j1 j2 j3 fl : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xaa0#64, 340), (out, 5), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       [j0, j1, j2, j3] = extractPBottomW (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))
@@ -462,16 +479,16 @@ theorem commit_ivk_spec'' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
       fl = replaceByte O[4]! 0 (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65)) →
       Region out [j0, j1, j2, j3, fl] t → mulFacts rIvkW [k0, k1, k2, k3] →
       Region 0x780488a8#64 [tcap, iptr, ilen, tg0, tg1, tg2, tg3, hmod, hx, 2#64] t → Region iptr IV t →
-      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → SafeN G n P t) :
+      Region tg0 G0 t → Region tg1 G1 t → Region tg2 G2 t → Region tg3 G3 t → Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L) t → SafeN G n P t) :
     SafeN G n P s :=
-  commit_ivk_spec' s ra sp out ak nk rivk a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 O J hOl hJl tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx IV G0 G1 G2 G3 hIVl hG0l hG1l hG2l hG3l hTB hIVr hG0 hG1 hG2 hG3 hok_iptr hok_g0 hok_g1 hok_g2 hok_g3 hlo_iptr hlo_g0 hlo_g1 hlo_g2 hlo_g3 hhi_iptr hhi_g0 hhi_g1 hhi_g2 hhi_g3 hbelow_out hbelow_rivk hbelow_ak hbelow_nk hpaf hpanic hunwrap hbounds hpc hcode hcodeCD hcodeLB hcodeCm hcodeEB hcodeC hcodeTA hcodeI hcodeM hcodeBB hcodeCo hcodeP hcodeRp hcodeL hcodeIA hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeU hcodeR hcodeXY hcodeOC hcodeFR hcodeTC hcodeF hcodeBt hcodeS hcodeCS hcodeB hcodeW hcodeMul hcodeRq hcodeA hcodeDbl hcodeD hcodeAF hcodeAFI hcodeEA hcodeED hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 hA hokA hN hokN hK hokK hO hokO hJ hd0 hd1 hd2 hd3 he0 he1 he2 hh0 hh1 hfrom hdealloc (fun t h1 h2 h3 h4 hR hm b0 b1 b2 b3 b4 b5 => by
+  commit_ivk_spec' s ra sp out ak nk rivk a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 O J hOl hJl tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx IV G0 G1 G2 G3 hIVl hG0l hG1l hG2l hG3l hTB hIVr hG0 hG1 hG2 hG3 hok_iptr hok_g0 hok_g1 hok_g2 hok_g3 hlo_iptr hlo_g0 hlo_g1 hlo_g2 hlo_g3 hhi_iptr hhi_g0 hhi_g1 hhi_g2 hhi_g3 hbelow_out hbelow_rivk hbelow_ak hbelow_nk hpaf hpanic hunwrap hbounds hpc hcode hcodeCD hcodeLB hcodeCm hcodeEB hcodeC hcodeTA hcodeI hcodeM hcodeBB hcodeCo hcodeP hcodeRp hcodeL hcodeIA hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeU hcodeR hcodeXY hcodeOC hcodeFR hcodeTC hcodeF hcodeBt hcodeS hcodeCS hcodeB hcodeW hcodeMul hcodeRq hcodeA hcodeDbl hcodeD hcodeAF hcodeAFI hcodeEA hcodeED hcw hro hheap hra hra1 hsp hstk ha0 ha1 ha2 ha3 hA hokA hN hokN hK hokK hO hokO hJ hd0 hd1 hd2 hd3 he0 he1 he2 hh0 hh1 hfrom hdealloc (fun t h1 h2 h3 h4 hR hm b0 b1 b2 b3 b4 b5 hH => by
     generalize hL : extractPBottomW (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))
       (ivkW qIvkW rIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65)
-          [k0, k1, k2, k3]) = L at hR
-    have hl : L.length = 4 := hL ▸ extractPBottomW_length _ _
-    match L, hl, hL with
+          [k0, k1, k2, k3]) = Lx at hR
+    have hl : Lx.length = 4 := hL ▸ extractPBottomW_length _ _
+    match Lx, hl, hL with
     | [j0, j1, j2, j3], _, hL =>
-      exact hk t j0 j1 j2 j3 _ h1 h2 h3 h4 hL.symm rfl (by simpa using hR) hm b0 b1 b2 b3 b4 b5)
+      exact hk t j0 j1 j2 j3 _ h1 h2 h3 h4 hL.symm rfl (by simpa using hR) hm b0 b1 b2 b3 b4 b5 hH)
 
 /-- `nonzero_scalar_spec` with the output cells named (`nzScalarW` is an `if` on canonicity). -/
 theorem nonzero_scalar_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 sp : Word)

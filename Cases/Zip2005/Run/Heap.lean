@@ -207,11 +207,19 @@ theorem q_frame {L : List (Word × Nat)} {m m' : Word → Word} (h : Q L m)
     refine Tlsf.rep_iff.mpr ⟨?_, hsh.congr fun a ha => hm a (not_open_key hrep hs hL ha)⟩
     rw [hcl _ (by decide) (by decide)]; exact hl
 
-/-- The invariant survives dropping live buffers. -/
-theorem q_sub {L L' : List (Word × Nat)} (hs : L'.Sublist L) {m : Word → Word} (h : Q L m) :
+/-- The invariant survives dropping and reordering live buffers. -/
+theorem q_sub {L L' : List (Word × Nat)} (hs : L'.Subperm L) {m : Word → Word} (h : Q L m) :
     Q L' m := by
   obtain ⟨hk, hh, hD, bs, Lf, hr, hsn, hL⟩ := h
-  exact ⟨hk, hh, hD.sublist hs, bs, Lf, hr, hsn, fun r hr => hL r (hs.subset hr)⟩
+  obtain ⟨l, hp, hsl⟩ := hs
+  have hDl : Distinct l := hD.sublist hsl
+  have hD' : Distinct L' := (List.Perm.pairwise_iff (fun {a b} h => by
+    rcases h with h | h
+    · by_cases hb : b.1 = 0#64
+      · exact .inl hb
+      · exact .inr (fun e => hb (e ▸ h))
+    · exact .inr (Ne.symm h)) hp).mp hDl
+  exact ⟨hk, hh, hD', bs, Lf, hr, hsn, fun r hr => hL r (hsl.subset (hp.symm.subset hr))⟩
 
 /-- The invariant of a state, from its memory's. -/
 theorem heapAt_of {L : List (Word × Nat)} {s : MachineState} (h : Q L s.getMem) : HeapAt L s :=
@@ -233,5 +241,15 @@ theorem mainEntry_heapAt {input : List (BitVec 8)} {t : MachineState}
       · exact h.prot (Env.inProt_of_mem Statics.panicHook_prot (by simp [Region.Mem, Region.hi, Statics.panicHook])),
     Owned.inv_iff.mp (Owned.mainEntry_inv h), List.Pairwise.nil, Tlsf.bs0, Tlsf.L0,
     Tlsf.rep_init h.2.2.2.2.2.1, by simp [Tlsf.bs0, sentinel], by simp⟩
+
+/-- The public-values hasher is `Some`: its tag. -/
+theorem HeapAt.tag {L : List (Word × Nat)} {s : MachineState} (h : HeapAt L s) :
+    s.getMem 0x78048830#64 = 1#64 :=
+  h.holds.2.1.1
+
+/-- Its buffer position is below 64. -/
+theorem HeapAt.pos {L : List (Word × Nat)} {s : MachineState} (h : HeapAt L s) :
+    (s.getMem 0x780488a0#64 &&& 0xff#64).toNat < 64 :=
+  h.holds.2.1.2
 
 end Cases.Zip2005.Run

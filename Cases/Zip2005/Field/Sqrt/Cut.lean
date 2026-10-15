@@ -4,6 +4,7 @@ import Cases.Zip2005.Runtime.Stubs
 import Cases.Zip2005.Image.F_7802f358
 import Cases.Zip2005.Image.F_7801bf5c
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
 
 /-! `SqrtTables::sqrt_common` (Fp): the cut states between its three segments. -/
 
@@ -14,10 +15,10 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 /-- The state of `sqrt_common` at a cut: the frame's data block arbitrary, the saved
     registers in place, the pointers and the constants in registers, every input region
     as on entry. -/
-def SqCut1 (s0 : MachineState) (sp a0 tb a2 a3 uv0 uv1 uv2 uv3 vv0 vv1 vv2 vv3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (IV G0 G1 G2 G3 : List Word) (c : Word) (t : MachineState) : Prop :=
+def SqCut1 (s0 : MachineState) (sp a0 tb a2 a3 uv0 uv1 uv2 uv3 vv0 vv1 vv2 vv3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (IV G0 G1 G2 G3 : List Word) (c : Word) (L : List (Word × Nat)) (t : MachineState) : Prop :=
   t.pc = c ∧ t.code = s0.code ∧ CodeAt F_7802f358.base F_7802f358.prog t ∧
     CodeAt F_7801bf5c.base F_7801bf5c.prog t ∧ CodeAt F_78029b64.base F_78029b64.prog t ∧
-    CodeWithin Ro.layout.textLo Ro.layout.textHi t ∧ RoImage Ro.layout t ∧ Unchanged [(sp - 432#64, 54), (a0, 4)] s0 t ∧
+    CodeWithin Ro.layout.textLo Ro.layout.textHi t ∧ RoImage Ro.layout t ∧ Run.HeapAt L t ∧ Unchanged [(sp - 432#64, 54), (a0, 4)] s0 t ∧
     t.getReg .x2 = sp - 432#64 ∧
     t.getReg .x3 = s0.getReg .x3 ∧
     t.getReg .x4 = s0.getReg .x4 ∧
@@ -44,10 +45,10 @@ def SqCut1 (s0 : MachineState) (sp a0 tb a2 a3 uv0 uv1 uv2 uv3 vv0 vv1 vv2 vv3 c
 /-- The state of `sqrt_common` at a cut: the frame's data block arbitrary, the saved
     registers in place, the pointers and the constants in registers, every input region
     as on entry. -/
-def SqCut2 (s0 : MachineState) (sp a0 tb a2 a3 uv0 uv1 uv2 uv3 vv0 vv1 vv2 vv3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (IV G0 G1 G2 G3 : List Word) (c : Word) (t : MachineState) : Prop :=
+def SqCut2 (s0 : MachineState) (sp a0 tb a2 a3 uv0 uv1 uv2 uv3 vv0 vv1 vv2 vv3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (IV G0 G1 G2 G3 : List Word) (c : Word) (L : List (Word × Nat)) (t : MachineState) : Prop :=
   t.pc = c ∧ t.code = s0.code ∧ CodeAt F_7802f358.base F_7802f358.prog t ∧
     CodeAt F_7801bf5c.base F_7801bf5c.prog t ∧ CodeAt F_78029b64.base F_78029b64.prog t ∧
-    CodeWithin Ro.layout.textLo Ro.layout.textHi t ∧ RoImage Ro.layout t ∧ Unchanged [(sp - 432#64, 54), (a0, 4)] s0 t ∧
+    CodeWithin Ro.layout.textLo Ro.layout.textHi t ∧ RoImage Ro.layout t ∧ Run.HeapAt L t ∧ Unchanged [(sp - 432#64, 54), (a0, 4)] s0 t ∧
     t.getReg .x2 = sp - 432#64 ∧
     t.getReg .x3 = s0.getReg .x3 ∧
     t.getReg .x4 = s0.getReg .x4 ∧

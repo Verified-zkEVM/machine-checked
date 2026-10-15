@@ -5,6 +5,8 @@ import Cases.Zip2005.Field.Coordinates
 import Cases.Zip2005.Field.FpSub
 import Cases.Zip2005.Image.F_780315c0
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-! `SqrtTables::<Fp>::sqrt_alt(&self, u)`: `v = u^((t-1)/2)`, `res = sqrt_common(u·v, v)`,
 then the self-check `res² = u` (is_square) / `res² = ROOT·u` (is_nonsquare) with
@@ -25,20 +27,23 @@ set_option maxRecDepth 20000 in
 /-- `sqrt_alt`: the result `r` is canonical, the flag is `r² = u`, and (the assertion having
     passed) `u = 0` or exactly one of `r² = u`, `r² = ROOT·u` holds. Requires `u` canonical
     (`ct_eq` compares Montgomery limbs) and the tables initialised (`tb`'s regions). -/
-theorem sqrt_alt_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 tb a2 : Word)
+theorem sqrt_alt_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp a0 tb a2 : Word)
     (u0 u1 u2 u3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 5) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
+    (hpb : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G n P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN G n P u)
+    (hprz : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de78#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de78 → SafeN G n P u)
     (hpc : s.pc = 0x780315c0#64) (hcode : CodeAt F_780315c0.base F_780315c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcodeP : CodeAt F_78029d94.base F_78029d94.prog s)
     (hcodeC : CodeAt F_7802f358.base F_7802f358.prog s)
     (hcodeL : CodeAt F_78029b64.base F_78029b64.prog s)
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x5c0 sp)
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = tb) (ha2 : s.getReg .x12 = a2)

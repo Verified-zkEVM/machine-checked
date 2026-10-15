@@ -3,6 +3,8 @@ import Cases.Zip2005.Curve.FromBytesKit
 import Cases.Zip2005.Field.CtLimbs
 import Cases.Zip2005.Image.F_78023864
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `HashDomain::hash_to_point_inner::unpack` (sinsemilla)
@@ -17,14 +19,15 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sinsemilla_unpack_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem sinsemilla_unpack_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp a0 a1 : Word)
     (b0 b1 b2 b3 c0 c1 c2 c3 : Word) (O : List Word) (hOl : O.length = 8)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G n P u)
     (hpc : s.pc = 0x78023864#64) (hcode : CodeAt F_78023864.base F_78023864.prog s)
     (hcodeR : CodeAt F_780297c0.base F_780297c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x140 sp)
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = a1)

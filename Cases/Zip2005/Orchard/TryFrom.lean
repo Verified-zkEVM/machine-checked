@@ -3,6 +3,8 @@ import Cases.Zip2005.Orchard.Randomize
 import Cases.Zip2005.Orchard.NoteCommitDerive
 import Cases.Zip2005.Image.F_78022f5c
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `TryFrom<[u8; 32]> for SigningKey<SpendAuth>` (0x78022f5c)
@@ -60,16 +62,21 @@ set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
 /-- `try_from` on a representation held in four aligned words `r0 … r3`. -/
-theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out a1 : Word)
+theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out a1 : Word)
     (r0 r1 r2 r3 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 21) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN Gd nb P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN Gd nb P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN Gd nb P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN Gd nb P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpb : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN Gd nb P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN Gd nb P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN Gd nb P u)
+    (hprz : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de78#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de78 → SafeN Gd nb P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN Gd nb P u)
     (hpc : s.pc = 0x78022f5c#64) (hcode : CodeAt F_78022f5c.base F_78022f5c.prog s)
     (hcodeFR : CodeAt F_7802ed10.base F_7802ed10.prog s)
     (hcodeBP : CodeAt F_78023278.base F_78023278.prog s)
@@ -100,12 +107,13 @@ theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s : Ma
     (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s)
     (hcodeTB : CodeAt F_78025654.base F_78025654.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x980 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = a1)
     (hA : Region a1 [r0, r1, r2, r3] s) (hokA : RegionOk Ro.layout.roBase Ro.layout.textHi a1 4)
     (hO : Region out O s) (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi out 21)
+    (hbelow_out : out.toNat + 8 * 21 ≤ 0x78040620)
     -- `FP_TABLES`, initialised (`Once` state byte 2 at 0x780488f0, padding zero)
     (hTB : Region 0x780488a8#64 [cap, iptr, ilen, g0, g1, g2, g3, hmod, hx, 2#64] s)
     (hIV : Region iptr IV s) (hok_iptr : RegionOk Ro.layout.roBase Ro.layout.textHi iptr 138)
@@ -210,16 +218,21 @@ set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
 /-- `try_from` on a representation at byte offset 2 of the five aligned words `c0 … c4` (as
 `derive_unchecked` leaves `to_repr`'s bytes at `sp + 0x2a`). -/
-theorem try_from_off2_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out b : Word)
+theorem try_from_off2_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out b : Word)
     (c0 c1 c2 c3 c4 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 21) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN Gd nb P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN Gd nb P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN Gd nb P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN Gd nb P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN Gd nb P u)
+    (hpb : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN Gd nb P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN Gd nb P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN Gd nb P u)
+    (hprz : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de78#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de78 → SafeN Gd nb P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN Gd nb P u)
     (hpc : s.pc = 0x78022f5c#64) (hcode : CodeAt F_78022f5c.base F_78022f5c.prog s)
     (hcodeFR : CodeAt F_7802ed10.base F_7802ed10.prog s)
     (hcodeBP : CodeAt F_78023278.base F_78023278.prog s)
@@ -250,12 +263,13 @@ theorem try_from_off2_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s
     (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s)
     (hcodeTB : CodeAt F_78025654.base F_78025654.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x980 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = b + 2#64)
     (hA : Region b [c0, c1, c2, c3, c4] s) (hokA : RegionOk Ro.layout.roBase Ro.layout.textHi b 5)
     (hO : Region out O s) (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi out 21)
+    (hbelow_out : out.toNat + 8 * 21 ≤ 0x78040620)
     -- `FP_TABLES`, initialised (`Once` state byte 2 at 0x780488f0, padding zero)
     (hTB : Region 0x780488a8#64 [cap, iptr, ilen, g0, g1, g2, g3, hmod, hx, 2#64] s)
     (hIV : Region iptr IV s) (hok_iptr : RegionOk Ro.layout.roBase Ro.layout.textHi iptr 138)

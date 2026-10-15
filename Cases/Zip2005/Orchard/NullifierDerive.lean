@@ -12,6 +12,8 @@ import Cases.Zip2005.Field.Coordinates
 import Cases.Zip2005.Field.Cells4
 import Cases.Zip2005.Image.F_7801f780
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `orchard::note::nullifier::Nullifier::derive` (`0x7801f780`)
@@ -301,10 +303,12 @@ theorem mask_cells (x0 x1 x2 x3 : Word) (c : Prop) [Decidable c]
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem nullifier_derive_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out nk rho psi cm : Word)
+theorem nullifier_derive_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out nk rho psi cm : Word)
     (n0 n1 n2 n3 r0 r1 r2 r3 q0 q1 q2 q3 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 : Word)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hpc : s.pc = 0x7801f780#64) (hcode : CodeAt F_7801f780.base F_7801f780.prog s)
     -- callees: from_raw, from_xy (+ is_on_curve, mulmod, black_box), to_curve, prf_nf and its
     -- callees, to_repr, Fq::from_repr, mul and its callees, memcpy, Ep::add (+ double), to_affine
@@ -326,7 +330,7 @@ theorem nullifier_derive_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (
     (hcodeL : CodeAt F_780360e0.base F_780360e0.prog s) (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s) (hcodeEA : CodeAt F_78026b44.base F_78026b44.prog s)
     (hcodeED : CodeAt F_7802413c.base F_7802413c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0xb40 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = nk) (ha2 : s.getReg .x12 = rho)
@@ -347,27 +351,29 @@ theorem nullifier_derive_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (
     (hh2 : Disjoint 0x78040620#64 14780694332 psi 4) (hh3 : Disjoint 0x78040620#64 14780694332 cm 12)
     (hh4 : Disjoint 0x78040620#64 14780694332 out 4)
     -- the allocator contracts `prf_nf` needs (ledger T2)
-    (hconst : ∀ (u : MachineState) (sp' a0' : Word) (O1 O2 O3 : List Word),
+    (hconst : ∀ (u : MachineState) (sp' a0' : Word) (O1 O2 O3 : List Word) (L' : List (Word × Nat)),
       O1.length = 3 → O2.length = 36 → O3.length = 36 →
       u.pc = 0x78023cbc#64 → u.code = s.code → u.getReg .x1 = 0x7802084c#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x60 sp' → u.getReg .x10 = a0' →
       Region a0' O1 u → Region (a0' + 0x18#64) O2 u → Region (a0' + 0x138#64) O3 u →
       RegionOk Ro.layout.roBase Ro.layout.textHi a0' 75 → Disjoint (sp' - 0x60#64) 12 a0' 75 →
       RoImage Ro.layout u → Disjoint 0x78040620#64 14780694332 a0' 75 →
+      Run.HeapAt L' u →
       (∀ t, t.pc = 0x7802084c#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x60#64, 12), (a0', 75), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         ∀ (ptr : Word) (MI : List Word), MI.length = 36 →
         Region a0' [64#64, ptr, 64#64] t → Region (a0' + 0x18#64) Poseidon.mdsWords t →
         Region (a0' + 0x138#64) MI t →
         Region ptr Poseidon.rcWords t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
-    (hdealloc : ∀ (u : MachineState) (sp' ptr : Word) (C : List Word), C.length = 768 →
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 768) :: L') t → SafeN G n P t) → SafeN G n P u)
+    (hdealloc : ∀ (u : MachineState) (sp' ptr : Word) (C : List Word) (k : Nat) (L' : List (Word × Nat)), C.length = 768 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x78020c64#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = 6144#64 →
       u.getReg .x12 = 8#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 768 ≤ 0x1c00000000 →
+      RoImage Ro.layout u → Run.HeapAt ((ptr, k) :: L') u →
       (∀ t, t.pc = 0x78020c64#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n P t) → SafeN G n P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xb40#64, 360), (out, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (natToLeLimbs 4 (nullifierX (leLimbsToNat [n0, n1, n2, n3])
@@ -375,7 +381,7 @@ theorem nullifier_derive_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (
         [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11])) t →
       mulFacts kOrchardW (nullifierScalarW (leLimbsToNat [n0, n1, n2, n3])
         (leLimbsToNat [r0, r1, r2, r3]) (leLimbsToNat [q0, q1, q2, q3])) →
-      SafeN G n P t) :
+      Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xb40#64) 360 := hstk.frame 360 (by decide)
   -- the frame (below it 0x9b0 bytes for the callees' frames): one cell, [0x8, 0x68), [0x68, 0xe8),

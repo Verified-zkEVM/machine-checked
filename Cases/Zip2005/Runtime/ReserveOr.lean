@@ -24,19 +24,23 @@ set_option autoImplicit false
 /-- `__rust_realloc(p0, C, 1, 2C)` at `finish_grow`'s call (`0x780222cc`), keeping the six
     hasher regions `T` (in the arena) and returning a block off them. -/
 def ReallocOrFi (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word → Option Instr) : Prop :=
-  ∀ (T : HasherT), Arena6 T → ∀ (u : MachineState) (sp' p0 : Word) (C : Nat) (W : List Word),
+  ∀ (T : HasherT), Arena6 T → T.b1 = 0x780488a8#64 →
+    ∀ (u : MachineState) (sp' p0 : Word) (C : Nat) (W : List Word) (L' : List (Word × Nat)),
     (C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256) → W.length = C / 8 →
     u.pc = 0x7801bd38#64 → u.code = code → u.getReg .x1 = 0x780222cc#64 → u.getReg .x2 = sp' →
     StackOk Ro.layout 0x60 sp' → u.getReg .x10 = p0 → u.getReg .x11 = BitVec.ofNat 64 C →
     u.getReg .x12 = 1#64 → u.getReg .x13 = BitVec.ofNat 64 (2 * C) →
     Region p0 W u → 0x78048980 ≤ p0.toNat → p0.toNat + C ≤ 0x1c00000000 →
+    RoImage Ro.layout u → Run.HeapAt ((p0, C / 8) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L') u →
     Region T.b1 T.L1 u → Region T.b2 T.L2 u → Region T.b3 T.L3 u → Region T.b4 T.L4 u →
     Region T.b5 T.L5 u → Region T.b6 T.L6 u →
     (∀ (t : MachineState) (p' : Word) (W' : List Word), t.pc = 0x780222cc#64 → CalleeSaved u t →
       t.code = u.code →
       Unchanged [(sp' - 0x60#64, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
-      t.getReg .x10 = p' → W'.length = C / 8 + 1 → Region p' (W ++ W') t →
-      RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) → 0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
+      t.getReg .x10 = p' → W'.length = C / 8 + 1 →
+      RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
+      (p'.toNat = 0 ∨ (0x78048980 ≤ p'.toNat ∧ Region p' (W ++ W') t)) →
+      Run.HeapAt ((p', C / 4) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L') t →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t →
       Region T.b5 T.L5 t → Region T.b6 T.L6 t →
       AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
@@ -47,17 +51,20 @@ def ReallocOrFi (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word �
 /-- `__rust_realloc(p0, C, 1, 2C)` at `finish_grow`'s call (`0x780222cc`), `NoteCommitment::derive`'s
     capacities. -/
 def ReallocOrNc (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word → Option Instr) : Prop :=
-  ∀ (u : MachineState) (sp' p0 : Word) (C : Nat) (W : List Word),
+  ∀ (u : MachineState) (sp' p0 : Word) (C : Nat) (W : List Word) (L' : List (Word × Nat)),
     (C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256 ∨ C = 512 ∨ C = 1024) → W.length = C / 8 →
     u.pc = 0x7801bd38#64 → u.code = code → u.getReg .x1 = 0x780222cc#64 → u.getReg .x2 = sp' →
     StackOk Ro.layout 0x60 sp' → u.getReg .x10 = p0 → u.getReg .x11 = BitVec.ofNat 64 C →
     u.getReg .x12 = 1#64 → u.getReg .x13 = BitVec.ofNat 64 (2 * C) →
     Region p0 W u → 0x78048980 ≤ p0.toNat → p0.toNat + C ≤ 0x1c00000000 →
+    RoImage Ro.layout u → Run.HeapAt ((p0, C / 8) :: L') u →
     (∀ (t : MachineState) (p' : Word) (W' : List Word), t.pc = 0x780222cc#64 → CalleeSaved u t →
       t.code = u.code →
       Unchanged [(sp' - 0x60#64, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
-      t.getReg .x10 = p' → W'.length = C / 8 + 1 → Region p' (W ++ W') t →
-      RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) → 0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
+      t.getReg .x10 = p' → W'.length = C / 8 + 1 →
+      RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
+      (p'.toNat = 0 ∨ (0x78048980 ≤ p'.toNat ∧ Region p' (W ++ W') t)) →
+      Run.HeapAt ((p', C / 4) :: L') t →
       SafeN G n P t) →
     SafeN G n P u
 
@@ -73,12 +80,14 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `do_reserve_and_handle(hdr, C, 1, 1, 1)` on a full byte `Vec` of capacity `C`, its header in
     the caller's frame at `sp`: the block doubled through `finish_grow`'s `__rust_realloc`. -/
-theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (sp ra : Word) (C : Nat) (p : Word) (W : List Word)
-    (T : HasherT) (hTA : Arena6 T)
+theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp ra : Word) (C : Nat) (p : Word) (W : List Word)
+    (T : HasherT) (hTA : Arena6 T) (hb1 : T.b1 = 0x780488a8#64)
     (hpcS : s.pc = 0x780221a4#64)
     (hcd : CodeAt F_780221a4.base F_780221a4.prog s) (hcf : CodeAt F_7802225c.base F_7802225c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hrealloc : ReallocOrFi G nb P s.code)
-    (hhr : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G nb P u)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt ((p, C / 8) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L) s) (hrealloc : ReallocOrFi G nb P s.code)
+    (hhr : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G nb P u)
     (hC : C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256) (hWl : W.length = C / 8)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra) (hsp : s.getReg .x2 = sp)
     (hstk : StackOk Ro.layout 0x100 sp) (hokH : RegionOk Ro.layout.roBase Ro.layout.textHi sp 3) (ha0 : s.getReg .x10 = sp)
@@ -97,10 +106,11 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s 
         Region T.b5 T.L5 t → Region T.b6 T.L6 t →
         AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
         AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) →
-        AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → SafeN G nb P t) :
+        AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L) t →
+        SafeN G nb P t) :
     SafeN G nb P s := by
-  have hrea := fun v sp'' p1 W1 hW1 hpcv (hcv : v.code = s.code) =>
-    hrealloc T hTA v sp'' p1 C W1 hC hW1 hpcv hcv
+  have hrea := fun v sp'' p1 W1 L1 hW1 hpcv (hcv : v.code = s.code) =>
+    hrealloc T hTA hb1 v sp'' p1 C W1 L1 hC hW1 hpcv hcv
   clear hrealloc
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x100#64) 32 := hstk.frame 32 (by decide)
   have hokHp : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040620#64 14780694332 := heapOk
@@ -141,49 +151,68 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s 
   have hu := Unchanged.refl [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   rcases hC with rfl | rfl | rfl | rfl | rfl | rfl
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 8), post54_0, BitVec.ofNat 64 8] s_79 := Region.append hR7 hR8
     clear hR7 hR8
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 3) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 3) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 16), post54_0, BitVec.ofNat 64 16] s_79 := Region.append hR7 hR8
     clear hR7 hR8
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 5) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 5) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 32), post54_0, BitVec.ofNat 64 32] s_79 := Region.append hR7 hR8
     clear hR7 hR8
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 9) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 9) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 64), post54_0, BitVec.ofNat 64 64] s_79 := Region.append hR7 hR8
     clear hR7 hR8
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 17) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 17) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 128), post54_0, BitVec.ofNat 64 128] s_79 := Region.append hR7 hR8
     clear hR7 hR8
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 33) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 33) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 256), post54_0, BitVec.ofNat 64 256] s_79 := Region.append hR7 hR8
     clear hR7 hR8
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 65) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 65) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
 
 /-- `reserve_or_fi_spec` as its callers' contract (ledger A5). -/
 theorem reserve_or_fi {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     (hcodeD : CodeAt F_780221a4.base F_780221a4.prog s) (hcodeF : CodeAt F_7802225c.base F_7802225c.prog s)
     (hcwS : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hrealloc : ReallocOrFi G n P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u)
-    (T : HasherT) (hTA : Arena6 T) :
-    ∀ (u : MachineState) (sp ra : Word) (C : Nat) (p : Word) (W : List Word),
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (T : HasherT) (hTA : Arena6 T) (hb1 : T.b1 = 0x780488a8#64) :
+    ∀ (u : MachineState) (sp ra : Word) (C : Nat) (p : Word) (W : List Word) (L' : List (Word × Nat)),
       (C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256) → W.length = C / 8 →
       u.pc = 0x780221a4#64 → u.code = s.code → u.getReg .x1 = ra → ra &&& ~~~1#64 = ra →
       u.getReg .x2 = sp → StackOk Ro.layout 0x100 sp → RegionOk Ro.layout.roBase Ro.layout.textHi sp 3 → u.getReg .x10 = sp →
@@ -193,6 +222,7 @@ theorem reserve_or_fi {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
       0x78048980 ≤ p.toNat → p.toNat + C ≤ 0x1c00000000 →
       Region T.b1 T.L1 u → Region T.b2 T.L2 u → Region T.b3 T.L3 u → Region T.b4 T.L4 u →
       Region T.b5 T.L5 u → Region T.b6 T.L6 u →
+      RoImage Ro.layout u → Run.HeapAt ((p, C / 8) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L') u →
       (∀ (t : MachineState) (p' : Word) (W' : List Word), t.pc = ra → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
@@ -203,23 +233,26 @@ theorem reserve_or_fi {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
         Region T.b5 T.L5 t → Region T.b6 T.L6 t →
         AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
         AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) →
-        AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → SafeN G n P t) →
+        AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L') t →
+        SafeN G n P t) →
       SafeN G n P u :=
-  fun u sp ra C p W hC hWl hpc hc hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4 hH hW hplo hphi r1 r2 r3 r4 r5 r6 hk =>
-    reserve_or_fi_spec u sp ra C p W T hTA hpc (codeAt_of_code_eq hc hcodeD)
-      (codeAt_of_code_eq hc hcodeF) (fun a ha => hcwS a (hc ▸ ha)) (hc ▸ hrealloc)
-      (fun v hv hcv => hhandle_rv v hv (hcv.trans hc)) hC hWl hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4
+  fun u sp ra C p W _ hC hWl hpc hc hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4 hH hW hplo hphi r1 r2 r3 r4 r5 r6 hro hheap hk =>
+    reserve_or_fi_spec u sp ra C p W T hTA hb1 hpc (codeAt_of_code_eq hc hcodeD)
+      (codeAt_of_code_eq hc hcodeF) (fun a ha => hcwS a (hc ▸ ha)) hro hheap (hc ▸ hrealloc)
+      (fun v sp'' L'' hv hcv => hhandle_rv v sp'' L'' hv (hcv.trans hc)) hC hWl hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4
       hH hW hplo hphi r1 r2 r3 r4 r5 r6 hk
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `do_reserve_and_handle(hdr, C, 1, 1, 1)` on a full byte `Vec` of capacity `C`, its header in
     the caller's frame at `sp`: the block doubled through `finish_grow`'s `__rust_realloc`. -/
-theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (sp ra : Word) (C : Nat) (p : Word) (W : List Word)
+theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp ra : Word) (C : Nat) (p : Word) (W : List Word)
     (hpcS : s.pc = 0x780221a4#64)
     (hcd : CodeAt F_780221a4.base F_780221a4.prog s) (hcf : CodeAt F_7802225c.base F_7802225c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hrealloc : ReallocOrNc G nb P s.code)
-    (hhr : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G nb P u)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt ((p, C / 8) :: L) s) (hrealloc : ReallocOrNc G nb P s.code)
+    (hhr : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G nb P u)
     (hC : C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256 ∨ C = 512 ∨ C = 1024) (hWl : W.length = C / 8)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra) (hsp : s.getReg .x2 = sp)
     (hstk : StackOk Ro.layout 0x100 sp) (hokH : RegionOk Ro.layout.roBase Ro.layout.textHi sp 3) (ha0 : s.getReg .x10 = sp)
@@ -232,10 +265,11 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s 
         Region sp [BitVec.ofNat 64 (2 * C), p', BitVec.ofNat 64 C] t → W'.length = C / 8 + 1 →
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
+        Run.HeapAt ((p', C / 4) :: L) t →
         SafeN G nb P t) :
     SafeN G nb P s := by
-  have hrea := fun v sp'' p1 W1 hW1 hpcv (hcv : v.code = s.code) =>
-    hrealloc v sp'' p1 C W1 hC hW1 hpcv hcv
+  have hrea := fun v sp'' p1 W1 L1 hW1 hpcv (hcv : v.code = s.code) =>
+    hrealloc v sp'' p1 C W1 L1 hC hW1 hpcv hcv
   clear hrealloc
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x100#64) 32 := hstk.frame 32 (by decide)
   have hokHp : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040620#64 14780694332 := heapOk
@@ -252,59 +286,84 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s 
   have hu := Unchanged.refl [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   rcases hC with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 8), post54_0, BitVec.ofNat 64 8] s_79 := Region.append hR1 hR2
     clear hR1 hR2
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 3) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 3) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 16), post54_0, BitVec.ofNat 64 16] s_79 := Region.append hR1 hR2
     clear hR1 hR2
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 5) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 5) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 32), post54_0, BitVec.ofNat 64 32] s_79 := Region.append hR1 hR2
     clear hR1 hR2
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 9) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 9) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 64), post54_0, BitVec.ofNat 64 64] s_79 := Region.append hR1 hR2
     clear hR1 hR2
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 17) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 17) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 128), post54_0, BitVec.ofNat 64 128] s_79 := Region.append hR1 hR2
     clear hR1 hR2
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 33) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 33) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 256), post54_0, BitVec.ofNat 64 256] s_79 := Region.append hR1 hR2
     clear hR1 hR2
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 65) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 65) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 512), post54_0, BitVec.ofNat 64 512] s_79 := Region.append hR1 hR2
     clear hR1 hR2
     sym_close hk _ post54_0 post54_1
-    refine (cells_eq_append (n := 129) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7])).trans ?_
+    have hacc := ‹_ ++ post54_1 = _›
+    refine (cells_eq_append (n := 129) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
     congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
+    all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
+                   exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
     have hRH : Region sp [BitVec.ofNat 64 (2 * 1024), post54_0, BitVec.ofNat 64 1024] s_79 := Region.append hR1 hR2
     clear hR1 hR2
     sym_close hk _ post54_0 post54_1
-    exact cells_eq_append (n := 257) acc54_0_def (by rw [← acc54_0_def]; simp [post54_7, hWl])
+    have hacc := ‹_ ++ post54_1 = _›
+    exact cells_eq_append (n := 257) hacc (by rw [← hacc]; simp [post54_7, hWl])
 
 /-- `reserve_or_nc_spec` as its callers' contract (ledger A5). -/
 theorem reserve_or_nc {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     (hcodeD : CodeAt F_780221a4.base F_780221a4.prog s) (hcodeF : CodeAt F_7802225c.base F_7802225c.prog s)
     (hcwS : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hrealloc : ReallocOrNc G n P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u) :
-    ∀ (u : MachineState) (sp ra : Word) (C : Nat) (p : Word) (W : List Word),
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u) :
+    ∀ (u : MachineState) (sp ra : Word) (C : Nat) (p : Word) (W : List Word) (L' : List (Word × Nat)),
       (C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256 ∨ C = 512 ∨ C = 1024) → W.length = C / 8 →
       u.pc = 0x780221a4#64 → u.code = s.code → u.getReg .x1 = ra → ra &&& ~~~1#64 = ra →
       u.getReg .x2 = sp → StackOk Ro.layout 0x100 sp → RegionOk Ro.layout.roBase Ro.layout.textHi sp 3 → u.getReg .x10 = sp →
@@ -312,18 +371,20 @@ theorem reserve_or_nc {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
       u.getReg .x12 = 1#64 → u.getReg .x13 = 1#64 → u.getReg .x14 = 1#64 →
       Region sp [BitVec.ofNat 64 C, p, BitVec.ofNat 64 C] u → Region p W u →
       0x78048980 ≤ p.toNat → p.toNat + C ≤ 0x1c00000000 →
+      RoImage Ro.layout u → Run.HeapAt ((p, C / 8) :: L') u →
       (∀ (t : MachineState) (p' : Word) (W' : List Word), t.pc = ra → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region sp [BitVec.ofNat 64 (2 * C), p', BitVec.ofNat 64 C] t → W'.length = C / 8 + 1 →
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
+        Run.HeapAt ((p', C / 4) :: L') t →
         SafeN G n P t) →
       SafeN G n P u :=
-  fun u sp ra C p W hC hWl hpc hc hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4 hH hW hplo hphi hk =>
+  fun u sp ra C p W _ hC hWl hpc hc hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4 hH hW hplo hphi hro hheap hk =>
     reserve_or_nc_spec u sp ra C p W hpc (codeAt_of_code_eq hc hcodeD)
-      (codeAt_of_code_eq hc hcodeF) (fun a ha => hcwS a (hc ▸ ha)) (hc ▸ hrealloc)
-      (fun v hv hcv => hhandle_rv v hv (hcv.trans hc)) hC hWl hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4
+      (codeAt_of_code_eq hc hcodeF) (fun a ha => hcwS a (hc ▸ ha)) hro hheap (hc ▸ hrealloc)
+      (fun v sp'' L'' hv hcv => hhandle_rv v sp'' L'' hv (hcv.trans hc)) hC hWl hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4
       hH hW hplo hphi hk
 
 

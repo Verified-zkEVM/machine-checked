@@ -2,6 +2,8 @@ import Cases.Zip2005.Field.SqIterLoop
 import Cases.Zip2005.Field.SqIterPro
 import Cases.Zip2005.Field.SqIterTail
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `Vec<Fp>::from_iter` of `SqrtTables::new` (0x780326cc), as a function
@@ -25,12 +27,12 @@ theorem sq_ok_of_nat {b : Word} {n : Nat} (h1 : b.toNat % 8 = 0) (h2 : b.toNat +
   RegionOk.of_nat h1 (by unfold SP1_MAX_MEMORY; omega) (Or.inl (by simp only [Ro.layout_roBase]; omega))
 
 set_option maxHeartbeats 4000000 in
-theorem sq_from_iter_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out it g w2 w3 w4 w5 : Word)
+theorem sq_from_iter_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out it g w2 w3 w4 w5 : Word)
     (G O : List Word) (hGl : G.length = 4) (hOl : O.length = 3)
     (hpc : s.pc = 0x780326cc#64) (hcode : CodeAt F_780326cc.base F_780326cc.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x240 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = it)
@@ -42,13 +44,15 @@ theorem sq_from_iter_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s :
     (hOlo : sp.toNat ≤ out.toNat) (hOhi : out.toNat + 24 ≤ 0x78000000)
     (hdIG : Disjoint it 6 g 4) (hdOI : Disjoint out 3 it 6)
     (halloc : SqAlloc Gd n P s.code) (hres : SqReserve Gd n P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN Gd n P u)
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN Gd n P u)
     (hk : ∀ (t : MachineState) (ptr : Word) (T : List Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code →
       Unchanged [(sp - 0x240#64, 72), (out, 3), (it, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out [256#64, ptr, 256#64] t → T.length = 1024 → Region ptr T t →
       RegionOk Ro.layout.roBase Ro.layout.textHi ptr 1024 →
-      0x78048980 ≤ ptr.toNat → ptr.toNat + 0x2000 ≤ 0x1c00000000 → SafeN Gd n P t) :
+      0x78048980 ≤ ptr.toNat → ptr.toNat + 0x2000 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 1024) :: L) t →
+      SafeN Gd n P t) :
     SafeN Gd n P s := by
   have hlo := hstk.lo
   have hhi := (Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop))
@@ -63,10 +67,10 @@ theorem sq_from_iter_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s :
     rw [BitVec.sub_sub]; rfl
   have eadd : ∀ c : Nat, c ≤ 0x140 → (sp - 0x140#64 + BitVec.ofNat 64 c).toNat = sp.toNat - 0x140 + c := by
     intro c hc; rw [BitVec.toNat_add, e140, BitVec.toNat_ofNat]; omega
-  refine sq_iter_pro s ra sp out it g w2 w3 w4 w5 G hGl hpc hcode hcodeM hcodeSh hcw hro hra hsp hstk
+  refine sq_iter_pro s ra sp out it g w2 w3 w4 w5 G hGl hpc hcode hcodeM hcodeSh hcw hro hheap hra hsp hstk
     ha0 ha1 hI hokI hG hokG hIlo hIhi hglo hghi hdIG halloc hhandle_rv ?_
   intro t1 p J hpc1 hc1 hun1 r2 r8 r9 r19 r20 r21 r22 r23 r24 r25 r26 r27 r3 r4 hH1 hJl hJ1 hS1 hG1 hokP
-    hplo hphi
+    hplo hphi hheap1
   have E : SqEnv (sp - 0x140#64) g :=
     { stk := ⟨by rw [e140]; omega, by rw [e140]; omega, by rw [e140, Ro.layout_stackTop]; omega⟩
       sphi := by rw [e140]; omega
@@ -80,12 +84,12 @@ theorem sq_from_iter_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s :
       s.getReg .x22, s.getReg .x21, s.getReg .x20, s.getReg .x19, s.getReg .x18, s.getReg .x9,
       s.getReg .x8, ra].length = 13 := rfl
   refine sq_loop (Gd := Gd) (nb := n) (P := P) s t1 (sp - 0x140#64) out g (s.getReg .x3) (s.getReg .x4) G _ hGl hS1l E
-    hcode hcodeM hcw hres ?_ 255 t1 J 1#64 4#64 p hc1 (hro.of_unchanged hun1 ?_) (Unchanged.refl _ t1)
+    hcode hcodeM hcw hres ?_ 255 t1 J 1#64 4#64 p hc1 (hro.of_unchanged hun1 ?_) hheap1 (Unchanged.refl _ t1)
     (SqHead.mk hpc1 r2 r3 r4 r8 r9 r19 r20 r21 r22 r23 r24 r25 (by rw [r26]; rfl) r27 hH1 hJl hJ1 hS1
       hG1 hokP hplo (by have : (4#64 : Word).toNat = 4 := rfl; omega) (by unfold SqCap; decide) (by decide) (Or.inr rfl) (by decide)
       (by decide)) rfl
   · -- the exit: the header out, the frame restored
-    intro t2 J2 c p2 l hpc2 hc2 hun2 r2' r3' r4' hH2 _ _ hS2 hc256 hl256 hokP2 hplo2 hphi2 _
+    intro t2 J2 c p2 l hpc2 hc2 hun2 r2' r3' r4' hH2 _ _ hS2 hc256 hl256 hokP2 hplo2 hphi2 _ hheap2
     have hO1 : Region out O t1 := by
       refine hO.of_unchanged' hun1 hOl ?_
       intro r hr
@@ -118,6 +122,9 @@ theorem sq_from_iter_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s :
     obtain ⟨T, hT, hTl⟩ := Region.exists_junk p2 1024 t3
     refine hk t3 p2 T hpc3 ?_ hc3s ?_ hO3 hTl hT hokP2 hplo2
       (by have : (256#64 : Word).toNat = 256 := rfl; omega)
+      (Carry.of_unchanged hheap2 hun3
+        (openW_cons (openBlock_range (lo := 0) (hi := 0x78040620) (b := out) (n := 3) _ _ (by simp [Run.ranges])
+          (Nat.zero_le _) (by omega)) (openW_nil _ _)))
     · refine CalleeSaved.intro ?_ (x3'.trans r3') (x4'.trans r4') x8' x9' x18' x19' x20' x21' x22' x23'
         x24' x25' x26' x27'
       rw [x2', hsp, BitVec.sub_add_cancel]

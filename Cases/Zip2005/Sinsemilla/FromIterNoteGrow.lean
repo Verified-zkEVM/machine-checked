@@ -2,6 +2,8 @@ import Cases.Zip2005.Sinsemilla.FromIterNoteKit
 import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Image.F_7801dfb4
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
@@ -19,13 +21,15 @@ block's word `C / 8`, and one more `next` yields bit `C + 1`.
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_iter_note_grow {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out v p bit0 : Word)
+theorem from_iter_note_grow {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp sp0 out v p bit0 : Word)
     (J G K R Q I W : List Word) (j : Word) (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4)
     (C : Nat) (hC : C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256 ∨ C = 512 ∨ C = 1024)
     (hIl : I.length = 18) (hIv : noteState sp0 J j (C + 1) = I) (hWl : W.length = C / 8)
     (hpc : s.pc = 0x7801e0d4#64) (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s)
     (hcodeN : CodeAt F_78021720.base F_78021720.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    -- the run's heap invariant, the `Vec`'s block live
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt ((p, C / 8) :: L) s)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x180 sp)
     (hs0 : s.getReg .x8 = out) (hs1 : s.getReg .x9 = p) (hs2 : s.getReg .x18 = BitVec.ofNat 64 C)
     (hs3 : s.getReg .x19 = 2#64) (hbit0 : bw (noteBit G K v R Q C) = bit0) (hs4 : s.getReg .x20 = bit0)
@@ -59,18 +63,20 @@ theorem from_iter_note_grow {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s
     (hdjHS : Disjoint 0x78040620#64 14780694332 (sp - 0x180#64) 76)
     -- `do_reserve_and_handle(&vec, C, 1, 1, 1)` (A5, this call's instance): the block doubled,
     -- its contents copied, one word past the block readable
-    (hreserve : ∀ (u : MachineState) (W : List Word), W.length = C / 8 →
+    (hreserve : ∀ (u : MachineState) (W : List Word) (L' : List (Word × Nat)), W.length = C / 8 →
       u.pc = 0x780221a4#64 → u.code = s.code → u.getReg .x1 = 0x7801e0f8#64 → u.getReg .x2 = sp →
       StackOk Ro.layout 0x100 sp → u.getReg .x10 = sp → u.getReg .x11 = BitVec.ofNat 64 C →
       u.getReg .x12 = 1#64 → u.getReg .x13 = 1#64 → u.getReg .x14 = 1#64 →
       Region sp [BitVec.ofNat 64 C, p, BitVec.ofNat 64 C] u → Region p W u →
       0x78048980 ≤ p.toNat → p.toNat + C ≤ 0x1c00000000 →
+      RoImage Ro.layout u → Run.HeapAt ((p, C / 8) :: L') u →
       (∀ (t : MachineState) (p' : Word) (W' : List Word), t.pc = 0x7801e0f8#64 → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region sp [BitVec.ofNat 64 (2 * C), p', BitVec.ofNat 64 C] t → W'.length = C / 8 + 1 →
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
-        0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 → SafeN Gd n P t) → SafeN Gd n P u)
+        0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
+        Run.HeapAt ((p', C / 4) :: L') t → SafeN Gd n P t) → SafeN Gd n P u)
     (hk : ∀ (t : MachineState) (p' : Word) (V I' : List Word) (bit' : Word), t.pc = 0x7801e0d4#64 →
       t.code = s.code →
       Unchanged [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
@@ -84,7 +90,8 @@ theorem from_iter_note_grow {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s
       V.length = C / 4 + 1 → Region p' V t → (∀ i, i < C / 8 → V[i]! = W[i]!) →
       extractByte V[C / 8]! 0 = BitVec.truncate 8 bit0 →
       RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) → 0x78048980 ≤ p'.toNat →
-      p'.toNat + 2 * C + 8 ≤ 0x1c00000000 → SafeN Gd n P t) :
+      p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
+      RoImage Ro.layout t → Run.HeapAt ((p', C / 4) :: L) t → SafeN Gd n P t) :
     SafeN Gd n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x180#64) 48 := hstk.frame 48 (by decide)
   have hu := Unchanged.refl [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s

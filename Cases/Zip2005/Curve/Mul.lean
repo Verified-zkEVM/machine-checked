@@ -21,6 +21,8 @@ import Cases.Zip2005.Image.F_7803a110
 import Cases.Zip2005.Image.F_7803dd28
 import Cases.Zip2005.Image.F_7803f57c
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
@@ -29,9 +31,10 @@ open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem mul_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)
+theorem mul_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)
     (hptl : pt.length = 12) (hkl : k.length = 4) (hOl : O.length = 12)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hpc : s.pc = 0x78031be8#64) (hcode : CodeAt F_78031be8.base F_78031be8.prog s)
     (hcodeBB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
     (hcodeMS : CodeAt F_7803f57c.base F_7803f57c.prog s)
@@ -50,7 +53,7 @@ theorem mul_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineSt
     (hcodeL : CodeAt F_780360e0.base F_780360e0.prog s)
     (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x490 sp)
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = a1) (ha2 : s.getReg .x12 = a2)
@@ -93,12 +96,12 @@ theorem mul_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineSt
     have e : (sp - 0x260#64).toNat = sp.toNat - 0x260 := by
       rw [BitVec.toNat_sub, Bn.toNat_ofNat']; omega
     exact ⟨by rw [e]; omega, by rw [e]; omega, by rw [e, Ro.layout_stackTop]; omega⟩
-  have L := fun S g3 g4 g8 g24 g25 g26 g27 t acc base =>
-    mul_loop (G := G) (n := n) (P := P) (sp - 0x260#64) S s.code g3 g4 g8 g24 g25 g26 g27 hpanic 255 0 t acc base
+  have Lp := fun S g3 g4 g8 g24 g25 g26 g27 t acc base =>
+    mul_loop (G := G) (n := n) (P := P) (L := L) (sp - 0x260#64) S s.code g3 g4 g8 g24 g25 g26 g27 hpanic 255 0 t acc base
       rfl (by decide)
   replace hk' := fun t h1 h2 h3 h4 => hk' t h1 h2 h3 h4 (length_mulW pt k)
   sym_exec [memset96_spec, black_box_spec, to_affine_spec, coordinates_spec, fp_to_repr_spec, fq_to_repr_spec,
-    complete_add_assign_spec, uint256_mulmod_spec, hpanic, L]
+    complete_add_assign_spec, uint256_mulmod_spec, hpanic, Lp]
   all_goals sym_close hk'
   · exact (mul_pathA pt k hkl (v15_def := v15_def) (v18_def := v18_def) (v22_def := v22_def) (v23_def :=
       v23_def) (v24_def := v24_def) (v28_def := v28_def) (v29_def := v29_def) (v33_def :=

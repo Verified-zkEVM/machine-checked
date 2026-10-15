@@ -51,29 +51,14 @@ which evaluates at elaboration time and emits no proof term — so unlike
 `Zip2005Asm.lean` makes, for the same reason.
 -/
 
-/-! ## The measured split
+/-! ## The measured result
 
-The census below is in two halves, and the boundary was found by running it
-rather than by reading code.
-
-**Everything ZIP 2005 itself adds rests on Lean's three standard axioms.** The
-new derivations, the lead-byte rule, BLAKE2b, `PRF^expand`, the encodings and the
-`§ 4.2.3` procedure all pass the strict gate. That is the part of this
-development a reader of the ZIP is being asked to trust, and it is clean.
-
-**Anything that touches the Pallas group inherits exactly one `native_decide`
-fact**, `CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt : PALLAS_SCALAR_CARD • Gpt = 0`
-— the prime-order witness `[q] G = 𝒪`. `CompElliptic` names it as the sole trust
-point of its order argument: every other obligation there is a closed numeric
-fact discharged by kernel `decide`, and the library is additionally re-checked by
-an independent kernel (`lean4export` + `nanoda`) in its own CI. It is `[q]G = 𝒪`
-for one fixed point, which kernel `decide` could in principle establish but not
-at a linear `nsmul`'s cost.
-
-It is named explicitly at each entry that depends on it, so the dependency is a
-declaration in this file rather than a footnote. The machine side of this repository
-rests on Lean's three classical axioms (plus `bv_decide`'s where it is used); this is
-the one documented exception, scoped to the imported curve.
+Everything below rests on Lean's three standard axioms, the Pallas group included.
+The prime-order witness `[q] G = 𝒪` (`CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt`)
+was this census's one `native_decide` fact; it is now proved from a double-and-add
+certificate checked by kernel `decide`
+(`Spec/CompElliptic/Curves/PallasOrderCert.lean`), so no entry below carries a
+`+native` flag, and a regression to `native_decide` would fail this file.
 -/
 
 /-! ### On Lean's three standard axioms -/
@@ -87,24 +72,24 @@ assert_axioms Zip2005.hQsk
 assert_axioms Zip2005.deriveRcmOrchard
 assert_axioms Zip2005.allowedLeadBytes
 
-/-! ### Additionally on the Pallas prime-order witness -/
+/-! ### Through the Pallas group -/
 
 -- The § 4.2.3 derivation procedure names `[ask] 𝒢^Orchard`, hence the group.
-assert_axioms Zip2005.DerivesComponents +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
+assert_axioms Zip2005.DerivesComponents
 
 -- The statement, and the key-binding condition.
-assert_axioms Zip2005.RecoveryStatement +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
-assert_axioms Zip2005.KeyBindingCondition +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
-assert_axioms Zip2005.KeyBindingBreak +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
-assert_axioms Zip2005.BindKeysSk +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
+assert_axioms Zip2005.RecoveryStatement
+assert_axioms Zip2005.KeyBindingCondition
+assert_axioms Zip2005.KeyBindingBreak
+assert_axioms Zip2005.BindKeysSk
 
 -- The imported protocol functions, so a drift in the dependency is caught here.
-assert_axioms Zip2005.commitIvk +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
-assert_axioms Zip2005.noteCommit +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
-assert_axioms Zip2005.merkleCRH +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
-assert_axioms Zip2005.deriveNullifier +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
+assert_axioms Zip2005.commitIvk
+assert_axioms Zip2005.noteCommit
+assert_axioms Zip2005.merkleCRH
+assert_axioms Zip2005.deriveNullifier
 assert_axioms Zip2005.prfNfOrchard
-assert_axioms Zip2005.spendAuthRandomizePublic +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
+assert_axioms Zip2005.spendAuthRandomizePublic
 
 -- The primitives this package adds.
 assert_axioms Zip2005.Blake2b.blake2b
@@ -112,6 +97,6 @@ assert_axioms Zip2005.prfExpand
 assert_axioms Zip2005.reprP
 
 -- The divergence record.
-assert_axioms Zip2005.GuestChecks +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
-assert_axioms Zip2005.recovery_implies_guest +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
-assert_axioms Zip2005.guest_plus_gaps_gives_recovery +native(CompElliptic.Curves.Pasta.Pallas.q_nsmul_Gpt)
+assert_axioms Zip2005.GuestChecks
+assert_axioms Zip2005.recovery_implies_guest
+assert_axioms Zip2005.guest_plus_gaps_gives_recovery

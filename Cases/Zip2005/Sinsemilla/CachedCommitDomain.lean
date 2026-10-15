@@ -1,6 +1,8 @@
 import Cases.Zip2005.Sinsemilla.SinsemillaCommit
 import Cases.Zip2005.Image.F_78020548
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `orchard::spec::cached_commit_domain`
@@ -71,15 +73,16 @@ theorem fromXyOk_of_flag {x y : List Word} {X Y : Nat} (hX : Fp.mul (leLimbsToNa
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 100000 in
 set_option asmverif.sym.foldBytes true in
-theorem cached_commit_domain_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out qx qy rx ry : Word)
+theorem cached_commit_domain_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out qx qy rx ry : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 u0 u1 u2 u3 w0 w1 w2 w3 : Word) (O : List Word) (hOl : O.length = 24)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN Gd n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN Gd n P u)
     (hpc : s.pc = 0x78020548#64) (hcode : CodeAt F_78020548.base F_78020548.prog s)
     -- callees: from_raw, from_xy (+ is_on_curve, mulmod, black_box), to_curve
     (hcodeR : CodeAt F_78028298.base F_78028298.prog s) (hcodeXY : CodeAt F_78026878.base F_78026878.prog s)
     (hcodeOC : CodeAt F_78026258.base F_78026258.prog s) (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcodeBB : CodeAt F_7803a0fc.base F_7803a0fc.prog s) (hcodeTC : CodeAt F_78025854.base F_78025854.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x2a0 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = qx) (ha2 : s.getReg .x12 = qy)
@@ -89,6 +92,7 @@ theorem cached_commit_domain_spec {Gd : MachineState → Prop} {n : Nat} {P : Pr
     (hU : Region rx [u0, u1, u2, u3] s) (hokU : RegionOk Ro.layout.textLo Ro.layout.textHi rx 4)
     (hW : Region ry [w0, w1, w2, w3] s) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi ry 4)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.roBase Ro.layout.textHi out 24)
+    (hout : out.toNat + 8 * 24 ≤ 0x78040620)
     (hd0 : Disjoint (sp - 0x2a0#64) 84 out 24) (hd1 : Disjoint (sp - 0x2a0#64) 84 qx 4)
     (hd2 : Disjoint (sp - 0x2a0#64) 84 qy 4) (hd3 : Disjoint (sp - 0x2a0#64) 84 rx 4)
     (hd4 : Disjoint (sp - 0x2a0#64) 84 ry 4)

@@ -1,6 +1,8 @@
 import Cases.Zip2005.Sinsemilla.FromIterNoteSpec
 import Cases.Zip2005.Runtime.ReserveOr
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `from_iter` of `NoteCommitment::derive`'s iterator, as its callers' contract
@@ -37,18 +39,20 @@ theorem from_iter_nc_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (
     (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s) (hcodeN : CodeAt F_78021720.base F_78021720.prog s)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s) (hcodeZ : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
-    (halloc_nc : ∀ (u : MachineState) (sp : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (halloc_nc : ∀ (u : MachineState) (sp : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x7801e028#64 → u.getReg .x2 = sp → StackOk Ro.layout 0x30 sp →
       u.getReg .x10 = 8#64 → u.getReg .x11 = 1#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e028#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 8 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 1) :: L') t → SafeN G n P t) → SafeN G n P u)
     (hcodeR : CodeAt F_780221a4.base F_780221a4.prog s) (hcodeG : CodeAt F_7802225c.base F_7802225c.prog s)
     (hrealloc_nc : ReallocOrNc G n P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u) :
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u) :
     ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (sp0 : Word)
-      (J0 : List Word) (g0 g1 g2 g3 p0 p1 p2 p3 v r0 r1 r2 r3 q0 q1 q2 q3 : Word), O1.length = 3 →
+      (J0 : List Word) (g0 g1 g2 g3 p0 p1 p2 p3 v r0 r1 r2 r3 q0 q1 q2 q3 : Word) (L' : List (Word × Nat)), O1.length = 3 →
       u.pc = 0x7801dfb4#64 → u.code = s.code → u.getReg .x1 = 0x78020dc4#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x260 sp' → u.getReg .x10 = a0' → u.getReg .x11 = a1' →
       Region a0' O1 u → Region a1' [0#64, j] u →
@@ -62,6 +66,8 @@ theorem from_iter_nc_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (
       StackOk Ro.layout 0xb50 sp0 →
       Disjoint (sp' - 0x260#64) 76 (sp0 - 0xb50#64 + 0xa80#64) 17 → Disjoint a0' 3 (sp0 - 0xb50#64 + 0xa80#64) 17 → Disjoint a1' 18 (sp0 - 0xb50#64 + 0xa80#64) 17 →
       Disjoint 0x78040620#64 14780694332 a0' 3 → Disjoint 0x78040620#64 14780694332 a1' 18 →
+      a0'.toNat + 8 * 3 ≤ 0x78040620 → a1'.toNat + 8 * 18 ≤ 0x78040620 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (cap ptr : Word) (J Bv : List Word), t.pc = 0x78020dc4#64 →
         CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x260#64, 76), (a0', 3), (a1', 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
@@ -70,9 +76,11 @@ theorem from_iter_nc_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (
         (∀ o, o < 1090 → byteAt Bv o = bw (noteBit [g0, g1, g2, g3] [p0, p1, p2, p3] v
           (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]) o)) →
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 137 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u := by
-  intro u sp' a0' a1' j O1 sp0 J0 g0 g1 g2 g3 p0 p1 p2 p3 v r0 r1 r2 r3 q0 q1 q2 q3 hO1l hpc hcu hra hsp
-    hstk ha0 ha1 hO hC0 hCit hC88 hM hokO hokC hdjSO hdjSC hdjOC hstk0 hdjSM hdjOM hdjCM hdjHO hdjHC hk
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 256) :: L') t →
+        SafeN G n P t) → SafeN G n P u := by
+  intro u sp' a0' a1' j O1 sp0 J0 g0 g1 g2 g3 p0 p1 p2 p3 v r0 r1 r2 r3 q0 q1 q2 q3 L' hO1l hpc hcu hra hsp
+    hstk ha0 ha1 hO hC0 hCit hC88 hM hokO hokC hdjSO hdjSC hdjOC hstk0 hdjSM hdjOM hdjCM hdjHO hdjHC hout ha1lo
+    hro hheap hk
   have hlo' := hstk.lo
   have hhi' := (Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop))
   have hlo0 := hstk0.lo
@@ -104,21 +112,21 @@ theorem from_iter_nc_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (
   have hCb : Region a1' (noteState sp0 J0 j 0) u := by
     rw [noteState_0]
     exact Region.append' (Region.append' hC0 hCit rfl) hC88 rfl
-  refine from_iter_nc_spec u (sp' - 0xe0#64) sp0 a0' a1' 0x78020dc4#64 v J0 [g0, g1, g2, g3] [p0, p1, p2, p3]
+  refine from_iter_nc_spec (L := L') u (sp' - 0xe0#64) sp0 a0' a1' 0x78020dc4#64 v J0 [g0, g1, g2, g3] [p0, p1, p2, p3]
     (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]) O1 j rfl rfl hR4 hQ4 hO1l hpc
     (codeAt_of_code_eq hcu hcode) (codeAt_of_code_eq hcu hcodeN) (codeAt_of_code_eq hcu hcodeM)
-    (codeAt_of_code_eq hcu hcodeZ) (codeWithin_of_code_eq hcu hcw) hra (by decide) hsp' hstk' hokFr ha0 ha1
+    (codeAt_of_code_eq hcu hcodeZ) (codeWithin_of_code_eq hcu hcw) hro hheap hra (by decide) hsp' hstk' hokFr ha0 ha1
     hO hokO hCb hokC hGr hKr hVr hRr hQr hokM (by omega) hhi0 hdjSM hdjSO hdjSC hdjOM hdjOC hdjCM hdjHM
-    hdjHO hdjHC
-    (fun u' h1 h2 h3 h4 h5 h6 h7 k => halloc_nc u' _ h1 (h2.trans hcu) h3 h4 h5 h6 h7 k)
-    (fun u' C p W hC hW h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 k =>
-      reserve_or_nc s hcodeR hcodeG hcw hrealloc_nc hhandle_rv u' _ _ C p W hC hW h1 (h2.trans hcu) h3
-        (by decide) h4 h5 (hokFr.sub' 0 3 (by decide) (by simp)) h6 h7 h8 h9 h10 h11 h12 h13 h14 k)
-    (fun u' h1 h2 => hhandle_rv u' h1 (h2.trans hcu)) ?_
-  intro t ptr Bv I1 hpc' hcs hcode' hun hI1l hOut hR1 hBvl hbits hBv hokBv hlo hhi
+    hdjHO hdjHC hout ha1lo
+    (fun u' L'' h1 h2 => halloc_nc u' _ L'' h1 (h2.trans hcu))
+    (fun u' C p W L'' hC hW h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 h14 hr hh k =>
+      reserve_or_nc s hcodeR hcodeG hcw hrealloc_nc hhandle_rv u' _ _ C p W L'' hC hW h1 (h2.trans hcu) h3
+        (by decide) h4 h5 (hokFr.sub' 0 3 (by decide) (by simp)) h6 h7 h8 h9 h10 h11 h12 h13 h14 hr hh k)
+    (fun u' sp'' L'' h1 h2 => hhandle_rv u' sp'' L'' h1 (h2.trans hcu)) ?_
+  intro t ptr Bv I1 hpc' hcs hcode' hun hI1l hOut hR1 hBvl hbits hBv hokBv hlo hhi hheapT
   rw [frame_nc_sub] at hun
   refine hk t 2048#64 ptr I1 (Bv.take 137) hpc' hcs hcode' hun hI1l hOut (by decide) hR1
-    (by simp [hBvl]) ?_ (hBv.take 137) (hokBv.sub' 0 137 (by omega) (self_add_zero _)) hlo (by omega)
+    (by simp [hBvl]) ?_ (hBv.take 137) (hokBv.sub' 0 137 (by omega) (self_add_zero _)) hlo (by omega) hheapT
   intro o ho
   rw [byteAt_take (by omega)]
   exact hbits o ho

@@ -5,6 +5,8 @@ import Cases.Zip2005.Sinsemilla.FromIterIvkPro
 import Cases.Zip2005.Sinsemilla.FromIterKit
 import Cases.Zip2005.Sinsemilla.LoopKit
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `from_iter`'s loop, glued
@@ -51,6 +53,8 @@ structure IvkEnv (sp sp0 out a1 : Word) (A B : List Word) (T : HasherT) : Prop w
   djHB : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (ptrB sp0) 4
   djHO : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 out 3
   djHC : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 a1 12
+  outlo : out.toNat + 8 * 3 ≤ 0x78040620
+  a1lo : a1.toNat + 8 * 12 ≤ 0x78040620
   arena : Arena6 T
   ok : Ok6 T
 
@@ -106,8 +110,8 @@ theorem djSvO (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp
 end IvkEnv
 
 /-- The state at the loop head, byte `n` with capacity `cap`, the buffer `V` at `p`. -/
-structure IvkHead (sp sp0 out p : Word) (J A B : List Word) (T : HasherT) (j : Word) (cap n : Nat) (V : List Word)
-    (t : MachineState) : Prop where
+structure IvkHead (sp sp0 out p : Word) (J A B : List Word) (T : HasherT) (L : List (Word × Nat)) (j : Word)
+    (cap n : Nat) (V : List Word) (t : MachineState) : Prop where
   hpc : t.pc = 0x7801e230#64
   hsp : t.getReg .x2 = sp
   hout : t.getReg .x8 = out
@@ -123,6 +127,8 @@ structure IvkHead (sp sp0 out p : Word) (J A B : List Word) (T : HasherT) (j : W
   hlo : 0x78048980 ≤ p.toNat
   hhi : p.toNat + 8 * V.length ≤ 0x1c00000000
   away : Away6 p V.length T
+  ro : RoImage Ro.layout t
+  heap : Run.HeapAt ((p, cap / 8) :: T.live L) t
 
 /-- What the loop needs of a state besides the head: the code, the message words, the
 `unwrap` failure arm. -/
@@ -133,7 +139,8 @@ structure IvkCtx (G : MachineState → Prop) (n : Nat) (P : Prop) (sp0 : Word) (
   Ar : Region (ptrA sp0) A t
   Br : Region (ptrB sp0) B t
   K : Kept6 T t
-  unwrap : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = t.code → SafeN G n P u
+  unwrap : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803f364#64 → u.code = t.code →
+    u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_f364 → SafeN G n P u
 
 /-- The context after writes off the message words and the six, the six given. -/
 theorem IvkCtx.step' {G : MachineState → Prop} {n : Nat} {P : Prop} {sp0 : Word} {A B : List Word} {T : HasherT} {s t : MachineState}
@@ -142,7 +149,7 @@ theorem IvkCtx.step' {G : MachineState → Prop} {n : Nat} {P : Prop} {sp0 : Wor
     (hB : ∀ r ∈ W, AsmVerif.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2) (hK : Kept6 T t) : IvkCtx G n P sp0 A B T t :=
   ⟨codeAt_of_code_eq hc C.code, codeAt_of_code_eq hc C.codeN, codeWithin_of_code_eq hc C.cw,
    C.Ar.of_unchanged hu hA, C.Br.of_unchanged hu hB, hK,
-   fun u h1 h2 => C.unwrap u h1 (h2.trans hc)⟩
+   fun u sp' L' h1 h2 => C.unwrap u sp' L' h1 (h2.trans hc)⟩
 
 theorem IvkCtx.step {G : MachineState → Prop} {n : Nat} {P : Prop} {sp0 : Word} {A B : List Word} {T : HasherT} {s t : MachineState}
     (C : IvkCtx G n P sp0 A B T s) (hc : t.code = s.code) {W : List (Word × Nat)} (hu : Unchanged W s t)
@@ -185,13 +192,13 @@ theorem coverH {sp : Word} {b : Word} {n : Nat} (hlo : 0x78048980 ≤ b.toNat)
   ⟨(0x78048980#64, 14780690128), by simp, covers_arena hlo hhi⟩
 
 /-- One word of the loop from byte `8m`: eight `next` calls, eight byte stores. -/
-theorem ivk_word8_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p : Word} {J A B V : List Word} {T : HasherT}
+theorem ivk_word8_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p : Word} {J A B V : List Word} {T : HasherT}
     {j : Word} (E : IvkEnv sp sp0 out a1 A B T) {cap m : Nat} (hcap : cap ≤ 512)
     (hm8 : 8 * (m + 1) ≤ cap) (hm : m ≤ 62) (hmV : m < V.length)
-    (H : IvkHead sp sp0 out p J A B T j cap (8 * m) V s) (C : IvkCtx G nb P sp0 A B T s)
+    (H : IvkHead sp sp0 out p J A B T L j cap (8 * m) V s) (C : IvkCtx G nb P sp0 A B T s)
     (hk : ∀ (t : MachineState) (w' : Word), t.code = s.code → Unchanged (loopW sp) s t →
       Kept s t → IvkCtx G nb P sp0 A B T t →
-      IvkHead sp sp0 out p J A B T j cap (8 * (m + 1)) (V.set m w') t → SafeN G nb P t) :
+      IvkHead sp sp0 out p J A B T L j cap (8 * (m + 1)) (V.set m w') t → SafeN G nb P t) :
     SafeN G nb P s := by
   have hlo := H.hlo
   have hhi := H.hhi
@@ -213,13 +220,15 @@ theorem ivk_word8_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : Ma
     (ofNat_beq_false (by omega) (by omega) (by omega))
     (hc 1 (by omega)) (hc 2 (by omega)) (hc 3 (by omega)) (hc 4 (by omega)) (hc 5 (by omega))
     (hc 6 (by omega)) (hc 7 (by omega))
-    H.hpc C.code C.codeN C.cw H.hsp E.stk10 H.hout H.hp H.hn H.htwo rfl H.hbit H.hvec E.okV H.hblk
+    H.hpc C.code C.codeN C.cw H.ro H.heap
+    (by rw [toNat_add_lit p (8 * m) (by omega)]; omega) (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
+    H.hsp E.stk10 H.hout H.hp H.hn H.htwo rfl H.hbit H.hvec E.okV H.hblk
     E.okBlk (Region.window H.hbuf m hmV) hokq C.Ar E.okA C.Br E.okB E.sp0_lo E.sp0_hi E.djBA E.djBB E.djFA
     E.djFB E.djAB (hdjqS.sub_right (fr_m10 sp) (by omega)).symm
     (hdjqS.sub_right (fr_0 sp) (by omega)).symm (hdjqS.sub_right (fr_18 sp) (by omega)).symm
     E.djFBlk (hdjq (djP E.djHA)) (hdjq (djP E.djHB)) C.unwrap ?_
   intro t I' w' bit' hpc' hcode' hun hsp' hs0' hs1' hs2' hs3' h3 h4 h22 h23 h24 h25 h26 h27 hbit' hs4'
-    hV' _ hIv' hBlk' hW' hb
+    hV' _ hIv' hBlk' hW' hb hro' hheap'
   rw [show 8 * m + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 = 8 * (m + 1) by omega] at hbit'
   rw [show 8 * m + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 = 8 * (m + 1) + 1 by omega] at hIv'
   rw [BitVec.ofNat_add_ofNat, show 8 * m + 8 = 8 * (m + 1) by omega] at hV' hs2'
@@ -283,22 +292,24 @@ theorem ivk_word8_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : Ma
     · exact Away6.of_heap E.arena (E.djHS.sub_right (fr_18 sp) (by omega))
     · exact H.away.sub rfl (by omega)
   refine hk t w' hcode' hunF ⟨h3, h4, h22, h23, h24, h25, h26, h27⟩ (C.step hcode' hun hdjA hdjB hdjK) ?_
-  refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hbit'], hV', ?_, ?_, ?_, ?_, H.hlo, ?_, ?_⟩
+  refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hbit'], hV', ?_, ?_, ?_, ?_, H.hlo, ?_, ?_, ?_, ?_⟩
   · rw [hIv']; exact hBlk'
   · exact Region.set_of_parts m w' hmV hpre hW' hpost
   · exact BitsUpTo.set w' 8 (le_refl _) hmV H.hbits hb
   · rw [List.length_set]; exact H.hok
   · rw [List.length_set]; exact H.hhi
   · exact H.away.len (by rw [List.length_set])
+  · exact hro'
+  · exact hheap'
 
 /-- The rest of a word from byte `8m + 1`: seven `next` calls, seven byte stores, byte 0 kept. -/
-theorem ivk_word7_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p : Word} {J A B V : List Word} {T : HasherT}
+theorem ivk_word7_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p : Word} {J A B V : List Word} {T : HasherT}
     {j : Word} (E : IvkEnv sp sp0 out a1 A B T) {cap m : Nat} (hcap : cap ≤ 512)
     (hm8 : 8 * (m + 1) ≤ cap) (hm : m ≤ 62) (hmV : m < V.length)
-    (H : IvkHead sp sp0 out p J A B T j cap (8 * m + 1) V s) (C : IvkCtx G nb P sp0 A B T s)
+    (H : IvkHead sp sp0 out p J A B T L j cap (8 * m + 1) V s) (C : IvkCtx G nb P sp0 A B T s)
     (hk : ∀ (t : MachineState) (w' : Word), t.code = s.code → Unchanged (loopW sp) s t →
       Kept s t → IvkCtx G nb P sp0 A B T t →
-      IvkHead sp sp0 out p J A B T j cap (8 * (m + 1)) (V.set m w') t → SafeN G nb P t) :
+      IvkHead sp sp0 out p J A B T L j cap (8 * (m + 1)) (V.set m w') t → SafeN G nb P t) :
     SafeN G nb P s := by
   have hlo := H.hlo
   have hhi := H.hhi
@@ -322,14 +333,16 @@ theorem ivk_word7_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : Ma
     E.Al E.Bl m hm (by simp) rfl (hq 1) (hq 2) (hq 3) (hq 4) (hq 5) (hq 6) (hq 7)
     (hc 1 (by omega)) (hc 2 (by omega)) (hc 3 (by omega)) (hc 4 (by omega)) (hc 5 (by omega))
     (hc 6 (by omega)) (hc 7 (by omega))
-    H.hpc C.code C.codeN C.cw H.hsp E.stk10 H.hout H.hp hn1 H.htwo rfl H.hbit hvec1 E.okV
+    H.hpc C.code C.codeN C.cw H.ro H.heap
+    (by rw [toNat_add_lit p (8 * m) (by omega)]; omega) (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
+    H.hsp E.stk10 H.hout H.hp hn1 H.htwo rfl H.hbit hvec1 E.okV
     (by have := H.hblk; rwa [show 8 * m + 1 + 1 = 8 * m + 2 by omega] at this)
     E.okBlk (Region.window H.hbuf m hmV) hokq C.Ar E.okA C.Br E.okB E.sp0_lo E.sp0_hi E.djBA E.djBB E.djFA
     E.djFB E.djAB (hdjqS.sub_right (fr_m10 sp) (by omega)).symm
     (hdjqS.sub_right (fr_0 sp) (by omega)).symm (hdjqS.sub_right (fr_18 sp) (by omega)).symm
     E.djFBlk (hdjq (djP E.djHA)) (hdjq (djP E.djHB)) C.unwrap ?_
   intro t I' w' bit' hpc' hcode' hun hsp' hs0' hs1' hs2' hs3' h3 h4 h22 h23 h24 h25 h26 h27 hbit' hs4'
-    hV' _ hIv' hBlk' hW' hb0 hb
+    hV' _ hIv' hBlk' hW' hb0 hb hro' hheap'
   rw [show 8 * m + 2 + 1 + 1 + 1 + 1 + 1 + 1 = 8 * (m + 1) by omega] at hbit'
   rw [show 8 * m + 2 + 1 + 1 + 1 + 1 + 1 + 1 + 1 = 8 * (m + 1) + 1 by omega] at hIv'
   rw [BitVec.ofNat_add_ofNat, show 8 * m + 8 = 8 * (m + 1) by omega] at hV' hs2'
@@ -391,23 +404,25 @@ theorem ivk_word7_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : Ma
     · exact Away6.of_heap E.arena (E.djHS.sub_right (fr_18 sp) (by omega))
     · exact H.away.sub rfl (by omega)
   refine hk t w' hcode' hunF ⟨h3, h4, h22, h23, h24, h25, h26, h27⟩ (C.step hcode' hun hdjA hdjB hdjK) ?_
-  refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hbit'], hV', ?_, ?_, ?_, ?_, H.hlo, ?_, ?_⟩
+  refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hbit'], hV', ?_, ?_, ?_, ?_, H.hlo, ?_, ?_, ?_, ?_⟩
   · rw [hIv']; exact hBlk'
   · exact Region.set_of_parts m w' hmV hpre hW' hpost
   · exact BitsUpTo.set7 w' hmV H.hbits hb0 hb
   · rw [List.length_set]; exact H.hok
   · rw [List.length_set]; exact H.hhi
   · exact H.away.len (by rw [List.length_set])
+  · exact hro'
+  · exact hheap'
 
 /-- `k` whole words from byte `8m`. -/
-theorem ivk_words8 {G : MachineState → Prop} {n : Nat} {P : Prop} {sp sp0 out a1 : Word} {J A B : List Word} {T : HasherT} {j : Word}
+theorem ivk_words8 {L : List (Word × Nat)} {G : MachineState → Prop} {n : Nat} {P : Prop} {sp sp0 out a1 : Word} {J A B : List Word} {T : HasherT} {j : Word}
     (E : IvkEnv sp sp0 out a1 A B T) {cap : Nat} (hcap : cap ≤ 512) (k : Nat) :
     ∀ (m : Nat) (s : MachineState) (p : Word) (V : List Word), 8 * (m + k) ≤ cap → m + k ≤ 63 →
       m + k ≤ V.length →
-      IvkHead sp sp0 out p J A B T j cap (8 * m) V s → IvkCtx G n P sp0 A B T s →
+      IvkHead sp sp0 out p J A B T L j cap (8 * m) V s → IvkCtx G n P sp0 A B T s →
       (∀ (t : MachineState) (V' : List Word), t.code = s.code → Unchanged (loopW sp) s t →
         Kept s t → IvkCtx G n P sp0 A B T t → V'.length = V.length →
-        IvkHead sp sp0 out p J A B T j cap (8 * (m + k)) V' t → SafeN G n P t) → SafeN G n P s := by
+        IvkHead sp sp0 out p J A B T L j cap (8 * (m + k)) V' t → SafeN G n P t) → SafeN G n P s := by
   induction k with
   | zero =>
     intro m s p V _ _ _ H C hk
@@ -423,14 +438,14 @@ theorem ivk_words8 {G : MachineState → Prop} {n : Nat} {P : Prop} {sp sp0 out 
     exact hk t' V' (hc2.trans hc1) (hu1.trans hu2) (hk1.trans hk2) C2 hl H2
 
 /-- A phase: from byte `8m + 1` (the byte after a growth, or the first) to byte `8(m + 1 + k)`. -/
-theorem ivk_phase {G : MachineState → Prop} {n : Nat} {P : Prop} {sp sp0 out a1 : Word} {J A B : List Word} {T : HasherT} {j : Word}
+theorem ivk_phase {L : List (Word × Nat)} {G : MachineState → Prop} {n : Nat} {P : Prop} {sp sp0 out a1 : Word} {J A B : List Word} {T : HasherT} {j : Word}
     (E : IvkEnv sp sp0 out a1 A B T) {cap : Nat} (hcap : cap ≤ 512) (m k : Nat) (s : MachineState)
     (p : Word) (V : List Word) (h8 : 8 * (m + 1 + k) ≤ cap) (h63 : m + 1 + k ≤ 63)
     (hV : m + 1 + k ≤ V.length)
-    (H : IvkHead sp sp0 out p J A B T j cap (8 * m + 1) V s) (C : IvkCtx G n P sp0 A B T s)
+    (H : IvkHead sp sp0 out p J A B T L j cap (8 * m + 1) V s) (C : IvkCtx G n P sp0 A B T s)
     (hk : ∀ (t : MachineState) (V' : List Word), t.code = s.code → Unchanged (loopW sp) s t →
       Kept s t → IvkCtx G n P sp0 A B T t → V'.length = V.length →
-      IvkHead sp sp0 out p J A B T j cap (8 * (m + 1 + k)) V' t → SafeN G n P t) : SafeN G n P s := by
+      IvkHead sp sp0 out p J A B T L j cap (8 * (m + 1 + k)) V' t → SafeN G n P t) : SafeN G n P s := by
   refine ivk_word7_step E hcap (by omega) (by omega) (by omega) H C ?_
   intro t w' hc1 hu1 hk1 C1 H1
   refine ivk_words8 E hcap k (m + 1) t p (V.set m w') h8 h63 (by rw [List.length_set]; omega) H1 C1 ?_
@@ -440,17 +455,18 @@ theorem ivk_phase {G : MachineState → Prop} {n : Nat} {P : Prop} {sp sp0 out a
 
 /-- The growth at byte `C = cap`: `do_reserve_and_handle` doubles the `Vec`, then one `next`
 and one byte store. -/
-theorem ivk_grow_step {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p : Word} {J A B V : List Word} {T : HasherT}
+theorem ivk_grow_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p : Word} {J A B V : List Word} {T : HasherT}
     {j : Word} (E : IvkEnv sp sp0 out a1 A B T) {C : Nat}
     (hC : C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256) (hVl : C / 8 ≤ V.length)
-    (H : IvkHead sp sp0 out p J A B T j C C V s) (Cx : IvkCtx G n P sp0 A B T s)
-    (hreserve : ∀ (u : MachineState) (W : List Word), W.length = C / 8 →
+    (H : IvkHead sp sp0 out p J A B T L j C C V s) (Cx : IvkCtx G n P sp0 A B T s)
+    (hreserve : ∀ (u : MachineState) (W : List Word) (L' : List (Word × Nat)), W.length = C / 8 →
       u.pc = 0x780221a4#64 → u.code = s.code → u.getReg .x1 = 0x7801e254#64 → u.getReg .x2 = sp →
       StackOk Ro.layout 0x100 sp → u.getReg .x10 = sp → u.getReg .x11 = BitVec.ofNat 64 C →
       u.getReg .x12 = 1#64 → u.getReg .x13 = 1#64 → u.getReg .x14 = 1#64 →
       Region sp [BitVec.ofNat 64 C, p, BitVec.ofNat 64 C] u → Region p W u →
       0x78048980 ≤ p.toNat → p.toNat + C ≤ 0x1c00000000 →
       Region T.b1 T.L1 u → Region T.b2 T.L2 u → Region T.b3 T.L3 u → Region T.b4 T.L4 u → Region T.b5 T.L5 u → Region T.b6 T.L6 u →
+      RoImage Ro.layout u → Run.HeapAt ((p, C / 8) :: T.live L') u →
       (∀ (t : MachineState) (p' : Word) (W' : List Word), t.pc = 0x7801e254#64 → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
@@ -458,10 +474,10 @@ theorem ivk_grow_step {G : MachineState → Prop} {n : Nat} {P : Prop} {s : Mach
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → SafeN G n P t) → SafeN G n P u)
+        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ (t : MachineState) (p' : Word) (V' : List Word), t.code = s.code →
       Unchanged (loopW sp) s t → Kept s t → IvkCtx G n P sp0 A B T t → V'.length = C / 4 + 1 →
-      IvkHead sp sp0 out p' J A B T j (2 * C) (C + 1) V' t → SafeN G n P t) :
+      IvkHead sp sp0 out p' J A B T L j (2 * C) (C + 1) V' t → SafeN G n P t) :
     SafeN G n P s := by
   have e8 : 8 * (C / 8) = C := by omega
   have hlo := H.hlo
@@ -476,9 +492,10 @@ theorem ivk_grow_step {G : MachineState → Prop} {n : Nat} {P : Prop} {s : Mach
     H.hout H.hp H.hn H.htwo rfl H.hbit H.hvec E.okV H.hblk E.okBlk (Region.take H.hbuf (C / 8))
     hokW H.hlo hpC
     Cx.Ar E.okA Cx.Br E.okB E.sp0_lo E.sp0_hi E.djBA E.djBB E.djFA E.djFB E.djF32A E.djF32B E.djAB
-    E.djFBlk E.djHA E.djHB hHS T Cx.K E.arena E.ok hreserve Cx.unwrap ?_
+    E.djFBlk E.djHA E.djHB hHS T Cx.K E.arena E.ok H.ro H.heap hreserve Cx.unwrap ?_
   intro t p' V' I' bit' hpc' hcode' hun hsp' hs0' hs1' hs2' hs3' hbit' hs4' h3 h4 h22 h23 h24 h25
     h26 h27 hV' _ hIv' hBlk' hVl' hV'r hpre hb0 hok' hlo' hhi' hk1 hk2 hk3 hk4 hk5 hk6 hf1 hf2 hf3 hf4 hf5 hf6
+    hro' hheap'
   have hunF : Unchanged (loopW sp) s t := by
     refine Unchanged.trans_cover (Unchanged.refl _ s) hun ?_
     intro r hr
@@ -510,7 +527,7 @@ theorem ivk_grow_step {G : MachineState → Prop} {n : Nat} {P : Prop} {s : Mach
     · exact E.djHB.arena_of_heap.symm
   refine hk t p' V' hcode' hunF ⟨h3, h4, h22, h23, h24, h25, h26, h27⟩
     (Cx.step' hcode' hun hdjA hdjB ⟨hk1, hk2, hk3, hk4, hk5, hk6⟩) hVl' ?_
-  refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hbit'], hV', ?_, hV'r, ?_, ?_, hlo', ?_, ?_⟩
+  refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hbit'], hV', ?_, hV'r, ?_, ?_, hlo', ?_, ?_, hro', ?_⟩
   · rw [hIv']; exact hBlk'
   · have hbW : BitsUpTo A B (V.take (C / 8)) C := BitsUpTo.take H.hbits (by omega) hVl
     have hbV : BitsUpTo A B V' C := BitsUpTo.prefix hbW (k := C / 8) (by omega) hpre
@@ -519,13 +536,14 @@ theorem ivk_grow_step {G : MachineState → Prop} {n : Nat} {P : Prop} {s : Mach
   · rw [hVl']; exact hok'
   · rw [hVl']; omega
   · exact (⟨hf1, hf2, hf3, hf4, hf5, hf6⟩ : Away6 p' (C / 4 + 1) T).len hVl'.symm
+  · rw [show 2 * C / 8 = C / 4 by omega]; exact hheap'
 
 /-- The exit from byte 504: six more bits, the `None`, the `Vec` stored at `out`, the registers
 restored. `Bv` is the buffer: 65 words, bytes `o < 510` the message bits. -/
-theorem ivk_tail_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p : Word} {J A B V O : List Word} {T : HasherT}
+theorem ivk_tail_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 p : Word} {J A B V O : List Word} {T : HasherT}
     {j rav s0v s1v s2v s3v s4v s5v : Word} (E : IvkEnv sp sp0 out a1 A B T) (hOl : O.length = 3)
     (hVl : V.length = 65) (hra1 : rav &&& ~~~1#64 = rav)
-    (H : IvkHead sp sp0 out p J A B T j 512 504 V s) (C : IvkCtx G nb P sp0 A B T s)
+    (H : IvkHead sp sp0 out p J A B T L j 512 504 V s) (C : IvkCtx G nb P sp0 A B T s)
     (hF : Region (sp + 0x78#64) [s5v, s4v, s3v, s2v, s1v, s0v, rav] s) (hO : Region out O s)
     (hk : ∀ (t : MachineState) (Bv : List Word), t.pc = rav → t.code = s.code →
       Unchanged [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + 504#64, 2), (out, 3)] s t →
@@ -533,7 +551,7 @@ theorem ivk_tail_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : Mac
       t.getReg .x18 = s2v → t.getReg .x19 = s3v → t.getReg .x20 = s4v → t.getReg .x21 = s5v →
       Region out [512#64, p, 510#64] t → Bv.length = 65 → BitsUpTo A B Bv 510 → Region p Bv t →
       RegionOk Ro.layout.roBase Ro.layout.textHi p 65 → 0x78048980 ≤ p.toNat → p.toNat + 8 * 65 ≤ 0x1c00000000 →
-      Kept6 T t → SafeN G nb P t) : SafeN G nb P s := by
+      Kept6 T t → RoImage Ro.layout t → Run.HeapAt ((p, 64) :: T.live L) t → SafeN G nb P t) : SafeN G nb P s := by
   have hlo := H.hlo
   have hhi := H.hhi
   have hnw : p.toNat + 8 * V.length < 2 ^ 64 := by omega
@@ -551,14 +569,15 @@ theorem ivk_tail_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : Mac
   have hdjWS := hdjW (djP E.djHS)
   refine from_iter_ivk_tail s sp sp0 out p (bw (ivkBit A B 504)) V[63]! V[64]! J A B
     (ivkState sp0 J j 505) O j E.Al E.Bl hOl (by simp) rfl rav s0v s1v s2v s3v s4v s5v hra1 H.hpc
-    C.code C.codeN C.cw H.hsp E.stk100 H.hout H.hp H.hn H.htwo rfl H.hbit H.hvec E.okV H.hblk
+    C.code C.codeN C.cw H.ro H.heap hlo (by rw [← hVl]; exact hhi) E.outlo
+    H.hsp E.stk100 H.hout H.hp H.hn H.htwo rfl H.hbit H.hvec E.okV H.hblk
     E.okBlk hF E.okSv hO E.okO hW (H.hok.sub' 63 2 (by omega) rfl) C.Ar E.okA C.Br E.okB E.sp0_lo
     E.sp0_hi E.djBA E.djBB E.djFA E.djFB E.djAB E.djFBlk
     (hdjWS.sub_right (fr_m10 sp) (by omega)).symm (hdjWS.sub_right (fr_0 sp) (by omega)).symm
     (hdjW (djP E.djHA)) (hdjW (djP E.djHB)) E.djS22O.symm (hdjW (djP E.djHO)).symm E.djFO E.djOA
     E.djOB C.unwrap ?_
   intro t I' w' hpc' hcode' hun hsp' hs0' hs1' hs2' hs3' hs4' hs5' h3 h4 h22 h23 h24 h25 h26 h27
-    hO' _ _ _ _ hW' hb
+    hO' _ _ _ _ hW' hb hro' hheap'
   have hpre : Region p (V.take 63) t := by
     refine (Region.take H.hbuf 63).of_unchanged' hun (n := 63) (by simp [List.length_take]; omega) ?_
     intro r hr
@@ -581,7 +600,7 @@ theorem ivk_tail_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : Mac
   have hBv : Region p (V.set 63 w') t := Region.set_of_parts 63 w' (by omega) hpre hw2 hw3
   refine hk t (V.set 63 w') hpc' hcode' hun ⟨h3, h4, h22, h23, h24, h25, h26, h27⟩ hsp' hs0' hs1' hs2'
     hs3' hs4' hs5' hO' (by rw [List.length_set, hVl]) ?_ hBv (by rw [← hVl]; exact H.hok) hlo
-    (by rw [← hVl]; exact hhi) ?_
+    (by rw [← hVl]; exact hhi) ?_ ?_ ?_
   · exact BitsUpTo.set w' 6 (by omega) (by omega) H.hbits hb
   · refine C.K.of_unchanged hun ?_
     intro r hr
@@ -591,41 +610,47 @@ theorem ivk_tail_step {G : MachineState → Prop} {nb : Nat} {P : Prop} {s : Mac
     · exact Away6.of_heap E.arena (E.djHS.sub_right (fr_18 sp) (by omega))
     · exact H.away.sub (i := 63) rfl (by omega)
     · exact Away6.of_heap E.arena E.djHO
+  · exact hro'
+  · exact hheap'
 
 /-- The prologue: from the entry to the loop head at byte 1, the `Vec` of one word allocated,
 the caller's block advanced once and copied to the frame. -/
-theorem ivk_pro_step {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 ra : Word} {J A B O : List Word} {T : HasherT}
+theorem ivk_pro_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} {sp sp0 out a1 ra : Word} {J A B O : List Word} {T : HasherT}
     {j : Word} (E : IvkEnv sp sp0 out a1 A B T) (hOl : O.length = 3)
     (hpc : s.pc = 0x7801e110#64) (C : IvkCtx G n P sp0 A B T s)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s) (hcodeZ : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hra : s.getReg .x1 = ra) (hsp : s.getReg .x2 = sp + 0xb0#64)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = a1)
     (hO : Region out O s) (hCb : Region a1 (ivkState sp0 J j 0) s)
-    (halloc : ∀ (u : MachineState), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt (T.live L) s)
+    (halloc : ∀ (u : MachineState) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x7801e184#64 → u.getReg .x2 = sp → StackOk Ro.layout 0x30 sp →
       u.getReg .x10 = 8#64 → u.getReg .x11 = 1#64 →
       Region T.b1 T.L1 u → Region T.b2 T.L2 u → Region T.b3 T.L3 u → Region T.b4 T.L4 u → Region T.b5 T.L5 u → Region T.b6 T.L6 u →
+      RoImage Ro.layout u → Run.HeapAt (T.live L') u →
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e184#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → SafeN G n P t) → SafeN G n P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u)
+        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → Run.HeapAt ((ptr, 1) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hk : ∀ (t : MachineState) (ptr w : Word), t.code = s.code →
       Unchanged [(sp - 0x30#64, 6), (sp, 22), (a1, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
-      Kept s t → IvkCtx G n P sp0 A B T t → IvkHead sp sp0 out ptr J A B T j 8 1 [w] t →
+      Kept s t → IvkCtx G n P sp0 A B T t → IvkHead sp sp0 out ptr J A B T L j 8 1 [w] t →
       Region (sp + 0x78#64) [s.getReg .x21, s.getReg .x20, s.getReg .x19, s.getReg .x18,
         s.getReg .x9, s.getReg .x8, ra] t →
       Region out O t → (∃ I1 : List Word, I1.length = 12 ∧ Region a1 I1 t) → SafeN G n P t) :
     SafeN G n P s := by
-  refine from_iter_ivk_pro s sp sp0 out a1 ra J A B (ivkState sp0 J j 0) O j E.Al E.Bl (by simp) rfl
-    hOl hpc C.code C.codeN hcodeM hcodeZ C.cw hra hsp E.stk E.okFr ha0 ha1 hO E.okO hCb E.okC C.Ar
+  refine from_iter_ivk_pro s sp sp0 out a1 ra J A B (ivkState sp0 J j 0) O j T E.Al E.Bl (by simp) rfl
+    hOl hpc C.code C.codeN hcodeM hcodeZ C.cw hro hheap hra hsp E.stk E.okFr ha0 ha1 hO E.okO hCb E.okC E.a1lo C.Ar
     E.okA C.Br E.okB E.sp0_lo E.sp0_hi E.djS22O E.djS22C E.djS22A E.djS22B E.djBA E.djBB E.djFBlk
     E.djFC E.djFA E.djFB E.djF6A E.djF6B E.djF6C E.djF6O E.djBC E.djOC E.djOA E.djOB E.djCA E.djCB
-    E.djAB E.djHA E.djHB E.djHO E.djHC T C.K E.arena E.ok halloc C.unwrap hhandle_rv ?_
+    E.djAB E.djHA E.djHB E.djHO E.djHC C.K E.arena E.ok halloc C.unwrap hhandle_rv ?_
   intro t ptr w bit0 bit1 I1 I2 hpc' hcode' hun hsp' hs0' hs1' hs2' hs3' hb1 hs4' h3 h4 h22 h23 h24
     h25 h26 h27 hI2l hI2 hR hI1l hR1 hO' hb0 hW hw hok' hlo' hhi' hk1 hk2 hk3 hk4 hk5 hk6 hf1 hf2 hf3 hf4 hf5 hf6
+    hro' hheap'
   rw [list12_cells I2 hI2l] at hR
   have hdjA : ∀ r ∈ [(sp - 0x30#64, 6), (sp, 22), (a1, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)],
       AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
@@ -649,7 +674,7 @@ theorem ivk_pro_step {G : MachineState → Prop} {n : Nat} {P : Prop} {s : Machi
     · exact E.djHB.arena_of_heap.symm
   refine hk t ptr w hcode' hun ⟨h3, h4, h22, h23, h24, h25, h26, h27⟩
     (C.step' hcode' hun hdjA hdjB ⟨hk1, hk2, hk3, hk4, hk5, hk6⟩) ?_ (hR.shift 15) hO' ⟨I1, hI1l, hR1⟩
-  refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hb1], hR.take 3, ?_, hW, ?_, ?_, hlo', ?_, ?_⟩
+  refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hb1], hR.take 3, ?_, hW, ?_, ?_, hlo', ?_, ?_, hro', hheap'⟩
   · rw [show ivkState sp0 J j (1 + 1) = [I2[0]!, I2[1]!, I2[2]!, I2[3]!, I2[4]!, I2[5]!, I2[6]!,
       I2[7]!, I2[8]!, I2[9]!, I2[10]!, I2[11]!] from hI2.trans (list12_cells I2 hI2l)]
     exact (hR.shift 3).take 12

@@ -3,6 +3,8 @@ import Cases.Zip2005.Runtime.MemcpySpec
 import Cases.Zip2005.Runtime.Memcmp
 import Cases.Zip2005.Image.F_78023594
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `CommitDomain::blinding` (sinsemilla)
@@ -22,9 +24,10 @@ theorem fold12 {xs : List Word} (h : xs.length = 12) :
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sinsemilla_blinding_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 a2 : Word)
+theorem sinsemilla_blinding_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp a0 a1 a2 : Word)
     (pt k O : List Word) (hptl : pt.length = 12) (hkl : k.length = 4) (hOl : O.length = 12)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hpc : s.pc = 0x78023594#64) (hcode : CodeAt F_78023594.base F_78023594.prog s)
     (hcodeW : CodeAt F_7802827c.base F_7802827c.prog s)
     (hcodeMul : CodeAt F_78031be8.base F_78031be8.prog s)
@@ -45,7 +48,7 @@ theorem sinsemilla_blinding_spec {G : MachineState → Prop} {n : Nat} {P : Prop
     (hcodeL : CodeAt F_780360e0.base F_780360e0.prog s)
     (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x520 sp)
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = a1) (ha2 : s.getReg .x12 = a2)

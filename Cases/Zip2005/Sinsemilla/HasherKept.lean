@@ -38,6 +38,10 @@ structure HasherT where
   l5 : L5.length = 1024
   l6 : L6.length = 516
 
+/-- The five heap blocks among the run's live buffers (`Run.HeapAt`), then `L`. -/
+abbrev HasherT.live (T : HasherT) (L : List (Word × Nat)) : List (Word × Nat) :=
+  (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L
+
 /-- The six regions hold. -/
 structure Kept6 (T : HasherT) (t : MachineState) : Prop where
   r1 : Region T.b1 T.L1 t

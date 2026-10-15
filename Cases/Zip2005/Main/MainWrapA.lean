@@ -6,6 +6,8 @@ import Cases.Zip2005.Witness.ParseKeys
 import Cases.Zip2005.Main.MainWrapC
 import Cases.Zip2005.Orchard.SpendValidatingKey
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # Wrappers for `main`'s segment A1
@@ -103,16 +105,22 @@ theorem memcpy1383_take_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
 
 /-- `derive_unchecked_spec` with the twenty output cells named: `askW` (the point `[ask] G`, its
 bytes, the scalar) is a model the executor cannot read cell by cell. -/
-theorem derive_unchecked_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out sk neg s0 s1 s2 s3 : Word)
+theorem derive_unchecked_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out sk neg s0 s1 s2 s3 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 20) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n P u)
+    (hpb : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G n P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN G n P u)
+    (hprz : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de78#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de78 → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (hunwrap : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dc7c#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_dc7c_10 → u.getReg .x13 ∈ Run.vals_dc7c_13 → u.getReg .x14 ∈ Run.vals_dc7c_14 → SafeN G n P u)
     (hpc : s.pc = 0x7802233c#64) (hcode : CodeAt F_7802233c.base F_7802233c.prog s)
     -- `PrfExpand::with`
     (hcW : CodeAt F_78023308.base F_78023308.prog s)
@@ -151,12 +159,13 @@ theorem derive_unchecked_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} 
     (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s)
     (hcodeTB : CodeAt F_78025654.base F_78025654.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0xb50 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = sk) (ha2 : s.getReg .x12 = neg)
     (hRS : Region sk [s0, s1, s2, s3] s) (hokS : RegionOk Ro.layout.roBase Ro.layout.textHi sk 4)
     (hO : Region out O s) (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi out 20)
+    (hbelow_out : out.toNat + 8 * 20 ≤ 0x78040620)
     -- `FP_TABLES`, initialised (`Once` state byte 2 at 0x780488f0, padding zero)
     (hTB : Region 0x780488a8#64 [cap, iptr, ilen, g0, g1, g2, g3, hmod, hx, 2#64] s)
     (hIV : Region iptr IV s) (hok_iptr : RegionOk Ro.layout.roBase Ro.layout.textHi iptr 138)
@@ -185,7 +194,7 @@ theorem derive_unchecked_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} 
       [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19] = askW neg s0 s1 s2 s3 [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] →
       Region out [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19] t → SafeN G n P t) :
     SafeN G n P s :=
-  derive_unchecked_spec s ra sp out sk neg s0 s1 s2 s3 cap iptr ilen g0 g1 g2 g3 hmod hx O IV G0 G1 G2 G3 hOl hIVl hG0l hG1l hG2l hG3l hpb hpaf hpp hprz hpanic hunwrap hpc hcode hcW hcT hcU hcF hcL hcodeFU hcodeU5 hcodeTF hcodeFR hcodeBP hcodeU hcodeF hcodeMC hcodeM hcodeP hcodeC hcodeL hcodeB hcodeA hcodeR hcodeT hcodeW hcodeMul hcodeMS hcodeTA hcodeI hcodeCo hcodeRq hcodeAs hcodeCmp hcodeAdd hcodeDbl hcodeD hcodeLn hcodeAF hcodeAFI hcodeTB hcw hro hra hra1 hsp hstk ha0 ha1 ha2 hRS hokS hO hok0 hTB hIV hok_iptr hG0 hok_g0 hG1 hok_g1 hG2 hok_g2 hG3 hok_g3 hilen hd0 hdS hd_tb hd_iptr hd_g0 hd_g1 hd_g2 hd_g3 heS he_tb he_iptr he_g0 he_g1 he_g2 he_g3 (fun t x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 h1 h2 h3 h4 hf hR => by
+  derive_unchecked_spec s ra sp out sk neg s0 s1 s2 s3 cap iptr ilen g0 g1 g2 g3 hmod hx O IV G0 G1 G2 G3 hOl hIVl hG0l hG1l hG2l hG3l hpb hpaf hpp hprz hpanic hunwrap hpc hcode hcW hcT hcU hcF hcL hcodeFU hcodeU5 hcodeTF hcodeFR hcodeBP hcodeU hcodeF hcodeMC hcodeM hcodeP hcodeC hcodeL hcodeB hcodeA hcodeR hcodeT hcodeW hcodeMul hcodeMS hcodeTA hcodeI hcodeCo hcodeRq hcodeAs hcodeCmp hcodeAdd hcodeDbl hcodeD hcodeLn hcodeAF hcodeAFI hcodeTB hcw hro hheap hra hra1 hsp hstk ha0 ha1 ha2 hRS hokS hO hok0 hbelow_out hTB hIV hok_iptr hG0 hok_g0 hG1 hok_g1 hG2 hok_g2 hG3 hok_g3 hilen hd0 hdS hd_tb hd_iptr hd_g0 hd_g1 hd_g2 hd_g3 heS he_tb he_iptr he_g0 he_g1 he_g2 he_g3 (fun t x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 h1 h2 h3 h4 hf hR => by
     generalize hL : askW neg s0 s1 s2 s3 [x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3] = L at hR
     have hl : L.length = 20 := by rw [← hL]; exact askW_length _ _ _ _ _ _
     match L, hl, hL with
@@ -255,13 +264,14 @@ theorem rivk_from_spending_key_spec' {G : MachineState → Prop} {n : Nat} {P : 
     | [c0, c1, c2, c3], _, hL => exact hk t h1 h2 h3 h4 c0 c1 c2 c3 hL.symm hR)
 
 /-- `parse_nk_spec` on canonical bytes: tag `1`, the limbs named, with their value and canonicity. -/
-theorem parse_nk_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
+theorem parse_nk_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G n P u)
     (hpc : s.pc = 0x7801d2c8#64) (hcode : CodeAt F_7801d2c8.base F_7801d2c8.prog s)
     (hcodeF : CodeAt F_78022848.base F_78022848.prog s) (hcodeR : CodeAt F_780297c0.base F_780297c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x120 sp)
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = w)
@@ -276,7 +286,7 @@ theorem parse_nk_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
       leLimbsToNat [r0, r1, r2, r3] < Fp.p →
       Region a0 [1#64, r0, r1, r2, r3] t → SafeN G n P t) :
     SafeN G n P s :=
-  parse_nk_spec s ra sp a0 w b0 b1 b2 b3 O hOl hpaf hpc hcode hcodeF hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hokB hO hok0 hd0 hdB heB (fun t tag L h1 h2 h3 h4 htag _ hLeq hR => by
+  parse_nk_spec s ra sp a0 w b0 b1 b2 b3 O hOl hpaf hpc hcode hcodeF hcodeR hcodeM hcodeB hcw hro hheap hra hra1 hsp hstk ha0 ha1 hB hokB hO hok0 hd0 hdB heB (fun t tag L h1 h2 h3 h4 htag _ hLeq hR => by
     rw [if_pos hc] at htag; subst htag
     have e := hLeq hc; subst e
     have hX := leLimbsToNat_natToLeLimbs 4 (Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2) (lt_trans (Fp.mul_lt _ _) Fp.p_lt)
@@ -284,13 +294,14 @@ theorem parse_nk_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
     exact hk t _ _ _ _ h1 h2 h3 h4 hX (by rw [hX]; exact Fp.mul_lt _ _) hR)
 
 /-- `parse_nk_spec` on non-canonical bytes: tag `0` (`None`). -/
-theorem parse_nk_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
+theorem parse_nk_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
     (O : List Word) (hOl : O.length = 5)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G n P u)
     (hpc : s.pc = 0x7801d2c8#64) (hcode : CodeAt F_7801d2c8.base F_7801d2c8.prog s)
     (hcodeF : CodeAt F_78022848.base F_78022848.prog s) (hcodeR : CodeAt F_780297c0.base F_780297c0.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x120 sp)
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = w)
@@ -303,7 +314,7 @@ theorem parse_nk_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
       t.code = s.code → Unchanged [(sp - 0x120#64, 36), (a0, 5)] s t → L.length = 4 →
       Region a0 (0#64 :: L) t → SafeN G n P t) :
     SafeN G n P s :=
-  parse_nk_spec s ra sp a0 w b0 b1 b2 b3 O hOl hpaf hpc hcode hcodeF hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hokB hO hok0 hd0 hdB heB (fun t tag L h1 h2 h3 h4 htag hL _ hR => by
+  parse_nk_spec s ra sp a0 w b0 b1 b2 b3 O hOl hpaf hpc hcode hcodeF hcodeR hcodeM hcodeB hcw hro hheap hra hra1 hsp hstk ha0 ha1 hB hokB hO hok0 hd0 hdB heB (fun t tag L h1 h2 h3 h4 htag hL _ hR => by
     rw [if_neg hc] at htag; subst htag; exact hk t L h1 h2 h3 h4 hL hR)
 
 /-- `SpendValidatingKey::from_bytes` returned `Some` (its tag word found non-zero by `main`'s

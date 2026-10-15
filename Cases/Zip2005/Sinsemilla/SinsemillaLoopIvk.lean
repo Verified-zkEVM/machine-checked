@@ -6,6 +6,8 @@ import Cases.Zip2005.Runtime.MemcpySpec
 import Cases.Zip2005.Sinsemilla.SinsemillaChunk
 import Cases.Zip2005.Image.F_78021238
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # The chunk loop of `CommitDomain::commit`, the `commit_ivk` instantiation (`0x78021238`)
@@ -30,10 +32,12 @@ set_option maxRecDepth 200000 in
 /-- The loop, by induction on the chunks left: from the loop head with `i` chunks folded and `n`
 to go, to the exit with all `i + n` folded. `Bv` holds the message bytes (`0`/`1` over the first
 `10 nc`), `T` the generator table. -/
-theorem sinsemilla_loop_ivk {G : MachineState → Prop} {nb : Nat} {P : Prop} (sp bp : Word) (T Bv : List Word) (nc : Nat)
+theorem sinsemilla_loop_ivk {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (sp bp : Word) (T Bv : List Word) (nc : Nat)
     (c : Word → Option Instr) (g3 g4 g8 g9 g18 : Word) (a0 : List Word)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = c → SafeN G nb P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = c → SafeN G nb P u)
+    (hbounds : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = c →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G nb P u)
+    (hunwrap : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dc7c#64 → u.code = c →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_dc7c_10 → u.getReg .x13 ∈ Run.vals_dc7c_13 → u.getReg .x14 ∈ Run.vals_dc7c_14 → SafeN G nb P u)
     (hTl : T.length = 8192) (hBl : Bv.length = 65) (hnc : 10 * nc ≤ 512)
     (hbool : ∀ o, o < 10 * nc → byteAt Bv o = 0#64 ∨ byteAt Bv o = 1#64) :
     ∀ n i (t : MachineState) (acc : List Word) (len p : Word), i + n ≤ nc → 1 ≤ n →
@@ -45,7 +49,7 @@ theorem sinsemilla_loop_ivk {G : MachineState → Prop} {nb : Nat} {P : Prop} (s
       CodeAt F_780235e8.base F_780235e8.prog t → CodeAt F_7803f54c.base F_7803f54c.prog t →
       CodeAt F_78035f88.base F_78035f88.prog t → CodeAt F_780360e0.base F_780360e0.prog t →
       CodeAt F_7801bf3c.base F_7801bf3c.prog t → CodeAt F_7801b4d8.base F_7801b4d8.prog t →
-      CodeWithin Ro.layout.textLo Ro.layout.textHi t → RoImage Ro.layout t →
+      CodeWithin Ro.layout.textLo Ro.layout.textHi t → RoImage Ro.layout t → Run.HeapAt L t →
       t.getReg .x2 = sp → StackOk Ro.layout 0x130 sp → sp.toNat + 0x3a0 ≤ 0x78000000 →
       t.getReg .x3 = g3 → t.getReg .x4 = g4 → t.getReg .x8 = g8 → t.getReg .x9 = g9 →
       t.getReg .x18 = g18 →
@@ -68,7 +72,7 @@ theorem sinsemilla_loop_ivk {G : MachineState → Prop} {nb : Nat} {P : Prop} (s
         u.getReg .x9 = g9 → u.getReg .x18 = g18 → u.getReg .x19 = sp + 0x178#64 →
         Unchanged [(sp - 0x130#64, 38), (sp + 0x70#64, 9), (sp + 0x170#64, 9), (sp + 0x1b8#64, 4),
           (sp + 0x238#64, 4), (sp + 0x278#64, 9), (sp + 0x8#64, 9)] t u →
-        Region (sp + 0x170#64) acc' u → AccRep (sinFold T (some a0) (chunks Bv (i + n))) acc' →
+        Region (sp + 0x170#64) acc' u → AccRep (sinFold T (some a0) (chunks Bv (i + n))) acc' → Run.HeapAt L u →
         SafeN G nb P u) →
       SafeN G nb P t := by
   intro n
@@ -76,7 +80,7 @@ theorem sinsemilla_loop_ivk {G : MachineState → Prop} {nb : Nat} {P : Prop} (s
   | zero => intro i t acc _ _ _ hn; exact absurd hn (by omega)
   | succ n ih =>
     intro i t acc len p hin hn hrep hpc hc hcodeC hcodeL hcodeP hcodeT hcodeI hcodeCmp hcodeAA hcodeLR
-      hcodeAdd hcodeM hcw hro hsp hstk hhi h3 h4 h8 h9 h18 h19 h20 h21 hlen h22 hp h23 h24 h25 h26
+      hcodeAdd hcodeM hcw hro hheap hsp hstk hhi h3 h4 h8 h9 h18 h19 h20 h21 hlen h22 hp h23 h24 h25 h26
       hT hokT hB hokB hA' hokA hacc hokacc hC' hokC hD' hokD hE' hokE hF' hokF hdB hk
     subst hlen hp
     obtain ⟨A, hAl, hA⟩ := hA'
@@ -148,11 +152,11 @@ theorem sinsemilla_loop_ivk {G : MachineState → Prop} {nb : Nat} {P : Prop} (s
         simp only [bne_iff_ne, ne_eq] at hbr86
         exact hbr86 (by rw [← v42_def]; exact x21_step 0 (by omega))
       refine ih (i + 1) s_87 _ _ _ (by omega) (by omega) hrep' hpc hc' hcode' hcodeL' hcodeP' hcodeT' hcodeI'
-        hcodeCmp' hcodeAA' hcodeLR' hcodeAdd' hcodeM' hcw hro hx2 hstk hhi hx3 hx4 hx8 hx9 hx18 hx19 hx20
+        hcodeCmp' hcodeAA' hcodeLR' hcodeAdd' hcodeM' hcw hro ‹Run.HeapAt L s_87› hx2 hstk hhi hx3 hx4 hx8 hx9 hx18 hx19 hx20
         hx21' rfl hx22' rfl hx23 hx24 hx25 hx26 hR0 hokT hR1 hokB ⟨_, by rfl, hR3⟩ hokA hR2 hokacc ⟨_, by rfl, hR4⟩ hokC
         ⟨_, by rfl, hR5⟩ hokD ⟨_, by rfl, hR6⟩ hokE ⟨_, by rfl, hR7⟩ hokF hdB ?_
-      intro u acc'' hpc' hc'' h2' h3' h4' h8' h9' h18' h19' hun hreg hrep''
-      refine hk u acc'' hpc' hc'' h2' h3' h4' h8' h9' h18' h19' (hunch.trans hun) hreg ?_
+      intro u acc'' hpc' hc'' h2' h3' h4' h8' h9' h18' h19' hun hreg hrep'' hH
+      refine hk u acc'' hpc' hc'' h2' h3' h4' h8' h9' h18' h19' (hunch.trans hun) hreg ?_ hH
       rwa [show i + 1 + n = i + (n + 1) by omega] at hrep''
     -- the exit: this was the last chunk
     · have hn0 : n = 0 := by
@@ -160,6 +164,6 @@ theorem sinsemilla_loop_ivk {G : MachineState → Prop} {nb : Nat} {P : Prop} (s
         rw [← v42_def, x21_step n (by omega)] at hbr86
         exact ofNat_ten_eq_zero n (by omega) hbr86
       subst hn0
-      exact hk s_87 _ hpc hc' hx2 hx3 hx4 hx8 hx9 hx18 hx19 hunch hR2 hrep'
+      exact hk s_87 _ hpc hc' hx2 hx3 hx4 hx8 hx9 hx18 hx19 hunch hR2 hrep' ‹Run.HeapAt L s_87›
 
 end Cases.Zip2005

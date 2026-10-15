@@ -1,5 +1,7 @@
 import Cases.Zip2005.Sinsemilla.FromIterIvkLoop
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `Vec<bool>::from_iter` of `commit_ivk`'s padded bit iterator (`0x7801e110`), as a function
@@ -127,7 +129,7 @@ set_option maxHeartbeats 4000000 in
 `sp` is the loop's frame (the entry stack pointer is `sp + 0xb0`); `sp0` is `commit_ivk`'s
 frame, where the message words `A` (`ak`'s bits, at `ptrA sp0`) and `B` (`nk`'s, at `ptrB sp0`)
 live; `a1` holds the iterator block as `commit_ivk` built it (`ivkState sp0 J j 0`). -/
-theorem from_iter_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out a1 ra : Word)
+theorem from_iter_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp sp0 out a1 ra : Word)
     (J A B O : List Word) (j : Word) (hAl : A.length = 4) (hBl : B.length = 4) (hOl : O.length = 3)
     (hpc : s.pc = 0x7801e110#64) (hcode : CodeAt F_7801e110.base F_7801e110.prog s)
     (hcodeN : CodeAt F_78021e7c.base F_78021e7c.prog s)
@@ -151,22 +153,26 @@ theorem from_iter_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s :
     (hdjHB : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (ptrB sp0) 4)
     (hdjHO : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 out 3)
     (hdjHC : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 a1 12)
+    (hout : out.toNat + 8 * 3 ≤ 0x78040620) (ha1lo : a1.toNat + 8 * 12 ≤ 0x78040620)
     -- the hasher's six regions (`T`): in the arena, held, kept by the allocator
     (T : HasherT) (hT : Kept6 T s) (hTA : Arena6 T) (hTO : Ok6 T)
+    -- the run's heap invariant, the hasher's blocks live
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt (T.live L) s)
     -- `__rust_alloc(8, 1)` (A4, this call's instance): a fresh word in the arena
-    (halloc : ∀ (u : MachineState), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (halloc : ∀ (u : MachineState) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x7801e184#64 → u.getReg .x2 = sp → StackOk Ro.layout 0x30 sp →
       u.getReg .x10 = 8#64 → u.getReg .x11 = 1#64 →
       Region T.b1 T.L1 u → Region T.b2 T.L2 u → Region T.b3 T.L3 u → Region T.b4 T.L4 u → Region T.b5 T.L5 u → Region T.b6 T.L6 u →
+      RoImage Ro.layout u → Run.HeapAt (T.live L') u →
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e184#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → SafeN G n P t) → SafeN G n P u)
+        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → Run.HeapAt ((ptr, 1) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
     -- `do_reserve_and_handle(&vec, C, 1, 1, 1)` (A5, this call's six instances, `C` the full
     -- capacity): the block doubled, its contents copied, one word past it readable
-    (hreserve : ∀ (u : MachineState) (C : Nat) (p : Word) (W : List Word),
+    (hreserve : ∀ (u : MachineState) (C : Nat) (p : Word) (W : List Word) (L' : List (Word × Nat)),
       (C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256) → W.length = C / 8 →
       u.pc = 0x780221a4#64 → u.code = s.code → u.getReg .x1 = 0x7801e254#64 → u.getReg .x2 = sp →
       StackOk Ro.layout 0x100 sp → u.getReg .x10 = sp → u.getReg .x11 = BitVec.ofNat 64 C →
@@ -174,6 +180,7 @@ theorem from_iter_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s :
       Region sp [BitVec.ofNat 64 C, p, BitVec.ofNat 64 C] u → Region p W u →
       0x78048980 ≤ p.toNat → p.toNat + C ≤ 0x1c00000000 →
       Region T.b1 T.L1 u → Region T.b2 T.L2 u → Region T.b3 T.L3 u → Region T.b4 T.L4 u → Region T.b5 T.L5 u → Region T.b6 T.L6 u →
+      RoImage Ro.layout u → Run.HeapAt ((p, C / 8) :: T.live L') u →
       (∀ (t : MachineState) (p' : Word) (W' : List Word), t.pc = 0x7801e254#64 → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
@@ -181,31 +188,34 @@ theorem from_iter_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s :
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → SafeN G n P t) → SafeN G n P u)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u)
+        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
+    (hunwrap_opt : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803f364#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_f364 → SafeN G n P u)
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hk : ∀ (t : MachineState) (ptr : Word) (Bv I1 : List Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code →
       Unchanged [(sp - 0x1b0#64, 76), (out, 3), (a1, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       I1.length = 12 → Region out [512#64, ptr, 510#64] t → Region a1 I1 t →
       Bv.length = 65 → (∀ o, o < 510 → byteAt Bv o = bw (ivkBit A B o)) → Region ptr Bv t →
       RegionOk Ro.layout.roBase Ro.layout.textHi ptr 65 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 65 ≤ 0x1c00000000 →
-      Kept6 T t → SafeN G n P t) :
+      Kept6 T t → Run.HeapAt ((ptr, 64) :: T.live L) t → SafeN G n P t) :
     SafeN G n P s := by
   have E : IvkEnv sp sp0 out a1 A B T :=
     ⟨hAl, hBl, hstk, hokFr, hokO, hokC, hokA, hokB, hsp0_lo, hsp0_hi, hdjSA, hdjSB, hdjSO, hdjSC,
-     hdjOA, hdjOB, hdjOC, hdjCA, hdjCB, hdjAB, hdjHA, hdjHB, hdjHO, hdjHC, hTA, hTO⟩
+     hdjOA, hdjOB, hdjOC, hdjCA, hdjCB, hdjAB, hdjHA, hdjHB, hdjHO, hdjHC, hout, ha1lo, hTA, hTO⟩
   have C0 : IvkCtx G n P sp0 A B T s := ⟨hcode, hcodeN, hcw, hAr, hBr, hT, hunwrap_opt⟩
   -- the reserve contract at a loop state
   have hres : ∀ (t : MachineState), t.code = s.code → ∀ (C : Nat) (p : Word),
       (C = 8 ∨ C = 16 ∨ C = 32 ∨ C = 64 ∨ C = 128 ∨ C = 256) →
-      ∀ (u : MachineState) (W : List Word), W.length = C / 8 →
+      ∀ (u : MachineState) (W : List Word) (L' : List (Word × Nat)), W.length = C / 8 →
       u.pc = 0x780221a4#64 → u.code = t.code → u.getReg .x1 = 0x7801e254#64 → u.getReg .x2 = sp →
       StackOk Ro.layout 0x100 sp → u.getReg .x10 = sp → u.getReg .x11 = BitVec.ofNat 64 C →
       u.getReg .x12 = 1#64 → u.getReg .x13 = 1#64 → u.getReg .x14 = 1#64 →
       Region sp [BitVec.ofNat 64 C, p, BitVec.ofNat 64 C] u → Region p W u →
       0x78048980 ≤ p.toNat → p.toNat + C ≤ 0x1c00000000 →
       Region T.b1 T.L1 u → Region T.b2 T.L2 u → Region T.b3 T.L3 u → Region T.b4 T.L4 u → Region T.b5 T.L5 u → Region T.b6 T.L6 u →
+      RoImage Ro.layout u → Run.HeapAt ((p, C / 8) :: T.live L') u →
       (∀ (t : MachineState) (p' : Word) (W' : List Word), t.pc = 0x7801e254#64 → CalleeSaved u t →
         t.code = u.code →
         Unchanged [(sp - 0x100#64, 32), (sp, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
@@ -213,12 +223,12 @@ theorem from_iter_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s :
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → SafeN G n P t) → SafeN G n P u :=
-    fun t hts C p hC u W hW hpc hcode hra hsp hstk h10 h11 h12 h13 h14 hV hW' hlo hhi hr1 hr2 hr3 hr4 hr5 hr6 hk' =>
-      hreserve u C p W hC hW hpc (hcode.trans hts) hra hsp hstk h10 h11 h12 h13 h14 hV hW' hlo hhi
-        hr1 hr2 hr3 hr4 hr5 hr6 hk'
+        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: T.live L') t → SafeN G n P t) → SafeN G n P u :=
+    fun t hts C p hC u W L' hW hpc hcode hra hsp hstk h10 h11 h12 h13 h14 hV hW' hlo hhi hr1 hr2 hr3 hr4 hr5 hr6 hro' hheap' hk' =>
+      hreserve u C p W L' hC hW hpc (hcode.trans hts) hra hsp hstk h10 h11 h12 h13 h14 hV hW' hlo hhi
+        hr1 hr2 hr3 hr4 hr5 hr6 hro' hheap' hk'
   -- the prologue: byte 1, capacity 8
-  refine ivk_pro_step E hOl hpc C0 hcodeM hcodeZ hra hsp ha0 ha1 hO hCb halloc hhandle_rv ?_
+  refine ivk_pro_step E hOl hpc C0 hcodeM hcodeZ hra hsp ha0 ha1 hO hCb hro hheap halloc hhandle_rv ?_
   intro t1 ptr w hc1 hu1 hk1 C1 H1 hF1 hO1 ⟨I1, hI1l, hR1⟩
   have hu1' := unch_pro (out := out) hstk hu1
   -- phase 1: bytes 1 … 8
@@ -276,10 +286,10 @@ theorem from_iter_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s :
   have hR14 := E.keepC huL hI1l hR1
   -- the exit
   refine ivk_tail_step E hOl hl14' hra1 H14 C14 hF14 hO14 ?_
-  intro t Bv hpc' hcode' hun hkT hsp' hs0' hs1' hs2' hs3' hs4' hs5' hOut hBvl hbits hBv hok' hlo' hhi' hKt
+  intro t Bv hpc' hcode' hun hkT hsp' hs0' hs1' hs2' hs3' hs4' hs5' hOut hBvl hbits hBv hok' hlo' hhi' hKt _ hheapT
   have hkA : Kept s t := hk1.trans (hkL.trans hkT)
   refine hk t p13 Bv I1 hpc' ?_ (hcode'.trans hcs14) ?_ hI1l hOut (E.keepC_tail hlo' hhi' hun hI1l hR14)
-    hBvl hbits hBv hok' hlo' hhi' hKt
+    hBvl hbits hBv hok' hlo' hhi' hKt hheapT
   · intro r hr
     simp only [calleeSavedRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl

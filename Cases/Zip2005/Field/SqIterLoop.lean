@@ -117,7 +117,7 @@ theorem toNat_sp_add (sp : Word) (c : Nat) (h : sp.toNat + c < 2 ^ 64) (hc : c <
   rw [BitVec.toNat_add, BitVec.toNat_ofNat]; omega
 
 set_option maxHeartbeats 4000000 in
-theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : MachineState) (sp out g x3v x4v : Word) (G S : List Word)
+theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s t0 : MachineState) (sp out g x3v x4v : Word) (G S : List Word)
     (hGl : G.length = 4) (hSl : S.length = 13) (E : SqEnv sp g)
     (hcode : CodeAt F_780326cc.base F_780326cc.prog s) (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hres : SqReserve Gd nb P s.code)
@@ -127,15 +127,16 @@ theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : Machi
       J.length = 20 → Region (sp + 0x38#64) J t → Region (sp + 0xd8#64) S t →
       c.toNat = 256 → l.toNat = 256 →
       RegionOk Ro.layout.roBase Ro.layout.textHi p 1024 → 0x78048980 ≤ p.toNat → p.toNat + 0x2000 ≤ 0x1c00000000 →
-      RoImage Ro.layout t → SafeN Gd nb P t) :
+      RoImage Ro.layout t → Run.HeapAt ((p, 1024) :: L) t → SafeN Gd nb P t) :
     ∀ (n : Nat) (t : MachineState) (J : List Word) (k c p : Word), t.code = s.code → RoImage Ro.layout t →
+      Run.HeapAt ((p, 4 * c.toNat) :: L) t →
       Unchanged (sqW sp) t0 t → SqHead sp out g x3v x4v G S J k c p t → 256 - k.toNat = n →
       SafeN Gd nb P t := by
   intro n
   induction n with
-  | zero => intro t J k c p _ _ _ H hn; have := H.k256; omega
+  | zero => intro t J k c p _ _ _ _ H hn; have := H.k256; omega
   | succ n ih =>
-    intro t J k c p hc hro hU H hn
+    intro t J k c p hc hro hheap hU H hn
     have hcd := codeAt_of_code_eq hc hcode
     have hcdM := codeAt_of_code_eq hc hcodeM
     have hcwt : CodeWithin Ro.layout.textLo Ro.layout.textHi t := fun a ha => hcw a (hc ▸ ha)
@@ -159,11 +160,11 @@ theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : Machi
           k.toNat = 128 := by
         have := H.cap; unfold SqCap at this; omega
       refine sq_iter_grow t sp out g p k (BitVec.ofNat 64 (32 * k.toNat)) G J hGl H.Jl hcap'
-        (by rw [BitVec.toNat_ofNat]; omega) H.pc hcd hcdM hcwt hro H.r2 E.stk H.r8 H.r9 H.r19 H.r20
+        (by rw [BitVec.toNat_ofNat]; omega) H.pc hcd hcdM hcwt hro hheap H.r2 E.stk H.r8 H.r9 H.r19 H.r20
         H.r21 H.r22 H.r23 H.r24 H.r25 H.r26 H.r27 H.Hr E.okF E.okH H.Jr E.okJ H.Gr E.okG E.sphi E.glo
         E.ghi H.plo H.phi (hc ▸ hres) ?_
       intro t2 p' J' hpc2 hc2 hun2 r2 r8 r9 r19 r20 r21 r22 r23 r24 r25 r26 r27 r3 r4 hH2 hJl2 hJ2
-        hokP2 hplo2 hphi2
+        hokP2 hplo2 hphi2 hheap2
       have hkk : (k + k).toNat = 2 * k.toNat := by
         rw [BitVec.toNat_add]; omega
       have hdisj : ∀ {b : Word} {m : Nat}, b.toNat + 8 * m ≤ 0x78000000 → sp.toNat + 0x140 ≤ b.toNat →
@@ -182,7 +183,9 @@ theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : Machi
         · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
         · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
       refine ih t2 J' (k + 1#64) (k + k) p' (hc2.trans hc)
-        (hro.of_unchanged hun2 ?_) (hU.trans_cover hun2 (fun r hr => ⟨r, hr, by unfold Covers; omega⟩)) ?_
+        (hro.of_unchanged hun2 ?_)
+        (by rw [hkk, show 4 * (2 * k.toNat) = 8 * k.toNat by ring]; exact hheap2)
+        (hU.trans_cover hun2 (fun r hr => ⟨r, hr, by unfold Covers; omega⟩)) ?_
         (by omega)
       · intro r hr
         rcases mem4 hr with rfl | rfl | rfl | rfl
@@ -254,13 +257,20 @@ theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : Machi
         rcases mem2 hr with rfl | rfl
         · left; dsimp only; simp only [Ro.layout_roBase]; omega
         · right; dsimp only; simp only [Ro.layout_roBase, Ro.layout_roBytes]; omega
+      -- the store stays in the frame and the buffer: the heap invariant is kept
+      have hkeep : ∀ t2, Unchanged [(sp, 27), (q, 4)] t t2 → Run.HeapAt ((p, 4 * c.toNat) :: L) t2 :=
+        fun t2 hun2 => Carry.of_unchanged hheap hun2
+          (openW_cons (openBlock_range (lo := 0) (hi := 0x78040620) (b := sp) (n := 27) _ _ (by simp [Run.ranges])
+            (Nat.zero_le _) (by omega))
+            (openW_cons (openBlock_live (b := q) (n := 4) _ _ List.mem_cons_self (by omega) (by omega))
+              (openW_nil _ _)))
       refine sq_iter_body t sp out g p k c (BitVec.ofNat 64 (32 * k.toNat)) q Q[0]! Q[1]! Q[2]! Q[3]!
         G J hGl H.Jl hkc'' hq H.pc hcd hcdM hcwt hro H.r2 H.r8 H.r9 H.r19 H.r20 H.r21 H.r22 H.r23
         H.r24 H.r25 H.r26 H.r27 H.Hr E.okF E.okH H.Jr E.okJ H.Gr E.okG hQ hokQ (by omega) E.sphi E.glo
         E.ghi hdQF hdQG ?_ ?_
       · intro t2 J' Q' hpc2 hc2 hun2 r2 r8 r9 r19 r20 r21 r22 r23 r24 r25 r26 r27 r3 r4 hH2 hJl2 hJ2 _ _ hb
         have hk' := lt256_of_beq hk256 hb
-        refine ih t2 J' (k + 1#64) c p (hc2.trans hc) (hro.of_unchanged hun2 hroW)
+        refine ih t2 J' (k + 1#64) c p (hc2.trans hc) (hro.of_unchanged hun2 hroW) (hkeep t2 hun2)
           (hU.trans_cover hun2 hW) ?_ (by omega)
         exact SqHead.mk
           (pc := hpc2)
@@ -298,6 +308,6 @@ theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : Machi
           (r3.trans H.r3) (r4.trans H.r4) hH2 hJl2 hJ2
           (H.Sr.of_unchanged' hun2 hSl hdS) hc256 (by rw [hkn]; omega)
           (by have := H.okP; rw [hc256] at this; exact this) H.plo (by have := H.phi; rw [hc256] at this; omega)
-          (hro.of_unchanged hun2 hroW)
+          (hro.of_unchanged hun2 hroW) (by have h := hkeep t2 hun2; rw [hc256] at h; exact h)
 
 end Cases.Zip2005

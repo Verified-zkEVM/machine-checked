@@ -252,9 +252,11 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
 - F0. The specification. `Cases/Zip2005/Spec/`: `Zip2005.GuestStatement` over the ironwood
   circuit specifications (`Zcash.Circuits.*`, with `Clean`, `CompElliptic` and `CompPoly`),
   as first-class sources of this repository under their upstream licences; Mathlib is a
-  dependency for this directory only. **Done.** (One inherited `native_decide`: the order
-  of the Pallas group, `CompElliptic`.) 44 linter warnings in 19 upstream files are to be
-  cleaned.
+  dependency for this directory only. **Done.** The order of the Pallas group, which
+  `CompElliptic` took from `native_decide`, is proved from a double-and-add certificate checked
+  by kernel `decide` (`Spec/CompElliptic/Curves/PallasOrderCert.lean`); the axiom census in
+  `Spec/Zip2005.lean` now asserts every entry on the three standard axioms. 44 linter warnings
+  in 19 upstream files are to be cleaned.
 - F1. The symbolic executor as framework code. `AsmVerif/RiscV/Sym/`: the executor
   (`sym_exec`, `sym_close`), over the same judgement as the checker (`SafeN G n P s`,
   `AsmVerif/RiscV/Safe.lean`: one module for `stepsSp1`, `SafeN`, `Safe` and their lemmas;
@@ -270,10 +272,11 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   for every guard and budget;
   `Bridge` relates the machine-level results to the specification; `Top` composes them from
   the ELF's entry. The composition is conditional on `RunHyps` (`Top/Assumptions.lean`): the
-  contracts of the allocator (`halloc*`, `hdealloc*`, `hrealloc*`), of `read_vec_raw`'s I/O
-  error path (`hio`), of the lazy table build (`hinit`), of the formatter (`hfmt`), and
-  twelve "never accepts" contracts for panic and reject-halt entries; and on an input
-  condition (`hbp_eq`, `hokJ2`, `hbp`). **Ported; building.**
+  contracts of the allocator (`halloc*`, `hdealloc*`, `hrealloc*`, `hsq_*` for the
+  `FP_TABLES` build), of `read_vec_raw`'s I/O error path (`hio`), of the formatter (`hfmt`),
+  and twelve "never accepts" contracts for panic and reject-halt entries. The lazy table
+  build is stepped (no `hinit`), and of the input only `hIfit` remains (it fits the hint
+  area); `main` derives the rest. **Done: builds** (2026-10-15).
 - F3. Discharge `RunHyps` from D. Each contract is a theorem of phase D over the same
   `SafeN` (the allocator against `Tlsf.Rep`, `read_vec_raw`, the panic entries modulo
   `pwhIface.Holds`), so what is needed is (a) the checker's `Post` implying each
@@ -291,7 +294,9 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   is D5's `..._neverAccepts` under `pwhIface.Holds`; the theorem stops being vacuous only
   once that premise is discharged. (The return-address contracts carry `r' &&& ~~~1 = r'`
   already.) Both `Runtime/Start.lean` (the ported `_start`-to-`main` path) and
-  `Runtime/Entry.lean` (D1) prove the same path; one goes.
+  `Runtime/Entry.lean` (D1) prove the same path; `Top/Elf.lean` now uses D1's
+  `Entry.entry` (it fixes all of memory, so `main`'s heap invariant follows), and
+  `Runtime/Start.lean` is unused by the top theorem.
 - **Milestone M1 (agreed 2026-10-14): one premise left.** The top theorem from
   `Layout.image.state I` with exactly one remaining premise: `pwhIface.Holds`, that
   `panic_with_hook` (`0x7803b8d0`) never accepts. Every other contract in `RunHyps` is
@@ -375,6 +380,23 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
     the first decompression, and `EpAffine::from_bytes` (`0x78025a1c`) holds the only call
     of the `Once` slow path (`0x78026250`), whose build `fp_tables_init_spec` proves. So
     segment A2 starts with the `Once` uninitialised and that first call builds the tables.
+  **M1 status (2026-10-15): the panic paths are the only premises.** `guest_run`
+  (`Top/Guest.lean`): from `start I` (`Layout.image.state I`), for every guard and budget, an
+  accepting run gives `GuestAccepts I`, assuming `PanicPaths` and `hIfit` only. Every other
+  `RunHyps` field is a theorem: the allocator at every call site (`Run/Discharge`,
+  `Run/ReallocContracts`, `Run/ReallocOr`, `Run/SqContracts`), `__rust_dealloc` of a
+  hint-area record (`hdealloc_hint_ok`, the shim's early return), and `From<io::Error>`
+  (`hio_ok`); the image facts (`Top/Load`); `main`'s entry state, heap invariant included
+  (`Top/Elf`, from D1). `#print axioms guest_run`: `propext`, `Classical.choice`,
+  `Quot.sound` and `bv_decide`'s certificates; no `sorry`, no `native_decide`.
+  `PanicPaths` has 13 fields, each "this entry never accepts" over the heap invariant:
+  `hpaf`, `hpp`, `hprz`, `hpb`, `hpanic`, `hunwrap`, `hhandle_rv`, `hhandle_al`,
+  `hunwrap_opt`, `hpaf_nf` (panic entries, payloads pinned to the call sites' values),
+  `hhalt_hint`, `hhalt_empty` (the reject halts) and `hfmt` (`format_inner` returns a
+  `String`). Still open against M1 as designed: (a) the panic and halt fields are stated
+  directly, not yet discharged from D5's `..._neverAccepts` down to the formatting premises
+  (`pwhIface.Holds`, the allocation-error hook, `format_inner`); (b) no satisfiability
+  witness for `PanicPaths` yet.
 - F4. The end theorem: from `Layout.image.state I`, an accepting run gives
   `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
   satisfiability witness.

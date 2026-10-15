@@ -3,6 +3,8 @@ import Cases.Zip2005.Field.SqInvLoop
 import Cases.Zip2005.Runtime.MemsetInv
 import Cases.Zip2005.Image.F_78030a94
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `SqrtTables::<Fp>::new` (0x78030a94), as a function
@@ -23,31 +25,34 @@ set_option autoImplicit false
 
 /-- `__rust_alloc(1098, 1)` at `new`'s call (`0x7803120c`): the `inv` table. -/
 def SqAllocInv (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word → Option Instr) : Prop :=
-  ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = code →
+  ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = code →
     u.getReg .x1 = 0x7803120c#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
-    u.getReg .x10 = 1098#64 → u.getReg .x11 = 1#64 →
+    u.getReg .x10 = 1098#64 → u.getReg .x11 = 1#64 → RoImage Ro.layout u → Run.HeapAt L' u →
     (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x7803120c#64 → CalleeSaved u t →
       t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
       t.getReg .x10 = ptr → B.length = 138 → Region ptr B t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 138 →
-      0x78048980 ≤ ptr.toNat → ptr.toNat + 1104 ≤ 0x1c00000000 → SafeN G n P t) →
+      (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 1104 ≤ 0x1c00000000 →
+      Run.HeapAt ((ptr, 138) :: L') t → SafeN G n P t) →
     SafeN G n P u
 
 /-- `__rust_realloc(p, 0x2000, 8, 0x1020)` at `new`'s call (`0x7803139c`): the last table, 256
 elements, shrunk to 129. -/
 def SqRealloc (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word → Option Instr) : Prop :=
-  ∀ (u : MachineState) (sp' p0 : Word), u.pc = 0x7801bd38#64 → u.code = code →
+  ∀ (u : MachineState) (sp' p0 : Word) (L' : List (Word × Nat)), u.pc = 0x7801bd38#64 → u.code = code →
     u.getReg .x1 = 0x7803139c#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x100 sp' →
     u.getReg .x10 = p0 → u.getReg .x11 = 0x2000#64 → u.getReg .x12 = 8#64 →
     u.getReg .x13 = 0x1020#64 → 0x78048980 ≤ p0.toNat →
+    RoImage Ro.layout u → Run.HeapAt ((p0, 1024) :: L') u →
     (∀ (t : MachineState) (p' : Word), t.pc = 0x7803139c#64 → CalleeSaved u t →
       t.code = u.code → Unchanged [(sp' - 0x100#64, 32), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
       t.getReg .x10 = p' → RegionOk Ro.layout.roBase Ro.layout.textHi p' 516 →
-      0x78048980 ≤ p'.toNat → p'.toNat + 0x1020 ≤ 0x1c00000000 → SafeN G n P t) →
+      (p'.toNat = 0 ∨ 0x78048980 ≤ p'.toNat) → p'.toNat + 0x1020 ≤ 0x1c00000000 →
+      Run.HeapAt ((p', 516) :: L') t → SafeN G n P t) →
     SafeN G n P u
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out hxw : Word) (O : List Word)
+theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out hxw : Word) (O : List Word)
     (hOl : O.length = 9)
     (hpc : s.pc = 0x78030a94#64) (hcodeN : CodeAt F_78030a94.base F_78030a94.prog s)
     (hcodeFI : CodeAt F_780326cc.base F_780326cc.prog s)
@@ -55,7 +60,7 @@ theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} 
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcodeMs : CodeAt F_7803f57c.base F_7803f57c.prog s)
     (hcodeL : CodeAt F_78029b64.base F_78029b64.prog s)
-    (hcwS : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hroS : RoImage Ro.layout s)
+    (hcwS : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hroS : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x3d0 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = hxw) (ha2 : s.getReg .x12 = 1098#64)
@@ -63,9 +68,12 @@ theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} 
     (hOlo : sp.toNat ≤ out.toNat) (hOhi : out.toNat + 72 ≤ 0x78000000)
     (halloc : SqAlloc Gd nb P s.code) (hres : SqReserve Gd nb P s.code) (halloci : SqAllocInv Gd nb P s.code)
     (hrealloc : SqRealloc Gd nb P s.code)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN Gd nb P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN Gd nb P u)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN Gd nb P u)
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN Gd nb P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN Gd nb P u)
+    (hunwrap_opt : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803f364#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_f364 → SafeN Gd nb P u)
     (hk : ∀ (t : MachineState) (iptr tg0 tg1 tg2 tg3 : Word), t.pc = ra → CalleeSaved s t →
       t.code = s.code →
       Unchanged [(sp - 0x3d0#64, 122), (out, 9), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
@@ -79,7 +87,9 @@ theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} 
       0x78048980 ≤ tg1.toNat → tg1.toNat + 0x2000 ≤ 0x1c00000000 →
       0x78048980 ≤ tg2.toNat → tg2.toNat + 0x2000 ≤ 0x1c00000000 →
       0x78048980 ≤ tg3.toNat → tg3.toNat + 0x1020 ≤ 0x1c00000000 →
-      RoImage Ro.layout t → SafeN Gd nb P t) :
+      RoImage Ro.layout t →
+      Run.HeapAt ((iptr, 138) :: (tg0, 1024) :: (tg1, 1024) :: (tg2, 1024) :: (tg3, 516) :: L) t →
+      SafeN Gd nb P t) :
     SafeN Gd nb P s := by
   have hlo := hstk.lo
   have hhi := (Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop))
@@ -100,8 +110,10 @@ theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} 
   clear hokF
   have hu := Unchanged.refl [(sp - 0x3d0#64, 122), (out, 9), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
   -- `from_iter` at this call site
-  have hfi : ∀ (u : MachineState) (ra' sp' out' it g w2 w3 w4 w5 : Word) (G O' : List Word),
+  have hfi : ∀ (u : MachineState) (ra' sp' out' it g w2 w3 w4 w5 : Word) (G O' : List Word)
+      (L' : List (Word × Nat)),
       G.length = 4 → O'.length = 3 → u.pc = 0x780326cc#64 → u.code = s.code → RoImage Ro.layout u →
+      Run.HeapAt L' u →
       u.getReg .x1 = ra' → ra' &&& ~~~1#64 = ra' → u.getReg .x2 = sp' → StackOk Ro.layout 0x240 sp' →
       u.getReg .x10 = out' → u.getReg .x11 = it →
       Region it [g, 0x10000000000#64, w2, w3, w4, w5] u → RegionOk Ro.layout.roBase Ro.layout.textHi it 6 →
@@ -114,14 +126,15 @@ theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} 
         Unchanged [(sp' - 0x240#64, 72), (out', 3), (it, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region out' [256#64, ptr, 256#64] t → T.length = 1024 → Region ptr T t →
         RegionOk Ro.layout.roBase Ro.layout.textHi ptr 1024 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x2000 ≤ 0x1c00000000 → SafeN Gd nb P t) → SafeN Gd nb P u :=
-    fun u ra' sp' out' it g w2 w3 w4 w5 G O' hGl hOl' hpcu hcu hrou hrau hra1u hspu hstku ha0u ha1u
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x2000 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 1024) :: L') t →
+        SafeN Gd nb P t) → SafeN Gd nb P u :=
+    fun u ra' sp' out' it g w2 w3 w4 w5 G O' L' hGl hOl' hpcu hcu hrou hheapu hrau hra1u hspu hstku ha0u ha1u
       hIu hokIu hGu hokGu hOu hokOu h1 h2 h3 h4 h5 h6 hdIG hdOI hku =>
       sq_from_iter_spec u ra' sp' out' it g w2 w3 w4 w5 G O' hGl hOl' hpcu
         (codeAt_of_code_eq hcu hcodeFI) (codeAt_of_code_eq hcu hcodeM) (codeAt_of_code_eq hcu hcodeSh)
-        (fun a ha => hcwS a (hcu ▸ ha)) hrou hrau hra1u hspu hstku ha0u ha1u hIu hokIu hGu hokGu hOu
+        (fun a ha => hcwS a (hcu ▸ ha)) hrou hheapu hrau hra1u hspu hstku ha0u ha1u hIu hokIu hGu hokGu hOu
         hokOu h1 h2 h3 h4 h5 h6 hdIG hdOI (hcu.symm ▸ halloc) (hcu.symm ▸ hres)
-        (fun v hv hcv => hhandle_rv v hv (hcv.trans hcu)) hku
+        (fun v sp'' L'' hv hcv => hhandle_rv v sp'' L'' hv (hcv.trans hcu)) hku
   unfold SqAllocInv at halloci
   unfold SqRealloc at hrealloc
   sym_exec [hfi, uint256_mulmod_spec, halloci, memset1098_spec, hhandle_rv, hpp, hunwrap_opt]
@@ -142,13 +155,16 @@ theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} 
   sym_reframe
   sym_exec [hpp] stop [0x7803127c]
   sym_reframe
+  have hstk2 : StackOk Ro.layout 0 (sp + 18446744073709551216#64) := by
+    have h1 := hstk.aligned; have h2 := hstk.lo; have h3 := (Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop))
+    refine ⟨?_, ?_, ?_⟩ <;> rw [BitVec.toNat_add] <;> simp only [BitVec.toNat_ofNat, Ro.layout_stackTop] <;> omega
   refine sq_inv_loop (G := Gd) (nb := nb) (P := P) s s_2 post402_0 hxw post327_0 (sp + 18446744073709551216#64)
-    (s.getReg .x3) (s.getReg .x4) 256#64 post327_0 11037532056220336129#64 hcodeN hcodeL hcwS
-    post402_9 post327_9 post327_11 hpp ?_ 255 s_2 0 post410_0 v8 hcode0 hro (Unchanged.refl _ _)
+    (s.getReg .x3) (s.getReg .x4) 256#64 post327_0 11037532056220336129#64 hcodeN hcodeL hcwS hstk2
+    post402_9 post327_9 post327_11 hpp ?_ 255 s_2 0 post410_0 v8 hcode0 hro hcarry (Unchanged.refl _ _)
     (SqInvAt.mk hpc (hx10.trans v9_def.symm) hb (by rw [hx21]) (by rw [hx23])
       (by rw [hx24]) hx2 hx3 hx4 hx8 hx9 hx18 hx19 hx20 hx25 hx26 hx27 post410_5 hR5
       (by decide)) rfl
-  intro t IV hpct hct hUt r21 r23 r24 r2 r3 r4 r8 r9 r18 r19 r20 r25 r26 r27 hIVl hIV hrot
+  intro t IV hpct hct hUt r21 r23 r24 r2 r3 r4 r8 r9 r18 r19 r20 r25 r26 r27 hIVl hIV hrot hheapt
   -- what the loop leaves alone
   have e190 : ∀ c : Nat, c ≤ 0x190 → (sp - 0x190#64 + BitVec.ofNat 64 c).toNat = sp.toNat - 0x190 + c := by
     intro c hc

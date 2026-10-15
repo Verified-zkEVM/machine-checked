@@ -184,6 +184,9 @@ def closeOne (g : MVarId) : TacticM (List MVarId) := g.withContext do
       if d.isImplementationDetail then continue
       let some (_, _, L, u') ← carryParts? d.type | continue
       unless u' == u do continue
+      -- reordered first: a sublist match would fill an open tail with fewer buffers
+      if let some pf ← carryReorder d.toExpr L' then
+        g.assign pf; return []
       if let some hs ← sublistProof L' L then
         g.assign (← mkAppM ``AsmVerif.RiscV.Sym.Carry.sublist #[d.toExpr, hs]); return []
   match_expr ty with

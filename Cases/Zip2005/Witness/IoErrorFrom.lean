@@ -3,6 +3,8 @@ import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Image.F_78036184
 import Cases.Zip2005.Image.F_7801aed0
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `From<io::Error> for Box<bincode::ErrorKind>` (0x78036184)
@@ -18,26 +20,31 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem io_error_from_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp : Word)
+theorem io_error_from_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp : Word)
     (hpc : s.pc = 0x78036184#64) (hcode : CodeAt F_78036184.base F_78036184.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x40 sp)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
-    (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (hhandle : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803d1a8#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (halloc : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x780361ac#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x780361ac#64 → CalleeSaved u t →
-        t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
+        t.code = u.code → t.privateInput = u.privateInput →
+        Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 0x18 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 3) :: L') t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ (t : MachineState) (e : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
-      Unchanged [(sp - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t → t.getReg .x10 = e →
-      SafeN G n P t) :
+      t.privateInput = s.privateInput → Unchanged [(sp - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t → t.getReg .x10 = e →
+      Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x40#64) 8 := hstk.frame 8 (by decide)
   have hu := Unchanged.refl [(sp - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
+  have hI : s.privateInput = s.privateInput := rfl
   have hlo := hstk.lo
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hokS.sub' 6 2 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x10#64) 2 s

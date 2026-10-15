@@ -3,6 +3,8 @@ import Cases.Zip2005.Kit.ByteKit
 import Cases.Zip2005.Image.F_780191c4
 import Cases.Zip2005.Image.F_7801b4d8
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `Zip2005Instance`'s serde visitor (`deserialize_struct`, 0x780191c4)
@@ -41,7 +43,7 @@ theorem get4 (W0 W1 W2 W3 : List Word) (h0 : W0.length = 4) (h1 : W1.length = 4)
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O W0 W1 W2 W3 : List Word) (hOl : O.length = 17)
     (hW0l : W0.length = 4) (hW1l : W1.length = 4) (hW2l : W2.length = 4) (hW3l : W3.length = 4)
     (hpc : s.pc = 0x780191c4#64) (hcode : CodeAt F_780191c4.base F_780191c4.prog s)
@@ -49,33 +51,35 @@ theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (
     (hcodeN : CodeAt F_78019b50.base F_78019b50.prog s)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x420 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = de) (ha5 : s.getReg .x15 = 4#64)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.textLo Ro.layout.textHi out 17)
-    (hD : Region de [q, l] s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi de 2)
+    (hD : Region de [q, l] s) (hokD : RegionOk Ro.layout.roBase Ro.layout.textHi de 2)
     (hW0 : Region q W0 s) (hW1 : Region (q + 32#64) W1 s) (hW2 : Region (q + 64#64) W2 s)
     (hW3 : Region (q + 96#64) W3 s)
     (hq : 0x1c00000000 ≤ q.toNat) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi q 16)
     (hdO : Disjoint (sp - 0x420#64) 132 out 17) (hdD : Disjoint (sp - 0x420#64) 132 de 2)
     (heD : Disjoint out 17 de 2) (hOlo : out.toNat + 136 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
+    (hio : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         t.privateInput = u.privateInput →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        SafeN G n P t) → SafeN G n P u)
+        Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       t.privateInput = s.privateInput →
       Unchanged [(sp - 0x420#64, 132), (out, 17), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (instW O (W0 ++ W1 ++ W2 ++ W3)) t → Region de [q + 128#64, l - 128#64] t →
-      128 ≤ l.toNat → SafeN G n P t)
+      128 ≤ l.toNat → Run.HeapAt L t → SafeN G n P t)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       t.privateInput = s.privateInput →
       Unchanged [(sp - 0x420#64, 132), (out, 17), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (replaceByte O[0]! 0 1#8 :: e :: O.drop 2) t → Region de [d0, d1] t →
-      l.toNat < 128 → SafeN G n P t) :
+      l.toNat < 128 → Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x420#64) 132 := hstk.frame 132 (by decide)
   have hu := Unchanged.refl [(sp - 0x420#64, 132), (out, 17), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s

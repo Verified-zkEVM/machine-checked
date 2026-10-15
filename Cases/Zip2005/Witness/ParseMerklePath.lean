@@ -5,6 +5,8 @@ import Cases.Zip2005.Field.Cells4
 import Cases.Zip2005.Image.F_7801d098
 import Cases.Zip2005.Image.F_7801aed0
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `Zip2005Witness::parse_merkle_path` (0x7801d098)
@@ -82,7 +84,7 @@ theorem mpCells_eq (H : List Word) (h : mpOk H) : (List.range 128).map (mpCell H
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState) (ra sp out w pw : Word)
+theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out w pw : Word)
     (H O : List Word) (hHl : H.length = 128) (hOl : O.length = 130)
     (hpc : s.pc = 0x7801d098#64) (hcode : CodeAt F_7801d098.base F_7801d098.prog s)
     (hcodeRho : CodeAt F_7801ddd8.base F_7801ddd8.prog s)
@@ -91,7 +93,7 @@ theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop}
     (hcodeB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcodeMC : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x5c0 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = w)
@@ -104,19 +106,21 @@ theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop}
     (hhO : Disjoint 0x78040620#64 14780694332 out 130) (hhH : Disjoint 0x78040620#64 14780694332 w 128)
     (hhP : Disjoint 0x78040620#64 14780694332 (w + 0x508#64) 1)
     -- `raw_vec::handle_error` diverges (an allocation failure)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G nb P u)
+    (hhandle : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G nb P u)
     -- `__rust_alloc(0x80, 8)` (ledger T2): a fresh 8-aligned block in the arena
-    (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (halloc : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x7801d114#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x80#64 → u.getReg .x11 = 8#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x7801d114#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 16 → Region ptr B t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 16 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x80 ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u)
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 0x80 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 16) :: L') t → SafeN G nb P t) → SafeN G nb P u)
     -- `RawVecInner::reserve::do_reserve_and_handle` on a full `Vec<Rho>` (ledger T2): capacity
     -- doubled (`max(2·cap, len + 1, 4)` with `len = cap ≥ 4`), the old contents moved to a fresh
     -- block, the old one freed
-    (hreserve : ∀ (u : MachineState) (sp' hdr ptr : Word) (n : Nat) (B : List Word),
+    (hreserve : ∀ (u : MachineState) (sp' hdr ptr : Word) (n : Nat) (B : List Word) (L' : List (Word × Nat)),
       u.pc = 0x7801cac0#64 → u.code = s.code → u.getReg .x1 = 0x7801d1e8#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x100 sp' → u.getReg .x10 = hdr →
       u.getReg .x11 = BitVec.ofNat 64 n →
@@ -124,22 +128,24 @@ theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop}
       Disjoint (sp' - 0x100#64) 32 hdr 3 → Disjoint 0x78040620#64 14780694332 hdr 3 →
       4 ≤ n → n ≤ 16 → B.length = 4 * n → Region ptr B u →
       0x78048980 ≤ ptr.toNat → ptr.toNat + 32 * n ≤ 0x1c00000000 →
+      RoImage Ro.layout u → Run.HeapAt ((ptr, 4 * n) :: L') u →
       (∀ (t : MachineState) (ptr' : Word) (B' : List Word), t.pc = 0x7801d1e8#64 →
         CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x100#64, 32), (hdr, 3), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         Region hdr [BitVec.ofNat 64 (2 * n), ptr', BitVec.ofNat 64 n] t → B'.length = 4 * n →
         Region ptr' (B ++ B') t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr' (8 * n) →
-        0x78048980 ≤ ptr'.toNat → ptr'.toNat + 64 * n ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u)
+        0x78048980 ≤ ptr'.toNat → ptr'.toNat + 64 * n ≤ 0x1c00000000 → Run.HeapAt ((ptr', 8 * n) :: L') t → SafeN G nb P t) → SafeN G nb P u)
     -- `__rust_dealloc(ptr, 32·cap, 8)` (ledger T2)
-    (hdealloc : ∀ (u : MachineState) (sp' r ptr sz : Word), u.pc = 0x7801bd08#64 →
+    (hdealloc : ∀ (u : MachineState) (sp' r ptr sz : Word) (k : Nat) (L' : List (Word × Nat)), u.pc = 0x7801bd08#64 →
       u.code = s.code → u.getReg .x1 = r → r &&& ~~~1#64 = r → u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' →
       u.getReg .x10 = ptr → u.getReg .x11 = sz → u.getReg .x12 = 8#64 →
       0x78048980 ≤ ptr.toNat →
+      RoImage Ro.layout u → Run.HeapAt ((ptr, k) :: L') u →
       (∀ t, t.pc = r → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G nb P t) → SafeN G nb P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Run.HeapAt L' t → SafeN G nb P t) → SafeN G nb P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x5c0#64, 184), (out, 130), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
-      Region out (merklePathW O H pw) t → SafeN G nb P t) :
+      Region out (merklePathW O H pw) t → Run.HeapAt L t → SafeN G nb P t) :
     SafeN G nb P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x5c0#64) 184 := hstk.frame 184 (by decide)
   -- the frame (`sp' = sp - 0x4b0`): [8, 0x3f0) the 125 words moved out, [0x3f0, 0x408) the `Vec`

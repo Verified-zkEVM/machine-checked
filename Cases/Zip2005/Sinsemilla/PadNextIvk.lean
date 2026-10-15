@@ -2,6 +2,8 @@ import Cases.Zip2005.Sinsemilla.PadIvkDefs
 import Cases.Zip2005.Field.BnKit
 import Cases.Zip2005.Image.F_78021e7c
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `Pad<Chain<Chain<Empty, Take<BitValIter>>, Take<BitValIter>>>::next` (0x78021e7c), phase A
@@ -23,25 +25,28 @@ set_option autoImplicit false
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 set_option asmverif.sym.foldBytes true in
-theorem pad_next_ivk_a_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
+theorem pad_next_ivk_a_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
     (hAl : A.length = 4) (hBl : B.length = 4)
     (k : Nat) (hk1 : 1 ≤ k) (hk254 : k ≤ 254) (j nA pA : Word) (hA : BitVec 8)
     (hnA : BitVec.ofNat 64 (255 - k) = nA) (hpA : pA = ptrA sp + BitVec.ofNat 64 (8 * (k / 64)))
     (hhA : BitVec.ofNat 8 (k % 64) = hA)
     (hpc : s.pc = 0x78021e7c#64) (hcode : CodeAt F_78021e7c.base F_78021e7c.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = spn) (hstk : StackOk Ro.layout 0x10 spn)
     (hsp_lo : 0x10000 ≤ sp.toNat) (hsp_hi : sp.toNat ≤ 0x78000000)
     (ha0 : s.getReg .x10 = iter)
     (hI : Region iter (padIvkA sp J j nA pA hA 0#64 (BitVec.ofNat 64 k)) s)
     (hokI : RegionOk Ro.layout.roBase Ro.layout.textHi iter 12)
+    (hiter : iter.toNat + 8 * 12 ≤ 0x78040620)
     (hAr : Region (ptrA sp) A s) (hokA : RegionOk Ro.layout.roBase Ro.layout.textHi (ptrA sp) 4)
     (hBr : Region (ptrB sp) B s) (hokB : RegionOk Ro.layout.roBase Ro.layout.textHi (ptrB sp) 4)
     (hdjI : Disjoint iter 12 (ptrA sp) 4) (hdjI' : Disjoint iter 12 (ptrB sp) 4)
     (hdjS : Disjoint (spn - 0x10#64) 2 iter 12) (hdjSA : Disjoint (spn - 0x10#64) 2 (ptrA sp) 4)
     (hdjSB : Disjoint (spn - 0x10#64) 2 (ptrB sp) 4) (hdjAB : Disjoint (ptrA sp) 4 (ptrB sp) 4)
-    (hunwrap_opt : ∀ u : MachineState, u.pc = 0x7803f364#64 → u.code = s.code → SafeN G n P u)
+    (hunwrap_opt : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803f364#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_f364 → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(spn - 0x10#64, 2), (iter, 12)] s t →
       Region iter (padIvkA sp J j (BitVec.ofNat 64 (255 - (k + 1)))

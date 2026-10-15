@@ -1,6 +1,8 @@
 import Cases.Zip2005.Curve.FromBytesKit
 import Cases.Zip2005.Image.F_78025a1c
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `EpAffine::from_bytes`
@@ -17,13 +19,16 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- `EpAffine::from_bytes` (`0x78025a1c`): see `FromBytesPost`. The `FP_TABLES` must be
     initialised (`Once` state `2`), as for `sqrt_alt`. -/
-theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word)
+theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp a0 a1 : Word)
     (b0 b1 b2 b3 cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 9) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G n P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN G n P u)
+    (hpb : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G n P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN G n P u)
+    (hprz : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de78#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de78 → SafeN G n P u)
     (hpc : s.pc = 0x78025a1c#64) (hcode : CodeAt F_78025a1c.base F_78025a1c.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s)
     (hcodeP : CodeAt F_78029d94.base F_78029d94.prog s)
@@ -33,7 +38,7 @@ theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Pro
     (hcodeA : CodeAt F_780315c0.base F_780315c0.prog s)
     (hcodeR : CodeAt F_78028298.base F_78028298.prog s)
     (hcodeT : CodeAt F_78029468.base F_78029468.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x6f0 sp)
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = a1)
@@ -184,12 +189,15 @@ theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Pro
       Unchanged [(sp - 0x6f0#64, 222), (a0, 9)] s u := fun u h => hunch.trans h
   clear hunch
   have hu2 := Unchanged.refl [(sp - 0x6f0#64, 222), (a0, 9)] s_416
-  have hpb' : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s_416.code → SafeN G n P u :=
-    fun u h1 h2 => hpb u h1 (h2.trans hcode)
-  have hpp' : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s_416.code → SafeN G n P u :=
-    fun u h1 h2 => hpp u h1 (h2.trans hcode)
-  have hprz' : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s_416.code → SafeN G n P u :=
-    fun u h1 h2 => hprz u h1 (h2.trans hcode)
+  have hpb' : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s_416.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G n P u :=
+    fun u sp' L' h1 h2 => hpb u sp' L' h1 (h2.trans hcode)
+  have hpp' : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s_416.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN G n P u :=
+    fun u sp' L' h1 h2 => hpp u sp' L' h1 (h2.trans hcode)
+  have hprz' : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de78#64 → u.code = s_416.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de78 → SafeN G n P u :=
+    fun u sp' L' h1 h2 => hprz u sp' L' h1 (h2.trans hcode)
   clear hpb hpp hprz
   have hcodeS : s_416.code = s.code := hcode
   have hro2 : RoImage Ro.layout s_416 := hro

@@ -7,6 +7,8 @@ import Cases.Zip2005.Kit.RegionGlue
 import Cases.Zip2005.Field.PowT
 import Cases.Zip2005.Image.F_780207e8
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `orchard::spec::prf_nf` (`0x780207e8`)
@@ -26,7 +28,7 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem prf_nf_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out nk rho : Word)
+theorem prf_nf_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out nk rho : Word)
     (n0 n1 n2 n3 r0 r1 r2 r3 : Word)
     (hpc : s.pc = 0x780207e8#64) (hcode : CodeAt F_780207e8.base F_780207e8.prog s)
     (hcodeU : CodeAt F_78029ae8.base F_78029ae8.prog s) (hcodeR : CodeAt F_78028298.base F_78028298.prog s)
@@ -34,7 +36,7 @@ theorem prf_nf_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Machin
     (hcodeF : CodeAt F_7801f120.base F_7801f120.prog s) (hcodeP : CodeAt F_7801ed68.base F_7801ed68.prog s)
     (hcodeX : CodeAt F_7801e704.base F_7801e704.prog s) (hcodeB : CodeAt F_78023a18.base F_78023a18.prog s)
     (hcodeM : CodeAt F_7801bf5c.base F_7801bf5c.prog s) (hcodeS : CodeAt F_7803f57c.base F_7803f57c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x9b0 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = nk) (ha2 : s.getReg .x12 = rho)
@@ -48,34 +50,36 @@ theorem prf_nf_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Machin
     (hh2 : Disjoint 0x78040620#64 14780694332 out 4)
     -- `P128Pow5T3::constants()` at its call site here (ledger T2): a `Vec` of the 64 rows of round
     -- constants (capacity 64, length 64) and the two matrices, the `Vec` in a fresh heap block
-    (hconst : ∀ (u : MachineState) (sp' a0' : Word) (O1 O2 O3 : List Word),
+    (hconst : ∀ (u : MachineState) (sp' a0' : Word) (O1 O2 O3 : List Word) (L' : List (Word × Nat)),
       O1.length = 3 → O2.length = 36 → O3.length = 36 →
       u.pc = 0x78023cbc#64 → u.code = s.code → u.getReg .x1 = 0x7802084c#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x60 sp' → u.getReg .x10 = a0' →
       Region a0' O1 u → Region (a0' + 0x18#64) O2 u → Region (a0' + 0x138#64) O3 u →
       RegionOk Ro.layout.roBase Ro.layout.textHi a0' 75 → Disjoint (sp' - 0x60#64) 12 a0' 75 →
-      RoImage Ro.layout u → Disjoint 0x78040620#64 14780694332 a0' 75 →
+      RoImage Ro.layout u → Disjoint 0x78040620#64 14780694332 a0' 75 → Run.HeapAt L' u →
       (∀ t, t.pc = 0x7802084c#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x60#64, 12), (a0', 75), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         ∀ (ptr : Word) (MI : List Word), MI.length = 36 →
         Region a0' [64#64, ptr, 64#64] t → Region (a0' + 0x18#64) Poseidon.mdsWords t →
         Region (a0' + 0x138#64) MI t →
         Region ptr Poseidon.rcWords t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 768) :: L') t →
+        SafeN G n P t) → SafeN G n P u)
     -- `__rust_dealloc(ptr, 64 * 96, 8)` at its call site here (ledger T2)
-    (hdealloc : ∀ (u : MachineState) (sp' ptr : Word) (C : List Word), C.length = 768 →
+    (hdealloc : ∀ (u : MachineState) (sp' ptr : Word) (C : List Word) (k : Nat) (L' : List (Word × Nat)), C.length = 768 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x78020c64#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = 6144#64 →
       u.getReg .x12 = 8#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 768 ≤ 0x1c00000000 →
+      RoImage Ro.layout u → Run.HeapAt ((ptr, k) :: L') u →
       (∀ t, t.pc = 0x78020c64#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n P t) → SafeN G n P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x9b0#64, 310), (out, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       ∀ o0 o1 o2 o3 : Word, Region out [o0, o1, o2, o3] t →
       leLimbsToNat [o0, o1, o2, o3] =
         Poseidon.hash2 (leLimbsToNat [n0, n1, n2, n3]) (leLimbsToNat [r0, r1, r2, r3]) →
-      SafeN G n P t) :
+      Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x9b0#64) 310 := hstk.frame 310 (by decide)
   -- the frame (below it 0x300 bytes for the callees' frames): [0, 0x1f8) scratch, the `constants()` output in three pieces, the sponge state

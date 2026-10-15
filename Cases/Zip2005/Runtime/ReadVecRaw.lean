@@ -1,6 +1,8 @@
 import Cases.Zip2005.Runtime.Hint
 import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `sp1_zkvm::io::read_vec_raw` (0x7801beb0)
@@ -17,17 +19,20 @@ open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem read_vec_raw_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra dst b : Word) (I : List (BitVec 8))
+theorem read_vec_raw_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} {sp0 : Word} (s : MachineState) (ra dst b : Word) (I : List (BitVec 8))
     (D J : List Word) (hDl : D.length = 3) (hJl : J.length = 175)
     (hpc : s.pc = 0x7801beb0#64) (hcode : CodeAt F_7801beb0.base F_7801beb0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
+    (hsp0 : s.getReg .x2 = sp0) (hstk0 : StackOk Ro.layout 0 sp0)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (ha0 : s.getReg .x10 = dst) (hI : s.privateInput = I)
     (hD : Region dst D s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi dst 3)
     (hB : Region 0x78040618#64 [b] s) (hb : 0x1c00000000 ≤ b.toNat)
     (hJ : Region b J s) (hokJ : RegionOk Ro.layout.textLo Ro.layout.textHi b 175)
     (hdD : dst.toNat + 24 ≤ 0x78040618)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hk0 : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged [(dst, 3), (0x78040618#64, 1), (0x1c00000000#64, 0x80000000)] s t →
       t.privateInput = I → hlenW I = -1#64 → Region dst [0#64, 0#64, 0#64] t → Region b J t →
       Region 0x78040618#64 [b] t → SafeN G n P t)

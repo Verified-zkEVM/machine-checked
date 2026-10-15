@@ -4,6 +4,8 @@ import Cases.Zip2005.Runtime.MemcpySpec
 import Cases.Zip2005.Image.F_7801dfb4
 import Cases.Zip2005.Image.F_7801aed0
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `from_iter`'s prologue (0x7801dfb4 to the loop head at byte 1)
@@ -22,18 +24,20 @@ set_option autoImplicit false
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_iter_note_pro {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out a1 ra v : Word)
+theorem from_iter_note_pro {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp sp0 out a1 ra v : Word)
     (J G K R Q Cb O : List Word) (j : Word) (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4)
     (hCbl : Cb.length = 18) (hCb : noteState sp0 J j 0 = Cb) (hOl : O.length = 3)
     (hpc : s.pc = 0x7801dfb4#64) (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s)
     (hcodeN : CodeAt F_78021720.base F_78021720.prog s)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s) (hcodeZ : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra)
     (hsp : s.getReg .x2 = sp + 0xe0#64) (hstk : StackOk Ro.layout 0x180 sp) (hokFr : RegionOk Ro.layout.roBase Ro.layout.textHi sp 28)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = a1)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.roBase Ro.layout.textHi out 3)
     (hCbr : Region a1 Cb s) (hokCb : RegionOk Ro.layout.roBase Ro.layout.textHi a1 18)
+    (ha1hi : a1.toNat + 8 * 18 ≤ 0x78040620)
     (hGr : Region (sp0 + 18446744073709551408#64) G s) (hokG : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551408#64) 4)
     (hKr : Region (sp0 + 18446744073709551440#64) K s) (hokK : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551440#64) 4)
     (hVr : Region (sp0 + 18446744073709551472#64) [v] s) (hokVv : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551472#64) 1)
@@ -78,14 +82,16 @@ theorem from_iter_note_pro {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     (hdjHO : Disjoint 0x78040620#64 14780694332 out 3)
     (hdjHC : Disjoint 0x78040620#64 14780694332 a1 18)
     -- `__rust_alloc(8, 1)` (A4, this call's instance): a fresh word in the arena
-    (halloc : ∀ (u : MachineState), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (halloc : ∀ (u : MachineState) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x7801e028#64 → u.getReg .x2 = sp → StackOk Ro.layout 0x30 sp →
       u.getReg .x10 = 8#64 → u.getReg .x11 = 1#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B0 : List Word), t.pc = 0x7801e028#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 → SafeN Gd n P t) → SafeN Gd n P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN Gd n P u)
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 8 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 1) :: L') t → SafeN Gd n P t) → SafeN Gd n P u)
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN Gd n P u)
     (hk : ∀ (t : MachineState) (ptr w bit0 bit1 : Word) (I1 I2 : List Word), t.pc = 0x7801e0d4#64 →
       t.code = s.code →
       Unchanged [(sp - 0x180#64, 48), (sp, 28), (a1, 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
@@ -101,7 +107,7 @@ theorem from_iter_note_pro {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
       Region out O t →
       bw (noteBit G K v R Q 0) = bit0 → Region ptr [w] t → extractByte w 0 = BitVec.truncate 8 bit0 →
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
-      SafeN Gd n P t) :
+      RoImage Ro.layout t → Run.HeapAt ((ptr, 1) :: L) t → SafeN Gd n P t) :
     SafeN Gd n P s := by
   have hokV : RegionOk Ro.layout.roBase Ro.layout.textHi sp 3 := hokFr.sub' 0 3 (by decide) (by simp)
   have hokBlk : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x18#64) 18 := hokFr.sub' 3 18 (by decide) rfl
@@ -167,11 +173,11 @@ theorem from_iter_note_pro {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
       Region out [O[0]!, O[1]!, O[2]!] t →
       bw (noteBit G K v R Q 0) = bit0 → Region ptr [w] t → extractByte w 0 = BitVec.truncate 8 bit0 →
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
-      SafeN Gd n P t :=
+      RoImage Ro.layout t → Run.HeapAt ((ptr, 1) :: L) t → SafeN Gd n P t :=
     fun t ptr w bit0 bit1 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c17 d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 d13 d14 d15 d16 d17 hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4
-        h3 h4 h22 h23 h24 h25 h26 h27 hI2 hR hR1 hO' hb0 hW hw hok hlo hhi =>
+        h3 h4 h22 h23 h24 h25 h26 h27 hI2 hR hR1 hO' hb0 hW hw hok hlo hhi hro' hheap' =>
       hk t ptr w bit0 bit1 [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17] [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15, d16, d17] hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4
-        h3 h4 h22 h23 h24 h25 h26 h27 rfl hI2 hR rfl hR1 (by rw [hO3]; exact hO') hb0 hW hw hok hlo hhi
+        h3 h4 h22 h23 h24 h25 h26 h27 rfl hI2 hR rfl hR1 (by rw [hO3]; exact hO') hb0 hW hw hok hlo hhi hro' hheap'
   sym_exec [hnext0, hnext1, halloc, hhandle_rv, memcpy144_spec] stop [0x7801e0d4]
   sym_close hk' _ post26_0 v29 post13_18 post42_18 post13_0 post13_1 post13_2 post13_3 post13_4 post13_5 post13_6 post13_7 post13_8 post13_9 post13_10 post13_11 post13_12 post13_13 post13_14 post13_15 post13_16 post13_17 post42_0 post42_1 post42_2 post42_3 post42_4 post42_5 post42_6 post42_7 post42_8 post42_9 post42_10 post42_11 post42_12 post42_13 post42_14 post42_15 post42_16 post42_17
   all_goals first

@@ -1,5 +1,5 @@
 # Issues found during verification and documented here
-## 1. The specification depends on a `native_decide` axiom (open, 2026-10-14)
+## 1. The specification depends on a `native_decide` axiom (resolved, 2026-10-15)
 
 **What.** `#print axioms Cases.Zip2005.guest_loaded_run` lists, besides `propext`,
 `Classical.choice` and `Quot.sound`,
@@ -21,6 +21,16 @@ comparable kernel work). (b) Restructure the definitions so the group order ente
 as a hypothesis of the theorems that need it. (c) Accept it explicitly as a stated trust
 assumption. (a) is the first thing to try; it needs editing the vendored `CompElliptic`
 file, which is a third-party source kept under its own licence.
+
+**Resolution.** (a): `q_nsmul_Gpt` is now `q_nsmul_G Gpt rfl`
+(`Spec/CompElliptic/Curves/PallasOrderCert.lean`, new). Double-and-add over `q`'s 255 bits is a
+certificate of intermediate points and slopes; each affine addition is checked against its
+slope by a multiplication (`λ · den = num`, `den ≠ 0`), so the kernel evaluates no inversion,
+and `decide +kernel` checks the run in about three seconds. `binNsmul_map` carries the
+coordinate computation to `SWPoint`. The vendored `PastaOrder.lean` changes only in that proof,
+an import and its module note. The other three `native_decide` witnesses in that file
+(`q_nsmul_isoGpt`, `p_nsmul_Gpt`, `p_nsmul_isoGpt`) are outside the guest theorem's
+dependencies.
 
 ## 2. The `panic_with_hook` premise does not constrain the heap (open, 2026-10-14)
 

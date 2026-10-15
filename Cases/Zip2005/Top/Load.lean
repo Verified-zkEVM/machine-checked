@@ -148,6 +148,11 @@ theorem RunCode.of_image {s : MachineState} (hs : s.code = image.codeAt) : RunCo
   hc_7803dd28 := codeAt_of_image Loaded.codeWF Layout.code_F_7803dd28 F_7803dd28.decode_ok hs
   hc_7803f54c := codeAt_of_image Loaded.codeWF Layout.code_F_7803f54c F_7803f54c.decode_ok hs
   hc_7803f57c := codeAt_of_image Loaded.codeWF Layout.code_F_7803f57c F_7803f57c.decode_ok hs
+  hc_78032b38 := codeAt_of_image Loaded.codeWF Layout.code_F_78032b38 F_78032b38.decode_ok hs
+  hc_78030a94 := codeAt_of_image Loaded.codeWF Layout.code_F_78030a94 F_78030a94.decode_ok hs
+  hc_780326cc := codeAt_of_image Loaded.codeWF Layout.code_F_780326cc F_780326cc.decode_ok hs
+  hc_78032560 := codeAt_of_image Loaded.codeWF Layout.code_F_78032560 F_78032560.decode_ok hs
+  hc_78032614 := codeAt_of_image Loaded.codeWF Layout.code_F_78032614 F_78032614.decode_ok hs
   hc_7801cac0 := codeAt_of_image Loaded.codeWF Layout.code_F_7801cac0 F_7801cac0.decode_ok hs
   hc_7801cdb4 := codeAt_of_image Loaded.codeWF Layout.code_F_7801cdb4 F_7801cdb4.decode_ok hs
   hc_78023cbc := codeAt_of_image Loaded.codeWF Layout.code_F_78023cbc F_78023cbc.decode_ok hs
@@ -180,5 +185,16 @@ theorem data2_word (I : List (BitVec 8)) (j : Nat) (hj : j < Data_2.chunk.size) 
   obtain rfl : i = 0 := by omega
   rw [start_getMem, show a + BitVec.ofNat 64 (8 * 0) = a by simp, ← ha, memAt_data2 j hj, hv]
   rfl
+
+/-- `FP_TABLES` (`Once<SqrtTables>`, ten doublewords at `0x780488a8`) in `.bss`: zero, its `Once`
+    uninitialised. -/
+theorem data2_fp_tables (I : List (BitVec 8)) : Region 0x780488a8#64 [0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64] (start I) := by
+  intro i hi
+  simp only [List.length_cons, List.length_nil] at hi
+  rw [start_getMem, show (0x780488a8#64 : Word) + BitVec.ofNat 64 (8 * i) =
+    Data_2.chunk.base + BitVec.ofNat 64 (8 * (4178 + i)) by
+      apply BitVec.eq_of_toNat_eq; simp [Data_2.chunk]; omega,
+    memAt_data2 _ (by simp [DataChunk.size, Data_2.chunk]; omega)]
+  interval_cases i <;> rfl
 
 end Cases.Zip2005.Top

@@ -2,6 +2,8 @@ import Cases.Zip2005.Sinsemilla.FromIterNoteKit
 import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Image.F_7801dfb4
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
@@ -18,13 +20,17 @@ to the output, the frame restored, and `from_iter` returns.
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-theorem from_iter_note_tail {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out v p bit0 w w64 : Word)
+theorem from_iter_note_tail {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp sp0 out v p bit0 w w64 : Word)
     (J G K R Q I O : List Word) (j : Word) (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4) (hOl : O.length = 3)
     (hIl : I.length = 18) (hIv : noteState sp0 J j 1089 = I)
     (rav s0v s1v s2v s3v s4v s5v : Word) (hra1 : rav &&& ~~~1#64 = rav)
     (hpc : s.pc = 0x7801e0d4#64) (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s)
     (hcodeN : CodeAt F_78021720.base F_78021720.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    -- the run's heap invariant, the `Vec`'s block live; the output header below the heap
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt ((p, 256) :: L) s)
+    (hplo : 0x78048980 ≤ p.toNat) (hphi : p.toNat + 8 * 256 ≤ 0x1c00000000)
+    (hout : out.toNat + 8 * 3 ≤ 0x78040620)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x180 sp)
     (hs0 : s.getReg .x8 = out) (hs1 : s.getReg .x9 = p) (hs2 : s.getReg .x18 = 1088#64)
     (hs3 : s.getReg .x19 = 2#64) (hbit0 : bw (noteBit G K v R Q 1088) = bit0) (hs4 : s.getReg .x20 = bit0)
@@ -76,7 +82,7 @@ theorem from_iter_note_tail {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s
       I'.length = 18 → noteState sp0 J j 1091 = I' → Region (sp + 0x18#64) I' t →
       Region (p + 1088#64) [w', w64] t →
       (∀ b, b < 2 → extractByte w' b = BitVec.truncate 8 (bw (noteBit G K v R Q (1088 + b)))) →
-      SafeN Gd n P t) :
+      RoImage Ro.layout t → Run.HeapAt ((p, 256) :: L) t → SafeN Gd n P t) :
     SafeN Gd n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x180#64) 48 := hstk.frame 48 (by decide)
   have hu := Unchanged.refl [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (p + 1088#64, 2), (out, 3)] s

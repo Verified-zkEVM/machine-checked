@@ -7,15 +7,18 @@
 import Cases.Zip2005.Curve.Mul
 import Cases.Zip2005.Image.F_7802827c
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
 open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
 
 /-- `<Ep as Mul<&Fq>>::mul`: a frame around `sp1_pallas::zkvm::mul`. -/
-theorem ep_mul_fq_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)
+theorem ep_mul_fq_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)
     (hptl : pt.length = 12) (hkl : k.length = 4) (hOl : O.length = 12)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hpc : s.pc = 0x7802827c#64) (hcodeW : CodeAt F_7802827c.base F_7802827c.prog s)
     (hcode : CodeAt F_78031be8.base F_78031be8.prog s)
     (hcodeBB : CodeAt F_7803a0fc.base F_7803a0fc.prog s)
@@ -35,7 +38,7 @@ theorem ep_mul_fq_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
     (hcodeL : CodeAt F_780360e0.base F_780360e0.prog s)
     (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x4a0 sp)
     (ha0 : s.getReg .x10 = a0) (ha1 : s.getReg .x11 = a1) (ha2 : s.getReg .x12 = a2)
@@ -59,8 +62,9 @@ theorem ep_mul_fq_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
     have e : (sp - 0x10#64).toNat = sp.toNat - 0x10 := by
       rw [BitVec.toNat_sub, Bn.toNat_ofNat']; omega
     exact ⟨by rw [e]; omega, by rw [e]; omega, by rw [e, Ro.layout_stackTop]; omega⟩
-  have M := fun (t : MachineState) (hc : t.code = s.code) ra a0 a1 a2 sp pt k O hptl hkl hOl =>
-    mul_spec (G := G) (n := n) (P := P) t ra a0 a1 a2 sp pt k O hptl hkl hOl (fun u hu hcu => hpanic u hu (hcu.trans hc))
+  have M := fun (t : MachineState) (hc : t.code = s.code) (L' : List (Word × Nat)) ra a0 a1 a2 sp pt k O hptl hkl hOl =>
+    mul_spec (G := G) (n := n) (P := P) (L := L') t ra a0 a1 a2 sp pt k O hptl hkl hOl
+      (fun u sp'' L'' hu hcu => hpanic u sp'' L'' hu (hcu.trans hc))
   sym_exec [M]
   sym_close hk'
   · exact length_mulW pt k

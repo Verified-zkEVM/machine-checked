@@ -26,7 +26,7 @@ def Open (R : List (Nat × Nat)) (L : List (Word × Nat)) (a : Word) : Prop :=
 /-- Memory `s` satisfies `Q` of every sublist of `L`, through its closed addresses only. -/
 def Carry (R : List (Nat × Nat)) (Q : List (Word × Nat) → (Word → Word) → Prop)
     (L : List (Word × Nat)) (s : MachineState) : Prop :=
-  ∀ m : Word → Word, (∀ a, ¬ Open R L a → m a = s.getMem a) → ∀ L', L'.Sublist L → Q L' m
+  ∀ m : Word → Word, (∀ a, ¬ Open R L a → m a = s.getMem a) → ∀ L', L'.Subperm L → Q L' m
 
 /-- Every address of `[b, b + 8 n)` is open. -/
 def OpenBlock (R : List (Nat × Nat)) (L : List (Word × Nat)) (b : Word) (n : Nat) : Prop :=
@@ -35,9 +35,15 @@ def OpenBlock (R : List (Nat × Nat)) (L : List (Word × Nat)) (b : Word) (n : N
 variable {R : List (Nat × Nat)} {Q : List (Word × Nat) → (Word → Word) → Prop}
   {L : List (Word × Nat)} {s t : MachineState}
 
-theorem Carry.holds (h : Carry R Q L s) : Q L s.getMem := h _ (fun _ _ => rfl) L (List.Sublist.refl L)
+theorem Carry.holds (h : Carry R Q L s) : Q L s.getMem := h _ (fun _ _ => rfl) L (List.Subperm.refl L)
 
 theorem Open.sublist {L' : List (Word × Nat)} {a : Word} (hs : L'.Sublist L) (h : Open R L' a) :
+    Open R L a := by
+  rcases h with h | ⟨r, hr, hin⟩
+  · exact .inl h
+  · exact .inr ⟨r, hs.subset hr, hin⟩
+
+theorem Open.subperm {L' : List (Word × Nat)} {a : Word} (hs : L'.Subperm L) (h : Open R L' a) :
     Open R L a := by
   rcases h with h | ⟨r, hr, hin⟩
   · exact .inl h
@@ -46,7 +52,18 @@ theorem Open.sublist {L' : List (Word × Nat)} {a : Word} (hs : L'.Sublist L) (h
 /-- Dropping live buffers keeps the invariant. -/
 theorem Carry.sublist {L' : List (Word × Nat)} (h : Carry R Q L s) (hs : L'.Sublist L) :
     Carry R Q L' s :=
-  fun m hm L'' h'' => h m (fun a ha => hm a fun h' => ha (h'.sublist hs)) L'' (h''.trans hs)
+  fun m hm L'' h'' => h m (fun a ha => hm a fun h' => ha (h'.sublist hs)) L'' (h''.trans hs.subperm)
+
+/-- The live list is a set: reordering it keeps the invariant. -/
+theorem Carry.perm {L' : List (Word × Nat)} (h : Carry R Q L s) (hp : L.Perm L') :
+    Carry R Q L' s :=
+  fun m hm L'' h'' => h m (fun a ha => hm a fun h' => ha (h'.subperm hp.symm.subperm)) L''
+    (h''.trans hp.symm.subperm)
+
+/-- A buffer of the live list to its front. -/
+theorem Carry.toFront {l₁ l₂ : List (Word × Nat)} {x : Word × Nat} (h : Carry R Q (l₁ ++ x :: l₂) s) :
+    Carry R Q (x :: (l₁ ++ l₂)) s :=
+  h.perm List.perm_middle
 
 theorem Carry.of_getMem (h : Carry R Q L s) (hm : ∀ a, ¬ Open R L a → t.getMem a = s.getMem a) :
     Carry R Q L t :=
@@ -56,7 +73,7 @@ theorem Carry.of_getMem (h : Carry R Q L s) (hm : ∀ a, ¬ Open R L a → t.get
     live buffers. -/
 theorem Carry.intro (hQ : Q L s.getMem)
     (hframe : ∀ m m' : Word → Word, Q L m → (∀ a, ¬ Open R L a → m' a = m a) → Q L m')
-    (hsub : ∀ L', L'.Sublist L → ∀ m, Q L m → Q L' m) : Carry R Q L s :=
+    (hsub : ∀ L', L'.Subperm L → ∀ m, Q L m → Q L' m) : Carry R Q L s :=
   fun m hm L' hs => hsub L' hs m (hframe _ m hQ hm)
 
 theorem Carry.of_mem_eq (h : Carry R Q L s) (hm : t.mem = s.mem) : Carry R Q L t :=
@@ -89,6 +106,16 @@ theorem openBlock_range (R : List (Nat × Nat)) (L : List (Word × Nat)) {lo hi 
     (h1 : lo ≤ b.toNat) (h2 : b.toNat + 8 * n ≤ hi) : OpenBlock R L b n :=
   fun a ha => Or.inl ⟨(lo, hi), hr, by unfold InRegion at ha; omega, by unfold InRegion at ha; omega⟩
 
+/-- A block inside one of two fixed ranges is open (a frame fact that leaves the block below
+    one bound or above another). -/
+theorem openBlock_range2 (R : List (Nat × Nat)) (L : List (Word × Nat)) {lo hi lo' hi' : Nat}
+    (hr : (lo, hi) ∈ R) (hr' : (lo', hi') ∈ R) {b : Word} {n : Nat}
+    (h : (lo ≤ b.toNat ∧ b.toNat + 8 * n ≤ hi) ∨ (lo' ≤ b.toNat ∧ b.toNat + 8 * n ≤ hi')) :
+    OpenBlock R L b n := by
+  rcases h with ⟨h1, h2⟩ | ⟨h1, h2⟩
+  · exact openBlock_range R L hr h1 h2
+  · exact openBlock_range R L hr' h1 h2
+
 /-- A block inside a live buffer is open. -/
 theorem openBlock_live (R : List (Nat × Nat)) (L : List (Word × Nat)) {p : Word} {k : Nat}
     (hr : (p, k) ∈ L) {b : Word} {n : Nat}
@@ -115,6 +142,11 @@ theorem openW_cons {r : Word × Nat} {rs : List (Word × Nat)} (hd : OpenBlock R
 theorem OpenBlock.cell {b : Word} {n i : Nat} (h : OpenBlock R L b n) (hi : i < n)
     (hnw : b.toNat + 8 * n ≤ 2 ^ 64) : Open R L (b + BitVec.ofNat 64 (8 * i)) :=
   h _ (by unfold InRegion; rw [toNat_addr hi hnw]; omega)
+
+/-- The address of an open one-cell block is open. -/
+theorem OpenBlock.at {a : Word} (h : OpenBlock R L a 1) (hnw : a.toNat + 8 ≤ 2 ^ 64) :
+    Open R L a := by
+  simpa using h.cell (i := 0) (by decide) (by simpa using hnw)
 
 /-- A store into a cell of an open block keeps the invariant. -/
 theorem Carry.setMem_cell (h : Carry R Q L s) {b : Word} {n i : Nat} (hb : OpenBlock R L b n)

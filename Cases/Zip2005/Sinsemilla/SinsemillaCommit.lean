@@ -12,6 +12,8 @@ import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Sinsemilla.NoteBits
 import Cases.Zip2005.Image.F_78020d50
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `sinsemilla::CommitDomain::commit` (`0x78020d50`)
@@ -163,14 +165,16 @@ theorem list8_get_7 (x0 x1 x2 x3 x4 x5 x6 x7 : Word) : [x0, x1, x2, x3, x4, x5, 
 /-- `Cases.Zip2005.sinsemilla_loop` for the whole message (109 chunks from the first) in the shape the
 executor applies: the counter and pointer registers as values, the accumulator's nine cells
 explicit, the table the read-only one. -/
-theorem sinsemilla_loop_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (t : MachineState) (sp bp : Word) (Bv : List Word)
+theorem sinsemilla_loop_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (t : MachineState) (sp bp : Word) (Bv : List Word)
     (hBl : Bv.length = 137)
     (hbool : ∀ o, o < 1090 → byteAt Bv o = 0#64 ∨ byteAt Bv o = 1#64)
     (g3 g4 g8 g9 g18 a1 a2 a3 a4 a5 a6 a7 a8 : Word) (A C D E F : List Word)
     (hAl : A.length = 9) (hCl : C.length = 4) (hDl : D.length = 4) (hEl : E.length = 9)
     (hFl : F.length = 9)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = t.code → SafeN G n P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = t.code → SafeN G n P u)
+    (hbounds : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = t.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G n P u)
+    (hunwrap : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dc7c#64 → u.code = t.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_dc7c_10 → u.getReg .x13 ∈ Run.vals_dc7c_13 → u.getReg .x14 ∈ Run.vals_dc7c_14 → SafeN G n P u)
     (hpc : t.pc = 0x78020e74#64)
     (hcodeC : CodeAt F_78020d50.base F_78020d50.prog t)
     (hcodeL : CodeAt F_780234cc.base F_780234cc.prog t)
@@ -182,7 +186,7 @@ theorem sinsemilla_loop_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (t
     (hcodeLR : CodeAt F_780360e0.base F_780360e0.prog t)
     (hcodeAdd : CodeAt F_7801bf3c.base F_7801bf3c.prog t)
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog t)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi t) (hro : RoImage Ro.layout t)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi t) (hro : RoImage Ro.layout t) (hheap : Run.HeapAt L t)
     (hsp : t.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x130 sp) (hhi : sp.toNat + 0x3c0 ≤ 0x78000000)
     (h3 : t.getReg .x3 = g3) (h4 : t.getReg .x4 = g4) (h8 : t.getReg .x8 = g8)
     (h9 : t.getReg .x9 = g9) (h18 : t.getReg .x18 = g18)
@@ -207,7 +211,7 @@ theorem sinsemilla_loop_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (t
       Unchanged [(sp - 0x130#64, 38), (sp, 9), (sp + 0x190#64, 9), (sp + 0x1d8#64, 4),
         (sp + 0x258#64, 4), (sp + 0x298#64, 9), (sp + 0x2f8#64, 9)] t u →
       acc'.length = 9 → Region (sp + 0x190#64) acc' u →
-      AccRep (sinFold sTable (some [a1, a2, a3, a4, a5, a6, a7, a8]) (chunks Bv 109)) acc' →
+      AccRep (sinFold sTable (some [a1, a2, a3, a4, a5, a6, a7, a8]) (chunks Bv 109)) acc' → Run.HeapAt L u →
       SafeN G n P u) :
     SafeN G n P t := by
   have hacc : Region (sp + 0x190#64) [1#64, a1, a2, a3, a4, a5, a6, a7, a8] t := by
@@ -226,11 +230,11 @@ theorem sinsemilla_loop_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (t
   exact sinsemilla_loop sp bp sTable Bv 109 t.code g3 g4 g8 g9 g18 [a1, a2, a3, a4, a5, a6, a7, a8]
     hbounds hunwrap sTable_length hBl (by decide) hbool 109 0 t
     [1#64, a1, a2, a3, a4, a5, a6, a7, a8] 1090#64 bp (by omega) (by omega) hrep hpc rfl hcodeC hcodeL hcodeP
-    hcodeT hcodeI hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeM hcw hro hsp hstk hhi h3 h4 h8 h9 h18
+    hcodeT hcodeI hcodeCmp hcodeAA hcodeLR hcodeAdd hcodeM hcw hro hheap hsp hstk hhi h3 h4 h8 h9 h18
     h19 h20 h21 rfl h22 (by simp) h23 h24 h25 h26 hT hokT hB hokB ⟨A, hAl, hA⟩ hokA hacc hokacc
     ⟨C, hCl, hC⟩ hokC ⟨D, hDl, hD⟩ hokD ⟨E, hEl, hE⟩ hokE ⟨F, hFl, hF⟩ hokF hdB
-    (fun u acc' hpc hc h2 h3 h4 h8 h9 h18 h19 hun hR hrep =>
-      hk u acc' hpc hc h2 h3 h4 h8 h9 h18 h19 hun hrep.1 hR hrep)
+    (fun u acc' hpc hc h2 h3 h4 h8 h9 h18 h19 hun hR hrep hH =>
+      hk u acc' hpc hc h2 h3 h4 h8 h9 h18 h19 hun hrep.1 hR hrep hH)
 
 /-! ## `conditional_select` with a literal choice -/
 
@@ -351,14 +355,18 @@ set_option asmverif.sym.foldBytes true in
 (`Fq`, Montgomery). `from_iter` is a contract (`hfrom`): it collects the iterator into the
 1090 message bytes `Bv` (a `Vec<bool>`, a byte per bit), with `__rust_dealloc` (`hdealloc`)
 freeing it. The result is `commitW` with the `is_some` flag byte. -/
-theorem sinsemilla_commit_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out dom iter r : Word)
+theorem sinsemilla_commit_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out dom iter r : Word)
     (d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 e0 e1 e2 e3 e4 e5 e6 e7 e8 e9 e10 e11 : Word)
     (k0 k1 k2 k3 : Word) (I : List Word) (hIl : I.length = 15)
     (bit : Nat → Bool) (M : Word) (Mw O : List Word) (hMl : Mw.length = 17) (hOl : O.length = 13)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G n P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G n P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G n P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (hunwrap : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dc7c#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_dc7c_10 → u.getReg .x13 ∈ Run.vals_dc7c_13 → u.getReg .x14 ∈ Run.vals_dc7c_14 → SafeN G n P u)
+    (hbounds : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G n P u)
     (hpc : s.pc = 0x78020d50#64) (hcode : CodeAt F_78020d50.base F_78020d50.prog s)
     -- callees: memcpy, to_affine (+ invert, mulmod, black_box), coordinates, pack (+ to_repr),
     -- lebs2ip_k, incomplete_add and its callees, unpack (+ from_repr), from_xy (+ is_on_curve,
@@ -382,7 +390,7 @@ theorem sinsemilla_commit_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
     (hcodeD : CodeAt F_780360c8.base F_780360c8.prog s) (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s) (hcodeEA : CodeAt F_78026b44.base F_78026b44.prog s)
     (hcodeED : CodeAt F_7802413c.base F_7802413c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x8e0 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = dom) (ha2 : s.getReg .x12 = iter)
@@ -413,7 +421,7 @@ theorem sinsemilla_commit_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
     (hhM : Disjoint 0x78040620#64 14780694332 M 17)
     -- `from_iter` (ledger T2): the iterator (its state `[0, _, iter…, 0]`) collected into the
     -- 1090 message bytes, a `Vec` of some non-zero capacity on the heap
-    (hfrom : ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word), O1.length = 3 →
+    (hfrom : ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (L' : List (Word × Nat)), O1.length = 3 →
       u.pc = 0x7801dfb4#64 → u.code = s.code → u.getReg .x1 = 0x78020dc4#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x260 sp' → u.getReg .x10 = a0' → u.getReg .x11 = a1' →
       Region a0' O1 u → Region a1' [0#64, j] u →
@@ -425,28 +433,31 @@ theorem sinsemilla_commit_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
       Mok →
       Disjoint (sp' - 0x260#64) 76 M 17 → Disjoint a0' 3 M 17 → Disjoint a1' 18 M 17 →
       Disjoint 0x78040620#64 14780694332 a0' 3 → Disjoint 0x78040620#64 14780694332 a1' 18 →
+      a0'.toNat + 8 * 3 ≤ 0x78040620 → a1'.toNat + 8 * 18 ≤ 0x78040620 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (cap ptr : Word) (J Bv : List Word), t.pc = 0x78020dc4#64 →
         CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x260#64, 76), (a0', 3), (a1', 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         J.length = 18 → Region a0' [cap, ptr, 1090#64] t → cap ≠ 0#64 → Region a1' J t →
         Bv.length = 137 → (∀ o, o < 1090 → byteAt Bv o = bw (bit o)) →
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 137 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 256) :: L') t → SafeN G n P t) → SafeN G n P u)
     -- `__rust_dealloc` of that `Vec` (ledger T2)
-    (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 137 →
+    (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word) (k : Nat) (L' : List (Word × Nat)), C.length = 137 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780210f0#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = cap →
       u.getReg .x12 = 1#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 137 ≤ 0x1c00000000 →
+      RoImage Ro.layout u → Run.HeapAt ((ptr, k) :: L') u →
       (∀ t, t.pc = 0x780210f0#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G n P t) → SafeN G n P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x8e0#64, 284), (out, 13), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (commitW [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11]
         [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11] (boolBytesToWords bit 137) [k0, k1, k2, k3]) t →
       Region (out + 0x60#64) [replaceByte O[12]! 0 (commitFlag [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11]
           (boolBytesToWords bit 137))] t →
-      mulFacts [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11] [k0, k1, k2, k3] → SafeN G n P t) :
+      mulFacts [e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11] [k0, k1, k2, k3] → Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x8e0#64) 284 := hstk.frame 284 (by decide)
   -- the frame (below it 0x520 bytes for the callees' frames)
@@ -501,7 +512,7 @@ theorem sinsemilla_commit_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
     fun o ho => by rw [post30_13 o ho]; cases bit o <;> simp [bw]
   have hch : chunks post30_3 109 = chunks (boolBytesToWords bit 137) 109 :=
     chunks_ext 109 (fun o ho => by rw [post30_13 o ho, byteAt_boolBytesToWords _ _ _ (by omega)])
-  have hloop := sinsemilla_loop_spec (G := G) (n := n) (P := P) (Bv := post30_3) (hBl := post30_12) (hbool := hbool)
+  have hloop := fun (L' : List (Word × Nat)) => sinsemilla_loop_spec (L := L') (G := G) (n := n) (P := P) (Bv := post30_3) (hBl := post30_12) (hbool := hbool)
   sym_exec [hloop, sinsemilla_unpack_spec, from_xy_spec, to_curve_spec, incomplete_from_spec,
     incomplete_bottom_spec', hdealloc, memcpy104_spec, memset96_spec', conditional_select_spec_one,
     conditional_select_spec_zero, sinsemilla_blinding_spec, hpaf] stop [0x78021154]

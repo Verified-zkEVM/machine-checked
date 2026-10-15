@@ -1,5 +1,7 @@
 import Cases.Zip2005.Poseidon.Constants
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `P128Pow5T3::constants()`, as its callers' contract
@@ -25,40 +27,43 @@ set_option maxHeartbeats 4000000 in
 theorem constants_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     (hcode : CodeAt F_78023cbc.base F_78023cbc.prog s) (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcodeCpy : CodeAt F_7801b4d8.base F_7801b4d8.prog s) (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
-    (halloc_c : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (halloc_c : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78023cf4#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' → u.getReg .x10 = 0x1800#64 →
       u.getReg .x11 = 8#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78023cf4#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 768 → Region ptr B t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x1800 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
-    (hhandle_rv : ∀ u : MachineState, u.pc = 0x7803cf14#64 → u.code = s.code → SafeN G n P u) :
-    ∀ (u : MachineState) (sp' a0' : Word) (O1 O2 O3 : List Word),
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 0x1800 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 768) :: L') t → SafeN G n P t) → SafeN G n P u)
+    (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u) :
+    ∀ (u : MachineState) (sp' a0' : Word) (O1 O2 O3 : List Word) (L' : List (Word × Nat)),
       O1.length = 3 → O2.length = 36 → O3.length = 36 →
       u.pc = 0x78023cbc#64 → u.code = s.code → u.getReg .x1 = 0x7802084c#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x60 sp' → u.getReg .x10 = a0' →
       Region a0' O1 u → Region (a0' + 0x18#64) O2 u → Region (a0' + 0x138#64) O3 u →
       RegionOk Ro.layout.roBase Ro.layout.textHi a0' 75 → Disjoint (sp' - 0x60#64) 12 a0' 75 →
-      RoImage Ro.layout u → Disjoint 0x78040620#64 14780694332 a0' 75 →
+      RoImage Ro.layout u → Disjoint 0x78040620#64 14780694332 a0' 75 → Run.HeapAt L' u →
       (∀ t, t.pc = 0x7802084c#64 → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x60#64, 12), (a0', 75), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         ∀ (ptr : Word) (MI : List Word), MI.length = 36 →
         Region a0' [64#64, ptr, 64#64] t → Region (a0' + 0x18#64) Poseidon.mdsWords t →
         Region (a0' + 0x138#64) MI t →
         Region ptr Poseidon.rcWords t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 768 → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 768 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u := by
-  intro u sp' a0' O1 O2 O3 h1 h2 h3 hpc hcu hra hsp hstk ha0 hR1 hR2 hR3 hok hdj hro hdjH hk
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 768 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 768) :: L') t →
+        SafeN G n P t) → SafeN G n P u := by
+  intro u sp' a0' O1 O2 O3 L' h1 h2 h3 hpc hcu hra hsp hstk ha0 hR1 hR2 hR3 hok hdj hro hdjH hheap hk
   have hlo := hstk.lo
   have hstk50 : StackOk Ro.layout 0x50 sp' := ⟨hstk.aligned, by omega, hstk.hi⟩
   have hO : Region a0' (O1 ++ O2 ++ O3) u :=
     Region.append' (Region.append' hR1 hR2 (by rw [h1])) hR3 (by rw [List.length_append, h1, h2])
   refine constants_spec u 0x7802084c#64 sp' a0' (O1 ++ O2 ++ O3) (by simp [h1, h2, h3]) hpc
     (codeAt_of_code_eq hcu hcode) (codeAt_of_code_eq hcu hcodeSh) (codeAt_of_code_eq hcu hcodeCpy)
-    (codeWithin_of_code_eq hcu hcw) hro hra (by decide) hsp hstk50 ha0 hO hok
+    (codeWithin_of_code_eq hcu hcw) hro hheap hra (by decide) hsp hstk50 ha0 hO hok
     (hdj.of_sub (const_frame_sub sp') (by omega) (by rw [Nat.mul_zero, BitVec.add_zero]) (by omega)) hdjH
-    (fun u' sp'' g1 g2 g3 g4 g5 g6 g7 k => halloc_c u' sp'' g1 (g2.trans hcu) g3 g4 g5 g6 g7 k)
-    (fun u' g1 g2 => hhandle_rv u' g1 (g2.trans hcu)) ?_
-  intro t ptr hpc' hcs hcode' hun hOut hRC hok1 hok2 hlo' hhi'
+    (fun u' sp'' L'' g1 g2 => halloc_c u' sp'' L'' g1 (g2.trans hcu))
+    (fun u' sp'' L'' g1 g2 => hhandle_rv u' sp'' L'' g1 (g2.trans hcu)) ?_
+  intro t ptr hpc' hcs hcode' hun hOut hRC hok1 hok2 hlo' hhi' hheap'
   have hun' : Unchanged [(sp' - 0x60#64, 12), (a0', 75), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t := by
     refine Unchanged.trans_cover (Unchanged.refl _ u) hun ?_
     intro r hr
@@ -83,6 +88,6 @@ theorem constants_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (s :
   have hN := hMN.shift 36
   rw [List.drop_left' mdsWords_length] at hN
   exact hk t hpc' hcs hcode' hun' ptr mdsInvWords mdsInvWords_length hA hM
-    (by rw [BitVec.add_assoc] at hN; exact hN) hRC hok1 hok2 hlo' hhi'
+    (by rw [BitVec.add_assoc] at hN; exact hN) hRC hok1 hok2 hlo' hhi' hheap'
 
 end Cases.Zip2005

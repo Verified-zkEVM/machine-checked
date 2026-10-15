@@ -1,6 +1,8 @@
 import Cases.Zip2005.Sinsemilla.FromIterNoteKit
 import Cases.Zip2005.Image.F_7801dfb4
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `Vec<u8>::from_iter` of `NoteCommitment::derive`'s padded bit iterator (0x7801dfb4)
@@ -18,7 +20,7 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- From the loop head at byte `8m + 1` to the loop head at byte `8m + 8`: seven bytes of
     word `m` of the `Vec` (`q = p + 8m`), seven calls. -/
-theorem from_iter_note_word {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out v p iw q cap w bit0 : Word)
+theorem from_iter_note_word {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} {K' : Nat} (s : MachineState) (sp sp0 out v p iw q cap w bit0 : Word)
     (J G K R Q I : List Word) (j : Word) (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4)
     (m : Nat) (hm : m ≤ 135)
     (hIl : I.length = 18) (hIv : noteState sp0 J j (8 * m + 2) = I)
@@ -33,6 +35,9 @@ theorem from_iter_note_word {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s
     (hpc : s.pc = 0x7801e0d4#64) (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s)
     (hcodeN : CodeAt F_78021720.base F_78021720.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    -- the run's heap invariant, the `Vec`'s block `(p, K')` live and the word `q` in it
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt ((p, K') :: L) s)
+    (hqlo : p.toNat ≤ q.toNat) (hqhi : q.toNat + 8 * 1 ≤ p.toNat + 8 * K')
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x180 sp)
     (hs0 : s.getReg .x8 = out) (hs1 : s.getReg .x9 = p) (hs2 : s.getReg .x18 = iw + 1#64)
     (hs3 : s.getReg .x19 = 2#64) (hbit0 : bw (noteBit G K v R Q (8 * m + 1)) = bit0) (hs4 : s.getReg .x20 = bit0)
@@ -76,7 +81,7 @@ theorem from_iter_note_word {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s
       Region (sp + 0x18#64) I' t →
       Region q [w'] t → extractByte w' 0 = extractByte w 0 →
       (∀ b, 1 ≤ b → b < 8 → extractByte w' b = BitVec.truncate 8 (bw (noteBit G K v R Q (8 * m + b)))) →
-      SafeN Gd n P t) :
+      RoImage Ro.layout t → Run.HeapAt ((p, K') :: L) t → SafeN Gd n P t) :
     SafeN Gd n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x180#64) 48 := hstk.frame 48 (by decide)
   have hu := Unchanged.refl [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (q, 1)] s
@@ -117,7 +122,7 @@ set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
 /-- From the loop head at byte `8m` to the loop head at byte `8(m + 1)`: the eight bytes of
     word `m` of the `Vec` (`q = p + 8m`), eight calls. -/
-theorem from_iter_note_word8 {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp sp0 out v p iw q cap w bit0 : Word)
+theorem from_iter_note_word8 {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} {K' : Nat} (s : MachineState) (sp sp0 out v p iw q cap w bit0 : Word)
     (J G K R Q I : List Word) (j : Word) (hGl : G.length = 4) (hKl : K.length = 4) (hRl : R.length = 4) (hQl : Q.length = 4)
     (m : Nat) (hm : m ≤ 135)
     (hIl : I.length = 18) (hIv : noteState sp0 J j (8 * m + 1) = I)
@@ -132,6 +137,9 @@ theorem from_iter_note_word8 {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
     (hpc : s.pc = 0x7801e0d4#64) (hcode : CodeAt F_7801dfb4.base F_7801dfb4.prog s)
     (hcodeN : CodeAt F_78021720.base F_78021720.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    -- the run's heap invariant, the `Vec`'s block `(p, K')` live and the word `q` in it
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt ((p, K') :: L) s)
+    (hqlo : p.toNat ≤ q.toNat) (hqhi : q.toNat + 8 * 1 ≤ p.toNat + 8 * K')
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x180 sp)
     (hs0 : s.getReg .x8 = out) (hs1 : s.getReg .x9 = p) (hs2 : s.getReg .x18 = iw)
     (hs3 : s.getReg .x19 = 2#64) (hbit0 : bw (noteBit G K v R Q (8 * m)) = bit0) (hs4 : s.getReg .x20 = bit0)
@@ -175,7 +183,7 @@ theorem from_iter_note_word8 {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
       Region (sp + 0x18#64) I' t →
       Region q [w'] t →
       (∀ b, b < 8 → extractByte w' b = BitVec.truncate 8 (bw (noteBit G K v R Q (8 * m + b)))) →
-      SafeN Gd n P t) :
+      RoImage Ro.layout t → Run.HeapAt ((p, K') :: L) t → SafeN Gd n P t) :
     SafeN Gd n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x180#64) 48 := hstk.frame 48 (by decide)
   have hu := Unchanged.refl [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (q, 1)] s

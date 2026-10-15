@@ -2,6 +2,8 @@ import Cases.Zip2005.Field.SqInvBody
 import Cases.Zip2005.Kit.StoreByteAt
 import Cases.Zip2005.Field.SqIterLoop
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `SqrtTables::new`'s `inv` loop, by induction
@@ -86,26 +88,29 @@ theorem sq_inv_fetch {s : MachineState} (hcode : CodeAt F_78030a94.base F_78030a
   fetch_of_codeAt hcode 506 (by decide) (by rfl) (by rw [hpc]; rfl)
 
 set_option maxHeartbeats 4000000 in
-theorem sq_inv_loop {G : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : MachineState) (inv hx tb v2 v3 v4 v9 v25 v26 : Word)
+theorem sq_inv_loop {G : MachineState → Prop} {nb : Nat} {P : Prop} {Lh : List (Word × Nat)} (s t0 : MachineState) (inv hx tb v2 v3 v4 v9 v25 v26 : Word)
     (hcode : CodeAt F_78030a94.base F_78030a94.prog s) (hcodeL : CodeAt F_78029b64.base F_78029b64.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hstk2 : StackOk Ro.layout 0 v2)
     (hokIV : RegionOk Ro.layout.roBase Ro.layout.textHi inv 138) (hokTB : RegionOk Ro.layout.roBase Ro.layout.textHi tb 1024)
     (htb : tb.toNat + 0x2000 ≤ 0x1c00000000)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN G nb P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN G nb P u)
     (hexit : ∀ (t : MachineState) (IV : List Word), t.pc = 0x78031280#64 → t.code = s.code →
       Unchanged [(inv, 138)] t0 t →
       t.getReg .x21 = 1#64 → t.getReg .x23 = tb + 0x2000#64 → t.getReg .x24 = 256#64 →
       t.getReg .x2 = v2 → t.getReg .x3 = v3 → t.getReg .x4 = v4 → t.getReg .x8 = 1098#64 →
       t.getReg .x9 = v9 → t.getReg .x18 = hx → t.getReg .x19 = 1#64 →
       t.getReg .x20 = tb + 0x2000#64 → t.getReg .x25 = v25 → t.getReg .x26 = v26 →
-      t.getReg .x27 = inv → IV.length = 138 → Region inv IV t → RoImage Ro.layout t → SafeN G nb P t) :
+      t.getReg .x27 = inv → IV.length = 138 → Region inv IV t → RoImage Ro.layout t →
+      Run.HeapAt ((inv, 138) :: Lh) t → SafeN G nb P t) :
     ∀ (n : Nat) (t : MachineState) (i : Nat) (IV : List Word) (d : Word), t.code = s.code →
-      RoImage Ro.layout t → Unchanged [(inv, 138)] t0 t →
+      RoImage Ro.layout t → Run.HeapAt ((inv, 138) :: Lh) t → Unchanged [(inv, 138)] t0 t →
       SqInvAt inv hx tb v2 v3 v4 v9 v25 v26 i IV d t → 255 - i = n → SafeN G nb P t := by
   intro n
   induction n with
   | zero =>
-    intro t i IV d hc hro hU H hn
+    intro t i IV d hc hro hheap hU H hn
     have hi : i = 255 := by have := H.ilt; omega
     subst hi
     have hcd := codeAt_of_code_eq hc hcode
@@ -126,8 +131,10 @@ theorem sq_inv_loop {G : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : Ma
         rcases this with h | h
         · left; exact h
         · right; simp only [Ro.layout_roBase, Ro.layout_roBytes, Ro.layout_textHi] at h ⊢; omega))
+      (Carry.of_unchanged hheap hun1
+        (openW_cons (openBlock_live _ _ List.mem_cons_self (le_refl _) (le_refl _)) (openW_nil _ _)))
   | succ n ih =>
-    intro t i IV d hc hro hU H hn
+    intro t i IV d hc hro hheap hU H hn
     have hi : i < 255 := by omega
     have hcd := codeAt_of_code_eq hc hcode
     refine safe_sb_region (sq_inv_fetch hcd H.pc)
@@ -144,6 +151,8 @@ theorem sq_inv_loop {G : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : Ma
       · left; exact h
       · right; simp only [Ro.layout_roBase, Ro.layout_roBytes, Ro.layout_textHi] at h ⊢; omega
     have hro1 := hro.of_unchanged hun1 hroW
+    have hheap1 : Run.HeapAt ((inv, 138) :: Lh) t1 := Carry.of_unchanged hheap hun1
+      (openW_cons (openBlock_live _ _ List.mem_cons_self (le_refl _) (le_refl _)) (openW_nil _ _))
     -- the next element, a block of the table
     have hokE : RegionOk Ro.layout.roBase Ro.layout.textHi (tb + BitVec.ofNat 64 (32 * (i + 1))) 4 :=
       hokTB.sub' (4 * (i + 1)) 4 (by omega) (by rw [show 8 * (4 * (i + 1)) = 32 * (i + 1) by ring])
@@ -153,15 +162,15 @@ theorem sq_inv_loop {G : MachineState → Prop} {nb : Nat} {P : Prop} (s t0 : Ma
       (BitVec.ofNat 64 (256 - i)) (BitVec.ofNat 64 (i + 1)) E[0]! E[1]! E[2]! E[3]! L hL
       (ne_zero_of_lt hi) (by rw [hpc1, H.pc]; rfl) (codeAt_of_code_eq hc1s hcode)
       (codeAt_of_code_eq hc1s hcodeL) (fun a ha => hcw a (hc1s ▸ ha)) hro1
-      ((hr1 _).trans H.r8) ((hr1 _).trans H.r18) ((hr1 _).trans H.r19) ((hr1 _).trans H.r20)
+      hheap1 ((hr1 _).trans H.r2) hstk2 ((hr1 _).trans H.r8) ((hr1 _).trans H.r18) ((hr1 _).trans H.r19) ((hr1 _).trans H.r20)
       ((hr1 _).trans H.r21) ((hr1 _).trans H.r23) ((hr1 _).trans H.r24) ((hr1 _).trans H.r27) hR
-      hokIV hE hokE (fun u hu hcu => hpp u hu (hcu.trans hc1s)) ?_
+      hokIV hE hokE (fun u sp' L' hu hcu => hpp u sp' L' hu (hcu.trans hc1s)) ?_
     intro t2 d' e' hpc2 hc2 hun2 r10 hd' r21 r22 r23 he' r24 r2 r3 r4 r8 r9 r18 r19 r20 r25 r26 r27 hIV2
     have hU2 : Unchanged [(inv, 138)] t0 t2 :=
       (hU.trans_cover hun1 (fun r hr => ⟨r, hr, by unfold Covers; omega⟩)).trans_cover hun2
         (fun r hr => absurd hr (by simp))
     refine ih t2 (i + 1) L d' (hc2.trans hc1s) (hro1.of_unchanged hun2 (fun r hr => absurd hr (by simp)))
-      hU2 ?_ (by omega)
+      (Carry.of_unchanged hheap1 hun2 (openW_nil _ _)) hU2 ?_ (by omega)
     exact SqInvAt.mk hpc2 r10 hd' (by rw [r21, ofNat_sub_one H.ilt])
       (by rw [r23, ← he', step_ptr (by omega) htb]) (by rw [r24, ofNat_succ']) (r2.trans ((hr1 _).trans H.r2))
       (r3.trans ((hr1 _).trans H.r3)) (r4.trans ((hr1 _).trans H.r4)) r8

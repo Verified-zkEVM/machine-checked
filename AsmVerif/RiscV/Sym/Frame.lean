@@ -203,6 +203,11 @@ structure StackOk (L : Layout) (room : Nat) (sp : Word) : Prop where
   lo : room + 0x10000 ≤ sp.toNat
   hi : sp.toNat ≤ L.stackTop
 
+/-- Less room. -/
+theorem StackOk.mono {L : Layout} {room room' : Nat} {sp : Word} (h : StackOk L room sp)
+    (hr : room' ≤ room) : StackOk L room' sp :=
+  ⟨h.aligned, by have := h.lo; omega, h.hi⟩
+
 end AsmVerif.RiscV.Sym
 
 namespace AsmVerif.RiscV.Sym

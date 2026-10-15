@@ -2,6 +2,8 @@ import Cases.Zip2005.Sinsemilla.CachedCommitDomain
 import Cases.Zip2005.Field.ToLeBits
 import Cases.Zip2005.Image.F_7801fbcc
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `orchard::note::commitment::NoteCommitment::derive` (`0x7801fbcc`)
@@ -180,14 +182,18 @@ Reducible: a `from_iter` contract stated over it is matched against the executor
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState)
+theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState)
     (ra sp out gd pkd v rho psi rcm : Word)
     (g0 g1 g2 g3 p0 p1 p2 p3 r0 r1 r2 r3 q0 q1 q2 q3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 13) (hJl : J.length = 15)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN G nb P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN G nb P u)
-    (hunwrap : ∀ u : MachineState, u.pc = 0x7803dc7c#64 → u.code = s.code → SafeN G nb P u)
-    (hbounds : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN G nb P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN G nb P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G nb P u)
+    (hunwrap : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dc7c#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_dc7c_10 → u.getReg .x13 ∈ Run.vals_dc7c_13 → u.getReg .x14 ∈ Run.vals_dc7c_14 → SafeN G nb P u)
+    (hbounds : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN G nb P u)
     (hpc : s.pc = 0x7801fbcc#64) (hcode : CodeAt F_7801fbcc.base F_7801fbcc.prog s)
     -- callees: cached_commit_domain (+ from_raw, from_xy, is_on_curve, mulmod, black_box,
     -- to_curve), to_le_bits (+ to_repr), commit and its callees, memset, conditional_select
@@ -211,7 +217,7 @@ theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : 
     (hcodeD : CodeAt F_780360c8.base F_780360c8.prog s) (hcodeAF : CodeAt F_7803a110.base F_7803a110.prog s)
     (hcodeAFI : CodeAt F_7803dd28.base F_7803dd28.prog s) (hcodeEA : CodeAt F_78026b44.base F_78026b44.prog s)
     (hcodeED : CodeAt F_7802413c.base F_7802413c.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0xb50 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = gd) (ha2 : s.getReg .x12 = pkd)
@@ -223,6 +229,7 @@ theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : 
     (hS : Region psi [q0, q1, q2, q3] s) (hokS : RegionOk Ro.layout.roBase Ro.layout.textHi psi 4)
     (hK : Region rcm [k0, k1, k2, k3] s) (hokK : RegionOk Ro.layout.roBase Ro.layout.textHi rcm 4)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.roBase Ro.layout.textHi out 13)
+    (hbelow_out : out.toNat + 8 * 13 ≤ 0x78040620)
     -- the frame's iterator block before the call: the struct's padding bytes keep these
     (hJ : Region (sp - 0xb50#64 + 0xa08#64) J s)
     (hd0 : Disjoint (sp - 0xb50#64) 362 out 13) (hd1 : Disjoint (sp - 0xb50#64) 362 gd 4)
@@ -236,7 +243,7 @@ theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : 
     -- `+0x1e8`, `ψ`'s at `+0x208`, `g★_d` at `+0x1a0`, `pk★_d` at `+0x1c0`, `v` at `+0x1e0` —
     -- with the struct's padding bytes `J` left as they were) over the message words at
     -- `+0x1a0` yields 1090 bytes, byte `o` the message bit `o`
-    (hfrom : ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word), O1.length = 3 →
+    (hfrom : ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (L' : List (Word × Nat)), O1.length = 3 →
       u.pc = 0x7801dfb4#64 → u.code = s.code → u.getReg .x1 = 0x78020dc4#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x260 sp' → u.getReg .x10 = a0' → u.getReg .x11 = a1' →
       Region a0' O1 u → Region a1' [0#64, j] u →
@@ -250,6 +257,8 @@ theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : 
       StackOk Ro.layout 0xb50 sp →
       Disjoint (sp' - 0x260#64) 76 (sp - 0xb50#64 + 0xa80#64) 17 → Disjoint a0' 3 (sp - 0xb50#64 + 0xa80#64) 17 → Disjoint a1' 18 (sp - 0xb50#64 + 0xa80#64) 17 →
       Disjoint 0x78040620#64 14780694332 a0' 3 → Disjoint 0x78040620#64 14780694332 a1' 18 →
+      a0'.toNat + 8 * 3 ≤ 0x78040620 → a1'.toNat + 8 * 18 ≤ 0x78040620 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (cap ptr : Word) (J Bv : List Word), t.pc = 0x78020dc4#64 →
         CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x260#64, 76), (a0', 3), (a1', 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
@@ -258,22 +267,23 @@ theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : 
         (∀ o, o < 1090 → byteAt Bv o = bw (noteBit [g0, g1, g2, g3] [p0, p1, p2, p3] v
           (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]) o)) →
         Region ptr Bv t → RegionOk Ro.layout.roBase Ro.layout.textHi ptr 137 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → SafeN G nb P t) → SafeN G nb P u)
+        0x78048980 ≤ ptr.toNat → ptr.toNat + 8 * 137 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 256) :: L') t → SafeN G nb P t) → SafeN G nb P u)
     -- `__rust_dealloc` of that `Vec` (ledger T2)
-    (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word), C.length = 137 →
+    (hdealloc : ∀ (u : MachineState) (sp' ptr cap : Word) (C : List Word) (k : Nat) (L' : List (Word × Nat)), C.length = 137 →
       u.pc = 0x7801bd08#64 → u.code = s.code → u.getReg .x1 = 0x780210f0#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x20 sp' → u.getReg .x10 = ptr → u.getReg .x11 = cap →
       u.getReg .x12 = 1#64 → Region ptr C u → 0x78048980 ≤ ptr.toNat →
       ptr.toNat + 8 * 137 ≤ 0x1c00000000 →
+      RoImage Ro.layout u → Run.HeapAt ((ptr, k) :: L') u →
       (∀ t, t.pc = 0x780210f0#64 → CalleeSaved u t → t.code = u.code →
-        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → SafeN G nb P t) → SafeN G nb P u)
+        Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Run.HeapAt L' t → SafeN G nb P t) → SafeN G nb P u)
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0xb50#64, 362), (out, 13), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (cmSel qNoteW rNoteW (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3]
         [q0, q1, q2, q3]) [k0, k1, k2, k3]) t →
       Region (out + 0x60#64) [replaceByte O[12]! 0 (commitFlag qNoteW
         (noteMsgW [g0, g1, g2, g3] [p0, p1, p2, p3] v [r0, r1, r2, r3] [q0, q1, q2, q3]))] t →
-      mulFacts rNoteW [k0, k1, k2, k3] → SafeN G nb P t) :
+      mulFacts rNoteW [k0, k1, k2, k3] → Run.HeapAt L t → SafeN G nb P t) :
     SafeN G nb P s := by
   have hokW : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xb50#64) 362 := hstk.frame 362 (by decide)
   -- the frame (below it 0x8e0 bytes for `commit`): the domain `[Q, R]`, `commit`'s output,
@@ -351,7 +361,7 @@ theorem note_commitment_derive_spec {G : MachineState → Prop} {nb : Nat} {P : 
   -- the iterator block's cells, atom-free, so that `commit`'s contract matches `hfrom`
   simp only [← v222_def, ← v223_def, ← v224_def, ← v225_def, ← v226_def, ← v227_def, ← v228_def, ← v229_def, ← v230_def, ← v232_def, ← v233_def, ← v234_def, ← v235_def, ← v236_def, ← v237_def, ← v238_def, ← v239_def, ← v248_def, ← v249_def, ← v250_def, ← v253_def, ← v254_def, ← v255_def, ← v256_def, ← v257_def, ← v258_def, ← v259_def, ← v260_def, ← v261_def, ← v262_def, ← v263_def, ← v264_def, ← v265_def, ← v266_def, ← v267_def, ← v268_def, ← v269_def, ← v272_def, ← v273_def, ← v274_def, ← v275_def, ← v276_def, ← v277_def, ← v278_def, ← v279_def, ← v280_def, ← v281_def, ← v282_def, ← v284_def, ← v285_def, ← v286_def, ← v287_def, ← v288_def, ← v289_def, ← v290_def, ← v291_def, ← v292_def, ← v293_def, ← v294_def, ← v295_def, ← v296_def, ← v297_def, ← v299_def, ← v300_def, ← v301_def, ← v302_def, ← v303_def, ← v304_def, ← v305_def, ← v306_def, ← v307_def, ← v308_def, ← v309_def, ← v310_def, ← v311_def, ← v312_def, ← v313_def, ← v314_def, ← v315_def, ← v316_def, ← v317_def, ← v318_def, ← v320_def, ← v321_def, ← v322_def, ← v323_def, ← v324_def, ← v325_def, ← v326_def, ← v327_def, ← v328_def, ← v329_def, ← v330_def, ← v331_def, ← v332_def, ← v333_def, ← v334_def, ← v335_def, ← v336_def, ← v337_def, ← v338_def, ← v339_def, ← v340_def] at hR6
   sym_reframe
-  have hcommit := sinsemilla_commit_spec (G := G) (n := nb) (P := P) (M := sp - 0xb50#64 + 0xa80#64)
+  have hcommit := sinsemilla_commit_spec (L := L) (G := G) (n := nb) (P := P) (M := sp - 0xb50#64 + 0xa80#64)
     (Mw := [g0, g1, g2, g3, p0, p1, p2, p3, v] ++ reprW [r0, r1, r2, r3] ++ reprW [q0, q1, q2, q3])
     (bit := noteBit [g0, g1, g2, g3] [p0, p1, p2, p3] v (reprW [r0, r1, r2, r3]) (reprW [q0, q1, q2, q3]))
     (hMl := by simp [reprW])

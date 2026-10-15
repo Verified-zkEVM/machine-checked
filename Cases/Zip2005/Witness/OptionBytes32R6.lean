@@ -5,6 +5,8 @@ import Cases.Zip2005.Image.F_7801806c
 import Cases.Zip2005.Image.F_7801b4d8
 import Cases.Zip2005.Image.F_7801aed0
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `deserialize_option::<OptionVisitor<Bytes32>>` (0x7801806c)
@@ -26,7 +28,7 @@ def optTag6 (W : List Word) : BitVec 8 := extractByte W[0]! 6
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
 set_option asmverif.sym.foldBytes true in
-theorem option_bytes32_r6_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem option_bytes32_r6_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801806c#64) (hcode : CodeAt F_7801806c.base F_7801806c.prog s)
     (hcodeA : CodeAt F_7801775c.base F_7801775c.prog s)
@@ -34,40 +36,44 @@ theorem option_bytes32_r6_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x380 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = de)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.textLo Ro.layout.textHi out 5)
-    (hD : Region de [q + 6#64, l] s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi de 2)
+    (hD : Region de [q + 6#64, l] s) (hokD : RegionOk Ro.layout.roBase Ro.layout.textHi de 2)
     (hW : Region q W s) (hq : 0x1c00000000 ≤ q.toNat) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi q 5)
     (hdO : Disjoint (sp - 0x380#64) 112 out 5) (hdD : Disjoint (sp - 0x380#64) 112 de 2)
     (heD : Disjoint out 5 de 2) (hOlo : out.toNat + 40 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
-    (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (hhandle : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803d1a8#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (halloc : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78018130#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78018130#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
-    (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 0x18 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 3) :: L') t → SafeN G n P t) → SafeN G n P u)
+    (hio : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        SafeN G n P t) → SafeN G n P u)
+        Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hkN : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x380#64, 112), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (replaceHalfword O[0]! 0 0#16 :: O.drop 1) t → Region de [q + 7#64, l - 1#64] t →
-      optTag6 W = 0#8 → 1 ≤ l.toNat → SafeN G n P t)
+      optTag6 W = 0#8 → 1 ≤ l.toNat → Run.HeapAt L t → SafeN G n P t)
     (hkS : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x380#64, 112), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (someW O W 7) t → Region de [q + 39#64, l - 33#64] t →
-      optTag6 W = 1#8 → 33 ≤ l.toNat → SafeN G n P t)
+      optTag6 W = 1#8 → 33 ≤ l.toNat → Run.HeapAt L t → SafeN G n P t)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x380#64, 112), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (replaceByte O[0]! 0 1#8 :: e :: O.drop 2) t → Region de [d0, d1] t →
-      ¬ (optTag6 W = 0#8 ∧ 1 ≤ l.toNat) → ¬ (optTag6 W = 1#8 ∧ 33 ≤ l.toNat) → SafeN G n P t) :
+      ¬ (optTag6 W = 0#8 ∧ 1 ≤ l.toNat) → ¬ (optTag6 W = 1#8 ∧ 33 ≤ l.toNat) → Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s := by
   have hokS : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x380#64) 112 := hstk.frame 112 (by decide)
   have hu := Unchanged.refl [(sp - 0x380#64, 112), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s
@@ -103,18 +109,6 @@ theorem option_bytes32_r6_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
     have hx0 : ¬ (optTag6 W = 0#8 ∧ 1 ≤ l.toNat) := fun h => absurd h.2 (by omega)
     have hx1 : ¬ (optTag6 W = 1#8 ∧ 33 ≤ l.toNat) := fun h => absurd h.2 (by omega)
     sym_close (hkE _ post12_0 (q + 6#64) (l))
-  · exfalso
-    simp only [beq_iff_eq] at hbr6
-    bv_omega
-  · exfalso
-    simp only [beq_iff_eq] at hbr6
-    bv_omega
-  · exfalso
-    simp only [beq_iff_eq] at hbr6
-    bv_omega
-  · exfalso
-    simp only [beq_iff_eq] at hbr6
-    bv_omega
   · have h0 : optTag6 W = 0#8 ↔ v8 = 0#64 := by
       rw [← v8_def, optTag6]
       constructor
@@ -174,9 +168,6 @@ theorem option_bytes32_r6_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
     have hx0 : ¬ (optTag6 W = 0#8 ∧ 1 ≤ l.toNat) := fun h => absurd (ht ▸ h.1) (by decide)
     have hx1 : ¬ (optTag6 W = 1#8 ∧ 33 ≤ l.toNat) := fun h => absurd h.2 (by omega)
     sym_close (hkE _ post20_0 (post20_1) (post20_2))
-  · exfalso
-    simp only [beq_iff_eq] at hbr6
-    bv_omega
   · have h0 : optTag6 W = 0#8 ↔ v8 = 0#64 := by
       rw [← v8_def, optTag6]
       constructor
@@ -262,7 +253,7 @@ theorem option_bytes32_r6_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
     have hl0 : 33 ≤ l.toNat := by omega
     sym_close hkS
 
-theorem option_bytes32_r6_none_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem option_bytes32_r6_none_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801806c#64) (hcode : CodeAt F_7801806c.base F_7801806c.prog s)
     (hcodeA : CodeAt F_7801775c.base F_7801775c.prog s)
@@ -270,40 +261,44 @@ theorem option_bytes32_r6_none_spec {G : MachineState → Prop} {n : Nat} {P : P
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x380 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = de)
     (htag : optTag6 W = 0#8) (hl : 1 ≤ l.toNat)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.textLo Ro.layout.textHi out 5)
-    (hD : Region de [q + 6#64, l] s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi de 2)
+    (hD : Region de [q + 6#64, l] s) (hokD : RegionOk Ro.layout.roBase Ro.layout.textHi de 2)
     (hW : Region q W s) (hq : 0x1c00000000 ≤ q.toNat) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi q 5)
     (hdO : Disjoint (sp - 0x380#64) 112 out 5) (hdD : Disjoint (sp - 0x380#64) 112 de 2)
     (heD : Disjoint out 5 de 2) (hOlo : out.toNat + 40 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
-    (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (hhandle : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803d1a8#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (halloc : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78018130#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78018130#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
-    (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 0x18 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 3) :: L') t → SafeN G n P t) → SafeN G n P u)
+    (hio : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        SafeN G n P t) → SafeN G n P u)
+        Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hkN : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x380#64, 112), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (replaceHalfword O[0]! 0 0#16 :: O.drop 1) t → Region de [q + 7#64, l - 1#64] t →
-      SafeN G n P t) :
+      Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s :=
-  option_bytes32_r6_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeA hcodeN hcodeM hcodeSh hcw hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
-    (fun t h1 h2 h3 h4 h5 h6 _ _ => hkN t h1 h2 h3 h4 h5 h6)
-    (fun _ _ _ _ _ _ _ h1 _ => absurd (htag.symm.trans h1) (by decide))
-    (fun _ _ _ _ _ _ _ _ _ _ hx _ => absurd ⟨htag, hl⟩ hx)
+  option_bytes32_r6_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeA hcodeN hcodeM hcodeSh hcw hro hheap hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
+    (fun t h1 h2 h3 h4 h5 h6 _ _ hH => hkN t h1 h2 h3 h4 h5 h6 hH)
+    (fun _ _ _ _ _ _ _ h1 _ _ => absurd (htag.symm.trans h1) (by decide))
+    (fun _ _ _ _ _ _ _ _ _ _ hx _ _ => absurd ⟨htag, hl⟩ hx)
 
-theorem option_bytes32_r6_some_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem option_bytes32_r6_some_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801806c#64) (hcode : CodeAt F_7801806c.base F_7801806c.prog s)
     (hcodeA : CodeAt F_7801775c.base F_7801775c.prog s)
@@ -311,40 +306,44 @@ theorem option_bytes32_r6_some_spec {G : MachineState → Prop} {n : Nat} {P : P
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x380 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = de)
     (htag : optTag6 W = 1#8) (hl : 33 ≤ l.toNat)
     (hO : Region out O s) (hokO : RegionOk Ro.layout.textLo Ro.layout.textHi out 5)
-    (hD : Region de [q + 6#64, l] s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi de 2)
+    (hD : Region de [q + 6#64, l] s) (hokD : RegionOk Ro.layout.roBase Ro.layout.textHi de 2)
     (hW : Region q W s) (hq : 0x1c00000000 ≤ q.toNat) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi q 5)
     (hdO : Disjoint (sp - 0x380#64) 112 out 5) (hdD : Disjoint (sp - 0x380#64) 112 de 2)
     (heD : Disjoint out 5 de 2) (hOlo : out.toNat + 40 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
-    (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (hhandle : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803d1a8#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (halloc : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78018130#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78018130#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
-    (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 0x18 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 3) :: L') t → SafeN G n P t) → SafeN G n P u)
+    (hio : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        SafeN G n P t) → SafeN G n P u)
+        Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hkS : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x380#64, 112), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (someW O W 7) t → Region de [q + 39#64, l - 33#64] t →
-      SafeN G n P t) :
+      Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s :=
-  option_bytes32_r6_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeA hcodeN hcodeM hcodeSh hcw hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
-    (fun _ _ _ _ _ _ _ h0 _ => absurd (htag.symm.trans h0) (by decide))
-    (fun t h1 h2 h3 h4 h5 h6 _ _ => hkS t h1 h2 h3 h4 h5 h6)
-    (fun _ _ _ _ _ _ _ _ _ _ _ hx => absurd ⟨htag, hl⟩ hx)
+  option_bytes32_r6_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeA hcodeN hcodeM hcodeSh hcw hro hheap hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
+    (fun _ _ _ _ _ _ _ h0 _ _ => absurd (htag.symm.trans h0) (by decide))
+    (fun t h1 h2 h3 h4 h5 h6 _ _ hH => hkS t h1 h2 h3 h4 h5 h6 hH)
+    (fun _ _ _ _ _ _ _ _ _ _ _ hx _ => absurd ⟨htag, hl⟩ hx)
 
-theorem option_bytes32_r6_err_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out de q l : Word)
+theorem option_bytes32_r6_err_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801806c#64) (hcode : CodeAt F_7801806c.base F_7801806c.prog s)
     (hcodeA : CodeAt F_7801775c.base F_7801775c.prog s)
@@ -352,37 +351,41 @@ theorem option_bytes32_r6_err_spec {G : MachineState → Prop} {n : Nat} {P : Pr
     (hcodeM : CodeAt F_7801b4d8.base F_7801b4d8.prog s)
     (hcodeSh : CodeAt F_7801aed0.base F_7801aed0.prog s)
     (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s)
+    (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x380 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = de)
     (hx0 : ¬ (optTag6 W = 0#8 ∧ 1 ≤ l.toNat)) (hx1 : ¬ (optTag6 W = 1#8 ∧ 33 ≤ l.toNat))
     (hO : Region out O s) (hokO : RegionOk Ro.layout.textLo Ro.layout.textHi out 5)
-    (hD : Region de [q + 6#64, l] s) (hokD : RegionOk Ro.layout.textLo Ro.layout.textHi de 2)
+    (hD : Region de [q + 6#64, l] s) (hokD : RegionOk Ro.layout.roBase Ro.layout.textHi de 2)
     (hW : Region q W s) (hq : 0x1c00000000 ≤ q.toNat) (hokW : RegionOk Ro.layout.textLo Ro.layout.textHi q 5)
     (hdO : Disjoint (sp - 0x380#64) 112 out 5) (hdD : Disjoint (sp - 0x380#64) 112 de 2)
     (heD : Disjoint out 5 de 2) (hOlo : out.toNat + 40 ≤ 0x78000000)
     (hDlo : de.toNat + 16 ≤ 0x78000000)
-    (hhandle : ∀ u : MachineState, u.pc = 0x7803d1a8#64 → u.code = s.code → SafeN G n P u)
-    (halloc : ∀ (u : MachineState) (sp' : Word), u.pc = 0x7801bcec#64 → u.code = s.code →
+    (hhandle : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803d1a8#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
+    (halloc : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →
       u.getReg .x1 = 0x78018130#64 → u.getReg .x2 = sp' → StackOk Ro.layout 0x30 sp' →
       u.getReg .x10 = 0x18#64 → u.getReg .x11 = 8#64 →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (ptr : Word) (B : List Word), t.pc = 0x78018130#64 → CalleeSaved u t →
         t.code = u.code → Unchanged [(sp' - 0x30#64, 6), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t →
         t.getReg .x10 = ptr → B.length = 3 → Region ptr B t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 3 →
-        0x78048980 ≤ ptr.toNat → ptr.toNat + 0x18 ≤ 0x1c00000000 → SafeN G n P t) → SafeN G n P u)
-    (hio : ∀ (u : MachineState) (sp' r' : Word), u.pc = 0x78036184#64 → u.code = s.code →
+        (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 0x18 ≤ 0x1c00000000 → Run.HeapAt ((ptr, 3) :: L') t → SafeN G n P t) → SafeN G n P u)
+    (hio : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
       u.getReg .x1 = r' → r' &&& ~~~1#64 = r' → u.getReg .x2 = sp' → StackOk Ro.layout 0x40 sp' →
+      RoImage Ro.layout u → Run.HeapAt L' u →
       (∀ (t : MachineState) (e : Word), t.pc = r' → CalleeSaved u t → t.code = u.code →
         Unchanged [(sp' - 0x40#64, 8), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → t.getReg .x10 = e →
-        SafeN G n P t) → SafeN G n P u)
+        Run.HeapAt L' t → SafeN G n P t) → SafeN G n P u)
     (hkE : ∀ (t : MachineState) (e d0 d1 : Word), t.pc = ra → CalleeSaved s t → t.code = s.code →
       Unchanged [(sp - 0x380#64, 112), (out, 5), (de, 2), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s t →
       Region out (replaceByte O[0]! 0 1#8 :: e :: O.drop 2) t → Region de [d0, d1] t →
-      SafeN G n P t) :
+      Run.HeapAt L t → SafeN G n P t) :
     SafeN G n P s :=
-  option_bytes32_r6_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeA hcodeN hcodeM hcodeSh hcw hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
-    (fun _ _ _ _ _ _ _ h0 h1 => absurd ⟨h0, h1⟩ hx0)
-    (fun _ _ _ _ _ _ _ h0 h1 => absurd ⟨h0, h1⟩ hx1)
-    (fun t e d0 d1 h1 h2 h3 h4 h5 h6 _ _ => hkE t e d0 d1 h1 h2 h3 h4 h5 h6)
+  option_bytes32_r6_spec s ra sp out de q l O W hOl hWl hpc hcode hcodeA hcodeN hcodeM hcodeSh hcw hro hheap hra hra1 hsp hstk ha0 ha1 hO hokO hD hokD hW hq hokW hdO hdD heD hOlo hDlo hhandle halloc hio
+    (fun _ _ _ _ _ _ _ h0 h1 _ => absurd ⟨h0, h1⟩ hx0)
+    (fun _ _ _ _ _ _ _ h0 h1 _ => absurd ⟨h0, h1⟩ hx1)
+    (fun t e d0 d1 h1 h2 h3 h4 h5 h6 _ _ hH => hkE t e d0 d1 h1 h2 h3 h4 h5 h6 hH)
 
 end Cases.Zip2005

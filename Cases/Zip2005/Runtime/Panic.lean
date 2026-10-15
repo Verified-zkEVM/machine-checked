@@ -59,7 +59,7 @@ def iface_c400 : Iface := { entry := 0x7803c400#64, depth := 0x30 + D, foot := [
 def iface_c3e8 : Iface := { entry := 0x7803c3e8#64, depth := 0x40 + D, foot := [], returns := false }
 def iface_b67c : Iface := { entry := 0x7803b67c#64, depth := 0x70 + D, foot := [], returns := false }
 def iface_de40 : Iface := { entry := 0x7803de40#64, depth := 0xb0 + D, foot := [], returns := false }
-def iface_de20 : Iface := { entry := 0x7803de20#64, depth := 0xc0 + D, foot := [], returns := false, vals := [(.x10, [0x00000000780012a8#64, 0x00000000780011b0#64, 0x0000000078001138#64, 0x00000000780014b8#64, 0x00000000780119f8#64, 0x0000000078011b20#64, 0x00000000780137d0#64, 0x00000000780138f8#64, 0x0000000078013920#64, 0x0000000078014330#64])] }
+def iface_de20 : Iface := { entry := 0x7803de20#64, depth := 0xc0 + D, foot := [], returns := false, vals := [(.x10, [0x00000000780012a8#64, 0x00000000780011b0#64, 0x0000000078001138#64, 0x00000000780014b8#64, 0x00000000780119f8#64, 0x0000000078011b20#64, 0x00000000780137d0#64, 0x00000000780138f8#64, 0x0000000078013920#64, 0x0000000078014330#64, 0x0000000078001438#64, 0x00000000780017b0#64])] }
 def iface_dcdc : Iface := { entry := 0x7803dcdc#64, depth := 0xf0 + D, foot := [], returns := false, vals := [(.x12, [0x00000000780119b0#64, 0x0000000078013678#64, 0x0000000078013648#64, 0x0000000078014318#64])] }
 def iface_dd28 : Iface := { entry := 0x7803dd28#64, depth := 0x140 + D, foot := [], returns := false, vals := [(.x12, [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64]), (.x14, [0x0000000078000260#64, 0x0000000078013850#64, 0x0000000078013a28#64, 0x0000000078014010#64])] }
 
@@ -100,7 +100,7 @@ theorem code_de40 : CodeAt fn_de40 C :=
 def fn_de20 : Fn := { base := Image.F_7803de20.base, prog := Image.F_7803de20.prog, frags := [] }
 noncomputable abbrev ctx_de20 : Ctx := { env := Owned.env, tbl, σ := iface_de20, f := fn_de20 }
 noncomputable def anno_de20 : Array (List AState) := ctx_de20.fill1 [
-  (0, (.ofDiff [(.x10, (.oneOf [0x00000000780012a8#64, 0x00000000780011b0#64, 0x0000000078001138#64, 0x00000000780014b8#64, 0x00000000780119f8#64, 0x0000000078011b20#64, 0x00000000780137d0#64, 0x00000000780138f8#64, 0x0000000078013920#64, 0x0000000078014330#64]))] []))]
+  (0, (.ofDiff [(.x10, (.oneOf [0x00000000780012a8#64, 0x00000000780011b0#64, 0x0000000078001138#64, 0x00000000780014b8#64, 0x00000000780119f8#64, 0x0000000078011b20#64, 0x00000000780137d0#64, 0x00000000780138f8#64, 0x0000000078013920#64, 0x0000000078014330#64, 0x0000000078001438#64, 0x00000000780017b0#64]))] []))]
 theorem valid_de20 : ctx_de20.valid anno_de20 = true := Ctx.validFast_sound (by decide +kernel)
 theorem code_de20 : CodeAt fn_de20 C :=
   codeAt_of_image (k := 278) Loaded.codeWF rfl (by decide +kernel) (fun _ _ h => by simp [fn_de20] at h)

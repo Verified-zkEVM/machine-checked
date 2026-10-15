@@ -6,6 +6,8 @@ import Cases.Zip2005.Runtime.MemcpySpec
 import Cases.Zip2005.Orchard.NullifierDerive
 import Cases.Zip2005.Image.F_780227b4
 import Cases.Zip2005.Image.Ro
+import Cases.Zip2005.Run.Heap
+import Cases.Zip2005.Run.Vals
 
 /-!
 # `SpendValidatingKey::randomize` (0x780227b4)
@@ -52,16 +54,21 @@ theorem toBytesW_cells (J : Nat × Nat × Nat) (h1 : J.1 < 2 ^ 256) (h2 : J.2.1 
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-theorem spend_validating_key_randomize_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out ak alpha : Word)
+theorem spend_validating_key_randomize_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out ak alpha : Word)
     (a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 k0 k1 k2 k3 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 16) (hIVl : IV.length = 138)
     (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
-    (hpb : ∀ u : MachineState, u.pc = 0x7803dcdc#64 → u.code = s.code → SafeN Gd n P u)
-    (hpaf : ∀ u : MachineState, u.pc = 0x7803a110#64 → u.code = s.code → SafeN Gd n P u)
-    (hpp : ∀ u : MachineState, u.pc = 0x7803de20#64 → u.code = s.code → SafeN Gd n P u)
-    (hprz : ∀ u : MachineState, u.pc = 0x7803de78#64 → u.code = s.code → SafeN Gd n P u)
-    (hpanic : ∀ u : MachineState, u.pc = 0x7803de40#64 → u.code = s.code → SafeN Gd n P u)
+    (hpb : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803dcdc#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x12 ∈ Run.vals_dcdc → SafeN Gd n P u)
+    (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x15 ∈ Run.vals_a110 → SafeN Gd n P u)
+    (hpp : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de20#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de20 → SafeN Gd n P u)
+    (hprz : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de78#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_de78 → SafeN Gd n P u)
+    (hpanic : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803de40#64 → u.code = s.code →
+      u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN Gd n P u)
     (hpc : s.pc = 0x780227b4#64) (hcode : CodeAt F_780227b4.base F_780227b4.prog s)
     (hcodeBP : CodeAt F_78023278.base F_78023278.prog s)
     (hcodeU : CodeAt F_78026928.base F_78026928.prog s)
@@ -93,7 +100,7 @@ theorem spend_validating_key_randomize_spec {Gd : MachineState → Prop} {n : Na
     (hcodeEA : CodeAt F_78026b44.base F_78026b44.prog s)
     (hcodeDa : CodeAt F_7802413c.base F_7802413c.prog s)
     (hcodeTB : CodeAt F_78025654.base F_78025654.prog s)
-    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s)
+    (hcw : CodeWithin Ro.layout.textLo Ro.layout.textHi s) (hro : RoImage Ro.layout s) (hheap : Run.HeapAt L s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk Ro.layout 0x960 sp)
     (ha0 : s.getReg .x10 = out) (ha1 : s.getReg .x11 = ak) (ha2 : s.getReg .x12 = alpha)
@@ -102,6 +109,7 @@ theorem spend_validating_key_randomize_spec {Gd : MachineState → Prop} {n : Na
     (hakX : leLimbsToNat [a0, a1, a2, a3] < Fp.p) (hakZ : leLimbsToNat [a8, a9, a10, a11] < Fp.p)
     (hK : Region alpha [k0, k1, k2, k3] s) (hokK : RegionOk Ro.layout.roBase Ro.layout.textHi alpha 4)
     (hO : Region out O s) (hok0 : RegionOk Ro.layout.roBase Ro.layout.textHi out 16)
+    (hbelow_out : out.toNat + 8 * 16 ≤ 0x78040620)
     -- `FP_TABLES`, initialised (`Once` state byte 2 at 0x780488f0, padding zero)
     (hTB : Region 0x780488a8#64 [cap, iptr, ilen, g0, g1, g2, g3, hmod, hx, 2#64] s)
     (hIV : Region iptr IV s) (hok_iptr : RegionOk Ro.layout.roBase Ro.layout.textHi iptr 138)
