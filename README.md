@@ -35,6 +35,47 @@ The basic pipeline:
 └───────┘└───────┘
 ```
 
+## The Framework
+
+```
+                        CRYPTOGRAPHIC THEOREMS
+            ┌─────────────────────────────────────┐
+            │ XMSS security / quantum recovery /  │
+            │ collision resistance assumptions    │
+            └──────────────────┬──────────────────┘
+                               │
+                         ALGORITHM SPEC
+            ┌──────────────────┴──────────────────┐
+            │ SHA256.compress                     │
+            │ XMSS.verify                         │
+            │ WOTS.verify                         │
+            └──────────────────┬──────────────────┘
+                               │ refinement
+                      PROGRAM LOGIC(S)
+            ┌──────────────────┴──────────────────┐
+            │ Hoare / refinement / separation    │
+            │ relational / cost / informationflow│
+            └──────────────────┬──────────────────┘
+                               │
+                     LOGICAL MACHINE PROGRAM
+            ┌──────────────────┴──────────────────┐
+            │ variables + CFG + expressions       │
+            │ loads/stores + effects              │
+            └──────────────────┬──────────────────┘
+                               │
+                        logical decompilation
+                       + simulation invariant
+                               │
+                      ARCHITECTURAL PROGRAM
+            ┌──────────────────┴──────────────────┐
+            │ PC + registers + memory + ISA       │
+            └──────────────────┬──────────────────┘
+                               │
+                          ELF LOADING
+                               │
+                              ELF
+```
+
 ## Strategies
 
 - TODO proof optimised, formally verified interpreters for each of riscv, x86, and arm
@@ -58,3 +99,7 @@ The basic pipeline:
 ## Scripts
 
 ELF2Lean can take an ELF 
+
+## Future
+
+Integrate CLEAN for specs + asm verification for zkVM precompiles? (Maybe not)

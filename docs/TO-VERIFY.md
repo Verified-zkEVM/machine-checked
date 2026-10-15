@@ -3,8 +3,10 @@
 - [zip-2005](https://github.com/dhsorens/zip-2005-asm/) - what we've already been looking at
 - [the asm corresponding to this hash](https://github.com/leanEthereum/leanVM/pull/555)
     - the spec should be in [my hash-specs repo](https://github.com/dhsorens/hash-specs)
+- Plonky3 SIMD Backends for finite fields
 - precompiles? can we verify those in this framework?
     - hash function e.g. keccak precompiles; absolutely
+
 ## Hash precompiles: candidate targets (2026-10-14)
 
 What "precompile" means here. In both zkVMs a precompile proper lives in the prover, not in
