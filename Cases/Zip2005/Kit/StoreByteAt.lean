@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 import Cases.Zip2005.Image.Ro
 
 /-!
@@ -14,7 +14,7 @@ namespace Cases.Zip2005
 
 open Cases.Zip2005.Image
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -31,7 +31,7 @@ theorem safe_sb_region {G : MachineState → Prop} {nb : Nat} {P : Prop} {u : Ma
   have hmem : memOkSp1 u (.SB rs1 rs2 off) = true :=
     memOk_SB (by rw [haddr]; exact addrOk hok hi hk)
       (by rw [haddr]; exact noCodeOk hok hcw hi hk (by decide) (by omega))
-  refine AsmVerif.RiscV.SafeN.step_of (stepSp1_mem hfetch rfl rfl hmem) ?_
+  refine MachineChecked.RiscV.SafeN.step_of (stepSp1_mem hfetch rfl rfl hmem) ?_
   rw [exec_SB, haddr, setByte_cell hok hi hk u _ rfl]
   have hnw : base.toNat + 8 * L.length ≤ 2 ^ 64 := by rw [hL]; exact hok.nowrap
   refine hnext _ memShape_pc (fun r => memShape_getReg) memShape_code ?_ _ (by simp [hL])

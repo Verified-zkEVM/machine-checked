@@ -19,21 +19,21 @@ words `g★_d`, `pk★_d`, `v`, `ρ`, `ψ` sit in `NoteCommitment::derive`'s fra
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 /-! The five message regions are offsets into one 17-word block at `sp0 - 0xd0`. -/
 
-theorem dj_G {sp0 b : Word} {n : Nat} (h : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 4 :=
+theorem dj_G {sp0 b : Word} {n : Nat} (h : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 4 :=
   h.sub_right (self_add_zero _) (by omega)
-theorem dj_K {sp0 b : Word} {n : Nat} (h : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551440#64) 4 :=
+theorem dj_K {sp0 b : Word} {n : Nat} (h : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551440#64) 4 :=
   h.sub_right (msg_K sp0) (by omega)
-theorem dj_V {sp0 b : Word} {n : Nat} (h : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551472#64) 1 :=
+theorem dj_V {sp0 b : Word} {n : Nat} (h : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551472#64) 1 :=
   h.sub_right (msg_V sp0) (by omega)
-theorem dj_R {sp0 b : Word} {n : Nat} (h : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551480#64) 4 :=
+theorem dj_R {sp0 b : Word} {n : Nat} (h : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551480#64) 4 :=
   h.sub_right (msg_R sp0) (by omega)
-theorem dj_Q {sp0 b : Word} {n : Nat} (h : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : AsmVerif.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551512#64) 4 :=
+theorem dj_Q {sp0 b : Word} {n : Nat} (h : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551408#64) 17) : MachineChecked.RiscV.Sym.Disjoint b n (sp0 + 18446744073709551512#64) 4 :=
   h.sub_right (msg_Q sp0) (by omega)
 
 /-- The call's fixed facts: the 76-word frame `[sp - 0x180, sp + 0xe0)` (`sp` the frame the
@@ -51,15 +51,15 @@ structure NoteEnv (sp sp0 out a1 : Word) (G K R Q : List Word) : Prop where
   okM : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551408#64) 17
   sp0_lo : 0x10000 ≤ sp0.toNat
   sp0_hi : sp0.toNat ≤ 0x78000000
-  djSM : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 76 (sp0 + 18446744073709551408#64) 17
-  djSO : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 76 out 3
-  djSC : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 76 a1 18
-  djOM : AsmVerif.RiscV.Sym.Disjoint out 3 (sp0 + 18446744073709551408#64) 17
-  djOC : AsmVerif.RiscV.Sym.Disjoint out 3 a1 18
-  djCM : AsmVerif.RiscV.Sym.Disjoint a1 18 (sp0 + 18446744073709551408#64) 17
-  djHM : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp0 + 18446744073709551408#64) 17
-  djHO : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 out 3
-  djHC : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 a1 18
+  djSM : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 76 (sp0 + 18446744073709551408#64) 17
+  djSO : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 76 out 3
+  djSC : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 76 a1 18
+  djOM : MachineChecked.RiscV.Sym.Disjoint out 3 (sp0 + 18446744073709551408#64) 17
+  djOC : MachineChecked.RiscV.Sym.Disjoint out 3 a1 18
+  djCM : MachineChecked.RiscV.Sym.Disjoint a1 18 (sp0 + 18446744073709551408#64) 17
+  djHM : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp0 + 18446744073709551408#64) 17
+  djHO : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 out 3
+  djHC : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 a1 18
   outlo : out.toNat + 8 * 3 ≤ 0x78040620
   a1lo : a1.toNat + 8 * 18 ≤ 0x78040620
 
@@ -76,31 +76,31 @@ theorem okK (E : NoteEnv sp sp0 out a1 G K R Q) : RegionOk Ro.layout.roBase Ro.l
 theorem okVv (E : NoteEnv sp sp0 out a1 G K R Q) : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551472#64) 1 := E.okM.sub' 8 1 (by omega) (msg_V sp0)
 theorem okR (E : NoteEnv sp sp0 out a1 G K R Q) : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551480#64) 4 := E.okM.sub' 9 4 (by omega) (msg_R sp0)
 theorem okQ (E : NoteEnv sp sp0 out a1 G K R Q) : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551512#64) 4 := E.okM.sub' 13 4 (by omega) (msg_Q sp0)
-theorem djHS (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x180#64) 76 :=
-  AsmVerif.RiscV.Sym.Disjoint.heap_framen76 E.stk
-theorem djFM (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 48 (sp0 + 18446744073709551408#64) 17 := E.djSM.sub_left (self_add_zero _) (by omega)
-theorem djFO (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 48 out 3 := E.djSO.sub_left (self_add_zero _) (by omega)
-theorem djFC (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 48 a1 18 := E.djSC.sub_left (self_add_zero _) (by omega)
-theorem djVM (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint sp 3 (sp0 + 18446744073709551408#64) 17 := E.djSM.sub_left (frn_0 sp) (by omega)
-theorem djVO (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint sp 3 out 3 := E.djSO.sub_left (frn_0 sp) (by omega)
-theorem djVC (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint sp 3 a1 18 := E.djSC.sub_left (frn_0 sp) (by omega)
-theorem djS28M (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint sp 28 (sp0 + 18446744073709551408#64) 17 := E.djSM.sub_left (frn_0 sp) (by omega)
-theorem djS28O (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint sp 28 out 3 := E.djSO.sub_left (frn_0 sp) (by omega)
-theorem djS28C (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint sp 28 a1 18 := E.djSC.sub_left (frn_0 sp) (by omega)
-theorem djBM (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x18#64) 18 (sp0 + 18446744073709551408#64) 17 := E.djSM.sub_left (frn_18 sp) (by omega)
-theorem djBO (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x18#64) 18 out 3 := E.djSO.sub_left (frn_18 sp) (by omega)
-theorem djBC (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x18#64) 18 a1 18 := E.djSC.sub_left (frn_18 sp) (by omega)
-theorem djFBlk (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 48 (sp + 0x18#64) 18 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (self_add_zero _) (frn_18 sp) (by omega) (by omega) (Or.inl (by omega))
-theorem djSvF (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 (sp - 0x180#64) 48 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (frn_a8 sp) (self_add_zero _) (by omega) (by omega) (Or.inr (by omega))
-theorem djSvV (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 sp 3 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (frn_a8 sp) (frn_0 sp) (by omega) (by omega) (Or.inr (by omega))
-theorem djSvBlk (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 (sp + 0x18#64) 18 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (frn_a8 sp) (frn_18 sp) (by omega) (by omega) (Or.inr (by omega))
-theorem djSvH (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 0x78040620#64 14780694332 :=
+theorem djHS (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x180#64) 76 :=
+  MachineChecked.RiscV.Sym.Disjoint.heap_framen76 E.stk
+theorem djFM (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 48 (sp0 + 18446744073709551408#64) 17 := E.djSM.sub_left (self_add_zero _) (by omega)
+theorem djFO (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 48 out 3 := E.djSO.sub_left (self_add_zero _) (by omega)
+theorem djFC (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 48 a1 18 := E.djSC.sub_left (self_add_zero _) (by omega)
+theorem djVM (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint sp 3 (sp0 + 18446744073709551408#64) 17 := E.djSM.sub_left (frn_0 sp) (by omega)
+theorem djVO (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint sp 3 out 3 := E.djSO.sub_left (frn_0 sp) (by omega)
+theorem djVC (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint sp 3 a1 18 := E.djSC.sub_left (frn_0 sp) (by omega)
+theorem djS28M (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint sp 28 (sp0 + 18446744073709551408#64) 17 := E.djSM.sub_left (frn_0 sp) (by omega)
+theorem djS28O (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint sp 28 out 3 := E.djSO.sub_left (frn_0 sp) (by omega)
+theorem djS28C (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint sp 28 a1 18 := E.djSC.sub_left (frn_0 sp) (by omega)
+theorem djBM (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x18#64) 18 (sp0 + 18446744073709551408#64) 17 := E.djSM.sub_left (frn_18 sp) (by omega)
+theorem djBO (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x18#64) 18 out 3 := E.djSO.sub_left (frn_18 sp) (by omega)
+theorem djBC (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x18#64) 18 a1 18 := E.djSC.sub_left (frn_18 sp) (by omega)
+theorem djFBlk (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 48 (sp + 0x18#64) 18 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (self_add_zero _) (frn_18 sp) (by omega) (by omega) (Or.inl (by omega))
+theorem djSvF (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 (sp - 0x180#64) 48 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (frn_a8 sp) (self_add_zero _) (by omega) (by omega) (Or.inr (by omega))
+theorem djSvV (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 sp 3 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (frn_a8 sp) (frn_0 sp) (by omega) (by omega) (Or.inr (by omega))
+theorem djSvBlk (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 (sp + 0x18#64) 18 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (frn_a8 sp) (frn_18 sp) (by omega) (by omega) (Or.inr (by omega))
+theorem djSvH (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 0x78040620#64 14780694332 :=
   (E.djHS.sub_right (frn_a8 sp) (by omega)).symm
-theorem djSvO (E : NoteEnv sp sp0 out a1 G K R Q) : AsmVerif.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 out 3 := E.djSO.sub_left (frn_a8 sp) (by omega)
+theorem djSvO (E : NoteEnv sp sp0 out a1 G K R Q) : MachineChecked.RiscV.Sym.Disjoint (sp + 0xa8#64) 7 out 3 := E.djSO.sub_left (frn_a8 sp) (by omega)
 
 end NoteEnv
 
@@ -138,7 +138,7 @@ structure NoteCtx (sp0 v : Word) (G K R Q : List Word) (t : MachineState) : Prop
 theorem NoteCtx.step {sp sp0 out a1 v : Word} {G K R Q : List Word} {s t : MachineState}
     (E : NoteEnv sp sp0 out a1 G K R Q)
     (C : NoteCtx sp0 v G K R Q s) (hc : t.code = s.code) {W : List (Word × Nat)} (hu : Unchanged W s t)
-    (hM : ∀ r ∈ W, AsmVerif.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17) : NoteCtx sp0 v G K R Q t :=
+    (hM : ∀ r ∈ W, MachineChecked.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17) : NoteCtx sp0 v G K R Q t :=
   ⟨codeAt_of_code_eq hc C.code, codeAt_of_code_eq hc C.codeN, codeWithin_of_code_eq hc C.cw,
    C.Gr.of_unchanged hu (fun r hr => by rw [E.Gl]; exact (dj_G (hM r hr)).symm),
    C.Kr.of_unchanged hu (fun r hr => by rw [E.Kl]; exact (dj_K (hM r hr)).symm),
@@ -191,10 +191,10 @@ theorem note_word8_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {n
       (BitVec.ofNat 64 (8 * m) + BitVec.ofNat 64 r == BitVec.ofNat 64 cap) = false := fun r hr => by
     rw [BitVec.ofNat_add_ofNat]; exact ofNat_beq_false (by omega) (by omega) (by omega)
   have hokq : RegionOk Ro.layout.roBase Ro.layout.textHi (p + BitVec.ofNat 64 (8 * m)) 1 := H.hok.sub' m 1 (by omega) rfl
-  have djP : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
-      AsmVerif.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
-  have hdjq : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-      AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * m)) 1 b n := fun h => h.sub_left rfl (by omega)
+  have djP : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
+      MachineChecked.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
+  have hdjq : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+      MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * m)) 1 b n := fun h => h.sub_left rfl (by omega)
   have hdjqS := hdjq (djP E.djHS)
   refine from_iter_note_word8 s sp sp0 out v p (BitVec.ofNat 64 (8 * m)) (p + BitVec.ofNat 64 (8 * m))
     (BitVec.ofNat 64 cap) V[m]! (bw (noteBit G K v R Q (8 * m))) J G K R Q (noteState sp0 J j (8 * m + 1)) j E.Gl E.Kl E.Rl E.Ql
@@ -228,7 +228,7 @@ theorem note_word8_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {n
     · exact noteCoverH (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
         (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
   have hdjM : ∀ r ∈ [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (p + BitVec.ofNat 64 (8 * m), 1)],
-      AsmVerif.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17 := by
+      MachineChecked.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17 := by
     intro r hr
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact E.djFM
@@ -239,25 +239,25 @@ theorem note_word8_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {n
   have hpre : Region p (V.take m) t := by
     refine (Region.take H.hbuf m).of_unchanged' hun (n := m) (by simp [List.length_take]; omega) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n → AsmVerif.RiscV.Sym.Disjoint p m b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n → MachineChecked.RiscV.Sym.Disjoint p m b n :=
       fun h => h.sub_left (self_add_zero p) (by omega)
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (self_add_zero _) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) rfl (by omega) (by omega) (Or.inl (by omega))
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) rfl (by omega) (by omega) (Or.inl (by omega))
   have hpost : Region (p + BitVec.ofNat 64 (8 * (m + 1))) (V.drop (m + 1)) t := by
     refine (Region.shift H.hbuf (m + 1)).of_unchanged' hun (n := V.length - (m + 1))
       (by simp [List.length_drop]) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-        AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * (m + 1))) (V.length - (m + 1)) b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+        MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * (m + 1))) (V.length - (m + 1)) b n :=
       fun h => h.sub_left rfl (by omega)
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (self_add_zero _) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl rfl (by omega) (by omega) (Or.inr (by omega))
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl rfl (by omega) (by omega) (Or.inr (by omega))
   refine hk t w' hcode' hunF ⟨h3, h4, h22, h23, h24, h25, h26, h27⟩ (C.step E hcode' hun hdjM) ?_
   refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hbit'], hV', ?_, ?_, ?_, ?_, H.hlo, ?_, hro', hheap'⟩
   · rw [hIv']; exact hBlk'
@@ -284,10 +284,10 @@ theorem note_word7_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {n
       (BitVec.ofNat 64 (8 * m) + BitVec.ofNat 64 r == BitVec.ofNat 64 cap) = false := fun r hr => by
     rw [BitVec.ofNat_add_ofNat]; exact ofNat_beq_false (by omega) (by omega) (by omega)
   have hokq : RegionOk Ro.layout.roBase Ro.layout.textHi (p + BitVec.ofNat 64 (8 * m)) 1 := H.hok.sub' m 1 (by omega) rfl
-  have djP : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
-      AsmVerif.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
-  have hdjq : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-      AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * m)) 1 b n := fun h => h.sub_left rfl (by omega)
+  have djP : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
+      MachineChecked.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
+  have hdjq : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+      MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * m)) 1 b n := fun h => h.sub_left rfl (by omega)
   have hdjqS := hdjq (djP E.djHS)
   have hn1 : s.getReg .x18 = BitVec.ofNat 64 (8 * m) + 1#64 := by rw [H.hn, BitVec.ofNat_add]
   have hvec1 : Region sp [BitVec.ofNat 64 cap, p, BitVec.ofNat 64 (8 * m) + 1#64] s := by
@@ -323,7 +323,7 @@ theorem note_word7_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {n
     · exact noteCoverH (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
         (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
   have hdjM : ∀ r ∈ [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (p + BitVec.ofNat 64 (8 * m), 1)],
-      AsmVerif.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17 := by
+      MachineChecked.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17 := by
     intro r hr
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact E.djFM
@@ -333,25 +333,25 @@ theorem note_word7_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {n
   have hpre : Region p (V.take m) t := by
     refine (Region.take H.hbuf m).of_unchanged' hun (n := m) (by simp [List.length_take]; omega) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n → AsmVerif.RiscV.Sym.Disjoint p m b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n → MachineChecked.RiscV.Sym.Disjoint p m b n :=
       fun h => h.sub_left (self_add_zero p) (by omega)
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (self_add_zero _) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) rfl (by omega) (by omega) (Or.inl (by omega))
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) rfl (by omega) (by omega) (Or.inl (by omega))
   have hpost : Region (p + BitVec.ofNat 64 (8 * (m + 1))) (V.drop (m + 1)) t := by
     refine (Region.shift H.hbuf (m + 1)).of_unchanged' hun (n := V.length - (m + 1))
       (by simp [List.length_drop]) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-        AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * (m + 1))) (V.length - (m + 1)) b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+        MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * (m + 1))) (V.length - (m + 1)) b n :=
       fun h => h.sub_left rfl (by omega)
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (self_add_zero _) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl rfl (by omega) (by omega) (Or.inr (by omega))
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl rfl (by omega) (by omega) (Or.inr (by omega))
   refine hk t w' hcode' hunF ⟨h3, h4, h22, h23, h24, h25, h26, h27⟩ (C.step E hcode' hun hdjM) ?_
   refine ⟨hpc', hsp', hs0', hs1', hs2', hs3', by rw [hs4', ← hbit'], hV', ?_, ?_, ?_, ?_, H.hlo, ?_, hro', hheap'⟩
   · rw [hIv']; exact hBlk'
@@ -449,7 +449,7 @@ theorem note_grow_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {n 
     · exact ⟨(0x78040620#64, 4162), by simp, le_refl _, le_refl _⟩
     · exact ⟨(0x78048980#64, 14780690128), by simp, le_refl _, le_refl _⟩
   have hdjM : ∀ r ∈ [(sp - 0x180#64, 48), (sp, 3), (sp + 0x18#64, 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)],
-      AsmVerif.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17 := by
+      MachineChecked.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17 := by
     intro r hr
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl
     · exact E.djFM
@@ -487,16 +487,16 @@ theorem note_tail_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {nb
   have hlo := H.hlo
   have hhi := H.hhi
   have hnw : p.toNat + 8 * V.length < 2 ^ 64 := by omega
-  have djP : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
-      AsmVerif.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
+  have djP : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
+      MachineChecked.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
   have hW : Region (p + 1088#64) [V[136]!, V[137]!] s := by
     have h := (Region.shift H.hbuf 136).take 2
     rw [List.drop_eq_getElem_cons (by omega), List.drop_eq_getElem_cons (by omega),
       List.take_succ_cons, List.take_succ_cons, List.take_zero, ← getBang (by omega),
       ← getBang (by omega)] at h
     exact h
-  have hdjW : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-      AsmVerif.RiscV.Sym.Disjoint (p + 1088#64) 2 b n := fun h => h.sub_left (i := 136) rfl (by omega)
+  have hdjW : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+      MachineChecked.RiscV.Sym.Disjoint (p + 1088#64) 2 b n := fun h => h.sub_left (i := 136) rfl (by omega)
   have hdjWS := hdjW (djP E.djHS)
   refine from_iter_note_tail s sp sp0 out v p (bw (noteBit G K v R Q 1088)) V[136]! V[137]! J G K R Q
     (noteState sp0 J j 1089) O j E.Gl E.Kl E.Rl E.Ql hOl (noteState_length _ _ _ _) rfl rav s0v s1v s2v s3v s4v s5v hra1 H.hpc
@@ -516,13 +516,13 @@ theorem note_tail_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {nb
   have hpre : Region p (V.take 136) t := by
     refine (Region.take H.hbuf 136).of_unchanged' hun (n := 136) (by simp [List.length_take]; omega) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n → AsmVerif.RiscV.Sym.Disjoint p 136 b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n → MachineChecked.RiscV.Sym.Disjoint p 136 b n :=
       fun h => h.sub_left (self_add_zero p) (by omega)
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (self_add_zero _) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) (j := 136) rfl (by omega)
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) (j := 136) rfl (by omega)
         (by omega) (Or.inl (by omega))
     · exact hd (djP E.djHO)
   have hw2 : Region (p + BitVec.ofNat 64 (8 * 136)) [w'] t := hW'.take 1
@@ -531,14 +531,14 @@ theorem note_tail_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {nb
     refine (Region.shift H.hbuf 138).of_unchanged' hun (n := V.length - 138)
       (by simp [List.length_drop]) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-        AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * 138)) (V.length - 138) b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+        MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * 138)) (V.length - 138) b n :=
       fun h => h.sub_left rfl (by omega)
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (self_add_zero _) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (frn_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl (j := 136) rfl (by omega) (by omega)
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl (j := 136) rfl (by omega) (by omega)
         (Or.inr (by omega))
     · exact hd (djP E.djHO)
   have hw3 : Region (p + BitVec.ofNat 64 (8 * 137)) (V.drop 137) t := by
@@ -595,7 +595,7 @@ theorem note_pro_step {L : List (Word × Nat)} {Gd : MachineState → Prop} {n :
     h25 h26 h27 hI2l hI2 hR hI1l hR1 hO' hb0 hW hw hok' hlo' hhi' hro' hheap'
   rw [list18_cells I2 hI2l] at hR
   have hdjM : ∀ r ∈ [(sp - 0x180#64, 48), (sp, 28), (a1, 18), (0x78040620#64, 4162), (0x78048980#64, 14780690128)],
-      AsmVerif.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17 := by
+      MachineChecked.RiscV.Sym.Disjoint r.1 r.2 (sp0 + 18446744073709551408#64) 17 := by
     intro r hr
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl
     · exact E.djFM

@@ -12,7 +12,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem black_box_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp v : Word)
     (hpc : s.pc = 0x7803a0fc#64) (hcode : CodeAt F_7803a0fc.base F_7803a0fc.prog s)

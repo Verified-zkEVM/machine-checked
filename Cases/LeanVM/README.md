@@ -32,9 +32,9 @@ to aim for: a run of the guest with advice word `n` commits `n` and `BLAKE2s-256
 
 ## What the framework has and what leanVM needs
 
-Generic, and reused as is: the ELF loader and image facts (`AsmVerif.RiscV.Load`,
+Generic, and reused as is: the ELF loader and image facts (`MachineChecked.RiscV.Load`,
 `Image`), the decoder (riscv-zkvm's, shared with SP1), the frame and contract checkers and
-their soundness (`AsmVerif.RiscV.Frame`, `Check`), the typed-stores layer with its model
+their soundness (`MachineChecked.RiscV.Frame`, `Check`), the typed-stores layer with its model
 instances, and `Infer`.
 
 Specific to the zkVM, to be added as a second instance beside SP1's:

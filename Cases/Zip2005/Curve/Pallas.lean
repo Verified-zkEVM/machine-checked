@@ -15,7 +15,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- `AffinePoint::complete_add_assign`, on the nine-doubleword layout. -/
 def completeAddW (p q : List Word) : List Word :=

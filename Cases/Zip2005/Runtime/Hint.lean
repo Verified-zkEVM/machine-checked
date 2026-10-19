@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 import Cases.Zip2005.Image.F_7801beb0
 import Cases.Zip2005.Image.Ro
 
@@ -12,7 +12,7 @@ path (`read_vec_raw`) needs: the written words, and everything else left alone.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -96,7 +96,7 @@ theorem hint_len_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (u : Mach
       t.getReg .x12 = r12 → t.getReg .x5 = hlenW I → SafeN G n P t) :
     SafeN G n P u := by
   have hf : u.code u.pc = some .ECALL := by rw [hpc]; exact hcode 3 (by decide)
-  refine AsmVerif.RiscV.SafeN.step_of (stepSp1_hintLen hf (by rw [ht0]; rfl)) (hk _ ?_ rfl ?_ ?_ rfl ?_ ?_ ?_ ?_)
+  refine MachineChecked.RiscV.SafeN.step_of (stepSp1_hintLen hf (by rw [ht0]; rfl)) (hk _ ?_ rfl ?_ ?_ rfl ?_ ?_ ?_ ?_)
   · show u.pc + 4 = _; rw [hpc]; decide
   · intro r hr
     simp only [hintLen, MachineState.getReg_setPC]
@@ -222,10 +222,10 @@ theorem hint_read_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} (u : Ma
   cases h : hintRead u with
   | none =>
     rw [h] at hstep
-    exact AsmVerif.RiscV.SafeN.stuck hstep (fun ha => absurd (ha.2.1.symm.trans ht0) (by decide))
+    exact MachineChecked.RiscV.SafeN.stuck hstep (fun ha => absurd (ha.2.1.symm.trans ht0) (by decide))
   | some t =>
     rw [h] at hstep
-    refine AsmVerif.RiscV.SafeN.step_of hstep ?_
+    refine MachineChecked.RiscV.SafeN.step_of hstep ?_
     unfold hintRead at h
     rcases hfl : frontHintLen u with _ | n
     · rw [hfl] at h; exact absurd h (by simp)

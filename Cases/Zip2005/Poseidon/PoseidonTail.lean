@@ -1,7 +1,7 @@
 import Cases.Zip2005.Poseidon.PoseidonPartial
 import Cases.Zip2005.Poseidon.PoseidonPerm
 import Cases.Zip2005.Image.F_7801e26c
-import AsmVerif.RiscV.Sym.Resume
+import MachineChecked.RiscV.Sym.Resume
 import Cases.Zip2005.Image.Ro
 
 /-!
@@ -15,7 +15,7 @@ because one executor run over all 64 rounds does not fit the memory budget.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

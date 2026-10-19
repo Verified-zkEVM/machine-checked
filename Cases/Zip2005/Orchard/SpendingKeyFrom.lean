@@ -14,7 +14,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.B2b
 
 /-- The eight output words of `PrfExpand::with(sk, &[])` for the domain byte `d`. -/
 def prfExpandW (d s0 s1 s2 s3 : Word) : List Word :=

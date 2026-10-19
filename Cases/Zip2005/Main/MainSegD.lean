@@ -46,13 +46,13 @@ from the return of `NoteCommitment::derive` to `main`'s return: the commitment f
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem main_seg_d_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 vs5 vra r22 r23 r24 r25 r26 r27 : Word)
     (f0 f1 f2 f3 n0 n1 n2 n3 q0 q1 q2 q3 r0 r1 r2 r3 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 cf pw z : Word) (H Y D X : List Word)
     (hHl : H.length = 128) (hYl : Y.length = 117) (hDl : D.length = 12) (hXl : X.length = 4)

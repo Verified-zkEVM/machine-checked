@@ -23,7 +23,7 @@ of it to fd 2, then `halt_invalid_hint` — `syscall_halt(3)`, which never accep
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

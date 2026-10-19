@@ -13,7 +13,7 @@ at the affine identity `(0, 0)`, the identity test through `black_box`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -44,12 +44,12 @@ theorem to_curve_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
     (RoImage.ok Ro.layout Ro.layout.textLo Ro.layout.textHi (by decide) 1 (by decide)).sub' 46 1 (by decide) (by decide)
   have he_c : Disjoint a0 12 0x78000370#64 1 := by
     have h1 := hok0.offCode; have h2 := hok0.inMem
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY,
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY,
       Nat.reducePow, Nat.reduceMod] at h1 h2 ⊢
     omega
   have hf_c : Disjoint a1 8 0x78000370#64 1 := by
     have h1 := hok1.offCode; have h2 := hok1.inMem
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY,
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY,
       Nat.reducePow, Nat.reduceMod] at h1 h2 ⊢
     omega
   have hu := Unchanged.refl [(sp - 0x40#64, 8), (a0, 12)] s

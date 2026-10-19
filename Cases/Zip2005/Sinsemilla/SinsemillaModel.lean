@@ -13,7 +13,7 @@ eight words: `x` then `y`, both in Montgomery form. `hash_to_point_inner` reads 
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- Chunks `k, …, k + n - 1` of the read-only segment, concatenated. -/
 def roChunksFrom (k : Nat) : Nat → List Word

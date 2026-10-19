@@ -13,7 +13,7 @@ and so is the capacity.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -168,20 +168,20 @@ theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Wo
       have hkk : (k + k).toNat = 2 * k.toNat := by
         rw [BitVec.toNat_add]; omega
       have hdisj : ∀ {b : Word} {m : Nat}, b.toNat + 8 * m ≤ 0x78000000 → sp.toNat + 0x140 ≤ b.toNat →
-          ∀ r ∈ sqW sp, AsmVerif.RiscV.Sym.Disjoint b m r.1 r.2 := by
+          ∀ r ∈ sqW sp, MachineChecked.RiscV.Sym.Disjoint b m r.1 r.2 := by
         intro b m h1 h2 r hr
         rcases mem4 hr with rfl | rfl | rfl | rfl
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; rw [toNat_sp_sub sp (by omega)]; omega
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; omega
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
-      have hdS : ∀ r ∈ sqW sp, AsmVerif.RiscV.Sym.Disjoint (sp + 0xd8#64) 13 r.1 r.2 := by
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; rw [toNat_sp_sub sp (by omega)]; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
+      have hdS : ∀ r ∈ sqW sp, MachineChecked.RiscV.Sym.Disjoint (sp + 0xd8#64) 13 r.1 r.2 := by
         intro r hr
         rcases mem4 hr with rfl | rfl | rfl | rfl
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; rw [toNat_sp_sub sp (by omega)]; omega
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; omega
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; rw [toNat_sp_sub sp (by omega)]; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
       refine ih t2 J' (k + 1#64) (k + k) p' (hc2.trans hc)
         (hro.of_unchanged hun2 ?_)
         (by rw [hkk, show 4 * (2 * k.toNat) = 8 * k.toNat by ring]; exact hheap2)
@@ -235,23 +235,23 @@ theorem sq_loop {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Wo
         H.okP.sub' (4 * k.toNat) 4 (by omega) (by rw [← hq, show 8 * (4 * k.toNat) = 32 * k.toNat by ring])
       obtain ⟨Q, hQ, hQl⟩ := Region.exists_junk q 4 t
       rw [list4_cells Q hQl] at hQ
-      have hdQF : AsmVerif.RiscV.Sym.Disjoint q 4 sp 27 := by unfold AsmVerif.RiscV.Sym.Disjoint; omega
-      have hdQG : AsmVerif.RiscV.Sym.Disjoint q 4 g 4 := by unfold AsmVerif.RiscV.Sym.Disjoint; omega
+      have hdQF : MachineChecked.RiscV.Sym.Disjoint q 4 sp 27 := by unfold MachineChecked.RiscV.Sym.Disjoint; omega
+      have hdQG : MachineChecked.RiscV.Sym.Disjoint q 4 g 4 := by unfold MachineChecked.RiscV.Sym.Disjoint; omega
       have hW : ∀ r ∈ [(sp, 27), (q, 4)], ∃ r' ∈ sqW sp, Covers r'.1 r'.2 r.1 r.2 := by
         intro r hr
         rcases mem2 hr with rfl | rfl
         · exact ⟨(sp, 27), by simp, by unfold Covers; dsimp only; omega⟩
         · exact ⟨(0x78048980#64, 14780690128), by simp, by unfold Covers; dsimp only; simp only [BitVec.toNat_ofNat]; omega⟩
-      have hdS : ∀ r ∈ [(sp, 27), (q, 4)], AsmVerif.RiscV.Sym.Disjoint (sp + 0xd8#64) 13 r.1 r.2 := by
+      have hdS : ∀ r ∈ [(sp, 27), (q, 4)], MachineChecked.RiscV.Sym.Disjoint (sp + 0xd8#64) 13 r.1 r.2 := by
         intro r hr
         rcases mem2 hr with rfl | rfl
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; omega
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; omega
-      have hdG : ∀ r ∈ [(sp, 27), (q, 4)], AsmVerif.RiscV.Sym.Disjoint g 4 r.1 r.2 := by
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; omega
+      have hdG : ∀ r ∈ [(sp, 27), (q, 4)], MachineChecked.RiscV.Sym.Disjoint g 4 r.1 r.2 := by
         intro r hr
         rcases mem2 hr with rfl | rfl
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; omega
-        · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; omega
+        · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; omega
       have hroW : ∀ r ∈ [(sp, 27), (q, 4)], r.1.toNat + 8 * r.2 ≤ Ro.layout.roBase ∨ Ro.layout.roBase + Ro.layout.roBytes ≤ r.1.toNat := by
         intro r hr
         rcases mem2 hr with rfl | rfl

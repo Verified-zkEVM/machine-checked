@@ -42,7 +42,7 @@ identically, whatever their other sections say. Every comparison below uses it.
 **Consequence.** "Add debug info, keep the proofs" is false for this toolchain. The rule
 has to be: **the artifact under proof is the build that produced the DWARF.** Strip it
 afterwards if you like, since that is proven harmless. For zip-2005 that means re-pinning
-every address. For asm-verif it means the build profile is part of the pipeline from the
+every address. For MachineChecked it means the build profile is part of the pipeline from the
 start.
 
 ### 2. Statics: the symbol table, not DWARF
@@ -205,12 +205,12 @@ because every word extraction shifts the whole number.
 
 ## What was built
 
-- **`AsmVerif/RiscV/Frame/Domain.lean`**: a computable frame analysis.
+- **`MachineChecked/RiscV/Frame/Domain.lean`**: a computable frame analysis.
   - Abstract values: `lin r k` (entry value of `r` plus `k`), `const c`, `top`. Slots map
     frame offsets to abstract values.
   - Calls are a contract macro-step. Outlined fragments are executed in place.
   - `Fn.valid` checks a per-instruction annotation in one pass.
-- **`AsmVerif/RiscV/Frame/Sound.lean`**: `integrity`, proved against riscv-zkvm's `stepSp1`.
+- **`MachineChecked/RiscV/Frame/Sound.lean`**: `integrity`, proved against riscv-zkvm's `stepSp1`.
   Along any `Run` of one activation, every step that leaves the function (a `ret`, or a
   non-call step whose target is outside it) ends with `ra` and `sp` at their entry values.
   49 theorems, no `sorry`, axioms `propext`/`Classical.choice`/`Quot.sound` only.
@@ -280,13 +280,13 @@ lake build Cases.Zip2005.Frame.Memcpy Cases.Zip2005.Frame.PadNext Cases.Zip2005.
 
 # Item 1: a kernel-checked loader in place of `check-load` (2026-10-12)
 
-- **`AsmVerif/RiscV/Load.lean`**: a total loader mirroring riscv-zkvm's `Interpreter.load`.
+- **`MachineChecked/RiscV/Load.lean`**: a total loader mirroring riscv-zkvm's `Interpreter.load`.
   - An `Image` is an entry point, code chunks tiling the executable segments, and data
     chunks (doublewords, with `.bss` as a zero count).
   - `Image.state` is the starting `MachineState`.
   - `Image.codeAt_prog` (proved once): in an image passing `codeWF`, a function's chunk
     plus `decodeWords ws = prog` put `prog` at `base + 4 j`.
-- **`AsmVerif/RiscV/Frame/Image.lean`**:
+- **`MachineChecked/RiscV/Frame/Image.lean`**:
   - `stepSp1_code`: no SP1 step changes code, including syscalls, hint reads and precompiles.
   - `codeOk_of_image`: discharges the frame theorems' `CodeOk` premise from an image.
 - **`gen-image`** now also emits `Data_<i>` (one per segment) and `Layout` (`image : Image`).

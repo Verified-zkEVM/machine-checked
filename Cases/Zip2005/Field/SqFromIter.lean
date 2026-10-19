@@ -18,7 +18,7 @@ result (ledger A3).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -94,26 +94,26 @@ theorem sq_from_iter_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L :
       refine hO.of_unchanged' hun1 hOl ?_
       intro r hr
       rcases mem4 hr with rfl | rfl | rfl | rfl
-      · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; rw [e170]; omega
+      · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; rw [e170]; omega
       · exact hdOI
-      · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
-      · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
+      · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
+      · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
     have hO2 : Region out O t2 := by
       refine hO1.of_unchanged' hun2 hOl ?_
       intro r hr
       rcases mem4 hr with rfl | rfl | rfl | rfl
-      · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; rw [e1, e240]; omega
-      · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; rw [e140]; omega
-      · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
-      · unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
+      · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; rw [e1, e240]; omega
+      · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; rw [e140]; omega
+      · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
+      · unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; simp only [BitVec.toNat_ofNat]; omega
     have hc2s := hc2
     refine sq_iter_tail t2 (sp - 0x140#64) out c p2 l O hOl (s.getReg .x8) (s.getReg .x9)
       (s.getReg .x18) (s.getReg .x19) (s.getReg .x20) (s.getReg .x21) (s.getReg .x22) (s.getReg .x23)
       (s.getReg .x24) (s.getReg .x25) (s.getReg .x26) (s.getReg .x27) ra hra1 hpc2
       (codeAt_of_code_eq hc2s hcode) (fun a ha => hcw a (hc2s ▸ ha)) r2' hH2 E.okH hS2
       (sq_ok_of_nat (by rw [eadd 0xd8 (by decide)]; omega) (by rw [eadd 0xd8 (by decide)]; omega))
-      hO2 hokO (by unfold AsmVerif.RiscV.Sym.Disjoint; rw [eadd 8 (by decide)]; omega)
-      (by unfold AsmVerif.RiscV.Sym.Disjoint; rw [eadd 0xd8 (by decide)]; omega) ?_
+      hO2 hokO (by unfold MachineChecked.RiscV.Sym.Disjoint; rw [eadd 8 (by decide)]; omega)
+      (by unfold MachineChecked.RiscV.Sym.Disjoint; rw [eadd 0xd8 (by decide)]; omega) ?_
     intro t3 hpc3 hc3 hun3 x2' x8' x9' x18' x19' x20' x21' x22' x23' x24' x25' x26' x27' x3' x4' hO3
     have hc3s := hc3.trans hc2s
     have hcE : c = 256#64 := BitVec.eq_of_toNat_eq hc256

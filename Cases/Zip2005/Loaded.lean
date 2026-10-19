@@ -4,7 +4,7 @@
   The guest as the zkVM loads it, and the spike's integrity theorems restated from there.
 
   What `zip-2005-asm` checked with compiled code (`check-load`) is here a kernel-checked
-  fact about `AsmVerif.RiscV.Load`'s loader: the layout is well-formed, and each function's
+  fact about `MachineChecked.RiscV.Load`'s loader: the layout is well-formed, and each function's
   words decode to its program. What stays executable glue is narrower: `gen-image` compared
   this loader's result with riscv-zkvm's `Interpreter.load`, entry by entry (41,780 code
   entries, 36,144 memory doublewords).
@@ -15,11 +15,11 @@ import Cases.Zip2005.Frame.Memcpy
 import Cases.Zip2005.Frame.PadNext
 import Cases.Zip2005.Frame.DefaultHook
 import Cases.Zip2005.Frame.FmtWrite
-import AsmVerif.RiscV.Frame.Image
+import MachineChecked.RiscV.Frame.Image
 
 namespace Cases.Zip2005.Loaded
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame Cases.Zip2005.Image Cases.Zip2005.Frame
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame Cases.Zip2005.Image Cases.Zip2005.Frame
 
 noncomputable abbrev image : Image := Layout.image
 

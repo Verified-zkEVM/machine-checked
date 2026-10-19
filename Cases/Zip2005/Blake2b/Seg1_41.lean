@@ -4,7 +4,7 @@
   continuation word by word, together with the model equation `roundsTo … = [w…]` for the rounds done so far.
 -/
 
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 import Cases.Zip2005.Runtime.MemsetSpec
 import Cases.Zip2005.Runtime.MemcpyRcm
 import Cases.Zip2005.Blake2b.Blake2bModel
@@ -13,7 +13,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.B2b
 
 set_option autoImplicit false
 

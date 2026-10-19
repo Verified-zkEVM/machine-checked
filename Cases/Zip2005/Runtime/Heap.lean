@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym.Ro
+import MachineChecked.RiscV.Sym.Ro
 import Cases.Zip2005.Image.Ro
 
 /-!
@@ -21,7 +21,7 @@ namespace Cases.Zip2005
 
 open Cases.Zip2005.Image
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym
 
 /-- `INNER_HEAP`, the start of the allocator's write set. Statements use the literals
 `0x78040620#64` and `14780694332` (cells to the arena's end `0x1c00000000`) so that the executor's
@@ -71,16 +71,16 @@ theorem fpTablesOk : RegionOk Ro.layout.textLo Ro.layout.textHi 0x780488a8#64 10
   ⟨by decide, by decide, Or.inr (by decide)⟩
 
 /-- A block off the whole heap range is off the control block. -/
-theorem _root_.AsmVerif.RiscV.Sym.Disjoint.ctl_of_heap {b : Word} {n : Nat} (h : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n) :
-    AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 4162 b n := by
-  unfold AsmVerif.RiscV.Sym.Disjoint at *
+theorem _root_.MachineChecked.RiscV.Sym.Disjoint.ctl_of_heap {b : Word} {n : Nat} (h : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n) :
+    MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 4162 b n := by
+  unfold MachineChecked.RiscV.Sym.Disjoint at *
   simp only [BitVec.toNat_ofNat] at *
   omega
 
 /-- A block off the whole heap range is off the arena. -/
-theorem _root_.AsmVerif.RiscV.Sym.Disjoint.arena_of_heap {b : Word} {n : Nat} (h : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n) :
-    AsmVerif.RiscV.Sym.Disjoint 0x78048980#64 14780690128 b n := by
-  unfold AsmVerif.RiscV.Sym.Disjoint at *
+theorem _root_.MachineChecked.RiscV.Sym.Disjoint.arena_of_heap {b : Word} {n : Nat} (h : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n) :
+    MachineChecked.RiscV.Sym.Disjoint 0x78048980#64 14780690128 b n := by
+  unfold MachineChecked.RiscV.Sym.Disjoint at *
   simp only [BitVec.toNat_ofNat] at *
   omega
 

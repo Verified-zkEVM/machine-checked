@@ -11,7 +11,7 @@ The models `main`'s accepting-path predicates carry, as the spec's PRF outputs (
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.B2b
 
 set_option autoImplicit false
 

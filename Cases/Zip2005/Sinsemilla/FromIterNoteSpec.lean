@@ -18,7 +18,7 @@ and A5 instances `halloc`, `hreserve`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -83,7 +83,7 @@ theorem NoteEnv.keepSv {sp sp0 out a1 : Word} {G K R Q : List Word} (E : NoteEnv
   simp only [noteLoopW, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl
   · exact E.djSvF
-  · exact AsmVerif.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (frn_a8 sp) (frn_0 sp) (by omega) (by omega)
+  · exact MachineChecked.RiscV.Sym.Disjoint.within (N := 76) (framen_nowrap E.stk) (frn_a8 sp) (frn_0 sp) (by omega) (by omega)
       (Or.inr (by omega))
   · exact (Disjoint.ctl_of_heap E.djSvH.symm).symm
   · exact (Disjoint.arena_of_heap E.djSvH.symm).symm
@@ -151,14 +151,14 @@ theorem from_iter_nc_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L :
     (hQr : Region (sp0 + 18446744073709551512#64) Q s)
     (hokM : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551408#64) 17)
     (hsp0_lo : 0x10000 ≤ sp0.toNat) (hsp0_hi : sp0.toNat ≤ 0x78000000)
-    (hdjSM : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 76 (sp0 + 18446744073709551408#64) 17)
-    (hdjSO : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 76 out 3) (hdjSC : AsmVerif.RiscV.Sym.Disjoint (sp - 0x180#64) 76 a1 18)
-    (hdjOM : AsmVerif.RiscV.Sym.Disjoint out 3 (sp0 + 18446744073709551408#64) 17)
-    (hdjOC : AsmVerif.RiscV.Sym.Disjoint out 3 a1 18)
-    (hdjCM : AsmVerif.RiscV.Sym.Disjoint a1 18 (sp0 + 18446744073709551408#64) 17)
-    (hdjHM : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp0 + 18446744073709551408#64) 17)
-    (hdjHO : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 out 3)
-    (hdjHC : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 a1 18)
+    (hdjSM : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 76 (sp0 + 18446744073709551408#64) 17)
+    (hdjSO : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 76 out 3) (hdjSC : MachineChecked.RiscV.Sym.Disjoint (sp - 0x180#64) 76 a1 18)
+    (hdjOM : MachineChecked.RiscV.Sym.Disjoint out 3 (sp0 + 18446744073709551408#64) 17)
+    (hdjOC : MachineChecked.RiscV.Sym.Disjoint out 3 a1 18)
+    (hdjCM : MachineChecked.RiscV.Sym.Disjoint a1 18 (sp0 + 18446744073709551408#64) 17)
+    (hdjHM : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp0 + 18446744073709551408#64) 17)
+    (hdjHO : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 out 3)
+    (hdjHC : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 a1 18)
     (hout : out.toNat + 8 * 3 ≤ 0x78040620) (ha1lo : a1.toNat + 8 * 18 ≤ 0x78040620)
     -- `__rust_alloc(8, 1)` (A4, this call's instance): a fresh word in the arena
     (halloc : ∀ (u : MachineState) (L' : List (Word × Nat)), u.pc = 0x7801bcec#64 → u.code = s.code →

@@ -257,9 +257,9 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   by kernel `decide` (`Spec/CompElliptic/Curves/PallasOrderCert.lean`); the axiom census in
   `Spec/Zip2005.lean` now asserts every entry on the three standard axioms. 44 linter warnings
   in 19 upstream files are to be cleaned.
-- F1. The symbolic executor as framework code. `AsmVerif/RiscV/Sym/`: the executor
+- F1. The symbolic executor as framework code. `MachineChecked/RiscV/Sym/`: the executor
   (`sym_exec`, `sym_close`), over the same judgement as the checker (`SafeN G n P s`,
-  `AsmVerif/RiscV/Safe.lean`: one module for `stepsSp1`, `SafeN`, `Safe` and their lemmas;
+  `MachineChecked/RiscV/Safe.lean`: one module for `stepsSp1`, `SafeN`, `Safe` and their lemmas;
   a step keeps the budget, so the executor threads `G` and `n` through unchanged and its
   specifications compose with the checker's interfaces directly), with its region, frame, register
   and read-only-data vocabulary, generic in a `Layout` (text window, read-only segment,
@@ -356,7 +356,7 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   arbitrary allocator control block, and is then probably false. M1 states every
   formatting premise, and every restated panic contract, under the heap invariant.
   **M1 implementation (2026-10-14).**
-  - *The carried invariant* (`AsmVerif.RiscV.Sym.Carry`): `Carry R Q L s`, every memory
+  - *The carried invariant* (`MachineChecked.RiscV.Sym.Carry`): `Carry R Q L s`, every memory
     agreeing with `s`'s off the open addresses (fixed ranges `R`, live buffers `L`)
     satisfies `Q L`. Stores to open addresses and calls whose write set is open keep it;
     the executor carries it as it carries `RoImage`.

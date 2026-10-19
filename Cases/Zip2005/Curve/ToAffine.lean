@@ -12,7 +12,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem xor_ult_one (x c : Word) : (x ^^^ c).ult 1#64 = decide (x = c) := by
   rw [ult_one]

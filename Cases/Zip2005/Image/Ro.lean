@@ -5,14 +5,14 @@
   173 chunks of 64 doublewords, and the layout the symbolic executor reads.
 -/
 
-import AsmVerif.RiscV.Sym.Layout
+import MachineChecked.RiscV.Sym.Layout
 import Cases.Zip2005.Image.Data_0
 
 set_option maxRecDepth 200000
 
 namespace Cases.Zip2005.Image.Ro
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV
+open RiscvZkvm.Rv64 MachineChecked.RiscV
 
 /-- The data chunk the segment is read from. -/
 def roIdx : Nat := 0

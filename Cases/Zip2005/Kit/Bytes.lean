@@ -4,7 +4,7 @@
   A word stored byte by byte (`sb` of its shifts) and read back whole.
 -/
 
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 import Mathlib.Tactic.IntervalCases
 
 namespace Cases.Zip2005

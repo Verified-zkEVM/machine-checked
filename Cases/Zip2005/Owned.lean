@@ -19,12 +19,12 @@
 -/
 
 import Cases.Zip2005.Contract.All
-import AsmVerif.RiscV.Check.Statics
+import MachineChecked.RiscV.Check.Statics
 import Cases.Zip2005.Runtime.Entry
 
 namespace Cases.Zip2005.Owned
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 /-- The hasher's tag, and the doubleword holding its buffer position (the low byte). -/
 def tagKey : Word := 0x78048830#64

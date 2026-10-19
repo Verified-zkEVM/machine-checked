@@ -17,7 +17,7 @@ table regions; `ReallocOrNc` at `NoteCommitment::derive`'s). `reserve_or_fi` and
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -43,9 +43,9 @@ def ReallocOrFi (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word �
       Run.HeapAt ((p', C / 4) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L') t →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t →
       Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-      AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
-      AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) →
-      AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → SafeN G n P t) →
+      MachineChecked.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
+      MachineChecked.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) →
+      MachineChecked.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → SafeN G n P t) →
     SafeN G n P u
 
 /-- `__rust_realloc(p0, C, 1, 2C)` at `finish_grow`'s call (`0x780222cc`), `NoteCommitment::derive`'s
@@ -69,10 +69,10 @@ def ReallocOrNc (G : MachineState → Prop) (n : Nat) (P : Prop) (code : Word �
     SafeN G n P u
 
 theorem toNat_sp_hdr {sp : Word} (h : StackOk Ro.layout 0x100 sp) :
-    AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 sp 3 := by
+    MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 sp 3 := by
   obtain ⟨_, h2, h3⟩ := h
   rw [Ro.layout_stackTop] at h3
-  unfold AsmVerif.RiscV.Sym.Disjoint
+  unfold MachineChecked.RiscV.Sym.Disjoint
   simp only [BitVec.toNat_ofNat]
   omega
 
@@ -104,9 +104,9 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t →
         Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
-        AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) →
-        AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L) t →
+        MachineChecked.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
+        MachineChecked.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) →
+        MachineChecked.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L) t →
         SafeN G nb P t) :
     SafeN G nb P s := by
   have hrea := fun v sp'' p1 W1 L1 hW1 hpcv (hcv : v.code = s.code) =>
@@ -116,7 +116,7 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
   have hokHp : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040620#64 14780694332 := heapOk
   have hokHpc : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78040620#64 4162 := ctlOk
   have hokHpa : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78048980#64 14780690128 := arenaOk
-  have hdSH : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x100#64) 32 :=
+  have hdSH : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x100#64) 32 :=
     Disjoint.heap_frame (n := 32) hstk (by decide)
   have hdHH := toNat_sp_hdr hstk
   have hdF : Away6 (sp - 0x100#64) 32 T := Away6.of_heap hTA hdSH
@@ -158,7 +158,7 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 3) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -167,7 +167,7 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 5) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -176,7 +176,7 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 9) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -185,7 +185,7 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 17) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -194,7 +194,7 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 33) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -203,7 +203,7 @@ theorem reserve_or_fi_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 65) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
 
 /-- `reserve_or_fi_spec` as its callers' contract (ledger A5). -/
 theorem reserve_or_fi {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
@@ -231,9 +231,9 @@ theorem reserve_or_fi {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t →
         Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
-        AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) →
-        AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L') t →
+        MachineChecked.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) →
+        MachineChecked.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) →
+        MachineChecked.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: (T.b2, 138) :: (T.b3, 1024) :: (T.b4, 1024) :: (T.b5, 1024) :: (T.b6, 516) :: L') t →
         SafeN G n P t) →
       SafeN G n P u :=
   fun u sp ra C p W _ hC hWl hpc hc hra hra1 hsp hstk hokH ha0 ha1 ha2 ha3 ha4 hH hW hplo hphi r1 r2 r3 r4 r5 r6 hro hheap hk =>
@@ -293,7 +293,7 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 3) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -302,7 +302,7 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 5) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -311,7 +311,7 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 9) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -320,7 +320,7 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 17) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -329,7 +329,7 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 33) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -338,7 +338,7 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 65) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))
@@ -347,7 +347,7 @@ theorem reserve_or_nc_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L 
     sym_close hk _ post54_0 post54_1
     have hacc := ‹_ ++ post54_1 = _›
     refine (cells_eq_append (n := 129) hacc (by rw [← hacc]; simp [post54_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range W hWl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range W hWl).symm
   · sym_exec [hrea, hhr]
     all_goals try (exfalso; simp only [bne_iff_ne, ne_eq] at hbr55
                    exact hbr55 (BitVec.eq_of_toNat_eq (by simpa using hpost)))

@@ -11,7 +11,7 @@ import Cases.Zip2005.Field.Fq
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel MachineChecked.RiscV.Sym
 
 /-- The initial accumulator `Q = (p - 1, 2)` (read-only data at `0x78013890`). -/
 def Qw : List Word := [1#64, 0x992d30ed00000000#64, 0x224698fc094cf91b#64, 0#64,

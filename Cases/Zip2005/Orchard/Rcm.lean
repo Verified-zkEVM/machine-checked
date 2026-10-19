@@ -31,7 +31,7 @@ are named `G`, `K`, `R`, `Q` and tied to their callees' results by hypotheses.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.B2b
 
 set_option autoImplicit false
 
@@ -79,7 +79,7 @@ theorem compress1_41_spec' {G : MachineState → Prop} {n : Nat} {P : Prop} (s :
   obtain ⟨F, hRF, hF⟩ := Region.exists_junk (sp - 0x250#64) 74 s
   exact compress1_41_spec s ra sp blk wp c0 c1 ln fz h0 h1 h2 h3 h4 h5 h6 h7 i0 i1 i2 i3 i4 i5 F hF hpc hcode hcodeS hcodeC hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 ha4 ha5 ha6 ha7 hRF hRB hokB hRH hokH hd1 hd2 hd3 hk
 
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 1000000 in
 theorem rcm_v3_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out rs rho gd pkd v psi : Word)

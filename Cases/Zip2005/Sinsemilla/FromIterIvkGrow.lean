@@ -8,7 +8,7 @@ import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -69,7 +69,7 @@ theorem from_iter_ivk_grow {G : MachineState → Prop} {n : Nat} {P : Prop} {L :
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
+        MachineChecked.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
     (hunwrap_opt : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803f364#64 → u.code = s.code →
       u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_f364 → SafeN G n P u)
     (hk : ∀ (t : MachineState) (p' : Word) (V I' : List Word) (bit' : Word), t.pc = 0x7801e230#64 →
@@ -87,7 +87,7 @@ theorem from_iter_ivk_grow {G : MachineState → Prop} {n : Nat} {P : Prop} {L :
       RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) → 0x78048980 ≤ p'.toNat →
       p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-      AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) →
+      MachineChecked.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) →
       RoImage Ro.layout t → Run.HeapAt ((p', C / 4) :: T.live L) t → SafeN G n P t) :
     SafeN G n P s := by
   have hok0 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x100#64) 32 := hstk.frame 32 (by decide)

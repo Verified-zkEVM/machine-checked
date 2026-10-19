@@ -49,7 +49,7 @@ other path a panic or a rejecting halt. From `0x7801a1c4` on, the cut segments (
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -64,7 +64,7 @@ theorem round8_toNat (L : Word) (h : L.toNat + 7 < 2 ^ 64) :
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem main_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp b : Word) (I : List (BitVec 8))
     (hpc : s.pc = 0x78019ff4#64)
     (hc_78016938 : CodeAt F_78016938.base F_78016938.prog s)
@@ -413,7 +413,7 @@ theorem main_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (W
     omega
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10a0#64) 532 := hokS.sub' 1004 532 (by decide) (by bv_omega)
   obtain ⟨F0, hF0, hF0l⟩ := Region.exists_junk (sp - 0x10a0#64) 532 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range F0 hF0l] at hF0
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range F0 hF0l] at hF0
   obtain ⟨J, hJ, hJl⟩ := Region.exists_junk b 175 s
   -- `From<io::Error>` without the private-input clause, for the callees stated that way
   have hio_w : ∀ (u : MachineState) (sp' r' : Word) (L' : List (Word × Nat)), u.pc = 0x78036184#64 → u.code = s.code →
@@ -433,7 +433,7 @@ theorem main_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (W
         Unchanged [(sp' - 0x20#64, 4), (0x78040620#64, 4162), (0x78048980#64, 14780690128)] u t → Run.HeapAt L' t → SafeN G nb P t) → SafeN G nb P u :=
     fun u sp' r ptr sz k L' h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 hk =>
       hdealloc u sp' r ptr sz k L' h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 (fun t a1 a2 a3 _ a4 a5 => hk t a1 a2 a3 a4 a5)
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range J hJl] at hJ
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range J hJl] at hJ
   -- segment A1 with its code pinned to `main`'s: the executor would take the calling state's
   have ha1 := fun (L' : List (Word × Nat)) => main_seg_a1_spec (G := G) (nb := nb) (P := P) (L := L') (cd := s.code)
   sym_exec [read_vec_raw_spec', instance_visitor_spec', witness_visitor_spec,
@@ -482,7 +482,7 @@ theorem main_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (W
     have hbp_eq' := hbp_eq
     simp only [← hbp_eq'] at *
     obtain ⟨J2, hJ2, hJ2l⟩ := Region.exists_junk bp 175 t
-    rw [AsmVerif.RiscV.Sym.List.eq_map_range J2 hJ2l] at hJ2
+    rw [MachineChecked.RiscV.Sym.List.eq_map_range J2 hJ2l] at hJ2
     obtain ⟨hV, hd0, hd1, hl128⟩ | ⟨e, hVe, hlt⟩ := ‹_ ∨ _›
     · -- the instance read: `Ok`, tag byte 0; its vector's capacity is nonzero
       have htag : extractByte post17_0[0]! 0 = 0#8 := by rw [hV]; exact instW_tag _ _

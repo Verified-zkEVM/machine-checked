@@ -14,7 +14,7 @@ twelve words of the point copied by `memcpy`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem nipFlag_01 (f : BitVec 8) (z0 z1 z2 z3 : Word) :
     nipFlag f z0 z1 z2 z3 = 1#8 ∨ nipFlag f z0 z1 z2 z3 = 0#8 := by

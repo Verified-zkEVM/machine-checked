@@ -14,7 +14,7 @@ coordinates masked by the flag, and `z = R` unless the point is the affine ident
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem shl2_shr2 (x : Word) : (x <<< 2) >>> 2 = x &&& 0x3fffffffffffffff#64 := by
   apply BitVec.eq_of_getLsbD_eq
@@ -161,20 +161,20 @@ theorem ep_from_bytes_unchecked_spec {G : MachineState → Prop} {n : Nat} {P : 
   -- the output region survives the callee (its frame, its output slot), and the callee's frame
   -- facts against the fixed table address: stated in the shapes the executor needs
   have hsurv : Disjoint a0 13 (sp + 18446744073709551440#64 - 1776#64) 222 := by
-    rw [AsmVerif.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd0 ⊢
+    rw [MachineChecked.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd0 ⊢
     omega
   have hsurv2 : Disjoint a0 13 (sp + 18446744073709551440#64) 9 := by
-    rw [AsmVerif.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd0 ⊢
+    rw [MachineChecked.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd0 ⊢
     omega
   have hd_tb' : Disjoint (sp + 18446744073709551440#64 - 1776#64) 222 0x780488a8#64 10 := by
-    rw [AsmVerif.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd_tb ⊢
+    rw [MachineChecked.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd_tb ⊢
     omega
   have he_tb' : Disjoint (sp + 18446744073709551440#64) 9 0x780488a8#64 10 := by
-    rw [AsmVerif.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd_tb ⊢
+    rw [MachineChecked.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd_tb ⊢
     omega
   sym_exec [ep_affine_from_bytes_spec, black_box_spec, hpb, hpp, hprz]
   -- the flag and the `CtOption::map` masks

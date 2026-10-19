@@ -4,7 +4,7 @@
   `_RNvNtCscVIHOoVtf7v_4core9panicking18panic_bounds_check`
 -/
 
-import AsmVerif.RiscV.Image
+import MachineChecked.RiscV.Image
 
 set_option maxRecDepth 200000
 

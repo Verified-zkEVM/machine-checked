@@ -21,7 +21,7 @@ import Cases.LeanVM.Blake2s.Image.Layout
 
 namespace Cases.LeanVM.Blake2s.Loaded
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV Cases.LeanVM.Blake2s.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV Cases.LeanVM.Blake2s.Image
 
 noncomputable abbrev image : Image := Layout.image
 

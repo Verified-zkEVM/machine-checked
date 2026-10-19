@@ -21,7 +21,7 @@ The result is `Cases.Zip2005.Fp.dblJ`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem Fp.add_comm (a b : Nat) : Fp.add a b = Fp.add b a := by
   unfold Fp.add; rw [Nat.add_comm]

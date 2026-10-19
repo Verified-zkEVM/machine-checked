@@ -21,7 +21,7 @@ and the bytes written so far the message bits (`BitsUpTo`).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -39,20 +39,20 @@ structure IvkEnv (sp sp0 out a1 : Word) (A B : List Word) (T : HasherT) : Prop w
   okB : RegionOk Ro.layout.roBase Ro.layout.textHi (ptrB sp0) 4
   sp0_lo : 0x10000 ≤ sp0.toNat
   sp0_hi : sp0.toNat ≤ 0x78000000
-  djSA : AsmVerif.RiscV.Sym.Disjoint (sp - 0x1b0#64) 76 (ptrA sp0) 4
-  djSB : AsmVerif.RiscV.Sym.Disjoint (sp - 0x1b0#64) 76 (ptrB sp0) 4
-  djSO : AsmVerif.RiscV.Sym.Disjoint (sp - 0x1b0#64) 76 out 3
-  djSC : AsmVerif.RiscV.Sym.Disjoint (sp - 0x1b0#64) 76 a1 12
-  djOA : AsmVerif.RiscV.Sym.Disjoint out 3 (ptrA sp0) 4
-  djOB : AsmVerif.RiscV.Sym.Disjoint out 3 (ptrB sp0) 4
-  djOC : AsmVerif.RiscV.Sym.Disjoint out 3 a1 12
-  djCA : AsmVerif.RiscV.Sym.Disjoint a1 12 (ptrA sp0) 4
-  djCB : AsmVerif.RiscV.Sym.Disjoint a1 12 (ptrB sp0) 4
-  djAB : AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) 4 (ptrB sp0) 4
-  djHA : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (ptrA sp0) 4
-  djHB : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (ptrB sp0) 4
-  djHO : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 out 3
-  djHC : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 a1 12
+  djSA : MachineChecked.RiscV.Sym.Disjoint (sp - 0x1b0#64) 76 (ptrA sp0) 4
+  djSB : MachineChecked.RiscV.Sym.Disjoint (sp - 0x1b0#64) 76 (ptrB sp0) 4
+  djSO : MachineChecked.RiscV.Sym.Disjoint (sp - 0x1b0#64) 76 out 3
+  djSC : MachineChecked.RiscV.Sym.Disjoint (sp - 0x1b0#64) 76 a1 12
+  djOA : MachineChecked.RiscV.Sym.Disjoint out 3 (ptrA sp0) 4
+  djOB : MachineChecked.RiscV.Sym.Disjoint out 3 (ptrB sp0) 4
+  djOC : MachineChecked.RiscV.Sym.Disjoint out 3 a1 12
+  djCA : MachineChecked.RiscV.Sym.Disjoint a1 12 (ptrA sp0) 4
+  djCB : MachineChecked.RiscV.Sym.Disjoint a1 12 (ptrB sp0) 4
+  djAB : MachineChecked.RiscV.Sym.Disjoint (ptrA sp0) 4 (ptrB sp0) 4
+  djHA : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (ptrA sp0) 4
+  djHB : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (ptrB sp0) 4
+  djHO : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 out 3
+  djHC : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 a1 12
   outlo : out.toNat + 8 * 3 ≤ 0x78040620
   a1lo : a1.toNat + 8 * 12 ≤ 0x78040620
   arena : Arena6 T
@@ -67,45 +67,45 @@ theorem stk10 (E : IvkEnv sp sp0 out a1 A B T) : StackOk Ro.layout 0x10 sp := �
 theorem okV (E : IvkEnv sp sp0 out a1 A B T) : RegionOk Ro.layout.roBase Ro.layout.textHi sp 3 := E.okFr.sub' 0 3 (by omega) (self_add_zero sp)
 theorem okBlk (E : IvkEnv sp sp0 out a1 A B T) : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x18#64) 12 := E.okFr.sub' 3 12 (by omega) rfl
 theorem okSv (E : IvkEnv sp sp0 out a1 A B T) : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x78#64) 7 := E.okFr.sub' 15 7 (by omega) rfl
-theorem djHS (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x1b0#64) 76 :=
-  AsmVerif.RiscV.Sym.Disjoint.heap_frame76 E.stk
-theorem djFA (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x10#64) 2 (ptrA sp0) 4 := E.djSA.sub_left (fr_m10 sp) (by omega)
-theorem djFB (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x10#64) 2 (ptrB sp0) 4 := E.djSB.sub_left (fr_m10 sp) (by omega)
-theorem djFO (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x10#64) 2 out 3 := E.djSO.sub_left (fr_m10 sp) (by omega)
-theorem djFC (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x10#64) 2 a1 12 := E.djSC.sub_left (fr_m10 sp) (by omega)
-theorem djF32A (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x100#64) 32 (ptrA sp0) 4 := E.djSA.sub_left (fr_m100 sp) (by omega)
-theorem djF32B (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x100#64) 32 (ptrB sp0) 4 := E.djSB.sub_left (fr_m100 sp) (by omega)
-theorem djF32O (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x100#64) 32 out 3 := E.djSO.sub_left (fr_m100 sp) (by omega)
-theorem djF32C (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x100#64) 32 a1 12 := E.djSC.sub_left (fr_m100 sp) (by omega)
-theorem djVA (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint sp 3 (ptrA sp0) 4 := E.djSA.sub_left (fr_0 sp) (by omega)
-theorem djVB (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint sp 3 (ptrB sp0) 4 := E.djSB.sub_left (fr_0 sp) (by omega)
-theorem djVO (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint sp 3 out 3 := E.djSO.sub_left (fr_0 sp) (by omega)
-theorem djVC (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint sp 3 a1 12 := E.djSC.sub_left (fr_0 sp) (by omega)
-theorem djS22A (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint sp 22 (ptrA sp0) 4 := E.djSA.sub_left (fr_0 sp) (by omega)
-theorem djS22B (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint sp 22 (ptrB sp0) 4 := E.djSB.sub_left (fr_0 sp) (by omega)
-theorem djS22O (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint sp 22 out 3 := E.djSO.sub_left (fr_0 sp) (by omega)
-theorem djS22C (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint sp 22 a1 12 := E.djSC.sub_left (fr_0 sp) (by omega)
-theorem djBA (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x18#64) 12 (ptrA sp0) 4 := E.djSA.sub_left (fr_18 sp) (by omega)
-theorem djBB (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x18#64) 12 (ptrB sp0) 4 := E.djSB.sub_left (fr_18 sp) (by omega)
-theorem djBO (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x18#64) 12 out 3 := E.djSO.sub_left (fr_18 sp) (by omega)
-theorem djBC (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x18#64) 12 a1 12 := E.djSC.sub_left (fr_18 sp) (by omega)
-theorem djF6A (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x30#64) 6 (ptrA sp0) 4 := E.djSA.sub_left (fr_m30 sp) (by omega)
-theorem djF6B (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x30#64) 6 (ptrB sp0) 4 := E.djSB.sub_left (fr_m30 sp) (by omega)
-theorem djF6O (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x30#64) 6 out 3 := E.djSO.sub_left (fr_m30 sp) (by omega)
-theorem djF6C (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x30#64) 6 a1 12 := E.djSC.sub_left (fr_m30 sp) (by omega)
-theorem djFBlk (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp - 0x10#64) 2 (sp + 0x18#64) 12 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_m10 sp) (fr_18 sp) (by omega) (by omega) (by omega)
-theorem djSvF (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x78#64) 7 (sp - 0x10#64) 2 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_78 sp) (fr_m10 sp) (by omega) (by omega) (by omega)
-theorem djSvF32 (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x78#64) 7 (sp - 0x100#64) 32 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_78 sp) (fr_m100 sp) (by omega) (by omega) (by omega)
-theorem djSvV (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x78#64) 7 sp 3 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_78 sp) (fr_0 sp) (by omega) (by omega) (by omega)
-theorem djSvBlk (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x78#64) 7 (sp + 0x18#64) 12 :=
-  AsmVerif.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_78 sp) (fr_18 sp) (by omega) (by omega) (by omega)
-theorem djSvH (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x78#64) 7 0x78040620#64 14780694332 :=
+theorem djHS (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x1b0#64) 76 :=
+  MachineChecked.RiscV.Sym.Disjoint.heap_frame76 E.stk
+theorem djFA (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x10#64) 2 (ptrA sp0) 4 := E.djSA.sub_left (fr_m10 sp) (by omega)
+theorem djFB (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x10#64) 2 (ptrB sp0) 4 := E.djSB.sub_left (fr_m10 sp) (by omega)
+theorem djFO (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x10#64) 2 out 3 := E.djSO.sub_left (fr_m10 sp) (by omega)
+theorem djFC (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x10#64) 2 a1 12 := E.djSC.sub_left (fr_m10 sp) (by omega)
+theorem djF32A (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x100#64) 32 (ptrA sp0) 4 := E.djSA.sub_left (fr_m100 sp) (by omega)
+theorem djF32B (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x100#64) 32 (ptrB sp0) 4 := E.djSB.sub_left (fr_m100 sp) (by omega)
+theorem djF32O (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x100#64) 32 out 3 := E.djSO.sub_left (fr_m100 sp) (by omega)
+theorem djF32C (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x100#64) 32 a1 12 := E.djSC.sub_left (fr_m100 sp) (by omega)
+theorem djVA (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint sp 3 (ptrA sp0) 4 := E.djSA.sub_left (fr_0 sp) (by omega)
+theorem djVB (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint sp 3 (ptrB sp0) 4 := E.djSB.sub_left (fr_0 sp) (by omega)
+theorem djVO (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint sp 3 out 3 := E.djSO.sub_left (fr_0 sp) (by omega)
+theorem djVC (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint sp 3 a1 12 := E.djSC.sub_left (fr_0 sp) (by omega)
+theorem djS22A (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint sp 22 (ptrA sp0) 4 := E.djSA.sub_left (fr_0 sp) (by omega)
+theorem djS22B (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint sp 22 (ptrB sp0) 4 := E.djSB.sub_left (fr_0 sp) (by omega)
+theorem djS22O (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint sp 22 out 3 := E.djSO.sub_left (fr_0 sp) (by omega)
+theorem djS22C (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint sp 22 a1 12 := E.djSC.sub_left (fr_0 sp) (by omega)
+theorem djBA (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x18#64) 12 (ptrA sp0) 4 := E.djSA.sub_left (fr_18 sp) (by omega)
+theorem djBB (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x18#64) 12 (ptrB sp0) 4 := E.djSB.sub_left (fr_18 sp) (by omega)
+theorem djBO (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x18#64) 12 out 3 := E.djSO.sub_left (fr_18 sp) (by omega)
+theorem djBC (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x18#64) 12 a1 12 := E.djSC.sub_left (fr_18 sp) (by omega)
+theorem djF6A (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x30#64) 6 (ptrA sp0) 4 := E.djSA.sub_left (fr_m30 sp) (by omega)
+theorem djF6B (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x30#64) 6 (ptrB sp0) 4 := E.djSB.sub_left (fr_m30 sp) (by omega)
+theorem djF6O (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x30#64) 6 out 3 := E.djSO.sub_left (fr_m30 sp) (by omega)
+theorem djF6C (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x30#64) 6 a1 12 := E.djSC.sub_left (fr_m30 sp) (by omega)
+theorem djFBlk (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp - 0x10#64) 2 (sp + 0x18#64) 12 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_m10 sp) (fr_18 sp) (by omega) (by omega) (by omega)
+theorem djSvF (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x78#64) 7 (sp - 0x10#64) 2 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_78 sp) (fr_m10 sp) (by omega) (by omega) (by omega)
+theorem djSvF32 (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x78#64) 7 (sp - 0x100#64) 32 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_78 sp) (fr_m100 sp) (by omega) (by omega) (by omega)
+theorem djSvV (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x78#64) 7 sp 3 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_78 sp) (fr_0 sp) (by omega) (by omega) (by omega)
+theorem djSvBlk (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x78#64) 7 (sp + 0x18#64) 12 :=
+  MachineChecked.RiscV.Sym.Disjoint.within (frame_nowrap E.stk) (fr_78 sp) (fr_18 sp) (by omega) (by omega) (by omega)
+theorem djSvH (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x78#64) 7 0x78040620#64 14780694332 :=
   (E.djHS.sub_right (fr_78 sp) (by omega)).symm
-theorem djSvO (E : IvkEnv sp sp0 out a1 A B T) : AsmVerif.RiscV.Sym.Disjoint (sp + 0x78#64) 7 out 3 := E.djSO.sub_left (fr_78 sp) (by omega)
+theorem djSvO (E : IvkEnv sp sp0 out a1 A B T) : MachineChecked.RiscV.Sym.Disjoint (sp + 0x78#64) 7 out 3 := E.djSO.sub_left (fr_78 sp) (by omega)
 
 end IvkEnv
 
@@ -145,16 +145,16 @@ structure IvkCtx (G : MachineState → Prop) (n : Nat) (P : Prop) (sp0 : Word) (
 /-- The context after writes off the message words and the six, the six given. -/
 theorem IvkCtx.step' {G : MachineState → Prop} {n : Nat} {P : Prop} {sp0 : Word} {A B : List Word} {T : HasherT} {s t : MachineState}
     (C : IvkCtx G n P sp0 A B T s) (hc : t.code = s.code) {W : List (Word × Nat)} (hu : Unchanged W s t)
-    (hA : ∀ r ∈ W, AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2)
-    (hB : ∀ r ∈ W, AsmVerif.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2) (hK : Kept6 T t) : IvkCtx G n P sp0 A B T t :=
+    (hA : ∀ r ∈ W, MachineChecked.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2)
+    (hB : ∀ r ∈ W, MachineChecked.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2) (hK : Kept6 T t) : IvkCtx G n P sp0 A B T t :=
   ⟨codeAt_of_code_eq hc C.code, codeAt_of_code_eq hc C.codeN, codeWithin_of_code_eq hc C.cw,
    C.Ar.of_unchanged hu hA, C.Br.of_unchanged hu hB, hK,
    fun u sp' L' h1 h2 => C.unwrap u sp' L' h1 (h2.trans hc)⟩
 
 theorem IvkCtx.step {G : MachineState → Prop} {n : Nat} {P : Prop} {sp0 : Word} {A B : List Word} {T : HasherT} {s t : MachineState}
     (C : IvkCtx G n P sp0 A B T s) (hc : t.code = s.code) {W : List (Word × Nat)} (hu : Unchanged W s t)
-    (hA : ∀ r ∈ W, AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2)
-    (hB : ∀ r ∈ W, AsmVerif.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2)
+    (hA : ∀ r ∈ W, MachineChecked.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2)
+    (hB : ∀ r ∈ W, MachineChecked.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2)
     (hK : ∀ r ∈ W, Away6 r.1 r.2 T) : IvkCtx G n P sp0 A B T t :=
   C.step' hc hu hA hB (C.K.of_unchanged hu hK)
 
@@ -209,10 +209,10 @@ theorem ivk_word8_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb 
       (BitVec.ofNat 64 (8 * m) + BitVec.ofNat 64 r == BitVec.ofNat 64 cap) = false := fun r hr => by
     rw [BitVec.ofNat_add_ofNat]; exact ofNat_beq_false (by omega) (by omega) (by omega)
   have hokq : RegionOk Ro.layout.roBase Ro.layout.textHi (p + BitVec.ofNat 64 (8 * m)) 1 := H.hok.sub' m 1 (by omega) rfl
-  have djP : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
-      AsmVerif.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
-  have hdjq : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-      AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * m)) 1 b n := fun h => h.sub_left rfl (by omega)
+  have djP : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
+      MachineChecked.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
+  have hdjq : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+      MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * m)) 1 b n := fun h => h.sub_left rfl (by omega)
   have hdjqS := hdjq (djP E.djHS)
   refine from_iter_ivk_word8 s sp sp0 out p (BitVec.ofNat 64 (8 * m)) (p + BitVec.ofNat 64 (8 * m))
     (BitVec.ofNat 64 cap) V[m]! (bw (ivkBit A B (8 * m))) J A B (ivkState sp0 J j (8 * m + 1)) j E.Al E.Bl
@@ -243,7 +243,7 @@ theorem ivk_word8_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb 
     · exact coverH (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
         (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
   have hdjA : ∀ r ∈ [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + BitVec.ofNat 64 (8 * m), 1)],
-      AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
+      MachineChecked.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
     intro r hr
     rw [E.Al]
     rcases mem4 hr with rfl | rfl | rfl | rfl
@@ -252,7 +252,7 @@ theorem ivk_word8_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb 
     · exact E.djBA.symm
     · exact (hdjq (djP E.djHA)).symm
   have hdjB : ∀ r ∈ [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + BitVec.ofNat 64 (8 * m), 1)],
-      AsmVerif.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2 := by
+      MachineChecked.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2 := by
     intro r hr
     rw [E.Bl]
     rcases mem4 hr with rfl | rfl | rfl | rfl
@@ -264,25 +264,25 @@ theorem ivk_word8_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb 
   have hpre : Region p (V.take m) t := by
     refine (Region.take H.hbuf m).of_unchanged' hun (n := m) (by simp [List.length_take]; omega) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n → AsmVerif.RiscV.Sym.Disjoint p m b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n → MachineChecked.RiscV.Sym.Disjoint p m b n :=
       fun h => h.sub_left (self_add_zero p) (by omega)
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (fr_m10 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) rfl (by omega) (by omega) (Or.inl (by omega))
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) rfl (by omega) (by omega) (Or.inl (by omega))
   have hpost : Region (p + BitVec.ofNat 64 (8 * (m + 1))) (V.drop (m + 1)) t := by
     refine (Region.shift H.hbuf (m + 1)).of_unchanged' hun (n := V.length - (m + 1))
       (by simp [List.length_drop]) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-        AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * (m + 1))) (V.length - (m + 1)) b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+        MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * (m + 1))) (V.length - (m + 1)) b n :=
       fun h => h.sub_left rfl (by omega)
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (fr_m10 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl rfl (by omega) (by omega) (Or.inr (by omega))
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl rfl (by omega) (by omega) (Or.inr (by omega))
   have hdjK : ∀ r ∈ [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + BitVec.ofNat 64 (8 * m), 1)],
       Away6 r.1 r.2 T := by
     intro r hr
@@ -320,10 +320,10 @@ theorem ivk_word7_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb 
       (BitVec.ofNat 64 (8 * m) + BitVec.ofNat 64 r == BitVec.ofNat 64 cap) = false := fun r hr => by
     rw [BitVec.ofNat_add_ofNat]; exact ofNat_beq_false (by omega) (by omega) (by omega)
   have hokq : RegionOk Ro.layout.roBase Ro.layout.textHi (p + BitVec.ofNat 64 (8 * m)) 1 := H.hok.sub' m 1 (by omega) rfl
-  have djP : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
-      AsmVerif.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
-  have hdjq : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-      AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * m)) 1 b n := fun h => h.sub_left rfl (by omega)
+  have djP : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
+      MachineChecked.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
+  have hdjq : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+      MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * m)) 1 b n := fun h => h.sub_left rfl (by omega)
   have hdjqS := hdjq (djP E.djHS)
   have hn1 : s.getReg .x18 = BitVec.ofNat 64 (8 * m) + 1#64 := by rw [H.hn, BitVec.ofNat_add]
   have hvec1 : Region sp [BitVec.ofNat 64 cap, p, BitVec.ofNat 64 (8 * m) + 1#64] s := by
@@ -356,7 +356,7 @@ theorem ivk_word7_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb 
     · exact coverH (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
         (by rw [toNat_add_lit p (8 * m) (by omega)]; omega)
   have hdjA : ∀ r ∈ [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + BitVec.ofNat 64 (8 * m), 1)],
-      AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
+      MachineChecked.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
     intro r hr
     rw [E.Al]
     rcases mem4 hr with rfl | rfl | rfl | rfl
@@ -365,7 +365,7 @@ theorem ivk_word7_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb 
     · exact E.djBA.symm
     · exact (hdjq (djP E.djHA)).symm
   have hdjB : ∀ r ∈ [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + BitVec.ofNat 64 (8 * m), 1)],
-      AsmVerif.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2 := by
+      MachineChecked.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2 := by
     intro r hr
     rw [E.Bl]
     rcases mem4 hr with rfl | rfl | rfl | rfl
@@ -376,25 +376,25 @@ theorem ivk_word7_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb 
   have hpre : Region p (V.take m) t := by
     refine (Region.take H.hbuf m).of_unchanged' hun (n := m) (by simp [List.length_take]; omega) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n → AsmVerif.RiscV.Sym.Disjoint p m b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n → MachineChecked.RiscV.Sym.Disjoint p m b n :=
       fun h => h.sub_left (self_add_zero p) (by omega)
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (fr_m10 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) rfl (by omega) (by omega) (Or.inl (by omega))
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) rfl (by omega) (by omega) (Or.inl (by omega))
   have hpost : Region (p + BitVec.ofNat 64 (8 * (m + 1))) (V.drop (m + 1)) t := by
     refine (Region.shift H.hbuf (m + 1)).of_unchanged' hun (n := V.length - (m + 1))
       (by simp [List.length_drop]) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-        AsmVerif.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * (m + 1))) (V.length - (m + 1)) b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+        MachineChecked.RiscV.Sym.Disjoint (p + BitVec.ofNat 64 (8 * (m + 1))) (V.length - (m + 1)) b n :=
       fun h => h.sub_left rfl (by omega)
     rcases mem4 hr with rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (fr_m10 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl rfl (by omega) (by omega) (Or.inr (by omega))
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) rfl rfl (by omega) (by omega) (Or.inr (by omega))
   have hdjK : ∀ r ∈ [(sp - 0x10#64, 2), (sp, 3), (sp + 0x18#64, 12), (p + BitVec.ofNat 64 (8 * m), 1)],
       Away6 r.1 r.2 T := by
     intro r hr
@@ -474,7 +474,7 @@ theorem ivk_grow_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : 
         Region p' (W ++ W') t → RegionOk Ro.layout.roBase Ro.layout.textHi p' (C / 4 + 1) →
         0x78048980 ≤ p'.toNat → p'.toNat + 2 * C + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → AsmVerif.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
+        MachineChecked.RiscV.Sym.Disjoint T.b1 10 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b2 138 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b3 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b5 1024 p' (C / 4 + 1) → MachineChecked.RiscV.Sym.Disjoint T.b6 516 p' (C / 4 + 1) → Run.HeapAt ((p', C / 4) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
     (hk : ∀ (t : MachineState) (p' : Word) (V' : List Word), t.code = s.code →
       Unchanged (loopW sp) s t → Kept s t → IvkCtx G n P sp0 A B T t → V'.length = C / 4 + 1 →
       IvkHead sp sp0 out p' J A B T L j (2 * C) (C + 1) V' t → SafeN G n P t) :
@@ -485,7 +485,7 @@ theorem ivk_grow_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : 
   have hWl : (V.take (C / 8)).length = C / 8 := by simp [List.length_take]; omega
   have hokW : RegionOk Ro.layout.roBase Ro.layout.textHi p (C / 8) := H.hok.sub' 0 (C / 8) (by omega) (self_add_zero p)
   have hpC : p.toNat + C ≤ 0x1c00000000 := by omega
-  have hHS : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x100#64) 54 :=
+  have hHS : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x100#64) 54 :=
     E.djHS.sub_right (fr_m100 sp) (by omega)
   refine from_iter_ivk_grow s sp sp0 out p (bw (ivkBit A B C)) J A B (ivkState sp0 J j (C + 1))
     (V.take (C / 8)) j E.Al E.Bl C hC (by simp) rfl hWl H.hpc Cx.code Cx.codeN Cx.cw H.hsp E.stk100
@@ -506,7 +506,7 @@ theorem ivk_grow_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : 
     · exact ⟨(0x78040620#64, 4162), by simp, le_refl _, le_refl _⟩
     · exact ⟨(0x78048980#64, 14780690128), by simp, le_refl _, le_refl _⟩
   have hdjA : ∀ r ∈ [(sp - 0x100#64, 32), (sp, 3), (sp + 0x18#64, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)],
-      AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
+      MachineChecked.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
     intro r hr
     rw [E.Al]
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl
@@ -516,7 +516,7 @@ theorem ivk_grow_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : 
     · exact E.djHA.ctl_of_heap.symm
     · exact E.djHA.arena_of_heap.symm
   have hdjB : ∀ r ∈ [(sp - 0x100#64, 32), (sp, 3), (sp + 0x18#64, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)],
-      AsmVerif.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2 := by
+      MachineChecked.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2 := by
     intro r hr
     rw [E.Bl]
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl
@@ -555,8 +555,8 @@ theorem ivk_tail_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb :
   have hlo := H.hlo
   have hhi := H.hhi
   have hnw : p.toNat + 8 * V.length < 2 ^ 64 := by omega
-  have djP : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
-      AsmVerif.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
+  have djP : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n →
+      MachineChecked.RiscV.Sym.Disjoint p V.length b n := fun h => h.of_heap (by omega) hhi
   have hdrop : V.drop 63 = [V[63]!, V[64]!] := by
     rw [List.drop_eq_getElem_cons (by omega), List.drop_eq_getElem_cons (by omega),
       List.drop_eq_nil_of_le (by omega), ← getBang (by omega), ← getBang (by omega)]
@@ -564,8 +564,8 @@ theorem ivk_tail_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb :
     have h := Region.shift H.hbuf 63
     rw [hdrop] at h
     exact h
-  have hdjW : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n →
-      AsmVerif.RiscV.Sym.Disjoint (p + 504#64) 2 b n := fun h => h.sub_left (i := 63) rfl (by omega)
+  have hdjW : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n →
+      MachineChecked.RiscV.Sym.Disjoint (p + 504#64) 2 b n := fun h => h.sub_left (i := 63) rfl (by omega)
   have hdjWS := hdjW (djP E.djHS)
   refine from_iter_ivk_tail s sp sp0 out p (bw (ivkBit A B 504)) V[63]! V[64]! J A B
     (ivkState sp0 J j 505) O j E.Al E.Bl hOl (by simp) rfl rav s0v s1v s2v s3v s4v s5v hra1 H.hpc
@@ -581,13 +581,13 @@ theorem ivk_tail_step {L : List (Word × Nat)} {G : MachineState → Prop} {nb :
   have hpre : Region p (V.take 63) t := by
     refine (Region.take H.hbuf 63).of_unchanged' hun (n := 63) (by simp [List.length_take]; omega) ?_
     intro r hr
-    have hd : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint p V.length b n → AsmVerif.RiscV.Sym.Disjoint p 63 b n :=
+    have hd : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint p V.length b n → MachineChecked.RiscV.Sym.Disjoint p 63 b n :=
       fun h => h.sub_left (self_add_zero p) (by omega)
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl
     · exact hd (djP E.djHS) |>.sub_right (fr_m10 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_0 sp) (by omega)
     · exact hd (djP E.djHS) |>.sub_right (fr_18 sp) (by omega)
-    · exact AsmVerif.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) (j := 63) rfl (by omega)
+    · exact MachineChecked.RiscV.Sym.Disjoint.within (N := V.length) (by omega) (self_add_zero p) (j := 63) rfl (by omega)
         (by omega) (Or.inl (by omega))
     · exact hd (djP E.djHO)
   have hw2 : Region (p + BitVec.ofNat 64 (8 * 63)) [w'] t := hW'.take 1
@@ -633,7 +633,7 @@ theorem ivk_pro_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : N
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
         (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → Run.HeapAt ((ptr, 1) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
+        MachineChecked.RiscV.Sym.Disjoint T.b1 10 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b2 138 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b6 516 ptr 1 → Run.HeapAt ((ptr, 1) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
     (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
       u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → SafeN G n P u)
     (hk : ∀ (t : MachineState) (ptr w : Word), t.code = s.code →
@@ -653,7 +653,7 @@ theorem ivk_pro_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : N
     hro' hheap'
   rw [list12_cells I2 hI2l] at hR
   have hdjA : ∀ r ∈ [(sp - 0x30#64, 6), (sp, 22), (a1, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)],
-      AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
+      MachineChecked.RiscV.Sym.Disjoint (ptrA sp0) A.length r.1 r.2 := by
     intro r hr
     rw [E.Al]
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl
@@ -663,7 +663,7 @@ theorem ivk_pro_step {L : List (Word × Nat)} {G : MachineState → Prop} {n : N
     · exact E.djHA.ctl_of_heap.symm
     · exact E.djHA.arena_of_heap.symm
   have hdjB : ∀ r ∈ [(sp - 0x30#64, 6), (sp, 22), (a1, 12), (0x78040620#64, 4162), (0x78048980#64, 14780690128)],
-      AsmVerif.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2 := by
+      MachineChecked.RiscV.Sym.Disjoint (ptrB sp0) B.length r.1 r.2 := by
     intro r hr
     rw [E.Bl]
     rcases mem5 hr with rfl | rfl | rfl | rfl | rfl

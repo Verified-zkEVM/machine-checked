@@ -19,7 +19,7 @@ frame, the iterator block copied into the frame (`memcpy(_, _, 96)`), and the se
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -72,7 +72,7 @@ theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
         t.getReg .x10 = ptr → B0.length = 1 → Region ptr B0 t → RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 →
         (ptr.toNat = 0 ∨ 0x78048980 ≤ ptr.toNat) → ptr.toNat + 8 ≤ 0x1c00000000 →
         Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-        AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 → Run.HeapAt ((ptr, 1) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
+        MachineChecked.RiscV.Sym.Disjoint T.b1 10 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b2 138 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b6 516 ptr 1 → Run.HeapAt ((ptr, 1) :: T.live L') t → SafeN G n P t) → SafeN G n P u)
     (hunwrap_opt : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803f364#64 → u.code = s.code →
       u.getReg .x2 = sp' → StackOk Ro.layout 0 sp' → RoImage Ro.layout u → Run.HeapAt L' u → u.getReg .x10 ∈ Run.vals_f364 → SafeN G n P u)
     (hhandle_rv : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803cf14#64 → u.code = s.code →
@@ -93,7 +93,7 @@ theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
       bw (ivkBit A B 0) = bit0 → Region ptr [w] t → extractByte w 0 = BitVec.truncate 8 bit0 →
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-      AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 →
+      MachineChecked.RiscV.Sym.Disjoint T.b1 10 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b2 138 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b6 516 ptr 1 →
       RoImage Ro.layout t → Run.HeapAt ((ptr, 1) :: T.live L) t → SafeN G n P t) :
     SafeN G n P s := by
   have hokV : RegionOk Ro.layout.roBase Ro.layout.textHi sp 3 := hokFr.sub' 0 3 (by decide) (by simp)
@@ -198,7 +198,7 @@ theorem from_iter_ivk_pro {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
       bw (ivkBit A B 0) = bit0 → Region ptr [w] t → extractByte w 0 = BitVec.truncate 8 bit0 →
       RegionOk Ro.layout.textLo Ro.layout.textHi ptr 1 → 0x78048980 ≤ ptr.toNat → ptr.toNat + 8 ≤ 0x1c00000000 →
       Region T.b1 T.L1 t → Region T.b2 T.L2 t → Region T.b3 T.L3 t → Region T.b4 T.L4 t → Region T.b5 T.L5 t → Region T.b6 T.L6 t →
-      AsmVerif.RiscV.Sym.Disjoint T.b1 10 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b2 138 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → AsmVerif.RiscV.Sym.Disjoint T.b6 516 ptr 1 →
+      MachineChecked.RiscV.Sym.Disjoint T.b1 10 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b2 138 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b3 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b4 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b5 1024 ptr 1 → MachineChecked.RiscV.Sym.Disjoint T.b6 516 ptr 1 →
       RoImage Ro.layout t → Run.HeapAt ((ptr, 1) :: T.live L) t → SafeN G n P t :=
     fun t ptr w bit0 bit1 c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 hpc' hcode' hun hsp' hs0 hs1 hs2 hs3 hb1 hs4
         h3 h4 h22 h23 h24 h25 h26 h27 hI2 hR hR1 hO' hb0 hW hw hok hlo hhi hk1 hk2 hk3 hk4 hk5 hk6 hf1 hf2 hf3 hf4 hf5 hf6 hro' hheap' =>

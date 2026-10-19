@@ -16,7 +16,7 @@ round trip is the identity on the 16 words.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- A pointer 7 bytes into an aligned doubleword. -/
 theorem and7_of_sub7 {p : Word} (h : (p - 7#64).toNat % 8 = 0) : p &&& 7#64 = 7#64 := by
@@ -152,7 +152,7 @@ theorem shiftDown7_shiftUp7 (D S : List Word) (hS : S.length = 16) :
       (((S[15]! >>> 8) ||| (D[16]! &&& 0xff00000000000000#64)) <<< 8) ||| (((S[15]! <<< 56) ||| (S[14]! >>> 8)) >>> 56)] := rfl
   rw [e]
   simp only [rt_first, rt_mid, rt_last]
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hS).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hS).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in

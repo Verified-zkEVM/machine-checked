@@ -17,7 +17,7 @@ is `Ok(false)` / `Ok(true)` (tag byte 0, the flag in byte 1); any other byte is
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -82,8 +82,8 @@ theorem bool_reader_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : L
   have hokHpa : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78048980#64 14780690128 := arenaOk
   have hmO : out &&& 7#64 = 0#64 := hokO.and7
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x20#64) 4 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range W hWl] at hW
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range W hWl] at hW
   sym_exec [halloc, hhandle, hio]
   · -- empty reader: the boxed `UnexpectedEof`
     rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v16_def

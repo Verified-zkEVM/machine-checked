@@ -49,13 +49,13 @@ from the join of the two `sk` arms: the full viewing key copied, `FullViewingKey
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem main_seg_b_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 vs5 vra r22 r23 r24 r25 r26 r27 : Word)
     (f0 f1 f2 f3 n0 n1 n2 n3 e0 e1 e2 e3 rk0 rk1 rk2 rk3 a0 a1 a2 a3 pw gb0 gb1 gb2 gb3 rb0 rb1 rb2 rb3 sd0 sd1 sd2 sd3 v w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 tcap iptr ilen tg0 tg1 tg2 tg3 hmod hx : Word) (H Y D X A O13 Iv Gp Kp Rc Sc Ps Rm Gb Pb F16 F8 Ri Iv4 IV G0 G1 G2 G3 : List Word)
     (hHl : H.length = 128) (hYl : Y.length = 117) (hDl : D.length = 12) (hXl : X.length = 4) (hAl : A.length = 4) (hO13l : O13.length = 13) (hIvl : Iv.length = 4) (hGpl : Gp.length = 12) (hKpl : Kp.length = 12) (hRcl : Rc.length = 4) (hScl : Sc.length = 4) (hPsl : Ps.length = 4) (hRml : Rm.length = 4) (hGbl : Gb.length = 4) (hPbl : Pb.length = 4) (hF16l : F16.length = 16) (hF8l : F8.length = 8) (hRil : Ri.length = 4) (hIv4l : Iv4.length = 4) (hIVl : IV.length = 138) (hG0l : G0.length = 1024) (hG1l : G1.length = 1024) (hG2l : G2.length = 1024) (hG3l : G3.length = 516)
@@ -498,7 +498,7 @@ theorem main_seg_b_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : L
   have hokR_1068_7 : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x1068#64) 7 := hokF.sub' 525 7 (by decide) (by bv_omega)
   have hokJ9 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x120#64) 9 := hokS.sub' 968 9 (by decide) (by bv_omega)
   obtain ⟨J9, hJ9, hJ9l⟩ := Region.exists_junk (sp - 0x120#64) 9 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range J9 hJ9l] at hJ9
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range J9 hJ9l] at hJ9
   -- the table words pinned: the executor matches the contracts before it reads the tables
   have hci := commit_ivk_spec'' (G := G) (n := nb) (P := P) (L := L) (tcap := tcap) (iptr := iptr) (ilen := ilen) (tg0 := tg0)
     (tg1 := tg1) (tg2 := tg2) (tg3 := tg3) (hmod := hmod) (hx := hx) (IV := IV) (G0 := G0)

@@ -13,7 +13,7 @@ because its own writes (its frame, the `Vec` buffer) are off them.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -77,16 +77,16 @@ structure Ok6 (T : HasherT) : Prop where
 
 /-- The block `[b, b + 8n)` is off the six. -/
 structure Away6 (b : Word) (n : Nat) (T : HasherT) : Prop where
-  d1 : AsmVerif.RiscV.Sym.Disjoint T.b1 10 b n
-  d2 : AsmVerif.RiscV.Sym.Disjoint T.b2 138 b n
-  d3 : AsmVerif.RiscV.Sym.Disjoint T.b3 1024 b n
-  d4 : AsmVerif.RiscV.Sym.Disjoint T.b4 1024 b n
-  d5 : AsmVerif.RiscV.Sym.Disjoint T.b5 1024 b n
-  d6 : AsmVerif.RiscV.Sym.Disjoint T.b6 516 b n
+  d1 : MachineChecked.RiscV.Sym.Disjoint T.b1 10 b n
+  d2 : MachineChecked.RiscV.Sym.Disjoint T.b2 138 b n
+  d3 : MachineChecked.RiscV.Sym.Disjoint T.b3 1024 b n
+  d4 : MachineChecked.RiscV.Sym.Disjoint T.b4 1024 b n
+  d5 : MachineChecked.RiscV.Sym.Disjoint T.b5 1024 b n
+  d6 : MachineChecked.RiscV.Sym.Disjoint T.b6 516 b n
 
 /-- A block off the heap is off the six. -/
 theorem Away6.of_heap {T : HasherT} (hA : Arena6 T) {b : Word} {n : Nat}
-    (h : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n) : Away6 b n T :=
+    (h : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n) : Away6 b n T :=
   ⟨h.of_heap hA.lo1 hA.hi1, h.of_heap hA.lo2 hA.hi2, h.of_heap hA.lo3 hA.hi3,
    h.of_heap hA.lo4 hA.hi4, h.of_heap hA.lo5 hA.hi5, h.of_heap hA.lo6 hA.hi6⟩
 

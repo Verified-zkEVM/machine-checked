@@ -21,7 +21,7 @@ the 32 `ak` bytes, `nk`, `rivk`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.B2b
 
 set_option autoImplicit false
 
@@ -56,7 +56,7 @@ theorem prf_expand_apply2_spec' {G : MachineState → Prop} {n : Nat} {P : Prop}
   obtain ⟨F2, hRF2, hF2⟩ := Region.exists_junk (sp - 0x240#64) 72 s
   exact prf_expand_apply2_spec s ra sp out d sk ts pa pb s0 s1 s2 s3 a0 a1 a2 a3 b0 b1 b2 b3 F1 F2 O hF1 hF2 hO hpc hcW hcT hcU hcF hcL hcM hcC hcw hro hra hra1 hsp hstk ha0 ha1 ha2 ha3 ha4 ha5 hRF1 hRF2 hRS hokS hRT hokT hRA hokA hRB hokB hRO hokO hd1 hd2 hd3 hd4 hd5 he1 he2 he3 he4 hk
 
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
 /-- `fvk.rivk(Scope::Internal)`. -/

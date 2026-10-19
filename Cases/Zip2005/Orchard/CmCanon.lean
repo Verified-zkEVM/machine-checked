@@ -15,7 +15,7 @@ Sinsemilla hash point (`Z` is `0` or `R`) and `[rcm] R` (`mulW_Z_lt`).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

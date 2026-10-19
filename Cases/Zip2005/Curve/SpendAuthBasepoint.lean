@@ -14,7 +14,7 @@ case is an `assert_failed` panic), copied to the output.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -87,7 +87,7 @@ theorem spendauth_basepoint_spec {G : MachineState → Prop} {n : Nat} {P : Prop
     (RoImage.ok Ro.layout Ro.layout.textLo Ro.layout.textHi (by decide) 11 (by decide)).sub' 42 4 (by decide) (by decide)
   have he_bp : Disjoint a0 12 0x78001750#64 4 := by
     have h1 := hok0.offCode; have h2 := hok0.inMem
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY,
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY,
       Nat.reducePow, Nat.reduceMod] at h1 h2 ⊢
     omega
   have hu := Unchanged.refl [(sp - 0x820#64, 260), (a0, 12)] s

@@ -10,7 +10,7 @@ compiled, that is `limb &&& -is_some` per limb, with `is_some` in byte 0 of the 
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel MachineChecked.RiscV.Sym
 
 /-- The five words of a `CtOption<T>` with `is_some = c`: the limbs `L` masked by `c`, and
 `is_some` written into byte 0 of the fifth word `o4`. -/

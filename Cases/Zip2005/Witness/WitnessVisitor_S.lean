@@ -30,13 +30,13 @@ This case: `sk` Some.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem witness_visitor_S_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O WW : List Word) (hOl : O.length = 174) (hWl : WW.length = 174)
     (hpc : s.pc = 0x7801823c#64) (hcode : CodeAt F_7801823c.base F_7801823c.prog s)
@@ -116,9 +116,9 @@ theorem witness_visitor_S_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
   have halloc2 := fun u sp' L' h1 h2 h3 => halloc u sp' 0x78019fbc#64 L' h1 h2 h3 (by decide)
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0xa70#64) 334 := hokS.sub' 548 334 (by decide) (by bv_omega)
   obtain ⟨F0, hF0, hF0l⟩ := Region.exists_junk (sp - 0xa70#64) 334 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range F0 hF0l] at hF0
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range WW hWl] at hW
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range F0 hF0l] at hF0
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range WW hWl] at hW
   sym_exec [opt0_some_spec, opt0_errsome_spec, array32_r1_ok_spec, array32_r1_err_spec,
     witness_mid_spec, invalid_length_spec, hhandle, halloc0, halloc1, halloc2, hio, hfmt] 4000
   all_goals try (sym_close hkErr
@@ -127,7 +127,7 @@ theorem witness_visitor_S_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
                             sym_unfold
                             simp (disch := decide) only [byte_simp]
                             try decide))
-  have hR0' : Region out post477_0 t := by rw [AsmVerif.RiscV.Sym.List.eq_map_range post477_0 post477_21]; exact hR0
+  have hR0' : Region out post477_0 t := by rw [MachineChecked.RiscV.Sym.List.eq_map_range post477_0 post477_21]; exact hR0
   clear hR0
   rcases post477_22 with hE | ⟨hV, hC⟩
   · sym_close hkErr

@@ -11,7 +11,7 @@ argument-hint: "[case]"
 
 # Formal verification
 
-Adapted for asm-verif from [dhsorens/skills](https://github.com/dhsorens/skills)
+Adapted for MachineChecked from [dhsorens/skills](https://github.com/dhsorens/skills)
 `formal-verification`. This copy is the host's. Do not fetch the library
 copy to "correct" a binding.
 
@@ -31,11 +31,11 @@ use the case the session is about.
 
 | binding | this host |
 | --- | --- |
-| bytecode | The loaded image and `riscv-zkvm`'s SP1 machine: `MachineState`, `stepSp1`. The dependency is pinned in `lakefile.toml` and left unmodified. Image facts live under `Cases/<case>/` (`Loaded.lean`, `Image/`). Host wrappers: `AsmVerif/RiscV/Exec`, `AsmVerif/RiscV/Load`. |
+| bytecode | The loaded image and `riscv-zkvm`'s SP1 machine: `MachineState`, `stepSp1`. The dependency is pinned in `lakefile.toml` and left unmodified. Image facts live under `Cases/<case>/` (`Loaded.lean`, `Image/`). Host wrappers: `MachineChecked/RiscV/Exec`, `MachineChecked/RiscV/Load`. |
 | spec | The high-level claim about what that bytecode computes. The user names it, otherwise the case module and `docs/TO-VERIFY.md`. Blake2s: BLAKE2s-256 of the advice bytes, length and digest committed (`Cases/LeanVM/Blake2s/Loaded.lean`). zip-2005: the guest program over the verified runtime (`docs/PLAN.md`, `docs/TO-VERIFY.md`). |
-| proofs | `AsmVerif/RiscV/` (framework) and `Cases/` (`Cases/Zip2005`, `Cases/LeanVM`). |
-| observation | `SafeN` / `Safe` and `Iface.HoldsN` / `Iface.Holds` in `AsmVerif/RiscV/Check/Spec.lean`. Accepting is `Accepted`: SP1 `HALT` with exit code 0. |
-| state rel | `AState.Holds` (`AsmVerif/RiscV/Frame/Sound.lean`). Checker interfaces: `Pre`, `Post`, `Env` (`AsmVerif/RiscV/Check/Domain.lean`, `Check/Spec.lean`). |
+| proofs | `MachineChecked/RiscV/` (framework) and `Cases/` (`Cases/Zip2005`, `Cases/LeanVM`). |
+| observation | `SafeN` / `Safe` and `Iface.HoldsN` / `Iface.Holds` in `MachineChecked/RiscV/Check/Spec.lean`. Accepting is `Accepted`: SP1 `HALT` with exit code 0. |
+| state rel | `AState.Holds` (`MachineChecked/RiscV/Frame/Sound.lean`). Checker interfaces: `Pre`, `Post`, `Env` (`MachineChecked/RiscV/Check/Domain.lean`, `Check/Spec.lean`). |
 | queue | `docs/PLAN.md` |
 | contract | `docs/PLAN.md` (the judgement and the Rules) and `README.md` |
 | doctrine | `AGENTS.md` and `docs/PLAN.md` § Rules |
@@ -174,7 +174,7 @@ before changing the statement.
 ## Proof structure
 
 Keep the tree the host already has. Framework proofs live in
-`AsmVerif/RiscV/` (`Frame`, `Check`, `Exec`). A case lives in
+`MachineChecked/RiscV/` (`Frame`, `Check`, `Exec`). A case lives in
 `Cases/<image>/` (`Image`, `Contract`, `Frame`, `Runtime`). Do not
 create `Left/`, `Right/`, `Simulation/`, or `Assumptions.lean`.
 

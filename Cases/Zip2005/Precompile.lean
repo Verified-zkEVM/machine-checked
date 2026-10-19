@@ -46,7 +46,7 @@
   model may silently exclude. A total-correctness (`∃k`) triple cannot exclude
   them (it must show the model does *not* trap, i.e. discharge the guard), so it
   stays sound; a statement that reads "the model trapped" as "the guest
-  rejected" or as "no behaviour" does not. `AsmVerif.RiscV.Sym.Safe` is a statement of the second
+  rejected" or as "no behaviour" does not. `MachineChecked.RiscV.Sym.Safe` is a statement of the second
   kind: `docs/AUDIT.md` ("Other issues found", item 1) records what that leaves open.
 
   1. `UINT256_MUL` with modulus `0`: the executor computes `(x*y) mod 2^256`

@@ -17,7 +17,7 @@ constructor, the contract `hio`, ledger A10); `c = 0` is `Ok(None)`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -73,8 +73,8 @@ theorem next_u8_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List 
   have hokHpa : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78048980#64 14780690128 := arenaOk
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hokS.sub' 8 2 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x10#64) 2 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range W hWl] at hW
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range W hWl] at hW
   interval_cases r <;>
   · have hu := Unchanged.refl [(sp - 0x50#64, 10), (out, 2), (acs, 2), (de, 2),
       (0x78040620#64, 4162), (0x78048980#64, 14780690128)] s

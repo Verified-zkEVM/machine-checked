@@ -14,7 +14,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- Byte `i` of a little-endian doubleword list. -/
 def byteOf (xs : List Word) (i : Nat) : BitVec 8 := extractByte (xs[i / 8]!) (i % 8)
@@ -121,7 +121,7 @@ theorem memcmp_loop8 {G : MachineState → Prop} {n : Nat} {P : Prop} (s₀ : Ma
         simp at hbr6
       · sym_subst
         rw [hx12, show 64 - (j + 1) = m by omega]
-        simp (config := {decide := true}) only [AsmVerif.RiscV.Sym.add_ofNat_big]
+        simp (config := {decide := true}) only [MachineChecked.RiscV.Sym.add_ofNat_big]
         apply BitVec.eq_of_toNat_eq
         simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]
         omega
@@ -142,7 +142,7 @@ theorem memcmp_loop8 {G : MachineState → Prop} {n : Nat} {P : Prop} (s₀ : Ma
         apply hbr6
         simp only [bne_iff_ne, ne_eq]
         intro h0
-        simp (config := {decide := true}) only [AsmVerif.RiscV.Sym.add_ofNat_big] at h0
+        simp (config := {decide := true}) only [MachineChecked.RiscV.Sym.add_ofNat_big] at h0
         have := congrArg BitVec.toNat h0
         simp only [BitVec.toNat_sub, BitVec.toNat_ofNat] at this
         omega
@@ -214,7 +214,7 @@ theorem memcmp_loop4 {G : MachineState → Prop} {n : Nat} {P : Prop} (s₀ : Ma
         simp at hbr6
       · sym_subst
         rw [hx12, show 32 - (j + 1) = m by omega]
-        simp (config := {decide := true}) only [AsmVerif.RiscV.Sym.add_ofNat_big]
+        simp (config := {decide := true}) only [MachineChecked.RiscV.Sym.add_ofNat_big]
         apply BitVec.eq_of_toNat_eq
         simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]
         omega
@@ -235,7 +235,7 @@ theorem memcmp_loop4 {G : MachineState → Prop} {n : Nat} {P : Prop} (s₀ : Ma
         apply hbr6
         simp only [bne_iff_ne, ne_eq]
         intro h0
-        simp (config := {decide := true}) only [AsmVerif.RiscV.Sym.add_ofNat_big] at h0
+        simp (config := {decide := true}) only [MachineChecked.RiscV.Sym.add_ofNat_big] at h0
         have := congrArg BitVec.toNat h0
         simp only [BitVec.toNat_sub, BitVec.toNat_ofNat] at this
         omega

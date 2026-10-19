@@ -24,11 +24,11 @@ buffer: 32 and then 33 bytes) and `finalize` run inline; the compression is
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.B2b
 
 set_option autoImplicit false
 
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
 theorem prf_expand_with_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out d sk s0 s1 s2 s3 : Word)
@@ -81,7 +81,7 @@ theorem prf_expand_with_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s
     have e92 : v92 = 0x9B05688C2B3E6C1F#64 := by rw [← v92_def, ← v82_def, ← acc18_0_def]; decide
     have e4 : BitVec.zeroExtend 64 (extractByte (replaceByte acc101_0[4]! 0 (extractByte v187 0)) 0) =
         BitVec.zeroExtend 64 (BitVec.truncate 8 d) := by
-      rw [AsmVerif.RiscV.Sym.extract1_replace1_self _ _ _ (by decide), ← v187_def, AsmVerif.RiscV.Sym.extract1_replace1_self _ _ _ (by decide)]
+      rw [MachineChecked.RiscV.Sym.extract1_replace1_self _ _ _ (by decide), ← v187_def, MachineChecked.RiscV.Sym.extract1_replace1_self _ _ _ (by decide)]
     have eH : [7640891576939301192#64, 13503953896175478587#64, 4354685564936845355#64, 11912009170470909681#64,
         0x510E527FADE682D1#64, 0x9B05688C2B3E6C1F#64, 7477812405655887409#64, 4577249634070577161#64] = prfH := by
       decide

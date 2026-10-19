@@ -21,11 +21,11 @@
   non-wrapping parts of the address space, all below `SP1_MAX_MEMORY`.
 -/
 
-import AsmVerif.RiscV.Check.Region
+import MachineChecked.RiscV.Check.Region
 
 namespace Cases.Zip2005.Regions
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Check
 
 /-- Where the stack lives: `[0, 0x78000000)`, below everything the image places. -/
 def stack : Region := { base := 0, len := 0x78000000 }

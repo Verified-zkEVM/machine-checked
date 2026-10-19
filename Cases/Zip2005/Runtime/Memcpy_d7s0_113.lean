@@ -7,7 +7,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -30,8 +30,8 @@ theorem memcpy_d7s0_113_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s
   have hI : s.privateInput = s.privateInput := rfl
   have hm : dst &&& 7#64 = 7#64 := and7_of_sub7' hokD.aligned
   have hm2 : src &&& 7#64 = 0#64 := hokS.and7
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range D hDl] at hD
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range S hSl] at hS
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range D hDl] at hD
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range S hSl] at hS
   sym_exec
   have e : [v15, v27, v30, v33, v35, v51, v54, v57, v59, v75, v78, v81, v83, v116, v130] = mcpyW D S 7 0 113 15 := by
     sym_subst

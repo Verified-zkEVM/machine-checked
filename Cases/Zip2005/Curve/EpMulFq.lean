@@ -12,7 +12,7 @@ import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- `<Ep as Mul<&Fq>>::mul`: a frame around `sp1_pallas::zkvm::mul`. -/
 theorem ep_mul_fq_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra a0 a1 a2 sp : Word) (pt k O : List Word)

@@ -1,6 +1,6 @@
-name = "asm-verif"
+name = "machine-checked"
 version = "0.1.0"
-defaultTargets = ["AsmVerif", "Tools", "Cases"]
+defaultTargets = ["MachineChecked", "Tools", "Cases"]
 # Generated image modules are deep literals; mirror riscv-zkvm's own setting.
 moreLeanArgs = ["--tstack=400000"]
 
@@ -14,19 +14,19 @@ git = "https://github.com/Verified-zkEVM/riscv-zkvm"
 rev = "4634e41b229da4256e4a1f1688b94133fffa4af0"
 
 # Mathlib, as a direct require at the tag matching `lean-toolchain`. Only the ZIP 2005
-# specification and its closure (`Cases/Zip2005/Spec`) use it; `AsmVerif` and `Tools` do
+# specification and its closure (`Cases/Zip2005/Spec`) use it; `MachineChecked` and `Tools` do
 # not import it. Run `lake exe cache get` for the oleans.
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
 rev = "v4.33.0"
 
-# The framework: ISA-independent definitions at the top level, RISC-V under `AsmVerif.RiscV`.
+# The framework: ISA-independent definitions at the top level, RISC-V under `MachineChecked.RiscV`.
 [[lean_lib]]
-name = "AsmVerif"
-globs = ["AsmVerif", "AsmVerif.+"]
+name = "MachineChecked"
+globs = ["MachineChecked", "MachineChecked.+"]
 
-# Build-time tooling (generators). Nothing in `AsmVerif` or `Cases` imports it.
+# Build-time tooling (generators). Nothing in `MachineChecked` or `Cases` imports it.
 [[lean_lib]]
 name = "Tools"
 globs = ["Tools.+"]

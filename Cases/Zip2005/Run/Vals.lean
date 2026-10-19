@@ -8,7 +8,7 @@
   check the lists against the interfaces (`Runtime.Panic`, `Runtime.PanicEntries`).
 -/
 
-import AsmVerif.RiscV.Sym.Layout
+import MachineChecked.RiscV.Sym.Layout
 
 namespace Cases.Zip2005.Run
 

@@ -16,13 +16,13 @@ up. With `c = 0` the result is `Ok(None)` (the niche tag 2 in byte 1).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem next_opt_r5_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out acs de q l c : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x78019918#64) (hcode : CodeAt F_78019918.base F_78019918.prog s)
@@ -102,14 +102,14 @@ theorem next_opt_r5_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : L
   obtain ⟨F0, hF0, hF0l⟩ := Region.exists_junk (sp - 0x50#64) 3 s
   obtain ⟨F1, hF1, hF1l⟩ := Region.exists_junk (sp - 0x38#64) 5 s
   obtain ⟨F2, hF2, hF2l⟩ := Region.exists_junk (sp - 0x10#64) 2 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
   have e : optTag5 [W[0]!, W[1]!, W[2]!, W[3]!, W[4]!] = optTag5 W := rfl
   rcases Classical.em (optTag5 W = 0#8 ∧ 1 ≤ l.toNat) with ⟨htag, hl⟩ | hn0
   · rw [← e] at htag
     sym_exec [option_bytes32_r5_none_spec, hhandle, halloc, hio]
     · have hc : c = 0#64 := by simpa using hbr5
       rw [show BitVec.truncate 16 (512#64) = 0x200#16 from rfl] at v7_def
-      have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+      have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
       have hRo : Region out (replaceHalfword O[0]! 0 0x200#16 :: O.drop 1) s_12 := by
         rw [hd, v7_def]; exact hR0
       clear hR0
@@ -134,7 +134,7 @@ theorem next_opt_r5_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : L
     sym_exec [option_bytes32_r5_some_spec, hhandle, halloc, hio]
     · have hc : c = 0#64 := by simpa using hbr5
       rw [show BitVec.truncate 16 (512#64) = 0x200#16 from rfl] at v7_def
-      have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+      have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
       have hRo : Region out (replaceHalfword O[0]! 0 0x200#16 :: O.drop 1) s_12 := by
         rw [hd, v7_def]; exact hR0
       clear hR0
@@ -181,7 +181,7 @@ theorem next_opt_r5_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : L
   sym_exec [option_bytes32_r5_err_spec, hhandle, halloc, hio]
   · have hc : c = 0#64 := by simpa using hbr5
     rw [show BitVec.truncate 16 (512#64) = 0x200#16 from rfl] at v7_def
-    have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceHalfword O[0]! 0 0x200#16 :: O.drop 1) s_12 := by
       rw [hd, v7_def]; exact hR0
     clear hR0
@@ -190,7 +190,7 @@ theorem next_opt_r5_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : L
     have hc1 : c + 18446744073709551615#64 = c - 1#64 := by bv_omega
     rw [hc1] at hR1
     rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v18_def
-    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post13_0 :: O.drop 2) s_24 := by
       rw [hd, v18_def]; exact hR0
     clear hR0

@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 import Cases.Zip2005.Runtime.Heap
 import Mathlib.Tactic.IntervalCases
 import Cases.Zip2005.Image.F_7801cac0
@@ -18,7 +18,7 @@ ledger A4). `reserve_mp_contract` is the growth contract `hreserve` (ledger A5),
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -43,7 +43,7 @@ def ReallocMp (G : MachineState → Prop) (nb : Nat) (P : Prop) (code : Word →
 /-- A block the executor holds cell by cell is the list it was made from. -/
 theorem cells_eq_append {B B' A : List Word} {n : Nat} (hA : B ++ B' = A) (hlen : A.length = n) :
     (List.range n).map (fun i => A[i]!) = B ++ B' := by
-  rw [hA]; exact (AsmVerif.RiscV.Sym.List.eq_map_range A hlen).symm
+  rw [hA]; exact (MachineChecked.RiscV.Sym.List.eq_map_range A hlen).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -84,55 +84,55 @@ theorem reserve_mp_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : L
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 32) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 40) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 48) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 56) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 64) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 72) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 80) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 88) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 96) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 104) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 112) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 120) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
   · sym_exec [hr, hhr]
     sym_close hk _ post36_0 post36_1
     refine (cells_eq_append (n := 128) acc36_0_def (by rw [← acc36_0_def]; simp [post36_7])).trans ?_
-    congr 1; exact (AsmVerif.RiscV.Sym.List.eq_map_range B hBl).symm
+    congr 1; exact (MachineChecked.RiscV.Sym.List.eq_map_range B hBl).symm
 
 /-- `reserve_mp_spec` as its callers' contract (`hreserve`, ledger A5). -/
 theorem reserve_mp_contract {G : MachineState → Prop} {nb : Nat} {P : Prop} (s : MachineState)

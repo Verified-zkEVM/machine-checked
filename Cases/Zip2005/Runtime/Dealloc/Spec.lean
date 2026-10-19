@@ -24,7 +24,7 @@ set_option maxHeartbeats 4000000
 namespace Cases.Zip2005.Runtime.Dealloc
 
 open RiscvZkvm.Rv64
-open AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check AsmVerif.RiscV.Exec
+open MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check MachineChecked.RiscV.Exec
   Cases.Zip2005.Image
 
 open Tlsf in

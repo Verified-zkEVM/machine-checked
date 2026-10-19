@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 import Cases.Zip2005.Image.F_7801bf5c
 import Cases.Zip2005.Image.F_7801bf3c
 import Cases.Zip2005.Image.F_7801bf4c
@@ -6,7 +6,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- `syscall_uint256_mulmod(x, y‖m)`: `x := x * y mod m`. -/
 theorem uint256_mulmod_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 : Word)
@@ -30,7 +30,7 @@ end Cases.Zip2005
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- `syscall_pallas_add(p, q)`: `p := p + q` (the precompile's chord formula). -/
 theorem pallas_add_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra a0 a1 : Word) (p q : List Word)

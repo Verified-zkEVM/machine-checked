@@ -11,7 +11,7 @@ are the facts the executor needs to decide `main`'s `bne` on that byte.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym
 
 /-- The `Ok` struct's tag byte. -/
 theorem instW_tag (O W : List Word) : extractByte (instW O W)[0]! 0 = 0#8 := by

@@ -12,7 +12,7 @@ by cell (`splice2`).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- The five aligned cells holding the 32 bytes of the limbs `l0 … l3` at byte offset 2, over
 the previous cells `W` (whose bytes 0–1 of the first and 2–7 of the last survive). -/

@@ -27,8 +27,8 @@
   it drives -- is `pwhIface`, discharged in phase E.
 -/
 
-import AsmVerif.RiscV.Check.Fast
-import AsmVerif.RiscV.Check.Image
+import MachineChecked.RiscV.Check.Fast
+import MachineChecked.RiscV.Check.Image
 import Cases.Zip2005.Owned
 import Cases.Zip2005.Image.F_7803de40
 import Cases.Zip2005.Image.F_7803b67c
@@ -42,7 +42,7 @@ set_option maxRecDepth 400000
 
 namespace Cases.Zip2005.Runtime.Panic
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check Cases.Zip2005
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check Cases.Zip2005
 
 noncomputable abbrev C : Word → Option Instr := Image.Layout.image.codeAt
 

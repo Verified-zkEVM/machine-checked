@@ -44,7 +44,7 @@ set_option maxRecDepth 400000
 
 namespace Cases.Zip2005.Runtime.PanicEntries
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check Cases.Zip2005
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check Cases.Zip2005
 
 noncomputable abbrev C : Word → Option Instr := Image.Layout.image.codeAt
 

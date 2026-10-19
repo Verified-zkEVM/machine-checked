@@ -19,7 +19,7 @@ output (`SpendValidatingKey` is the point followed by its encoding).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- The Jacobian sum `ak + m` for `ak` given by its twelve words and `m` as a list (`ptX` … so
 that no `getElem!` on the computed point is exposed to the executor). -/
@@ -48,7 +48,7 @@ theorem toBytesW_cells (J : Nat × Nat × Nat) (h1 : J.1 < 2 ^ 256) (h2 : J.2.1 
         (leLimbsToNat [BitVec.ofNat 64 (J.2.2 >>> (64 * 0)), BitVec.ofNat 64 (J.2.2 >>> (64 * 1)), BitVec.ofNat 64 (J.2.2 >>> (64 * 2)), BitVec.ofNat 64 (J.2.2 >>> (64 * 3))])).1 * Fp.rInv % Fp.p +
       2 ^ 255 * ((Fp.toAffine (leLimbsToNat [BitVec.ofNat 64 (J.1 >>> (64 * 0)), BitVec.ofNat 64 (J.1 >>> (64 * 1)), BitVec.ofNat 64 (J.1 >>> (64 * 2)), BitVec.ofNat 64 (J.1 >>> (64 * 3))]) (leLimbsToNat [BitVec.ofNat 64 (J.2.1 >>> (64 * 0)), BitVec.ofNat 64 (J.2.1 >>> (64 * 1)), BitVec.ofNat 64 (J.2.1 >>> (64 * 2)), BitVec.ofNat 64 (J.2.1 >>> (64 * 3))])
         (leLimbsToNat [BitVec.ofNat 64 (J.2.2 >>> (64 * 0)), BitVec.ofNat 64 (J.2.2 >>> (64 * 1)), BitVec.ofNat 64 (J.2.2 >>> (64 * 2)), BitVec.ofNat 64 (J.2.2 >>> (64 * 3))])).2 * Fp.rInv % Fp.p % 2)) = toBytesW J := by
-  rw [AsmVerif.RiscV.Sym.cells4', AsmVerif.RiscV.Sym.cells4', AsmVerif.RiscV.Sym.cells4', leLimbsToNat_natToLeLimbs 4 _ h1,
+  rw [MachineChecked.RiscV.Sym.cells4', MachineChecked.RiscV.Sym.cells4', MachineChecked.RiscV.Sym.cells4', leLimbsToNat_natToLeLimbs 4 _ h1,
     leLimbsToNat_natToLeLimbs 4 _ h2, leLimbsToNat_natToLeLimbs 4 _ h3]
   rfl
 
@@ -176,7 +176,7 @@ theorem spend_validating_key_randomize_spec {Gd : MachineState → Prop} {n : Na
   have hb : natToLeLimbs 4 acc10_0 = toBytesW (rkJ a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 (mulW [post14_0, post14_1, post14_2, post14_3, post14_4, post14_5, post14_6, post14_7, post14_8, post14_9, post14_10, post14_11] [k0, k1, k2, k3])) := by
     rw [← acc10_0_def, ← toBytesW_cells _ hJ.1 hJ.2.1 hJ.2.2, rkJ, acc20_0_def, ptX_eq, ptY_eq, ptZ_eq]
   have hRo : Region out (jacW (rkJ a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 (mulW [post14_0, post14_1, post14_2, post14_3, post14_4, post14_5, post14_6, post14_7, post14_8, post14_9, post14_10, post14_11] [k0, k1, k2, k3])) ++ toBytesW (rkJ a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 (mulW [post14_0, post14_1, post14_2, post14_3, post14_4, post14_5, post14_6, post14_7, post14_8, post14_9, post14_10, post14_11] [k0, k1, k2, k3]))) s_22 := by
-    rw [← hb, jacW_cells, rkJ, acc20_0_def, ptX_eq, ptY_eq, ptZ_eq, ← AsmVerif.RiscV.Sym.cells4']
+    rw [← hb, jacW_cells, rkJ, acc20_0_def, ptX_eq, ptY_eq, ptZ_eq, ← MachineChecked.RiscV.Sym.cells4']
     exact hR0
   clear hR0
   sym_close (hk _ post14_0 post14_1 post14_2 post14_3 post14_4 post14_5 post14_6 post14_7 post14_8

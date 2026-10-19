@@ -11,8 +11,8 @@
 
 import Cases.Zip2005.Runtime.Halt
 import Cases.Zip2005.Runtime.SysWrite
-import AsmVerif.RiscV.Check.Fast
-import AsmVerif.RiscV.Check.Image
+import MachineChecked.RiscV.Check.Fast
+import MachineChecked.RiscV.Check.Image
 import Cases.Zip2005.Image.F_7801bf7c
 import Cases.Zip2005.Image.F_7801bfa4
 import Cases.Zip2005.Owned
@@ -21,7 +21,7 @@ set_option maxRecDepth 200000
 
 namespace Cases.Zip2005.Runtime.SysPanic
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 noncomputable abbrev C : Word → Option Instr := Image.Layout.image.codeAt
 

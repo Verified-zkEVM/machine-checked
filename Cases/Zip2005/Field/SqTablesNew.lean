@@ -19,7 +19,7 @@ contents, which `sqrt_alt` does not rely on (ledger A3).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -172,9 +172,9 @@ theorem sqrt_tables_new_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} 
   have e190' : (sp - 0x190#64).toNat = sp.toNat - 0x190 := by
     rw [BitVec.toNat_sub]; simp only [BitVec.toNat_ofNat]; omega
   have hdj : ∀ {b : Word} {m : Nat}, b.toNat + 8 * m ≤ 0x78000000 →
-      ∀ r ∈ [(post402_0, 138)], AsmVerif.RiscV.Sym.Disjoint b m r.1 r.2 := by
+      ∀ r ∈ [(post402_0, 138)], MachineChecked.RiscV.Sym.Disjoint b m r.1 r.2 := by
     intro b m h r hr
-    rw [List.mem_singleton] at hr; subst hr; unfold AsmVerif.RiscV.Sym.Disjoint; dsimp only; omega
+    rw [List.mem_singleton] at hr; subst hr; unfold MachineChecked.RiscV.Sym.Disjoint; dsimp only; omega
   have hT0 := hR0.of_unchanged' hUt (n := 9) (by simp) (hdj (by omega))
   have hT1 := hR1.of_unchanged' hUt (n := 16) (by simp) (hdj (by rw [e190']; omega))
   have hT2 := hR2.of_unchanged' hUt (n := 3) (by simp) (hdj (by rw [e190 0x80 (by decide)]; omega))

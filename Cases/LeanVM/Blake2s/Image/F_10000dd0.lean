@@ -4,7 +4,7 @@
   `_RNvNtCscVIHOoVtf7v_4core6option13expect_failed`
 -/
 
-import AsmVerif.RiscV.Image
+import MachineChecked.RiscV.Image
 
 set_option maxRecDepth 200000
 

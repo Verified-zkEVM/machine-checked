@@ -16,7 +16,7 @@ import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem slt_sign_byte (w : Word) : (BitVec.signExtend 64 (extractByte w 7)).slt 0#64 = w.msb := by
   rw [BitVec.slt_zero_eq_msb, BitVec.msb_signExtend]
@@ -118,12 +118,12 @@ theorem spend_validating_key_from_bytes_spec {G : MachineState → Prop} {n : Na
     (RoImage.ok Ro.layout Ro.layout.textLo Ro.layout.textHi (by decide) 11 (by decide)).sub' 50 4 (by decide) (by decide)
   have he_z : Disjoint a0 17 0x78001790#64 4 := by
     have h1 := hok0.offCode; have h2 := hok0.inMem
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY, Nat.reducePow,
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY, Nat.reducePow,
       Nat.reduceMod] at h1 h2 ⊢
     omega
   have hf_z : Disjoint a1 4 0x78001790#64 4 := by
     have h1 := hok_a1.offCode; have h2 := hok_a1.inMem
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY, Nat.reducePow,
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY, Nat.reducePow,
       Nat.reduceMod] at h1 h2 ⊢
     omega
   have hu := Unchanged.refl [(sp - 0x960#64, 300), (a0, 17)] s

@@ -17,11 +17,11 @@
 import Cases.Zip2005.Loaded
 import Cases.Zip2005.Regions
 import Cases.Zip2005.Contract.Table
-import AsmVerif.RiscV.Check.Statics
+import MachineChecked.RiscV.Check.Statics
 
 namespace Cases.Zip2005.Statics
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Check Cases.Zip2005
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Check Cases.Zip2005
 
 /-- `std::alloc::HOOK`: one doubleword. -/
 def allocHook : Region := { base := 0x78048920, len := 8 }

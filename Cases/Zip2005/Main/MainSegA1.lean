@@ -49,13 +49,13 @@ from the witness read's `Ok` to the first decompression: the niche check on `neg
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem main_seg_a1_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 vs5 vra r22 r23 r24 r25 r26 r27 : Word)
     (f0 f1 f2 f3 kr0 kr1 kr2 kr3 q c : Word) (Z V Al D X A Iv Gp Kp Rc Sc Ps Rm Gb Pb F16 F8 Ri Iv4 Wf Nk Re Rv Ak R16 Q4 : List Word)
     (hZl : Z.length = 174) (hVl : V.length = 174) (hAll : Al.length = 4) (hDl : D.length = 12) (hXl : X.length = 4) (hAl : A.length = 4) (hIvl : Iv.length = 4) (hGpl : Gp.length = 12) (hKpl : Kp.length = 12) (hRcl : Rc.length = 4) (hScl : Sc.length = 4) (hPsl : Ps.length = 4) (hRml : Rm.length = 4) (hGbl : Gb.length = 4) (hPbl : Pb.length = 4) (hF16l : F16.length = 16) (hF8l : F8.length = 8) (hRil : Ri.length = 4) (hIv4l : Iv4.length = 4) (hWfl : Wf.length = 16) (hNkl : Nk.length = 4) (hRel : Re.length = 4) (hRvl : Rv.length = 4) (hAkl : Ak.length = 4) (hR16l : R16.length = 16) (hQ4l : Q4.length = 4)
@@ -528,8 +528,8 @@ theorem main_seg_a1_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : 
   have hokR_618_12 : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x618#64) 12 := hokF.sub' 195 12 (by decide) (by bv_omega)
   have hokT_1068_7 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp + 0x1068#64) 7 := hokF'.sub' 525 7 (by decide) (by bv_omega)
   have hokR_1068_7 : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x1068#64) 7 := hokF.sub' 525 7 (by decide) (by bv_omega)
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range Z hZl] at hZ
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range V hVl] at hV
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range Z hZl] at hZ
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range V hVl] at hV
   sym_exec [memcpy1383_take_spec, parse_alpha_spec, main_seg_a2_spec, hdealloc_hint, hhalt_hint,
     hpaf, hpanic, hunwrap, hpb, hpp, hprz, hhandle_rv, hunwrap_opt, hpaf_nf] 2000
   all_goals (sym_close hk)

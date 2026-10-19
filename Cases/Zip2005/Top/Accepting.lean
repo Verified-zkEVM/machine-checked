@@ -11,12 +11,12 @@ private input: the two records decode (`Decodes`) to typed values satisfying
 `Zip2005.GuestStatement`. The hypotheses are `main_spec`'s: the loaded image, the entry state
 (with `FP_TABLES` uninitialised: the first decompression builds it), the runtime contracts and
 the panic and reject-halt paths. `main`'s return
-continuation is discharged by `AsmVerif.RiscV.SafeN.of_true`: the fact it carries *is* the conclusion.
+continuation is discharged by `MachineChecked.RiscV.SafeN.of_true`: the fact it carries *is* the conclusion.
 -/
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -616,6 +616,6 @@ theorem guest_accepting_run
     hsq_realloc hpaf hpp hprz hpb hpanic
     hunwrap hhandle_rv hhandle_al hunwrap_opt hpaf_nf hhalt_hint hhalt_empty hio hfmt halloc
     halloc_mp hreserve hdealloc hdealloc_hint hdealloc_nf hdealloc_ivk hdealloc_cm hconst hfrom_ivk
-    hfrom_nc (fun t _ _ _ _ _ hacc => AsmVerif.RiscV.SafeN.of_true hacc t)
+    hfrom_nc (fun t _ _ _ _ _ hacc => MachineChecked.RiscV.SafeN.of_true hacc t)
 
 end Cases.Zip2005

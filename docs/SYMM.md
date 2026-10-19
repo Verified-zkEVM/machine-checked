@@ -1,13 +1,13 @@
 # SYMM: the symbolic executor on Lean's `SymM`
 
-Plan for moving `sym_exec` (`AsmVerif/RiscV/Sym/`) and the proof patterns around it onto
+Plan for moving `sym_exec` (`MachineChecked/RiscV/Sym/`) and the proof patterns around it onto
 `Lean.Meta.Sym`, the symbolic-computation layer shipped with our toolchain (v4.33.0). Status:
 investigation only (2026-10-14). Nothing here is implemented.
 
 ## 1. What the build time actually is
 
 Two modules were profiled with `-Dprofiler=true` and the executor's own trace
-(`trace.AsmVerif.sym.time`). Both runs shared the machine with a full build, so absolute
+(`trace.MachineChecked.sym.time`). Both runs shared the machine with a full build, so absolute
 times are inflated; the proportions are what matter.
 
 | Module | Total | `sym_exec` | Executor steps | The rest |
@@ -128,14 +128,14 @@ Two candidates, measured against each other on `WitnessMidCells_NN`:
   rules and simprocs, run once over the shared reconstructed term instead of 64 times.
 
 Either replaces the `subst …; apply word_ext; interval_cases k <;> simp` blocks (46 uses).
-The executor's `asmverif.sym.foldBytes` byte folding should emit the same normal form, so
+The executor's `machineChecked.sym.foldBytes` byte folding should emit the same normal form, so
 that most reconstructions disappear at the source.
 
 Exit criterion: `WitnessMidCells_NN` well under a minute.
 
 ### Phase 3: the executor core on `SymM`
 
-Port `AsmVerif/RiscV/Sym/Tactic.lean` (4.2k lines) piece by piece, keeping the `MetaM` path
+Port `MachineChecked/RiscV/Sym/Tactic.lean` (4.2k lines) piece by piece, keeping the `MetaM` path
 until each piece matches it.
 
 1. **Entry and goal.** `sym_exec` enters `SymM` (as `mvcgen` does) and preprocesses the goal

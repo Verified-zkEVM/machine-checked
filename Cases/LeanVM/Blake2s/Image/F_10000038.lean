@@ -4,7 +4,7 @@
   `_RNvCs4aK3Ppsad39_7blake2s8compress`
 -/
 
-import AsmVerif.RiscV.Image
+import MachineChecked.RiscV.Image
 
 set_option maxRecDepth 200000
 

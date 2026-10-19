@@ -11,7 +11,7 @@ the bytes (`lebs2ipK`); for bytes that are `0` or `1` it is `Σ bᵢ·2ⁱ`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- The compiled expression: bits 0–7 through `or`s and two `add`s (then `zext.b`), bits 8–9 `or`ed in. -/
 def lebs2ipK (w0 w1 : Word) : Word :=

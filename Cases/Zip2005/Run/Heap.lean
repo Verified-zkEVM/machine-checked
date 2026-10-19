@@ -2,7 +2,7 @@
   Cases.Zip2005.Run.Heap
 
   The invariant the run keeps of the heap and the owned statics (milestone M1), in the form the
-  executor carries (`AsmVerif.RiscV.Sym.Carry`).
+  executor carries (`MachineChecked.RiscV.Sym.Carry`).
 
   `HeapAt L s`: the public-values hasher is `Some` with its position below 64
   (`Owned.HasherOk`); rlsf's heap is well formed (`Tlsf.Rep`), with its sentinel at
@@ -20,12 +20,12 @@
 -/
 
 import Cases.Zip2005.HeapEnv
-import AsmVerif.RiscV.Sym.Carry
+import MachineChecked.RiscV.Sym.Carry
 import Cases.Zip2005.Runtime.Tlsf.Init
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym AsmVerif.RiscV.Check Cases.Zip2005 Cases.Zip2005.Runtime
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym MachineChecked.RiscV.Check Cases.Zip2005 Cases.Zip2005.Runtime
 
 /-- `INNER_HEAP`, the allocator's control block. -/
 abbrev HEAP : Word := 0x78040620#64

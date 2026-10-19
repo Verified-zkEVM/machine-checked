@@ -5,7 +5,7 @@
   `default_hook` calls, and the indirect-jump targets `core::fmt::write` is checked against.
 -/
 
-import AsmVerif.RiscV.Frame.Domain
+import MachineChecked.RiscV.Frame.Domain
 import Cases.Zip2005.Image.F_7801b4d8
 import Cases.Zip2005.Image.F_78021720
 import Cases.Zip2005.Image.F_7803b6ac
@@ -14,7 +14,7 @@ import Cases.Zip2005.Image.F_7803e6b4
 
 namespace Cases.Zip2005.Frame.Fns
 
-open AsmVerif.RiscV.Frame Cases.Zip2005.Image
+open MachineChecked.RiscV.Frame Cases.Zip2005.Image
 
 /-- `memcpy`: a leaf with a jump table. -/
 def memcpy : Fn := { base := F_7801b4d8.base, prog := F_7801b4d8.prog }

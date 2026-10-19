@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Image.F_78019f50
 import Cases.Zip2005.Image.F_7801aed0
@@ -18,7 +18,7 @@ null box goes to `handle_alloc_error`. Every caller passes the result up as an `
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

@@ -22,11 +22,11 @@ domain separator) and the compression `Cases.Zip2005.compress1_97_spec`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.B2b
 
 set_option autoImplicit false
 
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 100000 in
 theorem prf_expand_apply2_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp out d sk ts pa pb s0 s1 s2 s3 a0 a1 a2 a3
@@ -83,7 +83,7 @@ theorem prf_expand_apply2_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
     have e89 : v89 = 0x510E527FADE682D1#64 := by rw [← v89_def, ← v85_def, ← acc22_0_def]; decide
     have e96 : v96 = 0x9B05688C2B3E6C1F#64 := by rw [← v96_def, ← v86_def, ← acc22_0_def]; decide
     have e4 : replaceByte acc105_0[4]! 0 (extractByte v191 0) &&& 255#64 = BitVec.zeroExtend 64 (BitVec.truncate 8 d) := by
-      rw [← v191_def, AsmVerif.RiscV.Sym.extract1_replace1_self _ _ _ (by decide), replaceByte0_and_ff]
+      rw [← v191_def, MachineChecked.RiscV.Sym.extract1_replace1_self _ _ _ (by decide), replaceByte0_and_ff]
     have eH : [7640891576939301192#64, 13503953896175478587#64, 4354685564936845355#64, 11912009170470909681#64,
         0x510E527FADE682D1#64, 0x9B05688C2B3E6C1F#64, 7477812405655887409#64, 4577249634070577161#64] = prfH := by
       decide

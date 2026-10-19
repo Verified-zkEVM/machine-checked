@@ -18,7 +18,7 @@ than `0`/`1` would `assert_failed` (it cannot: `from_repr` returns a `Choice`).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -60,7 +60,7 @@ theorem bytes_word2 (a b : BitVec 64) :
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 /-- `try_from` on a representation held in four aligned words `r0 … r3`. -/
 theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out a1 : Word)
     (r0 r1 r2 r3 : Word)
@@ -215,7 +215,7 @@ theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : Li
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 /-- `try_from` on a representation at byte offset 2 of the five aligned words `c0 … c4` (as
 `derive_unchecked` leaves `to_repr`'s bytes at `sp + 0x2a`). -/
 theorem try_from_off2_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out b : Word)

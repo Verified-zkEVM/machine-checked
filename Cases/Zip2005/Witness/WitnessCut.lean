@@ -10,7 +10,7 @@ on) and the condition `witOkCond` are related here once; the other cells per cel
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

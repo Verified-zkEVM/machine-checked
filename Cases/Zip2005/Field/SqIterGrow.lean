@@ -15,7 +15,7 @@ block of `2C` elements, the contract `hres` (ledger A5).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -91,11 +91,11 @@ theorem sq_iter_grow {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List
   have hokQ : RegionOk Ro.layout.roBase Ro.layout.textHi q 4 :=
     post64_6.sub' (4 * k.toNat) 4 (by omega) (by rw [← hq, hoe])
   obtain ⟨Q, hQ, hQl⟩ := Region.exists_junk q 4 t
-  have hdQF : AsmVerif.RiscV.Sym.Disjoint q 4 sp 27 := by unfold AsmVerif.RiscV.Sym.Disjoint; omega
-  have hdQS : AsmVerif.RiscV.Sym.Disjoint q 4 (sp - 0x100#64) 32 := by
+  have hdQF : MachineChecked.RiscV.Sym.Disjoint q 4 sp 27 := by unfold MachineChecked.RiscV.Sym.Disjoint; omega
+  have hdQS : MachineChecked.RiscV.Sym.Disjoint q 4 (sp - 0x100#64) 32 := by
     have := hstk.lo
-    unfold AsmVerif.RiscV.Sym.Disjoint; rw [BitVec.toNat_sub]; simp only [BitVec.toNat_ofNat]; omega
-  have hdQG : AsmVerif.RiscV.Sym.Disjoint q 4 g 4 := by unfold AsmVerif.RiscV.Sym.Disjoint; omega
+    unfold MachineChecked.RiscV.Sym.Disjoint; rw [BitVec.toNat_sub]; simp only [BitVec.toNat_ofNat]; omega
+  have hdQG : MachineChecked.RiscV.Sym.Disjoint q 4 g 4 := by unfold MachineChecked.RiscV.Sym.Disjoint; omega
   have hqlo : 0x78040620 ≤ q.toNat := by omega
   have hqhi : q.toNat + 32 ≤ 0x1c00000000 := by omega
   have hne : (k + 2#64 == 257#64) = false := by

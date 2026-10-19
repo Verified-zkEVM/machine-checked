@@ -8,12 +8,12 @@
 -/
 
 import Cases.Zip2005.Run.Heap
-import AsmVerif.RiscV.Sym.LoadRo
+import MachineChecked.RiscV.Sym.LoadRo
 import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym AsmVerif.RiscV.Check Cases.Zip2005
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Check Cases.Zip2005
   Cases.Zip2005.Image
 
 /-- **The read-only segment, word by word**, from the carried `RoImage`. -/

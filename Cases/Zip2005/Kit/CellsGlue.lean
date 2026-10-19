@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym.Frame
+import MachineChecked.RiscV.Sym.Frame
 
 /-!
 # Naming the cells of a tracked region between two executor runs
@@ -12,7 +12,7 @@ contract is stated over names and matches the callee's precondition by unificati
 
 open Lean Elab Tactic Meta
 
-namespace AsmVerif.RiscV.Sym
+namespace MachineChecked.RiscV.Sym
 
 /-- `e` occurs in `ty` (syntactically). -/
 def _root_.Lean.Expr.containsExpr (ty e : Expr) : Bool :=
@@ -45,7 +45,7 @@ syntax (name := generalizeCells) "generalize_cells " (colGt ident)+ " : " term :
     for d in ← getLCtx do
       if d.isImplementationDetail then continue
       let ty ← instantiateMVars d.type
-      unless ty.isAppOfArity ``AsmVerif.RiscV.Sym.Region 3 do continue
+      unless ty.isAppOfArity ``MachineChecked.RiscV.Sym.Region 3 do continue
       let args := ty.getAppArgs
       let some (_, elems) := (args[1]!).listLit? | continue
       -- the region at that base, or one at a literal offset below it on the same atom
@@ -128,8 +128,8 @@ frame covered, now of unknown contents), so a fresh statement of the block can t
   for d in ← getLCtx do
     if d.isImplementationDetail then continue
     let ty ← instantiateMVars d.type
-    unless ty.isAppOfArity ``AsmVerif.RiscV.Sym.Region 3 do continue
-    if (ty.getAppArgs[1]!).isAppOfArity ``AsmVerif.RiscV.Sym.contents 3 then fvs := fvs.push d.fvarId
+    unless ty.isAppOfArity ``MachineChecked.RiscV.Sym.Region 3 do continue
+    if (ty.getAppArgs[1]!).isAppOfArity ``MachineChecked.RiscV.Sym.contents 3 then fvs := fvs.push d.fvarId
   let g ← getMainGoal
   replaceMainGoal [← g.tryClearMany fvs]
 
@@ -157,7 +157,7 @@ syntax (name := regionAt) "region_at " term " in " term " as " ident : tactic
   for d in ← getLCtx do
     if d.isImplementationDetail then continue
     let ty ← instantiateMVars d.type
-    if ty.isAppOfArity ``AsmVerif.RiscV.Sym.Region 3 && ty.getAppArgs[0]! == b &&
+    if ty.isAppOfArity ``MachineChecked.RiscV.Sym.Region 3 && ty.getAppArgs[0]! == b &&
         (st.isMVar || ty.getAppArgs[2]! == st) then
       found := some d.fvarId
   match found with
@@ -165,8 +165,8 @@ syntax (name := regionAt) "region_at " term " in " term " as " ident : tactic
     let mut bases : Array MessageData := #[]
     for d in ← getLCtx do
       let ty ← instantiateMVars d.type
-      if ty.isAppOfArity ``AsmVerif.RiscV.Sym.Region 3 then bases := bases.push m!"{d.userName}: {ty.getAppArgs[0]!} @ {ty.getAppArgs[2]!}"
+      if ty.isAppOfArity ``MachineChecked.RiscV.Sym.Region 3 then bases := bases.push m!"{d.userName}: {ty.getAppArgs[0]!} @ {ty.getAppArgs[2]!}"
     throwError "region_at: no `Region {b} _ {st}` hypothesis; regions:{indentD (MessageData.joinSep bases.toList "\n")}"
   | some f => replaceMainGoal [← (← getMainGoal).rename f stx[5].getId]
 
-end AsmVerif.RiscV.Sym
+end MachineChecked.RiscV.Sym

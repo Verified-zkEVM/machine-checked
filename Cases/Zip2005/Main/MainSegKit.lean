@@ -14,7 +14,7 @@ namespace Cases.Zip2005
 
 open Cases.Zip2005.Image
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel MachineChecked.RiscV.Sym
 
 /-- A flag byte whose zero-extension was found equal to `1`. -/
 theorem flag_of_br (cf v : Word) (hv : BitVec.zeroExtend 64 (extractByte cf 0) = v)

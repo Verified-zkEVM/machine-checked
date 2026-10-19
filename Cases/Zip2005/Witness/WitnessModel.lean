@@ -17,7 +17,7 @@ written words themselves, so `V = witW W V` says exactly that every other byte i
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

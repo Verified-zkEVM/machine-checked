@@ -8,7 +8,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem land_p0 (y : Nat) : (y &&& 11037532056220336129) % 2 ^ 32 = y % 2 := by
   rw [← Nat.and_two_pow_sub_one_eq_mod, Nat.and_assoc,

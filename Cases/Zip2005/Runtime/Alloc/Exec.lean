@@ -18,8 +18,8 @@
     release the lock and return the pointer.
 -/
 
-import AsmVerif.RiscV.Exec.Tactic
-import AsmVerif.RiscV.Check.Image
+import MachineChecked.RiscV.Exec.Tactic
+import MachineChecked.RiscV.Check.Image
 import Cases.Zip2005.Runtime.Entry
 import Cases.Zip2005.Runtime.Tlsf.Update
 
@@ -29,7 +29,7 @@ set_option maxHeartbeats 4000000
 namespace Cases.Zip2005.Runtime.Alloc
 
 open RiscvZkvm.Rv64
-open AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check AsmVerif.RiscV.Exec
+open MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check MachineChecked.RiscV.Exec
   Cases.Zip2005.Image
 
 noncomputable abbrev C : Word → Option Instr := Layout.image.codeAt

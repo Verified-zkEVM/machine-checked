@@ -15,7 +15,7 @@ multiplied by the scalar; the result is `ep_mul_fq_spec`'s (`mulW`, `mulFacts`).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem fold12 {xs : List Word} (h : xs.length = 12) :
     [xs[0]!, xs[1]!, xs[2]!, xs[3]!, xs[4]!, xs[5]!, xs[6]!, xs[7]!, xs[8]!, xs[9]!, xs[10]!, xs[11]!] = xs := by

@@ -2,7 +2,7 @@
   Cases.Zip2005.Top.Load
 
   The image facts the top-level theorem takes, as theorems about the loaded image
-  (`Cases.Zip2005.Image.Layout.image`, read by `AsmVerif.RiscV.Load` and cross-checked against
+  (`Cases.Zip2005.Image.Layout.image`, read by `MachineChecked.RiscV.Load` and cross-checked against
   riscv-zkvm's own loader by `gen-image`): the code of every function the proofs step
   (`RunCode.of_image`), the code window, the read-only segment (`roImage`), the `.data`/`.bss`
   words `guest_elf_run` reads, and the entry point. Nothing here is evaluated by a tool at run
@@ -12,11 +12,11 @@
 import Cases.Zip2005.Image
 import Cases.Zip2005.Loaded
 import Cases.Zip2005.Top.Assumptions
-import AsmVerif.RiscV.Sym.Load
+import MachineChecked.RiscV.Sym.Load
 
 namespace Cases.Zip2005.Top
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Cases.Zip2005.Image
 
 noncomputable abbrev image : Image := Layout.image
 

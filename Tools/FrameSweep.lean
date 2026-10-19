@@ -1,7 +1,7 @@
 /-
   Tools.FrameSweep
 
-  Run the frame analysis (`AsmVerif.RiscV.Frame.Domain`) over every function of an ELF and
+  Run the frame analysis (`MachineChecked.RiscV.Frame.Domain`) over every function of an ELF and
   report, per function, whether its annotation checks and, if not, why.
 
       lake exe frame-sweep ELF NM OUT.tsv
@@ -12,12 +12,12 @@
 -/
 
 import RiscvZkvm.Interpreter
-import AsmVerif.RiscV.Frame.Domain
+import MachineChecked.RiscV.Frame.Domain
 import Tools.Elf
 
 namespace Tools.FrameSweep
 
-open RiscvZkvm.Rv64 RiscvZkvm.Interpreter AsmVerif.RiscV.Frame Tools.Elf
+open RiscvZkvm.Rv64 RiscvZkvm.Interpreter MachineChecked.RiscV.Frame Tools.Elf
 
 /-- Why the analysis stopped. -/
 inductive Outcome where

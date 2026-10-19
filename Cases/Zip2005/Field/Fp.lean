@@ -153,7 +153,7 @@ theorem redc_eq_wide {X M T r : Nat} (hT : 2 ^ 256 * T = X + M * p) (hX : X < 2 
 /-! ## Limb lists
 
 The executor leaves the constants as literal limb lists (and a product
-`natToLeLimbs 4 a` as its four cells, `AsmVerif.RiscV.Sym.cells4`). These fold them back into
+`natToLeLimbs 4 a` as its four cells, `MachineChecked.RiscV.Sym.cells4`). These fold them back into
 numbers. -/
 
 open RiscvZkvm.Rv64.Accel

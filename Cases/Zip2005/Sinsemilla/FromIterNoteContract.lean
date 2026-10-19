@@ -16,7 +16,7 @@ the function's buffer is 257 words (capacity 2048), of which those are the first
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -97,8 +97,8 @@ theorem from_iter_nc_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (
   rw [ncMsg_eq] at hM hdjSM hdjOM hdjCM
   have hokM : RegionOk Ro.layout.roBase Ro.layout.textHi (sp0 + 18446744073709551408#64) 17 :=
     RegionOk.of_nat (by omega) (by unfold SP1_MAX_MEMORY; omega) (Or.inl (by simp only [Ro.layout_roBase]; omega))
-  have hdjHM : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp0 + 18446744073709551408#64) 17 := by
-    unfold AsmVerif.RiscV.Sym.Disjoint; simp only [BitVec.toNat_ofNat]; omega
+  have hdjHM : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp0 + 18446744073709551408#64) 17 := by
+    unfold MachineChecked.RiscV.Sym.Disjoint; simp only [BitVec.toNat_ofNat]; omega
   have hR4 : (reprW [r0, r1, r2, r3]).length = 4 := by simp [reprW]
   have hQ4 : (reprW [q0, q1, q2, q3]).length = 4 := by simp [reprW]
   have hGr : Region (sp0 + 18446744073709551408#64) [g0, g1, g2, g3] u := hM.sub 0 4 (self_add_zero _) rfl

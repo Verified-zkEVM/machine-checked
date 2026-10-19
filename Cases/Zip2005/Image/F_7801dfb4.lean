@@ -4,7 +4,7 @@
   `_RNvXNtNtCs2TWJycbvX8h_5alloc3vec14spec_from_iterINtB4_3VecbEINtB2_12SpecFromIterbINtCse20URXkG3Rk_10sinsemilla3PadINtNtNtNtCskZHUdUNFefV_4core4iter8adapters5chain5ChainIB1P_IB1P_IB1P_IB1P_INtNtNtB1V_7sources5empty5EmptybEINtNtNtCsgmdqjXKILDZ_6bitvec5slice4iter10BitValIterhNtNtB3E_5order4Lsb0EEB3x_EB3x_EINtNtB1T_4take4TakeIB3y_yB4n_EEEB4S_EEE9from_iterCs41XcGciztn1_7orchard`
 -/
 
-import AsmVerif.RiscV.Image
+import MachineChecked.RiscV.Image
 
 set_option maxRecDepth 200000
 
@@ -196,9 +196,9 @@ def prog : List (Option Instr) := [
   some (RiscvZkvm.Rv64.Instr.AUIPC (RiscvZkvm.Rv64.Reg.x1) 0x0001f#20),
   some (RiscvZkvm.Rv64.Instr.JALR (RiscvZkvm.Rv64.Reg.x1) (RiscvZkvm.Rv64.Reg.x1) 0xe0c#12)]
 
-theorem decode_ok : AsmVerif.RiscV.decodeWords words = prog := by decide +kernel
+theorem decode_ok : MachineChecked.RiscV.decodeWords words = prog := by decide +kernel
 
-theorem prog_packed : prog = AsmVerif.RiscV.decodeWords (AsmVerif.RiscV.unpackWords packed len) := by
+theorem prog_packed : prog = MachineChecked.RiscV.decodeWords (MachineChecked.RiscV.unpackWords packed len) := by
   decide +kernel
 
 end Cases.Zip2005.Image.F_7801dfb4

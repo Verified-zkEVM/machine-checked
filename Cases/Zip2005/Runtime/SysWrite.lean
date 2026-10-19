@@ -18,8 +18,8 @@
   runs the straight-line pieces between them.
 -/
 
-import AsmVerif.RiscV.Exec.Tactic
-import AsmVerif.RiscV.Check.Image
+import MachineChecked.RiscV.Exec.Tactic
+import MachineChecked.RiscV.Check.Image
 import Cases.Zip2005.Owned
 
 set_option maxRecDepth 100000
@@ -27,8 +27,8 @@ set_option maxHeartbeats 4000000
 
 namespace Cases.Zip2005.Runtime.SysWrite
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
-  AsmVerif.RiscV.Exec Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
+  MachineChecked.RiscV.Exec Cases.Zip2005.Image
 
 noncomputable abbrev C : Word → Option Instr := Layout.image.codeAt
 

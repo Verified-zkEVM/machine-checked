@@ -4,8 +4,8 @@
   `_RNvXNtCsbXPGUtIOfGh_14halo2_poseidon10p128pow5t3NtB2_10P128Pow5T3INtB4_4SpecNtNtNtCscqU6sQ5CTSj_12pasta_curves6fields2fp2FpKj3_Kj2_E4sbox` meets its interface, given the table below the budget.
 -/
 
-import AsmVerif.RiscV.Check.Image
-import AsmVerif.RiscV.Check.Fast
+import MachineChecked.RiscV.Check.Image
+import MachineChecked.RiscV.Check.Fast
 import Cases.Zip2005.Loaded
 import Cases.Zip2005.Contract.Table
 
@@ -13,7 +13,7 @@ set_option maxRecDepth 200000
 
 namespace Cases.Zip2005.Contract.V_78023a18
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 open Cases.Zip2005.Contract
 

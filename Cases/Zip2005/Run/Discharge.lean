@@ -10,13 +10,13 @@ import Cases.Zip2005.Run.Alloc
 import Cases.Zip2005.Run.Dealloc
 import Cases.Zip2005.Witness.IoErrorFrom
 import Cases.Zip2005.Loaded
-import AsmVerif.RiscV.Sym.Load
+import MachineChecked.RiscV.Sym.Load
 
 set_option maxRecDepth 100000
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
   Cases.Zip2005.Runtime
 
 /-- A live buffer's pointer is a doubleword address: null, or a block's payload, 16 bytes into a
@@ -300,9 +300,9 @@ theorem halloc_fi_ok {G : MachineState → Prop} {n : Nat} {P : Prop} :
     rcases hr with rfl | rfl | rfl
     · have : (sp - 0x30#64).toNat = sp.toNat - 0x30 := by
         have := hstk.lo; rw [BitVec.toNat_sub]; simp; omega
-      simp only [AsmVerif.RiscV.Sym.Disjoint, List.length_cons, List.length_nil, this]; simp; omega
-    · simp [AsmVerif.RiscV.Sym.Disjoint]
-    · simp [AsmVerif.RiscV.Sym.Disjoint]
+      simp only [MachineChecked.RiscV.Sym.Disjoint, List.length_cons, List.length_nil, this]; simp; omega
+    · simp [MachineChecked.RiscV.Sym.Disjoint]
+    · simp [MachineChecked.RiscV.Sym.Disjoint]
   refine hk t ptr B h1 h2 h3 hun h5 h6 h7 h8.toText hp h10 hS'
     (Region.kept_live hIV e1 (hne l1) hh (by simp) hkeep)
     (Region.kept_live hG0 e2 (hne l2) hh (by simp) hkeep)
@@ -428,9 +428,9 @@ theorem hdealloc_ivk_ok {G : MachineState → Prop} {n : Nat} {P : Prop} :
     rcases hr with rfl | rfl | rfl
     · have : (sp' - 0x20#64).toNat = sp'.toNat - 0x20 := by
         have := hstk.lo; rw [BitVec.toNat_sub]; simp; omega
-      simp only [AsmVerif.RiscV.Sym.Disjoint, List.length_cons, List.length_nil, this]; simp; omega
-    · simp [AsmVerif.RiscV.Sym.Disjoint]
-    · simp [AsmVerif.RiscV.Sym.Disjoint]
+      simp only [MachineChecked.RiscV.Sym.Disjoint, List.length_cons, List.length_nil, this]; simp; omega
+    · simp [MachineChecked.RiscV.Sym.Disjoint]
+    · simp [MachineChecked.RiscV.Sym.Disjoint]
   exact hk t h1 h2 h3 hun hS'
     (Region.kept_live hIV e1 (hne l1) hh0 (by simp) hkeep)
     (Region.kept_live hG0 e2 (hne l2) hh0 (by simp) hkeep)

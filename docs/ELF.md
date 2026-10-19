@@ -160,7 +160,7 @@ either checked against them or only shapes a statement.
 | **Debug²** (ASPLOS 2021) [R] | 34 debug-info bugs, **3 in rustc/lldb**, in optimised builds | Do not trust DWARF. The claim that debug builds are a reliable oracle was **refuted** |
 | **Aeneas / hax pipelines** (2026) and **Corten** (2026) [R?] | Rust source/MIR → Lean (or Rocq+Iris), with panics as explicit `fail`. AI provers closed structural and arithmetic lemmas, but loop invariants and external-interface axioms stayed manual. Neither reaches the binary; Corten lists compilation to hardware as future work | The **top** of our pipeline: a source-level spec to translation-validate the binary against. Not a substitute for it |
 
-**What follows for asm-verif.** No existing system does all of this in Lean, for three ISAs,
+**What follows for MachineChecked.** No existing system does all of this in Lean, for three ISAs,
 on Rust binaries. The pattern to reimplement is well tested, though:
 
 - **P1. An ISA-generic logic over a next-state function** (Myreen, Islaris). `Decomp.Stepper` already has this shape. x86 and ARM each supply a stepper plus per-instruction specs and an equivalence proof against their Sail model.
@@ -267,7 +267,7 @@ the automation, not an optional extra.
 
 ---
 
-## 6. What this suggests for asm-verif's design
+## 6. What this suggests for MachineChecked's design
 
 - **`elf2lean` emits checked facts, not assumptions.** Its output is a Lean file of facts
   over the image, each closed by computation, plus a hints file whose every entry has a
@@ -279,7 +279,7 @@ the automation, not an optional extra.
 - **Runtime contracts follow P5**, never a bare free `r'`.
 - **A per-toolchain verified runtime** (rung 4) as its own artifact, keyed by toolchain,
   target and features. Most of zip-2005's 188 reachable functions are runtime, not guest.
-- **A build profile that asm-verif prescribes** (§ 2's switch table), so that what the
+- **A build profile that MachineChecked prescribes** (§ 2's switch table), so that what the
   verifier needs is present and the panic and allocator surface is as small as possible.
 
 ---

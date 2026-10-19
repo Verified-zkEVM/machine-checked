@@ -16,7 +16,7 @@ namespace Cases.Zip2005
 
 open Cases.Zip2005.Image
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -191,35 +191,35 @@ theorem frame_toNat {sp : Word} (h : StackOk Ro.layout 0x1b0 sp) :
 theorem frame_nowrap {sp : Word} (h : StackOk Ro.layout 0x1b0 sp) : (sp - 0x1b0#64).toNat + 8 * 76 ≤ 2 ^ 64 := by
   rw [frame_toNat h]; have := (Nat.le_trans h.hi (Nat.le_of_eq Ro.layout_stackTop)); have := h.lo; omega
 
-theorem _root_.AsmVerif.RiscV.Sym.Disjoint.heap_frame76 {sp : Word} (h : StackOk Ro.layout 0x1b0 sp) :
-    AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x1b0#64) 76 := by
-  unfold AsmVerif.RiscV.Sym.Disjoint
+theorem _root_.MachineChecked.RiscV.Sym.Disjoint.heap_frame76 {sp : Word} (h : StackOk Ro.layout 0x1b0 sp) :
+    MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (sp - 0x1b0#64) 76 := by
+  unfold MachineChecked.RiscV.Sym.Disjoint
   rw [frame_toNat h]
   have := (Nat.le_trans h.hi (Nat.le_of_eq Ro.layout_stackTop)); have := h.lo
   simp only [BitVec.toNat_ofNat]
   omega
 
 /-- A block inside the heap range is disjoint from what the heap is disjoint from. -/
-theorem _root_.AsmVerif.RiscV.Sym.Disjoint.of_heap {b : Word} {n : Nat} (h : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n)
+theorem _root_.MachineChecked.RiscV.Sym.Disjoint.of_heap {b : Word} {n : Nat} (h : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 b n)
     {p : Word} {L : Nat} (hlo : 0x78040620 ≤ p.toNat) (hhi : p.toNat + 8 * L ≤ 0x1c00000000) :
-    AsmVerif.RiscV.Sym.Disjoint p L b n := by
-  unfold AsmVerif.RiscV.Sym.Disjoint at *
+    MachineChecked.RiscV.Sym.Disjoint p L b n := by
+  unfold MachineChecked.RiscV.Sym.Disjoint at *
   simp only [BitVec.toNat_ofNat] at h
   omega
 
 /-- A sub-block of the left region. -/
-theorem _root_.AsmVerif.RiscV.Sym.Disjoint.sub_left {b₁ : Word} {n₁ : Nat} {b₂ : Word} {n₂ : Nat} (h : AsmVerif.RiscV.Sym.Disjoint b₁ n₁ b₂ n₂)
+theorem _root_.MachineChecked.RiscV.Sym.Disjoint.sub_left {b₁ : Word} {n₁ : Nat} {b₂ : Word} {n₂ : Nat} (h : MachineChecked.RiscV.Sym.Disjoint b₁ n₁ b₂ n₂)
     {a : Word} {i m : Nat} (ha : a = b₁ + BitVec.ofNat 64 (8 * i)) (him : i + m ≤ n₁) :
-    AsmVerif.RiscV.Sym.Disjoint a m b₂ n₂ :=
+    MachineChecked.RiscV.Sym.Disjoint a m b₂ n₂ :=
   h.of_sub ha him (by rw [Nat.mul_zero, BitVec.add_zero]) (by omega)
 
 theorem self_add_zero (p : Word) : p = p + BitVec.ofNat 64 (8 * 0) := by
   rw [Nat.mul_zero, BitVec.add_zero]
 
 /-- A sub-block of the right region. -/
-theorem _root_.AsmVerif.RiscV.Sym.Disjoint.sub_right {b₁ : Word} {n₁ : Nat} {b₂ : Word} {n₂ : Nat}
-    (h : AsmVerif.RiscV.Sym.Disjoint b₁ n₁ b₂ n₂) {b : Word} {j n : Nat} (hb : b = b₂ + BitVec.ofNat 64 (8 * j))
-    (hjn : j + n ≤ n₂) : AsmVerif.RiscV.Sym.Disjoint b₁ n₁ b n :=
+theorem _root_.MachineChecked.RiscV.Sym.Disjoint.sub_right {b₁ : Word} {n₁ : Nat} {b₂ : Word} {n₂ : Nat}
+    (h : MachineChecked.RiscV.Sym.Disjoint b₁ n₁ b₂ n₂) {b : Word} {j n : Nat} (hb : b = b₂ + BitVec.ofNat 64 (8 * j))
+    (hjn : j + n ≤ n₂) : MachineChecked.RiscV.Sym.Disjoint b₁ n₁ b n :=
   h.of_sub (self_add_zero b₁) (by omega) hb hjn
 
 theorem covers_of_sub {b' : Word} {n' : Nat} (hnw : b'.toNat + 8 * n' ≤ 2 ^ 64) {b : Word} {i n : Nat}

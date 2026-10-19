@@ -20,14 +20,14 @@ set_option maxHeartbeats 4000000
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
-  AsmVerif.RiscV.Exec Cases.Zip2005 Cases.Zip2005.Image Cases.Zip2005.Runtime
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
+  MachineChecked.RiscV.Exec Cases.Zip2005 Cases.Zip2005.Image Cases.Zip2005.Runtime
 
 noncomputable abbrev C : Word → Option Instr := Layout.image.codeAt
 
-def allocFn : AsmVerif.RiscV.Frame.Fn := { base := F_7801bcec.base, prog := F_7801bcec.prog }
+def allocFn : MachineChecked.RiscV.Frame.Fn := { base := F_7801bcec.base, prog := F_7801bcec.prog }
 
-theorem allocFn_code : AsmVerif.RiscV.Check.CodeAt allocFn C :=
+theorem allocFn_code : MachineChecked.RiscV.Check.CodeAt allocFn C :=
   codeAt_of_image (k := 27) Loaded.codeWF rfl (by decide +kernel) (fun _ _ h => by simp [allocFn] at h)
 
 /-- The allocator's own doublewords lie in the control block or the arena. -/

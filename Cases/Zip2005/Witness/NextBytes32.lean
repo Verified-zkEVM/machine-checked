@@ -17,11 +17,11 @@ passed up.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem next_bytes32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out acs de q l c : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x78019a10#64) (hcode : CodeAt F_78019a10.base F_78019a10.prog s)
@@ -79,12 +79,12 @@ theorem next_bytes32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
   obtain ⟨FL, hFL, hFLl⟩ := Region.exists_junk (sp - 0x60#64) 4 s
   obtain ⟨FR, hFR, hFRl⟩ := Region.exists_junk (sp - 0x40#64) 5 s
   obtain ⟨FV, hFV, hFVl⟩ := Region.exists_junk (sp - 0x18#64) 3 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range W hWl] at hW
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range W hWl] at hW
   rcases (by omega : l.toNat < 32 ∨ 32 ≤ l.toNat) with hl | hl
   all_goals sym_exec [array32_r5_ok_spec, array32_r5_err_spec, hio]
   · rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v20_def
-    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post15_0 :: O.drop 2) s_27 := by
       rw [hd, v20_def]; exact hR0
     clear hR0

@@ -17,7 +17,7 @@ through `NullifierDerivingKey::from_bytes` / `CommitIvkRandomness::from_bytes`, 
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- `parse_nk(out, w)`: `NullifierDerivingKey::from_bytes(&w[0x440..0x460])`. -/
 theorem parse_nk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp a0 w : Word) (b0 b1 b2 b3 : Word)
@@ -48,7 +48,7 @@ theorem parse_nk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List
   have hu := Unchanged.refl [(sp - 0x120#64, 36), (a0, 5)] s
   sym_exec [nullifier_deriving_key_from_bytes_spec, hpaf]
   have hR : Region a0 (post6_0 :: post6_1) s_10 := by
-    rw [AsmVerif.RiscV.Sym.List.eq_map_range post6_1 post6_7]; exact hR1
+    rw [MachineChecked.RiscV.Sym.List.eq_map_range post6_1 post6_7]; exact hR1
   sym_close (hk _ post6_0 post6_1)
   all_goals first
     | simpa using post6_6
@@ -83,7 +83,7 @@ theorem parse_rivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : Li
   have hu := Unchanged.refl [(sp - 0x120#64, 36), (a0, 5)] s
   sym_exec [commit_ivk_randomness_from_bytes_spec, hpaf]
   have hR : Region a0 (post6_0 :: post6_1) s_10 := by
-    rw [AsmVerif.RiscV.Sym.List.eq_map_range post6_1 post6_7]; exact hR1
+    rw [MachineChecked.RiscV.Sym.List.eq_map_range post6_1 post6_7]; exact hR1
   sym_close (hk _ post6_0 post6_1)
   all_goals first
     | simpa using post6_6
@@ -118,7 +118,7 @@ theorem parse_rivk_ext_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L 
   have hu := Unchanged.refl [(sp - 0x120#64, 36), (a0, 5)] s
   sym_exec [commit_ivk_randomness_from_bytes_spec, hpaf]
   have hR : Region a0 (post6_0 :: post6_1) s_10 := by
-    rw [AsmVerif.RiscV.Sym.List.eq_map_range post6_1 post6_7]; exact hR1
+    rw [MachineChecked.RiscV.Sym.List.eq_map_range post6_1 post6_7]; exact hR1
   sym_close (hk _ post6_0 post6_1)
   all_goals first
     | simpa using post6_6

@@ -17,7 +17,7 @@ from the reader's aligned input `q` (four blocks of four words), each result unp
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- Byte `k` of `Ok(instance)`: the tag, then the input bytes. -/
 def instByte (W : List Word) (k : Nat) : BitVec 8 := if k = 0 then 0#8 else inByte W 0 (k - 1)
@@ -36,13 +36,13 @@ theorem get4 (W0 W1 W2 W3 : List Word) (h0 : W0.length = 4) (h1 : W1.length = 4)
     (h2 : W2.length = 4) (h3 : W3.length = 4) (j : Nat) (hj : j < 16) :
     (W0 ++ W1 ++ W2 ++ W3)[j]! =
       if j < 4 then W0[j]! else if j < 8 then W1[j - 4]! else if j < 12 then W2[j - 8]! else W3[j - 12]! := by
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range W0 h0, AsmVerif.RiscV.Sym.List.eq_map_range W1 h1, AsmVerif.RiscV.Sym.List.eq_map_range W2 h2,
-    AsmVerif.RiscV.Sym.List.eq_map_range W3 h3]
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range W0 h0, MachineChecked.RiscV.Sym.List.eq_map_range W1 h1, MachineChecked.RiscV.Sym.List.eq_map_range W2 h2,
+    MachineChecked.RiscV.Sym.List.eq_map_range W3 h3]
   interval_cases j <;> rfl
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O W0 W1 W2 W3 : List Word) (hOl : O.length = 17)
     (hW0l : W0.length = 4) (hW1l : W1.length = 4) (hW2l : W2.length = 4) (hW3l : W3.length = 4)
@@ -100,7 +100,7 @@ theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
   obtain ⟨FL, hFL, hFLl⟩ := Region.exists_junk (sp - 0x110#64) 19 s
   obtain ⟨FR, hFR, hFRl⟩ := Region.exists_junk (sp - 0x78#64) 5 s
   obtain ⟨FV, hFV, hFVl⟩ := Region.exists_junk (sp - 0x50#64) 10 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
   have hmO : out &&& 7#64 = 0#64 := hokO.and7
   have hmS : sp &&& 7#64 = 0#64 := by
     have ha := hstk.aligned
@@ -115,7 +115,7 @@ theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
   all_goals sym_exec [array32_r0_ok_spec, array32_r0_err_spec, hio]
   · rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v25_def
     have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!, O[5]!, O[6]!, O[7]!, O[8]!, O[9]!, O[10]!, O[11]!, O[12]!, O[13]!, O[14]!, O[15]!, O[16]!] := by
-      rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+      rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post19_0 :: O.drop 2) s_38 := by
       rw [hd, v25_def]; exact hR0
     clear hR0
@@ -123,7 +123,7 @@ theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
     sym_close (hkE _ post19_0 post19_1 post19_2)
   · rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v76_def
     have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!, O[5]!, O[6]!, O[7]!, O[8]!, O[9]!, O[10]!, O[11]!, O[12]!, O[13]!, O[14]!, O[15]!, O[16]!] := by
-      rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+      rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post70_0 :: O.drop 2) s_89 := by
       rw [hd, v76_def]; exact hR0
     clear hR0
@@ -131,7 +131,7 @@ theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
     sym_close (hkE _ post70_0 post70_1 post70_2)
   · rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v127_def
     have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!, O[5]!, O[6]!, O[7]!, O[8]!, O[9]!, O[10]!, O[11]!, O[12]!, O[13]!, O[14]!, O[15]!, O[16]!] := by
-      rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+      rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post121_0 :: O.drop 2) s_140 := by
       rw [hd, v127_def]; exact hR0
     clear hR0
@@ -139,7 +139,7 @@ theorem instance_visitor_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
     sym_close (hkE _ post121_0 post121_1 post121_2)
   · rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v178_def
     have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!, O[5]!, O[6]!, O[7]!, O[8]!, O[9]!, O[10]!, O[11]!, O[12]!, O[13]!, O[14]!, O[15]!, O[16]!] := by
-      rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+      rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post172_0 :: O.drop 2) s_191 := by
       rw [hd, v178_def]; exact hR0
     clear hR0

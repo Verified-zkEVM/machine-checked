@@ -7,7 +7,7 @@ import Cases.Zip2005.Orchard.SpendValidatingKey
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -107,12 +107,12 @@ theorem spend_validating_key_from_bytes_init_spec {G : MachineState → Prop} {n
     (RoImage.ok Ro.layout Ro.layout.textLo Ro.layout.textHi (by decide) 11 (by decide)).sub' 50 4 (by decide) (by decide)
   have he_z : Disjoint a0 17 0x78001790#64 4 := by
     have h1 := hok0.offCode; have h2 := hok0.inMem
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY, Nat.reducePow,
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY, Nat.reducePow,
       Nat.reduceMod] at h1 h2 ⊢
     omega
   have hf_z : Disjoint a1 4 0x78001790#64 4 := by
     have h1 := hok_a1.offCode; have h2 := hok_a1.inMem
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY, Nat.reducePow,
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_ofNat, Ro.layout_roBase, Ro.layout_textHi, SP1_MAX_MEMORY, Nat.reducePow,
       Nat.reduceMod] at h1 h2 ⊢
     omega
   have hu := Unchanged.refl [(sp - 0x960#64, 300), (a0, 17), (0x780488a8#64, 10), (0x78040620#64, 4162),
@@ -122,7 +122,7 @@ theorem spend_validating_key_from_bytes_init_spec {G : MachineState → Prop} {n
   have hokAr : RegionOk Ro.layout.textLo Ro.layout.textHi 0x78048980#64 14780690128 := arenaOk
   have hbo : (sp + 18446744073709551472#64).toNat + 8 * 13 ≤ 0x78040620 := by
     have h1 := hstk.lo; have h2 := Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop)
-    rw [AsmVerif.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide), BitVec.toNat_sub]; simp; omega
+    rw [MachineChecked.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide), BitVec.toNat_sub]; simp; omega
   have hlo := hstk.lo
   sym_exec [ep_from_bytes_unchecked_init_spec, memcmp4_spec, memcpy96_spec, memcpy32_spec,
     memcpy128_spec, memcpy128_to7_spec, memcpy128_from7_spec, hpb, hpp, hprz, hpaf]

@@ -18,13 +18,13 @@ two 1009-byte `memcpy`s, or its `Err` passed up. With `c = 0` the result is `Ok(
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem next_arr_bytes32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out acs de q l c : Word)
     (O WW : List Word) (hOl : O.length = 129) (hWl : WW.length = 129)
     (hpc : s.pc = 0x780197cc#64) (hcode : CodeAt F_780197cc.base F_780197cc.prog s)
@@ -93,12 +93,12 @@ theorem next_arr_bytes32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
   obtain ⟨F1, hF1, hF1l⟩ := Region.exists_junk (sp - 0x818#64) 127 s
   obtain ⟨F2, hF2, hF2l⟩ := Region.exists_junk (sp - 0x420#64) 129 s
   obtain ⟨F3, hF3, hF3l⟩ := Region.exists_junk (sp - 0x18#64) 3 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
   sym_exec [array_bytes32_ok_spec, array_bytes32_err_spec, memcpy_d0s0_1009_spec,
     memcpy_d1s0_1009_spec, hio]
   · have hc : c = 0#64 := by simpa using hbr7
     rw [show BitVec.truncate 16 (0#64) = 0#16 from rfl] at v8_def
-    have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!, O[5]!, O[6]!, O[7]!, O[8]!, O[9]!, O[10]!, O[11]!, O[12]!, O[13]!, O[14]!, O[15]!, O[16]!, O[17]!, O[18]!, O[19]!, O[20]!, O[21]!, O[22]!, O[23]!, O[24]!, O[25]!, O[26]!, O[27]!, O[28]!, O[29]!, O[30]!, O[31]!, O[32]!, O[33]!, O[34]!, O[35]!, O[36]!, O[37]!, O[38]!, O[39]!, O[40]!, O[41]!, O[42]!, O[43]!, O[44]!, O[45]!, O[46]!, O[47]!, O[48]!, O[49]!, O[50]!, O[51]!, O[52]!, O[53]!, O[54]!, O[55]!, O[56]!, O[57]!, O[58]!, O[59]!, O[60]!, O[61]!, O[62]!, O[63]!, O[64]!, O[65]!, O[66]!, O[67]!, O[68]!, O[69]!, O[70]!, O[71]!, O[72]!, O[73]!, O[74]!, O[75]!, O[76]!, O[77]!, O[78]!, O[79]!, O[80]!, O[81]!, O[82]!, O[83]!, O[84]!, O[85]!, O[86]!, O[87]!, O[88]!, O[89]!, O[90]!, O[91]!, O[92]!, O[93]!, O[94]!, O[95]!, O[96]!, O[97]!, O[98]!, O[99]!, O[100]!, O[101]!, O[102]!, O[103]!, O[104]!, O[105]!, O[106]!, O[107]!, O[108]!, O[109]!, O[110]!, O[111]!, O[112]!, O[113]!, O[114]!, O[115]!, O[116]!, O[117]!, O[118]!, O[119]!, O[120]!, O[121]!, O[122]!, O[123]!, O[124]!, O[125]!, O[126]!, O[127]!, O[128]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!, O[5]!, O[6]!, O[7]!, O[8]!, O[9]!, O[10]!, O[11]!, O[12]!, O[13]!, O[14]!, O[15]!, O[16]!, O[17]!, O[18]!, O[19]!, O[20]!, O[21]!, O[22]!, O[23]!, O[24]!, O[25]!, O[26]!, O[27]!, O[28]!, O[29]!, O[30]!, O[31]!, O[32]!, O[33]!, O[34]!, O[35]!, O[36]!, O[37]!, O[38]!, O[39]!, O[40]!, O[41]!, O[42]!, O[43]!, O[44]!, O[45]!, O[46]!, O[47]!, O[48]!, O[49]!, O[50]!, O[51]!, O[52]!, O[53]!, O[54]!, O[55]!, O[56]!, O[57]!, O[58]!, O[59]!, O[60]!, O[61]!, O[62]!, O[63]!, O[64]!, O[65]!, O[66]!, O[67]!, O[68]!, O[69]!, O[70]!, O[71]!, O[72]!, O[73]!, O[74]!, O[75]!, O[76]!, O[77]!, O[78]!, O[79]!, O[80]!, O[81]!, O[82]!, O[83]!, O[84]!, O[85]!, O[86]!, O[87]!, O[88]!, O[89]!, O[90]!, O[91]!, O[92]!, O[93]!, O[94]!, O[95]!, O[96]!, O[97]!, O[98]!, O[99]!, O[100]!, O[101]!, O[102]!, O[103]!, O[104]!, O[105]!, O[106]!, O[107]!, O[108]!, O[109]!, O[110]!, O[111]!, O[112]!, O[113]!, O[114]!, O[115]!, O[116]!, O[117]!, O[118]!, O[119]!, O[120]!, O[121]!, O[122]!, O[123]!, O[124]!, O[125]!, O[126]!, O[127]!, O[128]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceHalfword O[0]! 0 0#16 :: O.drop 1) s_15 := by
       rw [hd, v8_def]; exact hR0
     clear hR0
@@ -237,7 +237,7 @@ theorem next_arr_bytes32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
     have c128 := na32_cell128 O WW F1 F2 acc16_0 acc39_0 acc45_0 acc16_0_def acc39_0_def acc45_0_def
     have e : [v59, v62, v47, acc45_0[1]!, acc45_0[2]!, acc45_0[3]!, acc45_0[4]!, acc45_0[5]!, acc45_0[6]!, acc45_0[7]!, acc45_0[8]!, acc45_0[9]!, acc45_0[10]!, acc45_0[11]!, acc45_0[12]!, acc45_0[13]!, acc45_0[14]!, acc45_0[15]!, acc45_0[16]!, acc45_0[17]!, acc45_0[18]!, acc45_0[19]!, acc45_0[20]!, acc45_0[21]!, acc45_0[22]!, acc45_0[23]!, acc45_0[24]!, acc45_0[25]!, acc45_0[26]!, acc45_0[27]!, acc45_0[28]!, acc45_0[29]!, acc45_0[30]!, acc45_0[31]!, acc45_0[32]!, acc45_0[33]!, acc45_0[34]!, acc45_0[35]!, acc45_0[36]!, acc45_0[37]!, acc45_0[38]!, acc45_0[39]!, acc45_0[40]!, acc45_0[41]!, acc45_0[42]!, acc45_0[43]!, acc45_0[44]!, acc45_0[45]!, acc45_0[46]!, acc45_0[47]!, acc45_0[48]!, acc45_0[49]!, acc45_0[50]!, acc45_0[51]!, acc45_0[52]!, acc45_0[53]!, acc45_0[54]!, acc45_0[55]!, acc45_0[56]!, acc45_0[57]!, acc45_0[58]!, acc45_0[59]!, acc45_0[60]!, acc45_0[61]!, acc45_0[62]!, acc45_0[63]!, acc45_0[64]!, acc45_0[65]!, acc45_0[66]!, acc45_0[67]!, acc45_0[68]!, acc45_0[69]!, acc45_0[70]!, acc45_0[71]!, acc45_0[72]!, acc45_0[73]!, acc45_0[74]!, acc45_0[75]!, acc45_0[76]!, acc45_0[77]!, acc45_0[78]!, acc45_0[79]!, acc45_0[80]!, acc45_0[81]!, acc45_0[82]!, acc45_0[83]!, acc45_0[84]!, acc45_0[85]!, acc45_0[86]!, acc45_0[87]!, acc45_0[88]!, acc45_0[89]!, acc45_0[90]!, acc45_0[91]!, acc45_0[92]!, acc45_0[93]!, acc45_0[94]!, acc45_0[95]!, acc45_0[96]!, acc45_0[97]!, acc45_0[98]!, acc45_0[99]!, acc45_0[100]!, acc45_0[101]!, acc45_0[102]!, acc45_0[103]!, acc45_0[104]!, acc45_0[105]!, acc45_0[106]!, acc45_0[107]!, acc45_0[108]!, acc45_0[109]!, acc45_0[110]!, acc45_0[111]!, acc45_0[112]!, acc45_0[113]!, acc45_0[114]!, acc45_0[115]!, acc45_0[116]!, acc45_0[117]!, acc45_0[118]!, acc45_0[119]!, acc45_0[120]!, acc45_0[121]!, acc45_0[122]!, acc45_0[123]!, acc45_0[124]!, acc45_0[125]!, acc45_0[126]!] = optArrW O WW 5 := by
       rw [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30, c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44, c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58, c59, c60, c61, c62, c63, c64, c65, c66, c67, c68, c69, c70, c71, c72, c73, c74, c75, c76, c77, c78, c79, c80, c81, c82, c83, c84, c85, c86, c87, c88, c89, c90, c91, c92, c93, c94, c95, c96, c97, c98, c99, c100, c101, c102, c103, c104, c105, c106, c107, c108, c109, c110, c111, c112, c113, c114, c115, c116, c117, c118, c119, c120, c121, c122, c123, c124, c125, c126, c127, c128]
-      conv_rhs => rw [AsmVerif.RiscV.Sym.List.eq_map_range (optArrW O WW 5) (optArrW_length O WW 5)]
+      conv_rhs => rw [MachineChecked.RiscV.Sym.List.eq_map_range (optArrW O WW 5) (optArrW_length O WW 5)]
       rfl
     rw [e] at hR0
     sym_close hk
@@ -251,7 +251,7 @@ theorem next_arr_bytes32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
     have hc1 : c + 18446744073709551615#64 = c - 1#64 := by bv_omega
     rw [hc1] at hR1
     rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v21_def
-    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!, O[5]!, O[6]!, O[7]!, O[8]!, O[9]!, O[10]!, O[11]!, O[12]!, O[13]!, O[14]!, O[15]!, O[16]!, O[17]!, O[18]!, O[19]!, O[20]!, O[21]!, O[22]!, O[23]!, O[24]!, O[25]!, O[26]!, O[27]!, O[28]!, O[29]!, O[30]!, O[31]!, O[32]!, O[33]!, O[34]!, O[35]!, O[36]!, O[37]!, O[38]!, O[39]!, O[40]!, O[41]!, O[42]!, O[43]!, O[44]!, O[45]!, O[46]!, O[47]!, O[48]!, O[49]!, O[50]!, O[51]!, O[52]!, O[53]!, O[54]!, O[55]!, O[56]!, O[57]!, O[58]!, O[59]!, O[60]!, O[61]!, O[62]!, O[63]!, O[64]!, O[65]!, O[66]!, O[67]!, O[68]!, O[69]!, O[70]!, O[71]!, O[72]!, O[73]!, O[74]!, O[75]!, O[76]!, O[77]!, O[78]!, O[79]!, O[80]!, O[81]!, O[82]!, O[83]!, O[84]!, O[85]!, O[86]!, O[87]!, O[88]!, O[89]!, O[90]!, O[91]!, O[92]!, O[93]!, O[94]!, O[95]!, O[96]!, O[97]!, O[98]!, O[99]!, O[100]!, O[101]!, O[102]!, O[103]!, O[104]!, O[105]!, O[106]!, O[107]!, O[108]!, O[109]!, O[110]!, O[111]!, O[112]!, O[113]!, O[114]!, O[115]!, O[116]!, O[117]!, O[118]!, O[119]!, O[120]!, O[121]!, O[122]!, O[123]!, O[124]!, O[125]!, O[126]!, O[127]!, O[128]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!, O[5]!, O[6]!, O[7]!, O[8]!, O[9]!, O[10]!, O[11]!, O[12]!, O[13]!, O[14]!, O[15]!, O[16]!, O[17]!, O[18]!, O[19]!, O[20]!, O[21]!, O[22]!, O[23]!, O[24]!, O[25]!, O[26]!, O[27]!, O[28]!, O[29]!, O[30]!, O[31]!, O[32]!, O[33]!, O[34]!, O[35]!, O[36]!, O[37]!, O[38]!, O[39]!, O[40]!, O[41]!, O[42]!, O[43]!, O[44]!, O[45]!, O[46]!, O[47]!, O[48]!, O[49]!, O[50]!, O[51]!, O[52]!, O[53]!, O[54]!, O[55]!, O[56]!, O[57]!, O[58]!, O[59]!, O[60]!, O[61]!, O[62]!, O[63]!, O[64]!, O[65]!, O[66]!, O[67]!, O[68]!, O[69]!, O[70]!, O[71]!, O[72]!, O[73]!, O[74]!, O[75]!, O[76]!, O[77]!, O[78]!, O[79]!, O[80]!, O[81]!, O[82]!, O[83]!, O[84]!, O[85]!, O[86]!, O[87]!, O[88]!, O[89]!, O[90]!, O[91]!, O[92]!, O[93]!, O[94]!, O[95]!, O[96]!, O[97]!, O[98]!, O[99]!, O[100]!, O[101]!, O[102]!, O[103]!, O[104]!, O[105]!, O[106]!, O[107]!, O[108]!, O[109]!, O[110]!, O[111]!, O[112]!, O[113]!, O[114]!, O[115]!, O[116]!, O[117]!, O[118]!, O[119]!, O[120]!, O[121]!, O[122]!, O[123]!, O[124]!, O[125]!, O[126]!, O[127]!, O[128]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post16_0 :: O.drop 2) s_29 := by
       rw [hd, v21_def]; exact hR0
     clear hR0

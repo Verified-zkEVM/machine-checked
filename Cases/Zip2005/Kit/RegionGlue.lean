@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym.Frame
+import MachineChecked.RiscV.Sym.Frame
 
 /-!
 # Re-partitioning regions between two executor runs
@@ -9,7 +9,7 @@ regions over the same cells), the proof stops between the calls and re-derives t
 `Region.sub` for a piece of one region, `Region.append'` for the join of two adjacent ones.
 -/
 
-namespace AsmVerif.RiscV.Sym
+namespace MachineChecked.RiscV.Sym
 
 open RiscvZkvm.Rv64
 
@@ -19,4 +19,4 @@ theorem Region.append' {b b' : Word} {vs ws : List Word} {s : MachineState}
     Region b (vs ++ ws) s :=
   Region.append h₁ (hb ▸ h₂)
 
-end AsmVerif.RiscV.Sym
+end MachineChecked.RiscV.Sym

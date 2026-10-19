@@ -19,12 +19,12 @@ set_option maxHeartbeats 4000000
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
-  AsmVerif.RiscV.Exec Cases.Zip2005 Cases.Zip2005.Image Cases.Zip2005.Runtime
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
+  MachineChecked.RiscV.Exec Cases.Zip2005 Cases.Zip2005.Image Cases.Zip2005.Runtime
 
-def deallocFn : AsmVerif.RiscV.Frame.Fn := { base := F_7801bd08.base, prog := F_7801bd08.prog }
+def deallocFn : MachineChecked.RiscV.Frame.Fn := { base := F_7801bd08.base, prog := F_7801bd08.prog }
 
-theorem deallocFn_code : AsmVerif.RiscV.Check.CodeAt deallocFn C :=
+theorem deallocFn_code : MachineChecked.RiscV.Check.CodeAt deallocFn C :=
   codeAt_of_image (k := 28) Loaded.codeWF rfl (by decide +kernel) (fun _ _ h => by simp [deallocFn] at h)
 
 /-- **`__rust_dealloc` of a hint-area pointer** returns at once. -/

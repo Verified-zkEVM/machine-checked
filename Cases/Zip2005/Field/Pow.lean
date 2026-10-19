@@ -6,7 +6,7 @@ segments of `Cases.Zip2005.Field.PowT.Seg*`, give `Fp.powT`. -/
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 
 theorem sqrN_succ_lt (x n : Nat) : Fp.sqrN x (n + 1) < Fp.p := by

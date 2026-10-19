@@ -19,14 +19,14 @@ empty reader or a short array (the `io::Error` conversion, a contract), or a tag
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- The tag byte of the option at `q`. -/
 def optTag0 (W : List Word) : BitVec 8 := extractByte W[0]! 0
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem option_bytes32_r0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801806c#64) (hcode : CodeAt F_7801806c.base F_7801806c.prog s)
@@ -95,13 +95,13 @@ theorem option_bytes32_r0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
   obtain ⟨FL, hFL, hFLl⟩ := Region.exists_junk (sp - 0x60#64) 4 s
   obtain ⟨FR, hFR, hFRl⟩ := Region.exists_junk (sp - 0x40#64) 5 s
   obtain ⟨FV, hFV, hFVl⟩ := Region.exists_junk (sp - 0x18#64) 3 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range W hWl] at hW
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range W hWl] at hW
   -- the reader's length against the tag
   rcases (by omega : l.toNat = 0 ∨ (1 ≤ l.toNat ∧ l.toNat < 33) ∨ 33 ≤ l.toNat) with hl | ⟨hl, hl'⟩ | hl
   all_goals sym_exec [array32_r1_ok_spec, array32_r1_err_spec, hio, halloc, hhandle]
   · rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v15_def
-    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post12_0 :: O.drop 2) s_22 := by
       rw [hd, v15_def]; exact hR0
     clear hR0
@@ -119,7 +119,7 @@ theorem option_bytes32_r0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
       · intro h; rw [h]; rfl
       · intro h; have := congrArg (BitVec.truncate 8) h; rwa [trunc8_zext] at this
     rw [show BitVec.truncate 16 (0#64) = 0#16 from rfl] at v14_def
-    have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceHalfword O[0]! 0 0#16 :: O.drop 1) s_20 := by
       rw [hd, v14_def]; exact hR0
     clear hR0
@@ -139,7 +139,7 @@ theorem option_bytes32_r0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
       · intro h; rw [h]; rfl
       · intro h; have := congrArg (BitVec.truncate 8) h; rwa [trunc8_zext] at this
     rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v31_def
-    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post23_0 :: O.drop 2) s_38 := by
       rw [hd, v31_def]; exact hR0
     clear hR0
@@ -159,7 +159,7 @@ theorem option_bytes32_r0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
       · intro h; rw [h]; rfl
       · intro h; have := congrArg (BitVec.truncate 8) h; rwa [trunc8_zext] at this
     rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v26_def
-    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post20_0 :: O.drop 2) s_32 := by
       rw [hd, v26_def]; exact hR0
     clear hR0
@@ -178,7 +178,7 @@ theorem option_bytes32_r0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
       · intro h; rw [h]; rfl
       · intro h; have := congrArg (BitVec.truncate 8) h; rwa [trunc8_zext] at this
     rw [show BitVec.truncate 16 (0#64) = 0#16 from rfl] at v14_def
-    have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 1 = [O[1]!, O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceHalfword O[0]! 0 0#16 :: O.drop 1) s_20 := by
       rw [hd, v14_def]; exact hR0
     clear hR0
@@ -198,7 +198,7 @@ theorem option_bytes32_r0_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
       · intro h; rw [h]; rfl
       · intro h; have := congrArg (BitVec.truncate 8) h; rwa [trunc8_zext] at this
     rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v31_def
-    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl]; rfl
+    have hd : O.drop 2 = [O[2]!, O[3]!, O[4]!] := by rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl]; rfl
     have hRo : Region out (replaceByte O[0]! 0 1#8 :: post23_0 :: O.drop 2) s_38 := by
       rw [hd, v31_def]; exact hR0
     clear hR0

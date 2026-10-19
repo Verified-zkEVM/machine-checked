@@ -16,7 +16,7 @@ condition the assertion established, for both points.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- `Fp::from_raw` of four raw limbs: the Montgomery form `x · R mod p`, as `x · R2` by mulmod. -/
 def montW (x : List Word) : List Word := natToLeLimbs 4 (Fp.mul (leLimbsToNat x) Fp.R2)
@@ -72,7 +72,7 @@ theorem fromXyOk_of_flag {x y : List Word} {X Y : Nat} (hX : Fp.mul (leLimbsToNa
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 100000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem cached_commit_domain_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out qx qy rx ry : Word)
     (x0 x1 x2 x3 y0 y1 y2 y3 u0 u1 u2 u3 w0 w1 w2 w3 : Word) (O : List Word) (hOl : O.length = 24)
     (hpaf : ∀ (u : MachineState) (sp' : Word) (L' : List (Word × Nat)), u.pc = 0x7803a110#64 → u.code = s.code →
@@ -135,11 +135,11 @@ theorem cached_commit_domain_spec {Gd : MachineState → Prop} {n : Nat} {P : Pr
   have hRo : Region out (domainPtW [x0, x1, x2, x3] [y0, y1, y2, y3] ++
       domainPtW [u0, u1, u2, u3] [w0, w1, w2, w3]) s_146 := by
     rw [domainPtW_eq, domainPtW_eq, montW_eq, montW_eq, montW_eq, montW_eq, acc34_0_def, acc39_0_def,
-      acc98_0_def, acc103_0_def, ← AsmVerif.RiscV.Sym.cells4', ← AsmVerif.RiscV.Sym.cells4', ← AsmVerif.RiscV.Sym.cells4', ← AsmVerif.RiscV.Sym.cells4']
+      acc98_0_def, acc103_0_def, ← MachineChecked.RiscV.Sym.cells4', ← MachineChecked.RiscV.Sym.cells4', ← MachineChecked.RiscV.Sym.cells4', ← MachineChecked.RiscV.Sym.cells4']
     simp only [Nat.reduceMul, List.cons_append, List.nil_append]
     rw [v63_def, v64_def, v65_def, v66_def, v55_def, v56_def, v57_def, v58_def, v123_def, v124_def,
       v125_def, v126_def, v115_def, v116_def, v117_def, v118_def, toCurveW_eq, toCurveW_eq,
-      ← AsmVerif.RiscV.Sym.cells4', ← AsmVerif.RiscV.Sym.cells4']
+      ← MachineChecked.RiscV.Sym.cells4', ← MachineChecked.RiscV.Sym.cells4']
     simp only [list8_get_0, list8_get_1, list8_get_2, list8_get_3, list8_get_4, list8_get_5,
       list8_get_6, list8_get_7, List.cons_append, List.nil_append]
     exact hR4

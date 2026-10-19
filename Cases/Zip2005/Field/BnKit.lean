@@ -18,7 +18,7 @@
 -/
 
 import Cases.Zip2005.Field.Limbs
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Ring
 
@@ -320,7 +320,7 @@ elab "bn_lin" : tactic => withMainContext do
   for (nm, pf) in facts do
     let ty ← g.withContext (inferType pf)
     -- constants as numerals
-    let r ← g.withContext (AsmVerif.RiscV.Sym.Meta.simpWith ty #[] #[``Cases.Zip2005.Bn.toNat_ofNat'])
+    let r ← g.withContext (MachineChecked.RiscV.Sym.Meta.simpWith ty #[] #[``Cases.Zip2005.Bn.toNat_ofNat'])
     let (ty, pf) ← g.withContext do
       if r.expr == ty then pure (ty, pf) else pure (r.expr, ← mkEqMP (← r.getProof) pf)
     let (_, g') ← (← g.assert nm ty pf).intro1P

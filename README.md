@@ -1,4 +1,4 @@
-# ASM-VERIF: formally verify machine code directly in Lean
+# MachineChecked ✅ : formally verify machine code directly in Lean
 
 The basic pipeline:
 

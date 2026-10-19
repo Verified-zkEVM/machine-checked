@@ -21,7 +21,7 @@ both through `black_box`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- `conditional_select` with the flag register holding a byte `f ∈ {0, 1}` (as `from_bytes`
 leaves it), the choice stated as `f = 1#8`. -/

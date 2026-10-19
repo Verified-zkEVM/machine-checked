@@ -17,7 +17,7 @@ affine identity is `(0, 0)`, both are `x_canonical + 2^255 · (y_canonical mod 2
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 
 /-- The limbs of a value below `2^256`, reassembled. -/

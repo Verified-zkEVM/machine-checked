@@ -4,14 +4,14 @@
   `_RNvXs_NtCse20URXkG3Rk_10sinsemilla8additionNtB4_15IncompletePointINtNtCskZHUdUNFefV_4core7convert4FromNtNtCscqU6sQ5CTSj_12pasta_curves6curves2EpE4from`: its interface and certificate.
 -/
 
-import AsmVerif.RiscV.Check.Domain
+import MachineChecked.RiscV.Check.Domain
 import Cases.Zip2005.Image.F_780239bc
 
 set_option maxRecDepth 200000
 
 namespace Cases.Zip2005.Contract.A_780239bc
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 def iface : Iface := { entry := 0x00000000780239bc#64, depth := 33, foot := [{ base := (.lin .x10 0x0000000000000000#64), len := (.n 97) }], nz := [], returns := true, vals := [], cells := [], strs := [], pre := [], post := [], heap := false }
 

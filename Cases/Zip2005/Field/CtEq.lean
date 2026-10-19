@@ -14,7 +14,7 @@ Montgomery representations as stored).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 
 theorem xor_beq_zero (x y : Word) : (x ^^^ y == 0#64) = decide (x = y) := by

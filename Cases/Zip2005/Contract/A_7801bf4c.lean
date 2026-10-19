@@ -4,14 +4,14 @@
   `syscall_pallas_double`: its interface and certificate.
 -/
 
-import AsmVerif.RiscV.Check.Domain
+import MachineChecked.RiscV.Check.Domain
 import Cases.Zip2005.Image.F_7801bf4c
 
 set_option maxRecDepth 200000
 
 namespace Cases.Zip2005.Contract.A_7801bf4c
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 def iface : Iface := { entry := 0x000000007801bf4c#64, depth := 0, foot := [{ base := (.lin .x10 0x0000000000000000#64), len := (.n 64) }], nz := [], returns := true, vals := [], cells := [], strs := [], pre := [], post := [], heap := false }
 

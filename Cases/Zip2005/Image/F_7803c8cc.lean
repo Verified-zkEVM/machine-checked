@@ -4,7 +4,7 @@
   `_RNvYNtNtNtNtCsaFPe17dgLU6_3std3sys5stdio4zkvm6StderrNtNtBa_2io5Write9write_fmtBa_`
 -/
 
-import AsmVerif.RiscV.Image
+import MachineChecked.RiscV.Image
 
 set_option maxRecDepth 200000
 
@@ -136,9 +136,9 @@ def prog : List (Option Instr) := [
   some (RiscvZkvm.Rv64.Instr.JALR (RiscvZkvm.Rv64.Reg.x1) (RiscvZkvm.Rv64.Reg.x1) 0x364#12),
   some (RiscvZkvm.Rv64.Instr.JAL (RiscvZkvm.Rv64.Reg.x0) 0x1fff94#21)]
 
-theorem decode_ok : AsmVerif.RiscV.decodeWords words = prog := by decide +kernel
+theorem decode_ok : MachineChecked.RiscV.decodeWords words = prog := by decide +kernel
 
-theorem prog_packed : prog = AsmVerif.RiscV.decodeWords (AsmVerif.RiscV.unpackWords packed len) := by
+theorem prog_packed : prog = MachineChecked.RiscV.decodeWords (MachineChecked.RiscV.unpackWords packed len) := by
   decide +kernel
 
 end Cases.Zip2005.Image.F_7803c8cc

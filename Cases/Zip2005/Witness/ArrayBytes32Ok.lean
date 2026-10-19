@@ -16,7 +16,7 @@ Here the `Ok` case, 1024 bytes or more left; `Proof/Witness/ArrayBytes32Err.lean
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- The reader's length after the 32 elements. -/
 theorem sub32x32 (l : Word) : l - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 = l - 1024#64 := by
@@ -24,7 +24,7 @@ theorem sub32x32 (l : Word) : l - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 - 32#64 
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem array_bytes32_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O WW : List Word) (hOl : O.length = 129) (hWl : WW.length = 129)
     (hpc : s.pc = 0x78016938#64) (hcode : CodeAt F_78016938.base F_78016938.prog s)
@@ -81,8 +81,8 @@ theorem array_bytes32_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
   obtain ⟨F3, hF3, hF3l⟩ := Region.exists_junk (sp - 0x98#64) 5 s
   obtain ⟨F4, hF4, hF4l⟩ := Region.exists_junk (sp - 0x70#64) 1 s
   obtain ⟨F5, hF5, hF5l⟩ := Region.exists_junk (sp - 0x68#64) 13 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range WW hWl] at hW
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range WW hWl] at hW
   sym_exec [array32_r5_ok_spec, next_bytes32_ok_spec, memcpy32_d1s2_spec, memcpy17_spec, hio]
   · have hq1 : q + 992#64 + 37#64 = q + 1029#64 := by
       simp only [BitVec.add_assoc, BitVec.reduceAdd]
@@ -219,7 +219,7 @@ theorem array_bytes32_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {
     have c128 := ab32_cell128 O WW F3 acc23_0 acc59_0 acc92_0 acc128_0 acc161_0 acc198_0 acc479_0 acc490_0 acc23_0_def acc59_0_def acc92_0_def acc128_0_def acc161_0_def acc198_0_def acc479_0_def acc490_0_def
     have e : [v750, v29, v44, v45, v752, v65, v78, v79, v754, v98, v113, v114, v756, v134, v147, v148, v758, v167, v182, v183, v761, v204, v217, v218, acc604_0[0]!, acc604_0[1]!, acc604_0[2]!, acc604_0[3]!, acc610_0[0]!, acc610_0[1]!, acc610_0[2]!, acc610_0[3]!, acc616_0[0]!, acc616_0[1]!, acc616_0[2]!, acc616_0[3]!, acc622_0[0]!, acc622_0[1]!, acc622_0[2]!, acc622_0[3]!, acc628_0[0]!, acc628_0[1]!, acc628_0[2]!, acc628_0[3]!, acc634_0[0]!, acc634_0[1]!, acc634_0[2]!, acc634_0[3]!, acc640_0[0]!, acc640_0[1]!, acc640_0[2]!, acc640_0[3]!, acc646_0[0]!, acc646_0[1]!, acc646_0[2]!, acc646_0[3]!, acc652_0[0]!, acc652_0[1]!, acc652_0[2]!, acc652_0[3]!, acc658_0[0]!, acc658_0[1]!, acc658_0[2]!, acc658_0[3]!, acc664_0[0]!, acc664_0[1]!, acc664_0[2]!, acc664_0[3]!, acc670_0[0]!, acc670_0[1]!, acc670_0[2]!, acc670_0[3]!, acc676_0[0]!, acc676_0[1]!, acc676_0[2]!, acc676_0[3]!, acc682_0[0]!, acc682_0[1]!, acc682_0[2]!, acc682_0[3]!, acc688_0[0]!, acc688_0[1]!, acc688_0[2]!, acc688_0[3]!, acc694_0[0]!, acc694_0[1]!, acc694_0[2]!, acc694_0[3]!, acc700_0[0]!, acc700_0[1]!, acc700_0[2]!, acc700_0[3]!, acc706_0[0]!, acc706_0[1]!, acc706_0[2]!, acc706_0[3]!, acc712_0[0]!, acc712_0[1]!, acc712_0[2]!, acc712_0[3]!, acc718_0[0]!, acc718_0[1]!, acc718_0[2]!, acc718_0[3]!, acc724_0[0]!, acc724_0[1]!, acc724_0[2]!, acc724_0[3]!, acc730_0[0]!, acc730_0[1]!, acc730_0[2]!, acc730_0[3]!, acc736_0[0]!, acc736_0[1]!, acc736_0[2]!, acc736_0[3]!, acc742_0[0]!, acc742_0[1]!, acc742_0[2]!, acc742_0[3]!, acc748_0[0]!, acc748_0[1]!, acc748_0[2]!, acc748_0[3]!, acc748_0[4]!, acc490_0[1]!, acc490_0[2]!, acc490_0[3]!, acc490_0[4]!] = tagBytesW O WW 5 128 := by
       rw [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, c23, c24, c25, c26, c27, c28, c29, c30, c31, c32, c33, c34, c35, c36, c37, c38, c39, c40, c41, c42, c43, c44, c45, c46, c47, c48, c49, c50, c51, c52, c53, c54, c55, c56, c57, c58, c59, c60, c61, c62, c63, c64, c65, c66, c67, c68, c69, c70, c71, c72, c73, c74, c75, c76, c77, c78, c79, c80, c81, c82, c83, c84, c85, c86, c87, c88, c89, c90, c91, c92, c93, c94, c95, c96, c97, c98, c99, c100, c101, c102, c103, c104, c105, c106, c107, c108, c109, c110, c111, c112, c113, c114, c115, c116, c117, c118, c119, c120, c121, c122, c123, c124, c125, c126, c127, c128]
-      conv_rhs => rw [AsmVerif.RiscV.Sym.List.eq_map_range (tagBytesW O WW 5 128) (tagBytesW_length O WW 5 128)]
+      conv_rhs => rw [MachineChecked.RiscV.Sym.List.eq_map_range (tagBytesW O WW 5 128) (tagBytesW_length O WW 5 128)]
       rfl
     rw [e] at hR0
     sym_close hk

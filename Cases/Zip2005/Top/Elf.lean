@@ -19,7 +19,7 @@ arena, the hooks unset, the hasher set up (`Run.mainEntry_heapAt`). What stays a
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.Top
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.Top
 
 set_option autoImplicit false
 
@@ -56,10 +56,10 @@ theorem guest_elf_run {G : MachineState → Prop} {n : Nat} (I : List (BitVec 8)
     have hB : Region 0x78040618#64 [0x1c00000000#64] t :=
       (data2_word I 0 (by decide +kernel) (by decide) (by decide +kernel)).of_unchanged' hu (n := 1) rfl
         fun r hr => by
-          have := (hW r hr).2.1; have := (hW r hr).2.2.2; unfold AsmVerif.RiscV.Sym.Disjoint; simp only [BitVec.toNat_ofNat]; omega
+          have := (hW r hr).2.1; have := (hW r hr).2.2.2; unfold MachineChecked.RiscV.Sym.Disjoint; simp only [BitVec.toNat_ofNat]; omega
     have hT0 : Region 0x780488a8#64 [0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64, 0#64] t :=
       (data2_fp_tables I).of_unchanged' hu (n := 10) rfl fun r hr => by
-        have := (hW r hr).2.2.1; have := (hW r hr).2.2.2; unfold AsmVerif.RiscV.Sym.Disjoint; simp only [BitVec.toNat_ofNat]; omega
+        have := (hW r hr).2.2.1; have := (hW r hr).2.2.2; unfold MachineChecked.RiscV.Sym.Disjoint; simp only [BitVec.toNat_ofNat]; omega
     exact guest_accepting_run' t 0x7801bea0#64 0x77fffff0#64 0x1c00000000#64 I
       { toRunContracts := hR.of_code_eq h.2.1
         hpc := h.1

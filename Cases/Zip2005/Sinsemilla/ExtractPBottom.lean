@@ -14,7 +14,7 @@ input flag byte is copied to the output's byte 0x20.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- The point selected by the flag: the input, or the identity's `(0, 0, 0)`. -/
 def selJ (f : BitVec 8) (p : List Word) : Nat × Nat × Nat :=

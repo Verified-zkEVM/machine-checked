@@ -13,7 +13,7 @@ facts (`Cases.Zip2005.FromBytesKit`) are derived between and after them.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -203,12 +203,12 @@ theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Pro
   have hro2 : RoImage Ro.layout s_416 := hro
   -- the callee's frame facts against the fixed table address, in the shape the spec states them
   have hd_tb' : Disjoint (sp + 18446744073709551312#64 - 1472#64) 184 0x780488a8#64 9 := by
-    rw [AsmVerif.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd_tb ⊢
+    rw [MachineChecked.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd_tb ⊢
     omega
   have he_tb' : Disjoint (sp + 18446744073709551448#64) 5 0x780488a8#64 9 := by
-    rw [AsmVerif.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
-    simp only [AsmVerif.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd_tb ⊢
+    rw [MachineChecked.RiscV.Sym.add_ofNat_big _ _ (by decide) (by decide)]
+    simp only [MachineChecked.RiscV.Sym.Disjoint, BitVec.toNat_sub, BitVec.toNat_ofNat] at hd_tb ⊢
     omega
   -- run 2: from the `sqrt` call to the return
   sym_exec [uint256_mulmod_spec, sqrt_alt_spec, fp_to_repr_spec, black_box_spec, hpb', hpp', hprz']

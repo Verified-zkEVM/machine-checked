@@ -15,7 +15,7 @@ import Cases.Zip2005.Run.SqContracts
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.Top Cases.Zip2005.Run
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.Top Cases.Zip2005.Run
 
 set_option autoImplicit false
 

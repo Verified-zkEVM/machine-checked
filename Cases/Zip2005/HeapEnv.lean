@@ -24,7 +24,7 @@ import Cases.Zip2005.Runtime.Realloc
 
 namespace Cases.Zip2005.HeapEnv
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check Cases.Zip2005
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check Cases.Zip2005
   Cases.Zip2005.Runtime
 
 /-- `INNER_HEAP`, the control block's address. -/

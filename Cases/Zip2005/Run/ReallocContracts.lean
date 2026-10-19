@@ -13,7 +13,7 @@ set_option maxRecDepth 100000
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
   Cases.Zip2005.Runtime
 
 /-- A live buffer's pointer, null or not, is a readable and writable block of `k` doublewords,

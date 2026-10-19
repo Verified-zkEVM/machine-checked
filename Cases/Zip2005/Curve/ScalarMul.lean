@@ -19,7 +19,7 @@ import Cases.Zip2005.Run.Vals
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- One round of the loop on `(acc, base)` with bit `b`. -/
 def mulStep (b : Bool) (acc base : List Word) : List Word × List Word :=

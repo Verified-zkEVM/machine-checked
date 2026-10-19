@@ -8,7 +8,7 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 /-- A carry bit or'ed into a word shifted left by 62: an add. -/
 theorem or_carry_shl62 {c m v w : Word} (hc : c.toNat ≤ 1) (hv : m <<< 62 = v) (hw : c ||| v = w) :

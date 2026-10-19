@@ -19,7 +19,7 @@ first non-canonical encoding (the `Vec` freed). The allocator calls are contract
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -83,7 +83,7 @@ theorem mpCells_eq (H : List Word) (h : mpOk H) : (List.range 128).map (mpCell H
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out w pw : Word)
     (H O : List Word) (hHl : H.length = 128) (hOl : O.length = 130)
     (hpc : s.pc = 0x7801d098#64) (hcode : CodeAt F_7801d098.base F_7801d098.prog s)
@@ -165,7 +165,7 @@ theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop}
   obtain ⟨FE, hFE, hFEl⟩ := Region.exists_junk (sp - 0x40#64) 8 s
   -- the 32 encodings
   have hH' := hH
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range H hHl] at hH'
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range H hHl] at hH'
   have hH0 : Region w [H[0]!, H[1]!, H[2]!, H[3]!] s := hH'.sub 0 4 (BitVec.add_zero w).symm rfl
   have hokH0 : RegionOk Ro.layout.roBase Ro.layout.textHi w 4 := hokH.sub' 0 4 (by decide) (BitVec.add_zero w).symm
   have hH1 : Region (w + 32#64) [H[4]!, H[5]!, H[6]!, H[7]!] s := hH'.sub 4 4 rfl rfl

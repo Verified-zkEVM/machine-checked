@@ -14,7 +14,7 @@ then the self-check `res² = u` (is_square) / `res² = ROOT·u` (is_nonsquare) w
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem xor_bw (a b : Bool) : bw a ^^^ bw b = bw (a != b) := by cases a <;> cases b <;> decide
 theorem or_bw (a b : Bool) : bw a ||| bw b = bw (a || b) := by cases a <;> cases b <;> decide

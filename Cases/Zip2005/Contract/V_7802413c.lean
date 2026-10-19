@@ -4,8 +4,8 @@
   `_RNvXs2_NtCscqU6sQ5CTSj_12pasta_curves6curvesNtB5_2EpNtCsbvS5iq2egv8_5group5Group6double` meets its interface, given the table below the budget.
 -/
 
-import AsmVerif.RiscV.Check.Image
-import AsmVerif.RiscV.Check.Fast
+import MachineChecked.RiscV.Check.Image
+import MachineChecked.RiscV.Check.Fast
 import Cases.Zip2005.Loaded
 import Cases.Zip2005.Contract.Table
 
@@ -13,7 +13,7 @@ set_option maxRecDepth 200000
 
 namespace Cases.Zip2005.Contract.V_7802413c
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 open Cases.Zip2005.Contract
 

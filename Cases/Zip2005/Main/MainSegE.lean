@@ -49,13 +49,13 @@ from the second `to_bytes` return: the copies of ρ and ψ, `NoteCommitment::der
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem main_seg_e_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (sp vs0 vs1 vs2 vs3 vs4 vs5 vra r22 r23 r24 r25 r26 r27 : Word)
     (f0 f1 f2 f3 n0 n1 n2 n3 pw g0 g1 g2 g3 p0 p1 p2 p3 r0 r1 r2 r3 q0 q1 q2 q3 k0 k1 k2 k3 v : Word) (H Y D X A O : List Word)
     (hHl : H.length = 128) (hYl : Y.length = 117) (hDl : D.length = 12) (hXl : X.length = 4) (hAl : A.length = 4) (hOl : O.length = 13)
@@ -373,7 +373,7 @@ theorem main_seg_e_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : L
   have hokR_1068_7 : RegionOk Ro.layout.roBase Ro.layout.textHi (sp + 0x1068#64) 7 := hokF.sub' 525 7 (by decide) (by bv_omega)
   have hokJ15 : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x148#64) 15 := hokS.sub' 963 15 (by decide) (by bv_omega)
   obtain ⟨J, hJ, hJl⟩ := Region.exists_junk (sp - 0x148#64) 15 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range J hJl] at hJ
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range J hJl] at hJ
   have hfromN : ∀ (u : MachineState) (sp' a0' a1' j : Word) (O1 : List Word) (L' : List (Word × Nat)), O1.length = 3 →
       u.pc = 0x7801dfb4#64 → u.code = s.code → u.getReg .x1 = 0x78020dc4#64 →
       u.getReg .x2 = sp' → StackOk Ro.layout 0x260 sp' → u.getReg .x10 = a0' → u.getReg .x11 = a1' →

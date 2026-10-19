@@ -14,7 +14,7 @@ specification per length the guest uses: the destination holds the source's word
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -35,7 +35,7 @@ theorem memcpy16_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -56,7 +56,7 @@ theorem memcpy32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -77,7 +77,7 @@ theorem memcpy64_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -98,7 +98,7 @@ theorem memcpy72_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -119,7 +119,7 @@ theorem memcpy96_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mach
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -140,7 +140,7 @@ theorem memcpy104_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -161,7 +161,7 @@ theorem memcpy112_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -182,7 +182,7 @@ theorem memcpy120_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -203,7 +203,7 @@ theorem memcpy128_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -224,7 +224,7 @@ theorem memcpy144_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -245,7 +245,7 @@ theorem memcpy160_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -266,7 +266,7 @@ theorem memcpy288_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -287,6 +287,6 @@ theorem memcpy1000_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Ma
   sym_exec
   sym_close hk
   sym_subst
-  exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+  exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 end Cases.Zip2005

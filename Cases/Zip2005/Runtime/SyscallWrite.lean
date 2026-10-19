@@ -1,5 +1,5 @@
-import AsmVerif.RiscV.Sym
-import AsmVerif.RiscV.Sym.Write
+import MachineChecked.RiscV.Sym
+import MachineChecked.RiscV.Sym.Write
 import Cases.Zip2005.Runtime.Heap
 import Cases.Zip2005.Image.F_7801b3b0
 import Cases.Zip2005.Image.Ro
@@ -15,7 +15,7 @@ executor not knowing `WRITE`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -29,7 +29,7 @@ theorem write_other_step {G : MachineState → Prop} {n : Nat} {P : Prop} (u : M
       t.getReg .x11 = r11 → t.getReg .x12 = r12 → SafeN G n P t) :
     SafeN G n P u := by
   have hf : u.code u.pc = some .ECALL := by rw [hpc]; exact hcode 9 (by decide)
-  refine AsmVerif.RiscV.SafeN.step_of (stepSp1_write_other hf ht0 (by rw [h10]; exact hfd))
+  refine MachineChecked.RiscV.SafeN.step_of (stepSp1_write_other hf ht0 (by rw [h10]; exact hfd))
     (hk _ ?_ rfl ?_ ?_ rfl ?_ ?_ ?_ ?_)
   · show u.pc + 4 = _; rw [hpc]; decide
   · intro r _; simp

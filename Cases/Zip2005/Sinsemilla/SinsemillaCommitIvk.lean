@@ -18,7 +18,7 @@ identical. The models are the 51-chunk counterparts of `commitFold` … `commitW
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -174,7 +174,7 @@ theorem sinsemilla_loop_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 /-- `CommitDomain::commit(out, domain, iter, r)`: `domain` holds `Q` and, at `+0x60`, `R`
 (Jacobian Montgomery limbs); `iter` the 72-byte padded-bit iterator; `r` the blinding scalar
 (`Fq`, Montgomery). `from_iter` is a contract (`hfrom`): it collects the iterator into the
@@ -396,12 +396,12 @@ theorem sinsemilla_commit_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Pr
     -- `Q` packed is `commitAcc0 Q`
     have hqx : leLimbsToNat [post40_0, post40_1, post40_2, post40_3] =
         affineX (ptX [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11], ptY [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11], ptZ [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11]) := by
-      rw [← post40_12, ← post40_13, ← post40_14, ← post40_15, AsmVerif.RiscV.Sym.cells4',
+      rw [← post40_12, ← post40_13, ← post40_14, ← post40_15, MachineChecked.RiscV.Sym.cells4',
         leLimbsToNat_natToLeLimbs 4 _ (toAffine_lt (leLimbsToNat4_lt _ _ _ _) (leLimbsToNat4_lt _ _ _ _)).1,
         ← ptX_eq, ← ptY_eq, ← ptZ_eq, affineX_mk]
     have hqy : leLimbsToNat [post40_4, post40_5, post40_6, post40_7] =
         affineY (ptX [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11], ptY [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11], ptZ [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11]) := by
-      rw [← post40_16, ← post40_17, ← post40_18, ← post40_19, AsmVerif.RiscV.Sym.cells4',
+      rw [← post40_16, ← post40_17, ← post40_18, ← post40_19, MachineChecked.RiscV.Sym.cells4',
         leLimbsToNat_natToLeLimbs 4 _ (toAffine_lt (leLimbsToNat4_lt _ _ _ _) (leLimbsToNat4_lt _ _ _ _)).2,
         ← ptX_eq, ← ptY_eq, ← ptZ_eq, affineY_mk]
     have hacc0 : [BitVec.ofNat 64 ((leLimbsToNat [post40_0, post40_1, post40_2, post40_3] * Fp.rInv % Fp.p) >>> (64 * 0)),
@@ -504,12 +504,12 @@ theorem sinsemilla_commit_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Pr
     -- `Q` packed is `commitAcc0 Q`
     have hqx : leLimbsToNat [post40_0, post40_1, post40_2, post40_3] =
         affineX (ptX [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11], ptY [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11], ptZ [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11]) := by
-      rw [← post40_12, ← post40_13, ← post40_14, ← post40_15, AsmVerif.RiscV.Sym.cells4',
+      rw [← post40_12, ← post40_13, ← post40_14, ← post40_15, MachineChecked.RiscV.Sym.cells4',
         leLimbsToNat_natToLeLimbs 4 _ (toAffine_lt (leLimbsToNat4_lt _ _ _ _) (leLimbsToNat4_lt _ _ _ _)).1,
         ← ptX_eq, ← ptY_eq, ← ptZ_eq, affineX_mk]
     have hqy : leLimbsToNat [post40_4, post40_5, post40_6, post40_7] =
         affineY (ptX [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11], ptY [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11], ptZ [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11]) := by
-      rw [← post40_16, ← post40_17, ← post40_18, ← post40_19, AsmVerif.RiscV.Sym.cells4',
+      rw [← post40_16, ← post40_17, ← post40_18, ← post40_19, MachineChecked.RiscV.Sym.cells4',
         leLimbsToNat_natToLeLimbs 4 _ (toAffine_lt (leLimbsToNat4_lt _ _ _ _) (leLimbsToNat4_lt _ _ _ _)).2,
         ← ptX_eq, ← ptY_eq, ← ptZ_eq, affineY_mk]
     have hacc0 : [BitVec.ofNat 64 ((leLimbsToNat [post40_0, post40_1, post40_2, post40_3] * Fp.rInv % Fp.p) >>> (64 * 0)),
@@ -546,7 +546,7 @@ theorem sinsemilla_commit_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Pr
         [replaceByte O[12]! 0 (ivkFlag [d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11] post30_3)]) s_19 := by
       rw [ivkFlag_some hL, ← hv3, ivkW_eq, ivkJ_eq, ivkHash_some hL, htc, acc108_0_def,
         jX_eq, jY_eq, jZ_eq, ptX_eq, ptY_eq, ptZ_eq, ptX_eq acc108_0, ptY_eq acc108_0, ptZ_eq acc108_0,
-        ← AsmVerif.RiscV.Sym.cells4', ← AsmVerif.RiscV.Sym.cells4', ← AsmVerif.RiscV.Sym.cells4']
+        ← MachineChecked.RiscV.Sym.cells4', ← MachineChecked.RiscV.Sym.cells4', ← MachineChecked.RiscV.Sym.cells4']
       simp only [list12_get_0, list12_get_1, list12_get_2, list12_get_3, list12_get_4, list12_get_5,
         list12_get_6, list12_get_7, list12_get_8, list12_get_9, list12_get_10, list12_get_11,
         List.cons_append, List.nil_append]

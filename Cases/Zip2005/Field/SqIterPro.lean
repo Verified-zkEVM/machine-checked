@@ -17,7 +17,7 @@ The iterator is `(0..256).map(|_| { let r = gp; gp *= g; r })` over the state bl
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

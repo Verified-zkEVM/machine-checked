@@ -77,7 +77,7 @@ import Cases.Zip2005.Runtime.Memset
 
 namespace Cases.Zip2005.Contract
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 theorem all : ∀ g ∈ tbl, g.Holds env Cases.Zip2005.Image.Layout.image.codeAt := by
   apply table_sound

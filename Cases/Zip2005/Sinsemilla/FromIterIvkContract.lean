@@ -18,7 +18,7 @@ callee's frame, its output and its block, those two off the heap.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -147,14 +147,14 @@ theorem from_iter_ivk_contract {G : MachineState → Prop} {nb : Nat} {P : Prop}
     exact RegionOk.of_nat (by rw [toNat_add_lit _ _ (by omega)]; omega)
       (by rw [toNat_add_lit _ _ (by omega)]; unfold SP1_MAX_MEMORY; omega)
       (Or.inl (by rw [toNat_add_lit _ _ (by omega)]; simp only [Ro.layout_roBase]; omega))
-  have dA : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint b n (ptrA sp0) 8 → AsmVerif.RiscV.Sym.Disjoint b n (ptrA sp0) 4 :=
+  have dA : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint b n (ptrA sp0) 8 → MachineChecked.RiscV.Sym.Disjoint b n (ptrA sp0) 4 :=
     fun h => h.sub_right (self_add_zero _) (by omega)
-  have dB : ∀ {b : Word} {n : Nat}, AsmVerif.RiscV.Sym.Disjoint b n (ptrA sp0) 8 → AsmVerif.RiscV.Sym.Disjoint b n (ptrB sp0) 4 :=
+  have dB : ∀ {b : Word} {n : Nat}, MachineChecked.RiscV.Sym.Disjoint b n (ptrA sp0) 8 → MachineChecked.RiscV.Sym.Disjoint b n (ptrB sp0) 4 :=
     fun h => h.sub_right (ivkMsg_ptrB sp0).symm (by omega)
-  have hdjHM : AsmVerif.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (ptrA sp0) 8 := by
-    unfold AsmVerif.RiscV.Sym.Disjoint; simp only [BitVec.toNat_ofNat]; omega
-  have hdjAB : AsmVerif.RiscV.Sym.Disjoint (ptrA sp0) 4 (ptrB sp0) 4 :=
-    AsmVerif.RiscV.Sym.Disjoint.within (N := 8) (by omega) (self_add_zero _) (ivkMsg_ptrB sp0).symm (by omega) (by omega)
+  have hdjHM : MachineChecked.RiscV.Sym.Disjoint 0x78040620#64 14780694332 (ptrA sp0) 8 := by
+    unfold MachineChecked.RiscV.Sym.Disjoint; simp only [BitVec.toNat_ofNat]; omega
+  have hdjAB : MachineChecked.RiscV.Sym.Disjoint (ptrA sp0) 4 (ptrB sp0) 4 :=
+    MachineChecked.RiscV.Sym.Disjoint.within (N := 8) (by omega) (self_add_zero _) (ivkMsg_ptrB sp0).symm (by omega) (by omega)
       (Or.inl (by omega))
   rw [← frame_ivk_sub] at hdjSM hdjSO hdjSC
   -- the iterator block as `commit_ivk` built it

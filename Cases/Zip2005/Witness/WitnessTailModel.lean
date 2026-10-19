@@ -14,7 +14,7 @@ stores, shifts and `memcpy`s); `Cases.Zip2005.witness_tail_spec` checks it again
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

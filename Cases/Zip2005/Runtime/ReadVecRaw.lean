@@ -15,7 +15,7 @@ three words stored at `a0` are the pointer, the length and the rounded length.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
@@ -60,7 +60,7 @@ theorem read_vec_raw_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
   · -- the vector at `b`, the pointer bumped by the rounded length
     have hlen6 : acc19_0.length = 175 := by rw [← acc19_0_def, overlay_length, hJl]
     have hRo : Region b (overlay post19_0 J) s_24 := by
-      rw [acc19_0_def, AsmVerif.RiscV.Sym.List.eq_map_range acc19_0 hlen6]; exact hR2
+      rw [acc19_0_def, MachineChecked.RiscV.Sym.List.eq_map_range acc19_0 hlen6]; exact hR2
     clear hR2
     subst v9_def v10_def
     sym_close (hk1 _ (hlenW I) post19_0)

@@ -12,7 +12,7 @@ Both outcomes: `Ok` over the 1024 input bytes from offset 5 when 1024 bytes are 
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem array_bytes32_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O WW : List Word) (hOl : O.length = 129) (hWl : WW.length = 129)

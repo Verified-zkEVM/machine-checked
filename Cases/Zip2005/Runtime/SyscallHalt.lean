@@ -18,7 +18,7 @@ its tag word then the 0x70-byte hasher state, the buffer position as the last by
 finalised (the `0x80` pad byte, `memset` of the rest of the block, the bit length, one or two
 `compress256`), the eight digest words byte-swapped and `COMMIT`ed, eight
 `COMMIT_DEFERRED_PROOFS`, then `HALT` with the exit code. A nonzero code never accepts
-(`AsmVerif.RiscV.SafeN.reject`), so `Safe P` for every `P`.
+(`MachineChecked.RiscV.SafeN.reject`), so `Safe P` for every `P`.
 
 The static is taken **fresh**: its buffer position byte is zero, as `__start` leaves it
 (`Some(Sha256::new())`) and nothing in the guest writes to it (the only `syscall_write` reachable
@@ -30,7 +30,7 @@ With position 0 the pad byte lands at the block's start, the length word at its 
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -76,7 +76,7 @@ theorem syscall_halt_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
   have hfetch : s.code 0x7801b380#64 = some .ECALL := hcode 240 (by decide)
   sym_exec [memcpy112_spec, memset63_pad_spec, compress256_spec]
   -- the `HALT` with the symbolic exit code
-  refine AsmVerif.RiscV.SafeN.reject ?_ ?_ ?_
+  refine MachineChecked.RiscV.SafeN.reject ?_ ?_ ?_
   · rw [hpc, hcode]; exact hfetch
   · rw [hx5]; rfl
   · rw [hx10]; exact hc

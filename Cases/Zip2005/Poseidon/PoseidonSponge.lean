@@ -2,7 +2,7 @@ import Cases.Zip2005.Poseidon.PoseidonPartial
 import Cases.Zip2005.Poseidon.PoseidonPerm
 import Cases.Zip2005.Poseidon.PoseidonTail
 import Cases.Zip2005.Image.F_7801e26c
-import AsmVerif.RiscV.Sym.Resume
+import MachineChecked.RiscV.Sym.Resume
 import Cases.Zip2005.Image.Ro
 
 /-!
@@ -13,14 +13,14 @@ Absorb a padded block into the rate part of the state (`word += value.expect(..)
 driven by the chained `repeat(..).take(..)` iterator zipped with the round constants), and squeeze
 the rate part into `Squeezing([Some(s0), Some(s1)])`.
 
-The 64 rounds are executed in chunks (`AsmVerif.RiscV.Sym.Resume`), and the proof is cut after round 41
+The 64 rounds are executed in chunks (`MachineChecked.RiscV.Sym.Resume`), and the proof is cut after round 41
 (`Cases.Zip2005.sponge_tail`, `Proof/Poseidon/PoseidonTail.lean`): one executor run over all of them does not fit
 the memory budget.
 -/
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

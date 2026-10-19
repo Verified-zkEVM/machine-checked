@@ -6,7 +6,7 @@
   through the doubleword memory `lbu` uses.
 -/
 
-import AsmVerif.RiscV.Exec.Tactic
+import MachineChecked.RiscV.Exec.Tactic
 
 namespace Cases.Zip2005.Runtime.Alloc
 

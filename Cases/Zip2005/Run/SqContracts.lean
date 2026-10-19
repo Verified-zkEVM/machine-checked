@@ -15,7 +15,7 @@ set_option maxRecDepth 100000
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
 
 /-- `__rust_alloc(0x80, 8)` at `from_iter`'s call. -/
 theorem sq_alloc_ok {G : MachineState → Prop} {n : Nat} {P : Prop} : SqAlloc G n P C := by

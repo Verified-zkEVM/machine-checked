@@ -11,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 MODE="$1"; shift
-TMP="${TMPDIR:-/tmp}/asmverif-time"; mkdir -p "$TMP"
+TMP="${TMPDIR:-/tmp}/machineChecked-time"; mkdir -p "$TMP"
 for F in "$@"; do
   lake build "Cases.Zip2005.Image.$F" >/dev/null
   case "$MODE" in
@@ -22,7 +22,7 @@ for F in "$@"; do
   esac
   cat > "$TMP/T_$F.lean" <<LEAN
 import Cases.Zip2005.Image.$F
-open AsmVerif.RiscV Cases.Zip2005.Image
+open MachineChecked.RiscV Cases.Zip2005.Image
 set_option maxRecDepth 200000
 set_option maxHeartbeats 0
 theorem decode_ok : $( [[ $MODE == base ]] && echo True || echo "$lhs = $F.prog" ) := by $tac

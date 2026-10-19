@@ -11,7 +11,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SRC="${SRC:-$HERE/../../../zip-2005-asm/zip-2005}"
-WORK="${WORK:-${TMPDIR:-/tmp}/asm-verif-zip2005-work}"
+WORK="${WORK:-${TMPDIR:-/tmp}/machine-checked-zip2005-work}"
 NAME="${1:?usage: build-variant.sh NAME [RUSTFLAGS...]}"; shift
 FLAGS="$*"
 

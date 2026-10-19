@@ -18,7 +18,7 @@ set_option maxRecDepth 100000
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
 
 /-- `heap_alloc` at `__rust_realloc`'s call (`0x7801bd78`), keeping the old buffer `W` and every
     live buffer's bytes. -/
@@ -154,11 +154,11 @@ theorem memcpy_small {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Machi
   have hu := Unchanged.refl [(dst, N)] s
   rcases hN with rfl | rfl
   all_goals
-    rw [AsmVerif.RiscV.Sym.List.eq_map_range S hSl] at hS
+    rw [MachineChecked.RiscV.Sym.List.eq_map_range S hSl] at hS
     sym_exec
     sym_close hk
     sym_subst
-    exact (AsmVerif.RiscV.Sym.List.eq_map_range S hSl).symm
+    exact (MachineChecked.RiscV.Sym.List.eq_map_range S hSl).symm
 
 /-- The copy at `__rust_realloc`'s `memcpy` call (`0x7801bd9c`): `8 k0` bytes, `k0` one, two or a
     multiple of four doublewords. -/
@@ -245,7 +245,7 @@ theorem heap_realloc {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List 
     have e : (sp - 0x30#64).toNat = sp.toNat - 0x30 := by
       rw [BitVec.toNat_sub]; simp; omega
     simp only [TOP] at hb0
-    unfold AsmVerif.RiscV.Sym.Disjoint; rw [e]; simp at hb0 ⊢; omega
+    unfold MachineChecked.RiscV.Sym.Disjoint; rw [e]; simp at hb0 ⊢; omega
   clear hk01
   simp only [reallocSizes, List.mem_cons, List.mem_nil_iff, Prod.mk.injEq, or_false] at hsz
   rcases hsz with ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩
@@ -263,7 +263,7 @@ theorem heap_realloc {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List 
       refine Region.of_eq hR2 ?_
       first
         | rfl
-        | (conv => rhs; rw [AsmVerif.RiscV.Sym.List.eq_map_range W hWl]
+        | (conv => rhs; rw [MachineChecked.RiscV.Sym.List.eq_map_range W hWl]
            rfl)
 
 end Cases.Zip2005.Run

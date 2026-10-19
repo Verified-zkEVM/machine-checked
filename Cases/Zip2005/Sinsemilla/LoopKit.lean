@@ -1,4 +1,4 @@
-import AsmVerif.RiscV.Sym
+import MachineChecked.RiscV.Sym
 
 /-!
 # Shared pieces of the two `from_iter` loop proofs
@@ -8,7 +8,7 @@ The callee-saved registers neither loop touches (`Kept`), and membership in shor
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

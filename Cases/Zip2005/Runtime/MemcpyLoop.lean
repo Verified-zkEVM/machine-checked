@@ -19,7 +19,7 @@ does not read, and are re-cut by hand at the back edge.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -165,7 +165,7 @@ theorem memcpy6144_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Ma
     rwa [← e4] at h
   have hrest : Keep (Region (src + 32#64) (S.drop 4) s) := Keep.mk (hS.shift 4)
   have hdone : Keep (Region dst (S.take 0) s) := Keep.mk (fun i hi => by simp at hi)
-  have hdjds : Disjoint dst 4 src 4 := by unfold AsmVerif.RiscV.Sym.Disjoint at hdj ⊢; omega
+  have hdjds : Disjoint dst 4 src 4 := by unfold MachineChecked.RiscV.Sym.Disjoint at hdj ⊢; omega
   obtain ⟨D4, hD4, hD4l⟩ := Region.exists_junk dst 4 s
   clear hS
   have hu := Unchanged.refl [(dst, 4)] s
@@ -183,7 +183,7 @@ theorem memcpy6144_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Ma
     | exact Keep.mk ((Keep.out hrest).of_unchanged' hunch rfl (fun r hr => by
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
         subst hr
-        unfold AsmVerif.RiscV.Sym.Disjoint at hdj ⊢
+        unfold MachineChecked.RiscV.Sym.Disjoint at hdj ⊢
         simp only [BitVec.toNat_add, BitVec.toNat_ofNat, List.length_drop, hSl]
         omega))
     | exact Keep.mk (by rw [← e4]; exact hR1)
@@ -225,7 +225,7 @@ theorem memcpy_mul4_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
     rwa [← e4] at h
   have hrest : Keep (Region (src + 32#64) (S.drop 4) s) := Keep.mk (hS.shift 4)
   have hdone : Keep (Region dst (S.take 0) s) := Keep.mk (fun i hi => by simp at hi)
-  have hdjds : Disjoint dst 4 src 4 := by unfold AsmVerif.RiscV.Sym.Disjoint at hdj ⊢; omega
+  have hdjds : Disjoint dst 4 src 4 := by unfold MachineChecked.RiscV.Sym.Disjoint at hdj ⊢; omega
   obtain ⟨D4, hD4, hD4l⟩ := Region.exists_junk dst 4 s
   clear hS
   have hu := Unchanged.refl [(dst, 4)] s
@@ -244,7 +244,7 @@ theorem memcpy_mul4_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
     | exact Keep.mk ((Keep.out hrest).of_unchanged' hunch rfl (fun r hr => by
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
         subst hr
-        unfold AsmVerif.RiscV.Sym.Disjoint at hdj ⊢
+        unfold MachineChecked.RiscV.Sym.Disjoint at hdj ⊢
         simp only [BitVec.toNat_add, BitVec.toNat_ofNat, List.length_drop, hSl]
         omega))
     | exact Keep.mk (by rw [← e4]; exact hR1)

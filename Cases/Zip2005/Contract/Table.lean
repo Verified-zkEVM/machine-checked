@@ -4,7 +4,7 @@
   The program's `Env` and the table of inferred interfaces.
 -/
 
-import AsmVerif.RiscV.Check.Spec
+import MachineChecked.RiscV.Check.Spec
 import Cases.Zip2005.Image.Layout
 import Cases.Zip2005.Contract.A_7801aec8
 import Cases.Zip2005.Contract.A_7801aed0
@@ -79,7 +79,7 @@ import Cases.Zip2005.Runtime.Memset
 
 namespace Cases.Zip2005.Contract
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 noncomputable def env : Env :=
   { stackTop := 2013265920, prot := [(0x0000000078000190#64, 87976), (0x0000000078048920#64, 8), (0x0000000078048948#64, 24)], init := Cases.Zip2005.Image.Layout.image.memAt,

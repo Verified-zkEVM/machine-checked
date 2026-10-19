@@ -18,7 +18,7 @@ instantiation, 51 chunks) and `extract_p_bottom` of its `Option<Ep>`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -98,7 +98,7 @@ theorem ivkFlag_01 (Q Bv : List Word) : ivkFlag Q Bv = 1#8 ∨ ivkFlag Q Bv = 0#
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem commit_ivk_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out ak nk rivk : Word)
     (a0 a1 a2 a3 n0 n1 n2 n3 k0 k1 k2 k3 : Word)
     (O J : List Word) (hOl : O.length = 5) (hJl : J.length = 9)
@@ -324,7 +324,7 @@ theorem commit_ivk_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : L
   have hRo : Region out (extractPBottomW (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))
       (ivkW qIvkW rIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65) [k0, k1, k2, k3]) ++
       [replaceByte O[4]! 0 (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))]) s_13 := by
-    rw [AsmVerif.RiscV.Sym.List.eq_map_range (extractPBottomW (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))
+    rw [MachineChecked.RiscV.Sym.List.eq_map_range (extractPBottomW (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))
       (ivkW qIvkW rIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65) [k0, k1, k2, k3]) ++
       [replaceByte O[4]! 0 (ivkFlag qIvkW (boolBytesToWords (ivkBit (reprW [a0, a1, a2, a3]) (reprW [n0, n1, n2, n3])) 65))]) (n := 5) (by simp)]; exact hOut
   clear hOut

@@ -17,13 +17,13 @@ the visitor returns.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
 set_option maxHeartbeats 4000000000 in
 set_option maxRecDepth 400000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem witness_tail_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (sp out r9 r18 r19 r20 r22 r23 r24 r25 r26 r27 : Word)
     (vs0 vs1 vs2 vs3 vs4 vs5 vs6 vs7 vs8 vs9 vs10 vs11 vra : Word) (Fr O : List Word)
     (hFl : Fr.length = 321) (hOl : O.length = 174)
@@ -52,8 +52,8 @@ theorem witness_tail_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
   have hokF' : RegionOk Ro.layout.textLo Ro.layout.textHi sp 321 := hokF.sub' 0 321 (by decide) (by simp)
   have hokS' : RegionOk Ro.layout.textLo Ro.layout.textHi (sp + 0xa08#64) 13 := hokF.sub' 321 13 (by decide) rfl
   have hu := Unchanged.refl [(sp - 0x1120#64, 548), (sp, 334), (out, 174)] s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range Fr hFl] at hF
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range Fr hFl] at hF
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
   sym_exec [memcpy_d6s0_1010_spec, memcpy_d3s0_18_spec, memcpy_d7s0_17_spec,
     memcpy_d4s0_18_spec, memcpy_d5s0_18_spec] 2000
   sym_close hkOk

@@ -5,13 +5,13 @@
   in `Cases.Zip2005.Frame.Memcpy`.
 -/
 
-import AsmVerif.RiscV.Frame.Domain
+import MachineChecked.RiscV.Frame.Domain
 
 set_option maxRecDepth 200000
 
 namespace Cases.Zip2005.Frame.Memcpy
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame
 
 def anno : Array (Option AState) := #[
   some { regs := [(.const 0x0000000000000000#64), (.lin .x1 0x0000000000000000#64), (.lin .x2 0x0000000000000000#64), (.lin .x3 0x0000000000000000#64), (.lin .x4 0x0000000000000000#64), .top, (.lin .x6 0x0000000000000000#64), (.lin .x7 0x0000000000000000#64), (.lin .x8 0x0000000000000000#64), (.lin .x9 0x0000000000000000#64), (.lin .x10 0x0000000000000000#64), .top, .top, .top, .top, .top, .top, .top, (.lin .x18 0x0000000000000000#64), (.lin .x19 0x0000000000000000#64), (.lin .x20 0x0000000000000000#64), (.lin .x21 0x0000000000000000#64), (.lin .x22 0x0000000000000000#64), (.lin .x23 0x0000000000000000#64), (.lin .x24 0x0000000000000000#64), (.lin .x25 0x0000000000000000#64), (.lin .x26 0x0000000000000000#64), (.lin .x27 0x0000000000000000#64), (.lin .x28 0x0000000000000000#64), (.lin .x29 0x0000000000000000#64), (.lin .x30 0x0000000000000000#64), (.lin .x31 0x0000000000000000#64)], slots := [] },

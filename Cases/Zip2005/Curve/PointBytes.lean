@@ -10,7 +10,7 @@ and a masked list that is the unmasked one when the mask can only clear zeros.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 theorem limbs4_zero_iff (X : Nat) (h : X < 2 ^ 256) :
     (BitVec.ofNat 64 X = 0#64 ∧ BitVec.ofNat 64 (X >>> 64) = 0#64 ∧

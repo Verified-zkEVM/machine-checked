@@ -1,6 +1,6 @@
 import Cases.Zip2005.Field.MontTail
 import Cases.Zip2005.Field.FpAdd
-import AsmVerif.RiscV.Sym.Close
+import MachineChecked.RiscV.Sym.Close
 
 /-!
 # Poseidon's inline `Fp` addition
@@ -243,9 +243,9 @@ theorem mds_prod {A B a82 a99 : Nat} {w0 w1 w2 w3 : Word}
   rw [Fp.limbs_p] at h82 h99
   have h82' : a82 < 2 ^ (64 * 4) := by
     rw [← h82]; exact lt_trans (Nat.mod_lt _ Fp.p_pos) Fp.p_lt
-  rw [AsmVerif.RiscV.Sym.cells4', leLimbsToNat_natToLeLimbs _ _ h82', Fp.limbs_rInv] at h99
+  rw [MachineChecked.RiscV.Sym.cells4', leLimbsToNat_natToLeLimbs _ _ h82', Fp.limbs_rInv] at h99
   subst h82 h99 w0_def w1_def w2_def w3_def
-  rw [AsmVerif.RiscV.Sym.cells4, leLimbsToNat_natToLeLimbs _ _ (lt_trans (Nat.mod_lt _ Fp.p_pos) Fp.p_lt)]
+  rw [MachineChecked.RiscV.Sym.cells4, leLimbsToNat_natToLeLimbs _ _ (lt_trans (Nat.mod_lt _ Fp.p_pos) Fp.p_lt)]
   exact ⟨rfl, Fp.mul_lt _ _⟩
 
 theorem padd_lt {a b : Nat} (ha : a < Fp.p) (hb : b < Fp.p) : a + b < 2 ^ 256 ∧ a + b < 2 * Fp.p := by

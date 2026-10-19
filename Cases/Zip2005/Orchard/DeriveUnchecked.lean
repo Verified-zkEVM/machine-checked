@@ -18,7 +18,7 @@ copied out. With the flag set the bytes go through a frame buffer at byte offset
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image AsmVerif.RiscV.Sym Cases.Zip2005.B2b
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel Cases.Zip2005.Image MachineChecked.RiscV.Sym Cases.Zip2005.B2b
 
 set_option autoImplicit false
 
@@ -65,7 +65,7 @@ theorem unsplice_splice (W : List Word) (l0 l1 l2 l3 : Word) :
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out sk neg s0 s1 s2 s3 : Word)
     (cap iptr ilen g0 g1 g2 g3 hmod hx : Word) (O IV G0 G1 G2 G3 : List Word)
     (hOl : O.length = 20) (hIVl : IV.length = 138)
@@ -189,8 +189,8 @@ theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} 
     have hX256 : acc17_0 < 2 ^ 256 := lt_trans hXq Fq.q_lt
     -- the representation `try_from` read is `askR`
     have hr : natToLeLimbs 4 acc4_0 = askR neg s0 s1 s2 s3 := by
-      rw [← acc4_0_def, AsmVerif.RiscV.Sym.cells4', leLimbsToNat_natToLeLimbs 4 _ hX256, askR, askK, if_pos hn0, hX]
-    rw [AsmVerif.RiscV.Sym.cells4'] at acc9_0_def post9_16
+      rw [← acc4_0_def, MachineChecked.RiscV.Sym.cells4', leLimbsToNat_natToLeLimbs 4 _ hX256, askR, askK, if_pos hn0, hX]
+    rw [MachineChecked.RiscV.Sym.cells4'] at acc9_0_def post9_16
     have hcan' : leLimbsToNat (natToLeLimbs 4 acc4_0) < Fq.q := by
       rw [hr, askR, leLimbsToNat_natToLeLimbs 4 _ (lt_trans (Nat.mod_lt _ Fq.q_pos) Fq.q_lt)]
       exact Nat.mod_lt _ Fq.q_pos
@@ -201,7 +201,7 @@ theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} 
       unfold tryFromW at hR1
       rw [if_pos (by rw [← hr]; exact hcan')] at hR1
       simp only [List.getElem!_cons_succ] at hR1
-      rw [askW, AsmVerif.RiscV.Sym.List.eq_map_range (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3)) ++
+      rw [askW, MachineChecked.RiscV.Sym.List.eq_map_range (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3)) ++
         ptBytesW (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3))) ++ skW (askR neg s0 s1 s2 s3)) (n := 20)
         (askW_length neg s0 s1 s2 s3 [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11])]
       exact hR1
@@ -244,7 +244,7 @@ theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} 
       unfold tryFromW at hR0
       rw [if_pos (by rw [← hr]; exact hcan')] at hR0
       simp only [List.getElem!_cons_succ] at hR0
-      rw [askW, AsmVerif.RiscV.Sym.List.eq_map_range (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3)) ++
+      rw [askW, MachineChecked.RiscV.Sym.List.eq_map_range (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3)) ++
         ptBytesW (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3))) ++ skW (askR neg s0 s1 s2 s3)) (n := 20)
         (askW_length neg s0 s1 s2 s3 [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11])]
       exact hR0

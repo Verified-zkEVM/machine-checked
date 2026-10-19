@@ -15,7 +15,7 @@ boxed `UnexpectedEof`, `[2, e]`; `c = 0` is `Ok(None)`, `[0, _]`.
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 
@@ -39,7 +39,7 @@ theorem pack64_r1 (a b : Word) :
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem next_u64_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out acs de q l c : Word)
     (O W : List Word) (hOl : O.length = 2) (hWl : W.length = 2)
     (hpc : s.pc = 0x78019cb8#64) (hcode : CodeAt F_78019cb8.base F_78019cb8.prog s)
@@ -86,8 +86,8 @@ theorem next_u64_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List
   have hmO : out &&& 7#64 = 0#64 := hokO.and7
   have hokF : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x10#64) 2 := hokS.sub' 8 2 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x10#64) 2 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range W hWl] at hW
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range W hWl] at hW
   sym_exec [hio]
   · have hc : c = 0#64 := by simpa using hbr1
     sym_close hkN

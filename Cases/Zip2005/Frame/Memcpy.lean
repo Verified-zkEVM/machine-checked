@@ -1,10 +1,10 @@
-import AsmVerif.RiscV.Frame.Sound
+import MachineChecked.RiscV.Frame.Sound
 import Cases.Zip2005.Frame.Fns
 import Cases.Zip2005.Frame.MemcpyAnno
 
 namespace Cases.Zip2005.Frame.Memcpy
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV.Frame
+open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame
 
 abbrev fn : Fn := Fns.memcpy
 

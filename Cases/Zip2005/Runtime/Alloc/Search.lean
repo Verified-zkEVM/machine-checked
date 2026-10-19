@@ -17,7 +17,7 @@ set_option maxHeartbeats 4000000
 namespace Cases.Zip2005.Runtime.Alloc
 
 open RiscvZkvm.Rv64
-open AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check AsmVerif.RiscV.Exec
+open MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check MachineChecked.RiscV.Exec
   Cases.Zip2005.Image
 
 /-- The request's granules: `size + max(align, 16)`, rounded up. -/

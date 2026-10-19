@@ -13,7 +13,7 @@ set_option maxRecDepth 100000
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Cases.Zip2005 Cases.Zip2005.Image
   Cases.Zip2005.Runtime
 
 /-- A table off the head's block: `Disjoint` from a live entry, shrunk to `k0 ≤ k1` words. -/
@@ -165,14 +165,14 @@ theorem heap_realloc6 {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List
     have e : (sp - 0x30#64).toNat = sp.toNat - 0x30 := by
       rw [BitVec.toNat_sub]; simp; omega
     simp only [TOP] at hb0
-    unfold AsmVerif.RiscV.Sym.Disjoint; rw [e]; simp at hb0 ⊢; omega
+    unfold MachineChecked.RiscV.Sym.Disjoint; rw [e]; simp at hb0 ⊢; omega
   have hdjT : ∀ {b : Word} {m : Nat}, 0x78040620 ≤ b.toNat → b.toNat + 8 * m ≤ 0x1c00000000 →
       Disjoint (sp - 0x30#64) 6 b m := by
     intro b m h1 h2
     have := Nat.le_trans hstk.hi (Nat.le_of_eq Ro.layout_stackTop)
     have e : (sp - 0x30#64).toNat = sp.toNat - 0x30 := by
       rw [BitVec.toNat_sub]; simp; omega
-    unfold AsmVerif.RiscV.Sym.Disjoint; rw [e]; simp; omega
+    unfold MachineChecked.RiscV.Sym.Disjoint; rw [e]; simp; omega
   have hd2 := hdjT hT.lo2 hT.hi2
   have hd3 := hdjT hT.lo3 hT.hi3
   have hd4 := hdjT hT.lo4 hT.hi4
@@ -200,7 +200,7 @@ theorem heap_realloc6 {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List
       refine Region.of_eq ‹Region post17_0 _ _› ?_
       first
         | rfl
-        | (conv => rhs; rw [AsmVerif.RiscV.Sym.List.eq_map_range W hWl]
+        | (conv => rhs; rw [MachineChecked.RiscV.Sym.List.eq_map_range W hWl]
            rfl)
 
 /-- A byte buffer's capacities: `8 · 2^i` bytes, the doubleword count a size `heap_realloc`
@@ -285,9 +285,9 @@ theorem realloc_fi_ok {G : MachineState → Prop} {n : Nat} {P : Prop} : Realloc
     simp only [List.mem_cons, List.mem_nil_iff, or_false] at hr
     rw [hb1]
     rcases hr with rfl | rfl | rfl
-    · simp only [AsmVerif.RiscV.Sym.Disjoint, hs60]; simp; omega
-    · simp [AsmVerif.RiscV.Sym.Disjoint]
-    · simp [AsmVerif.RiscV.Sym.Disjoint]
+    · simp only [MachineChecked.RiscV.Sym.Disjoint, hs60]; simp; omega
+    · simp [MachineChecked.RiscV.Sym.Disjoint]
+    · simp [MachineChecked.RiscV.Sym.Disjoint]
   have d1 : Disjoint T.b1 10 (t.getReg .x10) (Cb / 4 + 1) := by
     rw [hb1]
     have := hh'.bound (List.mem_cons_self ..)

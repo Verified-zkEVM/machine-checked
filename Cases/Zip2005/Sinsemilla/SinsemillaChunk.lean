@@ -14,7 +14,7 @@ a halfword, and calls `lebs2ip_k` on that pair: for `0`/`1` bytes the result is 
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 RiscvZkvm.Rv64.Accel MachineChecked.RiscV.Sym
 
 set_option autoImplicit false
 

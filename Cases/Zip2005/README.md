@@ -30,7 +30,7 @@ experiments and the exact `build-variant.sh` and `gen-image` commands.
 
 ## `Frame/`: the frame-integrity spike
 
-The first checker (`AsmVerif.RiscV.Frame`) on four functions: `memcpy`, `PadAdapter::next`,
+The first checker (`MachineChecked.RiscV.Frame`) on four functions: `memcpy`, `PadAdapter::next`,
 `default_hook` (with its outlined fragment) and `core::fmt::write` (indirect jumps against
 a target list). `Fns.lean` defines them, `Gen.lean` emits the annotations (`*Anno.lean`,
 untrusted certificates), and each module has the kernel re-check them.
@@ -49,7 +49,7 @@ the loaded image (`Contract.all`). `Runtime/CFI.tsv` lists the control-flow prem
 ## `Runtime/`: the SP1 runtime, by hand
 
 What the checker cannot derive, proved with the symbolic executor
-(`AsmVerif.RiscV.Exec`) against the same interfaces:
+(`MachineChecked.RiscV.Exec`) against the same interfaces:
 
 - `Entry.lean` (D1): from the loaded state to `main`'s entry; `MainEntry` fixes the
   stack, heap, statics and hasher a run starts with.

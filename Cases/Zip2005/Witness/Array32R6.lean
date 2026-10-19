@@ -15,11 +15,11 @@ conversion at 0x78036184, a contract here).
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image AsmVerif.RiscV.Sym
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV.Sym
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in
-set_option asmverif.sym.foldBytes true in
+set_option machineChecked.sym.foldBytes true in
 theorem array32_r6_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra sp out de q l : Word)
     (O W : List Word) (hOl : O.length = 5) (hWl : W.length = 5)
     (hpc : s.pc = 0x7801775c#64) (hcode : CodeAt F_7801775c.base F_7801775c.prog s)
@@ -63,8 +63,8 @@ theorem array32_r6_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} {L : L
   have hokG : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x2b0#64) 2 := hokS.sub' 10 2 (by decide) (by bv_omega)
   obtain ⟨F, hF, hFl⟩ := Region.exists_junk (sp - 0x2a0#64) 84 s
   obtain ⟨G, hG, hGl⟩ := Region.exists_junk (sp - 0x2b0#64) 2 s
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range W hWl] at hW
-  rw [AsmVerif.RiscV.Sym.List.eq_map_range O hOl] at hO
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range W hWl] at hW
+  rw [MachineChecked.RiscV.Sym.List.eq_map_range O hOl] at hO
   sym_exec [hio]
   · rw [show BitVec.truncate 8 (1#64) = 1#8 from rfl] at v26_def
     subst v26_def

@@ -4,14 +4,14 @@
   `_RNvCsgG40wm8spDe_7___rustc42___rust_alloc_error_handler_should_panic_v2`: its interface and certificate.
 -/
 
-import AsmVerif.RiscV.Check.Domain
+import MachineChecked.RiscV.Check.Domain
 import Cases.Zip2005.Image.F_7801aec8
 
 set_option maxRecDepth 200000
 
 namespace Cases.Zip2005.Contract.A_7801aec8
 
-open RiscvZkvm.Rv64 AsmVerif.RiscV AsmVerif.RiscV.Frame AsmVerif.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 def iface : Iface := { entry := 0x000000007801aec8#64, depth := 0, foot := [], nz := [], returns := true, vals := [], cells := [], strs := [], pre := [], post := [], heap := false }
 
