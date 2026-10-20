@@ -110,6 +110,7 @@ macro "regs_run" : tactic => `(tactic| (
     intro v hv
     simp only [val, execInstrBr, dst, getReg_setReg_ite, getReg_ofRegs, MachineState.getReg_setPC,
       upd, reduceCtorEq, if_false, if_true, signExtend12, getReg_x0', ne_eq, not_false_eq_true,
+      rv64_mulhu, rv64_mulh, rv64_mulhsu,
       and_true, and_false] at hv
     dsimp only [dst])
   simp only [List.foldl_nil, upd, reduceCtorEq, if_false, if_true]))

@@ -92,6 +92,14 @@ theorem getReg_setReg_ite (s : MachineState) (r r' : Reg) (v : Word) :
 
 theorem getReg_x0' (s : MachineState) : s.getReg .x0 = 0 := rfl
 
+theorem getReg_setMem' (s : MachineState) (a v : Word) (r : Reg) :
+    (s.setMem a v).getReg r = s.getReg r := by cases r <;> rfl
+
+theorem pc_setPC' (s : MachineState) (v : Word) : (s.setPC v).pc = v := rfl
+
+theorem getReg_setByte' (s : MachineState) (a : Word) (b : BitVec 8) (r : Reg) :
+    (s.setByte a b).getReg r = s.getReg r := by cases r <;> rfl
+
 /-- A straight block advances the pc by four bytes per instruction. -/
 theorem pc_foldl_straight :
     ∀ (prog : List Instr) (s : MachineState), prog.all isStraight = true →
@@ -120,6 +128,26 @@ theorem codeFrom_of_codeAt {base : Word} {prog : List Instr} {s : MachineState}
   intro i hi
   rw [hpc, hc i (by simpa using hi)]
   simp [hi]
+
+/-! ## One instruction at a time
+
+A correspondence's run, `∃ t, stepsSp1 k s = some t ∧ Q t`, built forward one instruction at a
+time: a plain step, a memory step with its `memOkSp1` side condition, and the end. -/
+
+theorem reach_done {Q : MachineState → Prop} {s : MachineState} (h : Q s) :
+    ∃ t, stepsSp1 0 s = some t ∧ Q t := ⟨s, rfl, h⟩
+
+theorem reach_plain {Q : MachineState → Prop} {s : MachineState} {i : Instr} {k : Nat}
+    (hf : s.code s.pc = some i) (hm : i.isMemAccess = false) (he : i ≠ .ECALL) (hb : i ≠ .EBREAK)
+    (h : ∃ t, stepsSp1 k (execInstrBr s i) = some t ∧ Q t) :
+    ∃ t, stepsSp1 (k + 1) s = some t ∧ Q t := by
+  rwa [stepsSp1_succ_of_step (stepSp1_plain hf hm he hb)]
+
+theorem reach_mem {Q : MachineState → Prop} {s : MachineState} {i : Instr} {k : Nat}
+    (hf : s.code s.pc = some i) (hm : i.isMemAccess = true) (hc : isCSRS i = false)
+    (hok : memOkSp1 s i = true) (h : ∃ t, stepsSp1 k (execInstrBr s i) = some t ∧ Q t) :
+    ∃ t, stepsSp1 (k + 1) s = some t ∧ Q t := by
+  rwa [stepsSp1_succ_of_step (stepSp1_mem hf hm hc hok)]
 
 namespace Corres
 

@@ -65,6 +65,50 @@ theorem SafeN.of_corres {AState : Type} {SR : MachineState → AState → Prop}
   obtain ⟨t, hrun, ht⟩ := h s a hSR hPre
   exact SafeN.steps hrun (hk t ht)
 
+/-! ## A function's run as a correspondence
+
+The abstract state of a run from `s`: the entry `s` itself, or "returned from `s`". A run of
+`k` steps from every `s` with `pre s` to a state `t` with `post s t` is a correspondence at
+this abstraction (`Corres.fn`), and the bridge then gives the continuation form directly
+(`SafeN.of_fn`). -/
+
+/-- Before or after a run from a given entry state. -/
+inductive Phase where
+  | entry (s : MachineState)
+  | exit (s : MachineState)
+
+/-- The machine is the entry state, or a state `post` relates to it. -/
+def Phase.SR (post : MachineState → MachineState → Prop) (m : MachineState) : Phase → Prop
+  | .entry s => m = s
+  | .exit s => post s m
+
+/-- At the entry, satisfying `pre`. -/
+def Phase.Pre (pre : MachineState → Prop) : Phase → Prop
+  | .entry s => pre s
+  | .exit _ => False
+
+/-- The run's abstract effect: from the entry to after it. -/
+def Phase.run : Phase → Phase
+  | .entry s => .exit s
+  | .exit s => .exit s
+
+/-- **A function as a correspondence**: `k` steps from every state satisfying `pre` end in a
+    state `post` relates to it. -/
+theorem Corres.fn {pre : MachineState → Prop} {post : MachineState → MachineState → Prop} {k : Nat}
+    (h : ∀ s, pre s → ∃ t, stepsSp1 k s = some t ∧ post s t) :
+    Corres (Phase.SR post) (Phase.Pre pre) Phase.run k := by
+  rintro m (s | s) hSR hP
+  · cases hSR
+    exact h m hP
+  · exact hP.elim
+
+/-- The continuation form of a function's correspondence. -/
+theorem SafeN.of_fn {pre : MachineState → Prop} {post : MachineState → MachineState → Prop} {k : Nat}
+    (h : Corres (Phase.SR post) (Phase.Pre pre) Phase.run k) {G : MachineState → Prop} {n : Nat}
+    {P : Prop} {s : MachineState} (hpre : pre s) (hk : ∀ t, post s t → SafeN G n P t) :
+    SafeN G n P s :=
+  SafeN.of_corres h (a := .entry s) rfl hpre hk
+
 namespace Check
 
 /-- **An interface from a correspondence.** If every state at the entry satisfying the
