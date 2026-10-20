@@ -1,5 +1,10 @@
 NOTE note yet implemented, a draft architecture note
 
+**Status (2026-10-20).** The logical machine is, for now, CatCrypt's **Lprog** (linear
+Jasmin), ported, extended with a flat-memory operand and with flags as an `Isa` parameter
+(`CATCRYPT-PORT.md` P4). We iterate from there. Lprog sits after register allocation, so it
+is lower than the `LogicalProgram` sketched below, which stays as a possible later rung.
+
 ## LogicalProgram: an ISA-independent logical machine
 
 Introduce a small, ISA-independent intermediate machine (`LogicalProgram`) between concrete ISA semantics and higher-level program reasoning.

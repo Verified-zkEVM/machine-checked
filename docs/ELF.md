@@ -1,5 +1,9 @@
 # The ELF problem
 
+> **Note (2026-10-20).** `riscv-decomp` is dropped in favour of catcrypt-compiler's
+> `CorresIsa` (`CATCRYPT-PORT.md`). The mentions of `riscv-decomp` and `Decomp.Stepper` below
+> are part of this dated research record. Read "the ascent" for them.
+
 Notes from a `/deep-research` run (2026-10-12; 20 sources fetched, 94 claims extracted, 25
 put through 3-vote adversarial verification, 22 confirmed, 3 refuted) plus a reading of
 `zip-2005-asm`'s ledger. Each claim says where it comes from:
