@@ -139,13 +139,13 @@ theorem spec {s0 : MachineState} (hpc : s0.pc = 0x7801beb0#64) (hcode : s0.code 
         xregs
         simp only [gm_setReg, gm_setPC, gm_setMem, MachineState.privateInput_setReg,
           MachineState.privateInput_setMem, MachineState.privateInput_setPC] at ymem yin
-        simp only [getReg_setReg, MachineState.getReg_setPC, MachineChecked.RiscV.Frame.getReg_setMem,
+        simp only [getReg_setReg, MachineState.getReg_setPC, MachineChecked.RiscV.getReg_setMem,
           reduceCtorEq, ne_eq, not_false_eq_true, and_true, if_true, if_false, BitVec.zero_or] at ymem
         refine hk _ ⟨by simp, fun q hq => ?_, by simp [hcode, hcode0], .inr ⟨n, hn, hv1,
           bound _ _ hb hlim, by simp [yin], ?_⟩⟩
         · simp only [savedRegs, List.mem_cons, List.mem_nil_iff, or_false] at hq
           rcases hq with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-            rfl | rfl <;> (simp only [MachineState.getReg_setPC, MachineChecked.RiscV.Frame.getReg_setMem, yregs]; xregs)
+            rfl | rfl <;> (simp only [MachineState.getReg_setPC, MachineChecked.RiscV.getReg_setMem, yregs]; xregs)
         · funext a
           simp only [gm_setMem, gm_setPC, ymem, out3, BUMP]
           rfl

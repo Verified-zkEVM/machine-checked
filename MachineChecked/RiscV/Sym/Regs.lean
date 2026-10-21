@@ -113,12 +113,4 @@ theorem pc_chain {s' : MachineState} {shape : MachineState} {p : Word} (hdef : s
     (hshape : shape.pc = p) : s'.pc = p := by
   subst hdef; exact hshape
 
-theorem Unchanged.of_mem_eq' {W : List (Word × Nat)} {s₀ s sM : MachineState}
-    (h : Unchanged W s₀ sM) (hmem : s.mem = sM.mem) : Unchanged W s₀ s :=
-  h.of_mem_eq hmem
-
-theorem Region.of_mem_eq' {base : Word} {vs : List Word} {s sM : MachineState}
-    (h : Region base vs sM) (hmem : s.mem = sM.mem) : Region base vs s :=
-  h.of_mem_eq hmem
-
 end MachineChecked.RiscV.Sym

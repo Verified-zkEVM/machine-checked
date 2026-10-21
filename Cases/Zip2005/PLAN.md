@@ -1,122 +1,22 @@
-# PLAN
+# zip-2005: the case plan
 
-The goal is to take care of the ELF in general. A guest's program logic should only have to
-state and prove what its own functions compute. Everything else is a theorem here: the
-loaded image, the calling convention, memory footprints, the stack, statics, indirect
-control flow, syscalls and the SP1 runtime (entry, allocator, libc routines, panics).
+The phases by which zip-2005 was verified, and what remains. zip-2005 is the first real
+binary verified here: the end theorem is that an accepting run of the loaded ELF on an input
+implies `Zip2005.GuestStatement` of the decoded input. The bar: no hypothesis that the real
+run does not satisfy, and no contract quantified over states the run never reaches.
 
-zip-2005 is the worked example. Its program logic, `main` and the crypto, is phase F: the
-function-level proofs and the specification live in `Cases/Zip2005/`, and the end theorem is
-that an accepting run of the loaded ELF on an input implies `Zip2005.GuestStatement` of the
-decoded input. The bar: no hypothesis that the real run does not satisfy, and no contract
-quantified over states the run never reaches.
+Phases A to D built the RISC-V layer-0 toolkit (`MachineChecked/RiscV/{Check,Sym,Frame,Exec}`)
+against this binary; phase F is its program logic. The proofs here predate the lift
+(`MachineChecked/RiscV/Lprog`); moving them onto it is a step of the roadmap
+([`ROADMAP.md`](../../ROADMAP.md)). `black_box`, `memcmp` and `write_vectored` are already
+proved through the lift (`Runtime/BlackBox.lean`, `Runtime/MemcmpLprog.lean`,
+`Runtime/WriteVectored.lean`).
 
-**Priority (2026-10-20): the CatCrypt port comes next and has the highest priority.** We take
-what we need from catcrypt-compiler into this repository and own it. That is its machine
-layer, Lprog as our logical machine, its `CorresIsa` ascent and separation logic, its hax
-front end, and its x86-64 and AArch64 models. RISC-V stays on riscv-zkvm. The roadmap is
-[`CATCRYPT-PORT.md`](CATCRYPT-PORT.md), and phase P below summarises it. M1's remaining
-work (F3) resumes after the port, using the ported tools where they are simpler.
-
-## Instruction sets: RISC-V first, then the others as peers
-
-The framework is built for RISC-V first, and then generalised. x86-64 and AArch64 are meant to
-become peers of RISC-V, each with the whole stack, not to stay bare models. The order is:
-
-1. **RISC-V end to end.** Loader, judgement, checker, executor, correspondence and the
-   logical machine, on riscv-zkvm, proved out on real guests (zip-2005). This is where the
-   design is settled.
-2. **Keep the shared layers ISA-independent.** The correspondence calculus (`Ascent/`), the
-   logical machine (`Lprog/Syntax`, `Lprog/Sem`), the contract-table composition and the
-   program logics must not mention RISC-V. Anything RISC-V-specific lives under `RiscV/` or in
-   a file that says so (`Lprog/RiscV.lean`, `Lprog/Lift.lean`).
-3. **Bring up x86-64 and AArch64.** Each gets what `RiscV/` has, in this order:
-   - its machine model, verified against its canonical specification (`docs/ISA.md`) or
-     replaced by a verified one;
-   - control flow and a decoder;
-   - an image loader, with `gen-image` and the ELF reader generalised per ISA;
-   - the judgement over its step;
-   - an `Lprog` instance with its lift and simulation;
-   - the checker and executor where they pay off.
-
-   Specifications stated at the logical machine then carry over between instruction sets.
-
-Today `ARM/` and `X86/` hold their trusted models only (phase P6).
-
-## Architecture
-
-**Judgement.** `SafeN n P s`: every accepting state reached from `s` in fewer than `n` steps
-satisfies `P`. `Safe P s := ∀ n, SafeN n P s`. A function specification is in continuation
-form, *step-indexed*:
-
-    ∀ P n s, s.pc = entry → pre s → (∀ t, post s t → SafeN n P t) → SafeN n P s
-
-The same budget `n` appears on both sides. This is what lets a caller's proof use a callee's
-specification inside an induction on the budget. That covers loops, recursion, and a
-function that calls back into its caller. Executor proofs carry `n` through unchanged, since a
-step preserves `SafeN n`.
-
-**Structural specification** of a function. It is derived by the frame checker, or proved
-by hand where the checker cannot:
-- `pre`: the code is the image's; `D ≤ sp ≤ STACK_TOP`, where `D` is the function's
-  worst-case stack use, callees included; and the premises `reqs` over the entry registers.
-- `post`: `t.pc = ra & ~1`; `sp`, `gp`, `tp` and `s0`–`s11` hold their entry values; and
-  memory outside the footprint `W(entry)` is unchanged. `W` is the frame window
-  `[sp - D, sp)` plus regions given by entry registers (`a0 + k`, length a constant or an
-  entry register) and constant addresses.
-- A function that cannot return has `post = False`. Calls to it are how "noreturn" stops
-  being an assumption.
-- No internal accepting halt. A halt's exit code must be provably nonzero (a `req` if it
-  comes from an argument).
-
-**Contract table.** A map from entry address to specification. Each entry is derived by
-the checker or proved with the executor. The checker proves a function's specification from
-its certificate, assuming its callees' specifications. Composition is a strong induction on
-the budget over the whole table. A callee's `reqs` and footprint are instantiated at the
-call site with the caller's abstract argument values. The result is either discharged
-there, or becomes the caller's own `req`. An indirect call or tail call takes a candidate
-list and a control-flow premise (`CfiOk`) that the target is on it.
+The rules every proof follows are in [`CONTRIBUTING.md`](../../CONTRIBUTING.md); the
+architecture of the judgement and the contract table is in
+[`docs/Architecture.md`](../../docs/Architecture.md).
 
 ## Phases
-
-**P. The CatCrypt port (next; highest priority).** Details in
-[`CATCRYPT-PORT.md`](CATCRYPT-PORT.md), whose steps are numbered P1–P6.
-- P1. Intake and toolchain. Files are copied in, not required, and each passes the Rules
-  below. Provenance is recorded per directory. We move to the newest Lean the dependencies
-  allow. riscv-zkvm binds us: v4.33.1 needs its SP1 backend on a v4.33.1 revision.
-- P2. One RV64 backend. CatCrypt's `IsaMachine` gets a byte pc and a code map, and the RV64
-  instance steps with riscv-zkvm's `stepSp1` itself. CatCrypt's RV64 proofs are rewritten
-  onto it. Its own RV64 model and Sail excerpt are not taken.
-- P3. Bridge. `Iface.of_corres` turns a `CorresIsa` proof of an ecall-free body into our
-  continuation spec over `SafeN G n P`. Exit: a zip-2005 leaf proved with `CorresIsa`
-  replaces its `Sym` proof in the table. *Done:* `MachineChecked/RiscV/Corres` (`Corres`,
-  `SafeN.of_corres`, `SafeN.of_fn`, the straight-line block rule, `Reach`/`FnSpec`/loops in
-  `Corres/Run`); `black_box_spec` is proved by `Corres`; CatCrypt's `cswap`, `addp256`,
-  `feAdd` and `feSub` run on riscv-zkvm.
-- P4. Lprog as the logical machine: a flat-memory operand, flags as an `Isa` parameter, and
-  a lifter from decoded functions to Lprog, proved by simulation. *Done:*
-  `MachineChecked/Lprog` (`Isa` over any operation type and state, `CorresIsa`, `Halts`; the
-  RISC-V instance `rvIsa` runs riscv-zkvm's `execInstrBr` behind `memOkSp1`; `lift`, and
-  `sim_run`/`reach_of_halts`/`reach_of_corresIsa` carry an Lprog run down to `stepSp1`).
-  `memcmp` is proved at Lprog for every length (`Runtime/MemcmpLprog`), and
-  `memcmp8_spec`/`memcmp4_spec` are now derived from it rather than by `Sym`. A non-leaf
-  function with a loop, `Stderr::write_vectored` (`Runtime/WriteVectored`), is proved at Lprog
-  in two `Reaches` segments around its call, which is taken over the machine with
-  `sys_write_spec` from the table and resumed by `sim_return`. Open: no table entry consumes
-  `write_vectored`'s spec yet; calls inside Lprog (`Lcall`) and indirect jumps as `Ligoto`
-  with candidate lists are not lifted.
-- P5. Descent meets ascent: a CatCrypt-compiled kernel's contract becomes a table entry, and
-  hax extraction supplies specs (trust-ladder rung 5).
-- P6. x86-64 and AArch64 from CatCrypt, trusted for now and named on the trust ladder, each
-  to be verified against its canonical spec. These are the starting points of the x86-64 and
-  AArch64 stacks, which grow into peers of `RiscV/` (see "Instruction sets" above). *Taken:* `MachineChecked/X86/{BinOp,Model,
-  JasminModel}` and `MachineChecked/ARM/Model` with `MachineChecked/Mem64` (no Mathlib, no
-  `native_decide`), named in `docs/ELF.md` §4. Open: x86 control flow and decoding, the Sail
-  equalities, and `Tools/Elf`/`gen-image` per ISA.
-
-Decisions recorded with the port: `CorresIsa` is the ascent, so `riscv-decomp` is dropped.
-Mathlib may be imported by the framework. Where catcrypt-compiler's version of something is
-simpler than ours, it replaces ours.
 
 **A. Structural specifications for one function, derived by the checker**
 - A1. Exit check: `ra`, `sp`, `gp`, `tp`, `s0`–`s11` restored. Protect the slots that
@@ -471,21 +371,3 @@ simpler than ours, it replaces ours.
 - F4. The end theorem: from `Layout.image.state I`, an accepting run gives
   `∃ …, Decodes I … ∧ GuestStatement …`, with every premise in one list and a
   satisfiability witness.
-
-## Rules
-
-- No `sorry`, no `axiom`, no `native_decide`. `bv_decide` is allowed (each use adds a
-  `…_native.bv_decide.ax_…` axiom, its trust in the compiled checker); otherwise `#print axioms` shows only
-  `propext`, `Classical.choice` and `Quot.sound`.
-- Zero build warnings.
-- Every remaining premise is in one list with a satisfiability witness: it holds on the
-  reference run.
-- riscv-zkvm stays unmodified at its pin, and is the only RV64 semantics. `stepSp1` is the
-  one step. zip-2005-asm is not imported.
-- Mathlib may be imported anywhere.
-- Lean is kept at the latest version we can reach. Today riscv-zkvm's pin is what limits
-  it; when that limit lifts, we move.
-- An ISA model may be trusted only if it is named on the trust ladder (`docs/ELF.md` §4).
-  Every ISA model is to be verified against its canonical spec in the end.
-- Code taken from catcrypt-compiler is ported, not required, and must pass these rules
-  before it lands.

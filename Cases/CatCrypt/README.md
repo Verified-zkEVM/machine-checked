@@ -1,7 +1,9 @@
 # CatCrypt kernels
 
 RV64 kernels emitted by catcrypt-compiler, verified at their encoded bytes against riscv-zkvm's
-`stepSp1`, by correspondence (`MachineChecked/RiscV/Corres`).
+`stepSp1`, through the lift: each kernel is a pure block, run at Lprog and carried down by the
+simulation (`MachineChecked/RiscV/Lprog/Block.lean`, `corres_block`). The statements are
+correspondences (`MachineChecked.Ascent.Corres` over `stepSp1`).
 
 | file | kernel | instructions | result |
 | --- | --- | --- | --- |

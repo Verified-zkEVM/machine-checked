@@ -1,36 +1,39 @@
 # Lprog
 
-The logical machine: the intermediate layer between an instruction set's machine and the
-program logics. Lprog is linear Jasmin. A body is a list of instructions: operations,
-labels, gotos, conditional jumps, calls and returns. Labels replace addresses, and control
-flow is explicit.
+**Layer 0.5 of the [roadmap](../../ROADMAP.md): the low logical program.** Nothing here
+depends on an instruction set.
+
+Lprog is linear Jasmin: a body is a list of instructions (operations, labels, gotos,
+conditional jumps, calls and returns). Labels replace addresses, and control flow is
+explicit. It still has registers and flat memory. What makes it one language for every ISA:
+control flow is shared, and so are the operations (`Op.lean`): bitvector expressions over
+registers and immediates, loads, stores, and conditions comparing two operands. An
+instruction set supplies only its register names, its memory (with the checks its execution
+context makes), and a lift from its machine code.
 
 ## Files
 
-| file | contents | depends on an ISA? |
-| --- | --- | --- |
-| `Syntax.lean` | Operands, instructions (`LinstrR`), bodies, functions, programs. The operation type is a parameter. | no |
-| `Sem.lean` | `Isa`: an instruction set supplies the operation type, the state beside the registers, and the meaning of operations and conditions. Control flow is shared. Defines `step`, `run`, `steps`, the correspondence `CorresIsa`, and the run predicates `Reaches` and `Halts`. | no |
-| `RiscV.lean` | `rvIsa`, the RISC-V instance. An operation is a riscv-zkvm `Instr` that does not transfer control, run by riscv-zkvm's own `execInstrBr` behind SP1's memory check. `Agree` says when two machine states look the same to an instruction. | RISC-V |
-| `Lift.lean` | `lift`: a decoded function becomes an Lprog body. `Sim` relates Lprog states to machine states, and the simulation (`sim_step`, `sim_run`, `sim_steps`) carries every Lprog run down to a `stepSp1` run (`reach_of_corresIsa`, `reach_of_reaches`, `SafeN.of_reaches`). It also holds the rules for running a body (`reaches_label`, `reaches_opn`, `reaches_cond`, `reaches_goto`, `halts_ret`), and `sim_return` for resuming after a call out of the function. | RISC-V |
+| file | contents |
+| --- | --- |
+| `Syntax.lean` | Operands, instructions (`LinstrR`), bodies, functions, programs. The operation type is a parameter. |
+| `Sem.lean` | `Isa`: an operation type, the state beside the registers, and the meaning of operations and conditions. `step` is shared control flow; runs are the generic ones of `../Ascent` (`Isa.Reaches`, `Isa.Halts`). |
+| `Op.lean` | The shared operations: `Width`, `UnOp`, `BinOp`, `Expr`, `Op` (`set`, `load`, `store`, `skip`), an ISA's memory `Mem`, conditions (`condEval`), and `Isa.ofOps`, the instruction set over these operations and a memory. |
 
 ## Using it
 
-A function is proved at Lprog by running its lifted body with the `reaches_*` rules, and the
-result is carried to the machine by `SafeN.of_reaches`. A call to another function stops the
-Lprog run. The call is taken over the machine with the callee's specification, and
-`sim_return` resumes at Lprog after it. Worked examples:
-- `Cases/Zip2005/Runtime/MemcmpLprog.lean`: a loop, for every length.
-- `Cases/Zip2005/Runtime/WriteVectored.lean`: a loop and a call.
+An instruction set joins by giving `Isa.ofOps M mem` (its state and memory), a lift from its
+decoded code to Lprog bodies, and a simulation that carries every Lprog run down to its
+machine. RISC-V's is [`../RiscV/Lprog`](../RiscV/Lprog/README.md). A function is then proved
+by running its lifted body at Lprog, and the result transfers to the machine.
 
-## Instruction sets
+Worked examples, all RISC-V:
+- `Cases/Zip2005/Runtime/MemcmpLprog.lean`: a loop, for every length. A good first read.
+- `Cases/Zip2005/Runtime/WriteVectored.lean`: a loop and a call out of the function.
+- `Cases/Zip2005/Runtime/BlackBox.lean`: a store and a load through the stack.
+- `Cases/CatCrypt/`: straight-line kernels (`RiscV/Lprog/Block.lean`).
 
-`Syntax` and `Sem` are where other instruction sets meet the framework. An x86-64 or AArch64
-instance is an `Isa` plus a lift and a simulation like `RiscV.lean` and `Lift.lean`. Proofs
-written against the shared control flow then carry over.
+Above this layer is the structured logical program (layer 1, `../Logical`), not started;
+`docs/LogicalMachine.md` sketches it.
 
-Lprog sits after register allocation. A higher, typed logical program is sketched in
-`docs/LogicalMachine.md` as a possible later rung.
-
-The syntax is ported from catcrypt-compiler. Its semantics there is tied to an x86 Jasmin
-interpreter, so `Sem.lean` is new.
+The syntax is ported from catcrypt-compiler (see `../Ascent/LICENSE-catcrypt`). Its semantics
+there is tied to an x86 Jasmin interpreter, so `Sem.lean` and `Op.lean` are new.

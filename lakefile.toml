@@ -1,6 +1,6 @@
 name = "machine-checked"
 version = "0.1.0"
-defaultTargets = ["MachineChecked", "Tools", "Cases"]
+defaultTargets = ["MachineChecked", "Tools"]
 # Generated image modules are deep literals; mirror riscv-zkvm's own setting.
 moreLeanArgs = ["--tstack=400000"]
 

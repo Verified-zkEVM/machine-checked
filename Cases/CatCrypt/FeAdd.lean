@@ -1,5 +1,4 @@
 import Cases.CatCrypt.Fe
-import MachineChecked.RiscV.Corres.Regs
 import Cases.CatCrypt.Image.FeAdd
 
 /-!
@@ -15,7 +14,8 @@ instructions, decoded by riscv-zkvm, take any `x` in `a0..a3` and `y` in `a4..a7
 
 namespace Cases.CatCrypt.FeAdd
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV Cases.CatCrypt.Image.FeAdd
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lprog Cases.CatCrypt.Image.FeAdd
+open MachineChecked.Ascent (Corres)
 
 /-- What the block's registers `ρ` satisfy, from inputs in `m`: the result `r` in `a0..a3` is
     below `p25519` and `x + y = r + k·p25519` for some `k ≤ 4`. -/
@@ -41,8 +41,7 @@ theorem bv (m : MachineState) : Spec m (prog.foldl stepRegs m.getReg) := by
 set_option maxRecDepth 100000 in
 /-- **Field addition on riscv-zkvm.** -/
 theorem corres (base : Word) :
-    Corres (KSR base prog) (KPre fun _ _ => True) (KSpec fun x y => (x + y) % p25519) 186 := by
-  rw [← show prog.length = 186 from rfl]
+    Corres stepSp1 (KSR base prog) (KPre fun _ _ => True) (KSpec fun x y => (x + y) % p25519) := by
   refine kernel_corres base prog (by decide) _ _ ?_
   intro m _
   have hp : (BitVec.ofNat 256 p25519).toNat = p25519 := by simp [p25519]

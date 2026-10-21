@@ -1,5 +1,5 @@
 /-
-  MachineChecked.Mem64
+  MachineChecked.ARM.Mem64
 
   Ported from catcrypt-compiler `CatCrypt/Crypto/SecureCompilation/MachineMem64.lean` at
   `69ffea9f` (MIT, Copyright (c) 2026 CatCrypt Contributors; see
@@ -12,14 +12,13 @@ import Std.Tactic.BVDecide
 /-!
 # Byte-addressed machine memory with 64-bit little-endian words
 
-The data memory of the AArch64 and RV64 machine models: a total map from 64-bit byte
-addresses to bytes. `read64 m a` is the little-endian doubleword at the bytes `a … a + 7`
-(the access of A64 `LDR Xt` and RV64 `LD`), and `write64 m a v` writes the eight bytes of
-`v` there (A64 `STR Xt`, RV64 `SD`). Addresses wrap modulo `2⁶⁴`.
+The data memory of the AArch64 model: a total map from 64-bit byte addresses to bytes.
+`read64 m a` is the little-endian doubleword at the bytes `a … a + 7` (the access of A64
+`LDR Xt`), and `write64 m a v` writes the eight bytes of `v` there (A64 `STR Xt`). Addresses
+wrap modulo `2⁶⁴`. (RISC-V uses riscv-zkvm's own memory.)
 
 `MemSep a b` says the doublewords at `a` and `b` share no byte. `ArrAt m base n arr` says the
-`n` doublewords at `base, base + 8, …` hold the array `arr`; this is the machine image of a
-word array of the `Lprog` memory.
+`n` doublewords at `base, base + 8, …` hold the array `arr`.
 
 ## Main results
 
@@ -32,7 +31,7 @@ word array of the `Lprog` memory.
 
 set_option autoImplicit false
 
-namespace MachineChecked.Mem64
+namespace MachineChecked.ARM
 
 /-- A byte-addressed data memory over 64-bit addresses. -/
 abbrev Mem64 : Type := BitVec 64 → BitVec 8
@@ -118,4 +117,4 @@ theorem ArrAt_write_sep {m : Mem64} {base : BitVec 64} {n : Nat} {arr : Fin n �
   rw [read64_write64_sep m v (hs j)]
   exact h j
 
-end MachineChecked.Mem64
+end MachineChecked.ARM

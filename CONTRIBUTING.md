@@ -5,13 +5,18 @@ support for more instruction sets, fixes and documentation.
 
 ## Where to start
 
-- [`README.md`](README.md) explains the idea and the layout, and [`MachineChecked/README.md`](MachineChecked/README.md)
-  walks through the framework. Every directory has a `README.md`.
-- [`docs/PLAN.md`](docs/PLAN.md) has the architecture, the phases and what is next.
+- [`ROADMAP.md`](ROADMAP.md) describes the layers of the framework, where the code stands,
+  the targets and what is next. It is the best place to see where a contribution fits.
+- [`README.md`](README.md) explains the idea and the layout, and
+  [`MachineChecked/README.md`](MachineChecked/README.md) walks through the framework, with the
+  layer each directory belongs to. Every directory has a `README.md`.
+- [`docs/Architecture.md`](docs/Architecture.md) explains the judgement and the contract table.
 - [`docs/ELF.md`](docs/ELF.md) §4 lists what is trusted.
 - [`AGENTS.md`](AGENTS.md) is the entry point for AI agents working in the repository.
 
-Issues tagged `good first issue` or `help wanted` are good places to begin. If you are unsure
+[`docs/Walkthrough.md`](docs/Walkthrough.md) follows a short, complete example
+(`Cases/Zip2005/Runtime/MemcmpLprog.lean`) of the intended way to prove a function: lifted to
+the low logical program, run there, and carried down to the machine. Issues tagged `good first issue` or `help wanted` are good places to begin. If you are unsure
 where to start, open an issue and ask.
 
 ### Larger contributions
@@ -39,6 +44,10 @@ These hold for every change. A pull request that breaks one is not merged.
   Every premise that remains in a top-level theorem needs a witness that it is satisfiable,
   that is, that it holds on the reference run. A contract quantified over states that never
   occur proves nothing.
+- **Vendored code.** `Cases/Zip2005/Spec` holds upstream specification libraries under their
+  own licences. They do not yet meet these rules (they have warnings, and `native_decide` in
+  examples and in lemmas the zip-2005 statement does not use; `Spec/Zip2005.lean` checks the
+  statement's axioms). New code there must meet them.
 - **Untrusted producers, trusted checker.** Tools may generate images, annotations and
   certificates, but the Lean kernel re-checks everything they produce. Nothing in
   `MachineChecked/` or `Cases/` imports `Tools/`.
@@ -54,6 +63,10 @@ These hold for every change. A pull request that breaks one is not merged.
 - **One judgement.** Function specifications are stated as `SafeN` in continuation form
   (`MachineChecked/RiscV/Safe.lean`), so that results proved by different tools compose
   through the contract table.
+- **One of each concept.** One notion of a run (`MachineChecked/Ascent/Run.lean`), one
+  correspondence (`MachineChecked/Ascent/Corres.lean`), one logical machine per layer, and one
+  route from an ISA up to it (its lift). Do not add a second version of a data structure or
+  a second refinement step beside an existing one; extend or generalise the existing one.
 
 ### Dependencies
 
@@ -69,11 +82,16 @@ These hold for every change. A pull request that breaks one is not merged.
 
 ```sh
 lake exe cache get
-lake build MachineChecked                 # the framework
+lake build                                # the framework and the tools (the default)
+lake build Cases.CatCrypt                 # the CatCrypt kernels
 lake build Cases.Zip2005.Runtime.Memcmp   # one module and what it imports
-lake build                                # everything (a few hours)
+lake build Cases                          # every case study (a few hours)
 lake env lean path/to/File.lean           # check one file
 ```
+
+Continuous integration (`.github/workflows/ci.yml`) builds the framework, the tools and the
+quick case studies on every pull request, and fails on a warning, `sorry`, `axiom` or
+`native_decide`. The full build of the case studies runs on demand.
 
 Before opening a pull request:
 1. Build every module you touched and every module that imports it. A change to a widely
@@ -118,10 +136,12 @@ Keep commits buildable where you can.
 1. Pin the binary: record how it was built and its digest.
 2. Generate its image with `lake exe gen-image` into `Cases/<Name>/Image/`.
 3. Prove the image facts in `Cases/<Name>/Loaded.lean`, from the image, not as hypotheses.
-4. Write and prove function specifications, one module per function or family. Reuse the
-   runtime specifications where the code is shared.
+4. Write and prove function specifications, one module per function or family, through the
+   lift where it covers the code (`MachineChecked/RiscV/Lprog`). Reuse the runtime
+   specifications where the code is shared.
 5. Compose them through the contract table into a theorem about the binary's accepting runs.
-6. Add `Cases/<Name>/README.md`, and a row to `Cases/README.md`.
+6. Add `Cases/<Name>/README.md`, saying where the binary came from and under what licence
+   its code is, and a row to `Cases/README.md`.
 
 ## Style
 

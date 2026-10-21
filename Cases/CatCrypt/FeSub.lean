@@ -1,5 +1,4 @@
 import Cases.CatCrypt.Fe
-import MachineChecked.RiscV.Corres.Regs
 import Cases.CatCrypt.Image.FeSub
 
 /-!
@@ -15,7 +14,8 @@ to `(x + 2·p25519 - y) mod p25519` in `a0..a3`.
 
 namespace Cases.CatCrypt.FeSub
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV Cases.CatCrypt.Image.FeSub
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lprog Cases.CatCrypt.Image.FeSub
+open MachineChecked.Ascent (Corres)
 
 /-- What the block's registers `ρ` satisfy, from inputs in `m`. -/
 def Spec (m : MachineState) (ρ : Reg → Word) : Prop :=
@@ -42,9 +42,8 @@ theorem bv (m : MachineState) : Spec m (prog.foldl stepRegs m.getReg) := by
 set_option maxRecDepth 100000 in
 /-- **Field subtraction on riscv-zkvm.** -/
 theorem corres (base : Word) :
-    Corres (KSR base prog) (KPre fun x y => y ≤ x + 2 * p25519)
-      (KSpec fun x y => (x + 2 * p25519 - y) % p25519) 216 := by
-  rw [← show prog.length = 216 from rfl]
+    Corres stepSp1 (KSR base prog) (KPre fun x y => y ≤ x + 2 * p25519)
+      (KSpec fun x y => (x + 2 * p25519 - y) % p25519) := by
   refine kernel_corres base prog (by decide) _ _ ?_
   intro m hy
   rw [regA_eq, regB_eq] at hy

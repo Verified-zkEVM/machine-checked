@@ -172,7 +172,7 @@ theorem tail {G : MachineState → Prop} {P : Prop} {n : Nat} {e : Word} (he0 : 
     simp only [pc_setPC, BitVec.reduceAdd] at hzpc
     rw [← setPC_self hzpc])
   xrun code
-  refine safe_halt ?_ ?_ ?_
+  refine SafeN.reject ?_ ?_ ?_
   · exact fetchLit code (by (try simp only [MachineState.code_setReg, MachineState.code_setPC]); assumption) (pc_setPC _ _) rfl (by decide)
   · xregs
   · xregs

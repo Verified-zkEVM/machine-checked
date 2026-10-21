@@ -1,3 +1,5 @@
+> **Status (2026-10-21): archived.** Folded into [`ROADMAP.md`](../../ROADMAP.md)'s targets; kept for the hash-precompile survey below.
+
 # Goals to Verify
 
 - [zip-2005](https://github.com/dhsorens/zip-2005-asm/) - what we've already been looking at

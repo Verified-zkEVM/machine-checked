@@ -14,7 +14,8 @@ that its result `r` satisfies `x + y = r + c·p256` with `r < p256` and `c ∈ {
 
 namespace Cases.CatCrypt.AddP256
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV Cases.CatCrypt.Image.AddP256
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lprog Cases.CatCrypt.Image.AddP256
+open MachineChecked.Ascent (Corres)
 
 /-- The NIST P-256 prime. -/
 def p256 : Nat := 2 ^ 256 - 2 ^ 224 + 2 ^ 192 + 2 ^ 96 - 1
@@ -32,14 +33,13 @@ theorem bv (m : MachineState)
         X + Y = R.zeroExtend 258 + BitVec.ofNat 258 (1 * p256)) := by
   intro m' X Y R
   simp only [m', X, Y, R, cat4, prog, List.foldl_cons, List.foldl_nil, execInstrBr,
-    getReg_setReg_ite, getReg_x0', MachineState.getReg_setPC, signExtend12, p256] at hx hy ⊢
+    getReg_setReg, getReg_x0, MachineState.getReg_setPC, signExtend12, p256] at hx hy ⊢
   bv_decide (config := { enums := false })
 
 /-- **`bignum_add_p256` on riscv-zkvm.** -/
 theorem corres (base : Word) :
-    Corres (KSR base prog) (KPre fun x y => x < p256 ∧ y < p256)
-      (KSpec fun x y => (x + y) % p256) 83 := by
-  rw [← show prog.length = 83 from rfl]
+    Corres stepSp1 (KSR base prog) (KPre fun x y => x < p256 ∧ y < p256)
+      (KSpec fun x y => (x + y) % p256) := by
   refine kernel_corres base prog (by decide) _ _ ?_
   rintro m ⟨hx, hy⟩
   rw [regA_eq] at hx; rw [regB_eq] at hy

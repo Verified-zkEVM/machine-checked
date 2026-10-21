@@ -15,22 +15,6 @@ open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame
 
 /-! ## Writing doublewords -/
 
-theorem getMem_writeWords_of {s : MachineState} :
-    ∀ {base : Word} {ws : List Word} {a : Word},
-      (∀ i < ws.length, a ≠ base + BitVec.ofNat 64 (8 * i)) →
-      (s.writeWords base ws).getMem a = s.getMem a := by
-  intro base ws
-  induction ws generalizing s base with
-  | nil => intro a _; rfl
-  | cons w ws ih =>
-    intro a ha
-    simp only [MachineState.writeWords_cons]
-    rw [ih (fun i hi => by
-      have := ha (i + 1) (by simp; omega)
-      rw [show 8 * (i + 1) = 8 * i + 8 by omega, BitVec.ofNat_add] at this
-      intro he; apply this; rw [he, BitVec.add_assoc, BitVec.add_comm (BitVec.ofNat 64 (8 * i))]; rfl)]
-    rw [getMem_setMem, if_neg (by simpa using ha 0 (by simp))]
-
 theorem getMem_writeBytesAsWords_of :
     ∀ (bs : List (BitVec 8)) {s : MachineState} {base a : Word},
       (∀ i, 8 * i < bs.length → a ≠ base + BitVec.ofNat 64 (8 * i)) →
@@ -139,7 +123,7 @@ theorem sys_accel {x y : MachineState} {L : Nat} (hf : x.code x.pc = some .ECALL
       fun _ => by simp [MachineState.execSp1Accel], fun a ha => ?_⟩
     simp only [MachineState.execSp1Accel, MachineState.getMem_setPC]
     rw [h1]
-    apply getMem_writeWords_of
+    apply getMem_writeWords_of_ne
     intro i hi he
     have := ha _ (List.mem_singleton_self _)
     rw [he] at this

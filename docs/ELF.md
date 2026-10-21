@@ -1,7 +1,7 @@
 # The ELF problem
 
-> **Note (2026-10-20).** `riscv-decomp` is dropped in favour of catcrypt-compiler's
-> `CorresIsa` (`CATCRYPT-PORT.md`). The mentions of `riscv-decomp` and `Decomp.Stepper` below
+> **Note (2026-10-21).** `riscv-decomp` is dropped in favour of catcrypt-compiler's ascent,
+> ported as `MachineChecked/Ascent` and the lift to Lprog (`notes/CATCRYPT-PORT.md`). The mentions of `riscv-decomp` and `Decomp.Stepper` below
 > are part of this dated research record. Read "the ascent" for them.
 
 Notes from a `/deep-research` run (2026-10-12; 20 sources fetched, 94 claims extracted, 25
@@ -49,7 +49,7 @@ put through 3-vote adversarial verification, 22 confirmed, 3 refuted) plus a rea
 
 ### Tested on zip-2005's guest (2026-10-12)
 
-Details are in [`experiments/zip-2005/RESULTS.md`](experiments/zip-2005/RESULTS.md). Where a
+Details are in the experiment log, which is not published yet. Where a
 result contradicts a [K] row below, the result wins.
 
 - The build is **bit-reproducible**. A rebuild in another directory matches the pinned sha256.
@@ -182,7 +182,7 @@ removes the compiler and assembler from the TCB [R]. The irreducible TCB:
 
 1. **The ISA model.** For RISC-V, `riscv-zkvm` ties its hand-written model to Sail with 51
    per-instruction equivalence theorems. x86 and ARM have Sail models too, which is the
-   `ISA.md` question. **Trusted for now:** the x86-64 model `MachineChecked/X86/JasminModel`
+   `ISA.md` question. **Trusted for now:** the x86-64 model `MachineChecked/X86/Model`
    (a transcription of Jasmin's x86 semantics) and the AArch64 model
    `MachineChecked/ARM/Model`, both ported from catcrypt-compiler. Neither is proved against
    a canonical specification here, and no claim about RISC-V rests on them. Each is to be
@@ -295,7 +295,7 @@ the automation, not an optional extra.
 ## 7. Experiments on zip-2005's guest
 
 **Run 2026-10-12**: 1, 2, 3, 4 and 6 done, 5 blocked. Results are in
-[`experiments/zip-2005/RESULTS.md`](experiments/zip-2005/RESULTS.md) and summarised in § 0.
+the experiment log (not published yet) and summarised in § 0.
 The list below is the original plan.
 
 1. **Debug info is free.** Rebuild with `debug = 2` in the release profile, then diff the

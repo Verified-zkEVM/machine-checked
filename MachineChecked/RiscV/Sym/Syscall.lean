@@ -45,19 +45,6 @@ theorem toNat_add8 {base : Word} {n : Nat} (hnw : base.toNat + 8 * (n + 1) ≤ 2
   rw [BitVec.toNat_add, h8]
   exact Nat.mod_eq_of_lt (by omega)
 
-theorem getMem_writeWords_of_ne {s : MachineState} {base a : Word} {ws : List Word}
-    (h : ∀ i, i < ws.length → a ≠ base + BitVec.ofNat 64 (8 * i)) :
-    (s.writeWords base ws).getMem a = s.getMem a := by
-  induction ws generalizing s base with
-  | nil => rfl
-  | cons w ws ih =>
-    simp only [MachineState.writeWords]
-    rw [ih, MachineState.getMem_setMem_ne]
-    · have := h 0 (by simp); simpa using this
-    · intro i hi
-      rw [add8_cell]
-      exact h (i + 1) (by simp; omega)
-
 theorem getMem_writeWords_at {s : MachineState} {base : Word} {ws : List Word}
     (hnw : base.toNat + 8 * ws.length ≤ 2 ^ 64) {i : Nat} (hi : i < ws.length) :
     (s.writeWords base ws).getMem (base + BitVec.ofNat 64 (8 * i)) = ws[i]! := by

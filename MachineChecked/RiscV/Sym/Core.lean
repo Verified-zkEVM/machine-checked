@@ -171,19 +171,8 @@ theorem stepSp1_mem_trap {s : MachineState} {i : Instr}
   unfold stepSp1; rw [hfetch]
   cases i <;> simp_all [Instr.isMemAccess, isCSRS]
 
-/-- No code at the pc: the machine is stuck. -/
-theorem stepSp1_none {s : MachineState} (h : s.code s.pc = none) : stepSp1 s = none := by
-  unfold stepSp1; rw [h]
-
 theorem stepSp1_ebreak {s : MachineState} (h : s.code s.pc = some .EBREAK) : stepSp1 s = none := by
   unfold stepSp1; rw [h]
-
-/-- The `HALT` syscall: `t0 = 0` at an `ECALL` stops the machine. -/
-theorem stepSp1_halt {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
-    (ht0 : s.getReg .x5 = 0) : stepSp1 s = none := by
-  have hhost : Sp1.isHostId (s.getReg .x5) = true := by rw [ht0]; decide
-  rw [stepSp1_ecall_host hfetch hhost]
-  exact step_ecall_halt hfetch ht0
 
 /-- `COMMIT` (`0x10`): the digest word is recorded and the pc advances. -/
 theorem stepSp1_commit {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
@@ -212,18 +201,11 @@ theorem stepSp1_hintRead {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
   unfold stepSp1 sp1Ecall; rw [hfetch, ht0]
   simp [Sp1.isAccelId, Sp1.HINT_LEN, Sp1.HINT_READ, Sp1.KECCAK_PERMUTE, Sp1.SECP256K1_ADD, Sp1.SECP256K1_DOUBLE, Sp1.BN254_ADD, Sp1.BN254_DOUBLE, Sp1.BLS12381_ADD, Sp1.BLS12381_DOUBLE, Sp1.BLS12381_FP2_ADD, Sp1.BLS12381_FP2_SUB, Sp1.BLS12381_FP2_MUL, Sp1.BN254_FP2_ADD, Sp1.BN254_FP2_SUB, Sp1.BN254_FP2_MUL, Sp1.UINT256_MUL, Sp1.PALLAS_ADD, Sp1.PALLAS_DOUBLE]
 
-/-- An accelerator syscall with valid operands. -/
-theorem stepSp1_accel' {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
-    (hid : Sp1.isAccelId (s.getReg .x5) = true)
-    (hvalid : s.sp1AccelValid (s.getReg .x5) = true) :
-    stepSp1 s = some ((s.execSp1Accel (s.getReg .x5)).setPC (s.pc + 4)) :=
-  stepSp1_accel hfetch hid hvalid
-
 /-! ## Accepting -/
 
 -- The accept observation (`MachineChecked.RiscV.Accepted`): the machine is at the `HALT`
--- syscall with exit code `0`. It is stuck (`stepSp1_of_accepted`, `MachineChecked.RiscV.Safe`).
-export MachineChecked.RiscV (Accepted stepSp1_of_accepted)
+-- syscall with exit code `0`. It is stuck (`Accepted.stuck`).
+export MachineChecked.RiscV (Accepted)
 
 -- The judgement (`MachineChecked.RiscV.Safe`), under the executor's namespace. Its lemmas are named
 -- in full (`MachineChecked.RiscV.SafeN.step_of`): an exported alias does not carry its namespace.

@@ -7,8 +7,8 @@ catcrypt-compiler is MIT-licensed; its licence is reproduced in `LICENSE-catcryp
 
 | file | from | changes |
 | --- | --- | --- |
-| `Refines.lean` | `HaxAscent/Ascent/Refines.lean` | namespace `MachineChecked.Ascent`; not a Lean `module` |
-| `Corres.lean` | `HaxAscent/Calculus/CorresMCore.lean`, `HaxAscent/Calculus/CorresGenericSpec.lean` | the `CatCryptCore` relational-refinement link is dropped; `CorresM.weaken`, `CorresM.congr`, `CorresM.seq` added |
+| `Run.lean` | after `Ascent/CorresIsa.lean` (`CorresIsaRun`) | runs of any step function, with the number of steps chosen per state; written here |
+| `Corres.lean` | `HaxAscent/Calculus/CorresMCore.lean`, `Ascent/CorresIsa.lean` | stated over `Reaches` instead of a fixed fuel; `CatCryptCore`'s relational refinement and `RefinesP`/`RefinesO` (`HaxAscent/Ascent/Refines.lean`) are not taken; `weaken` and `seq` added |
 
 catcrypt-compiler's Ascent follows Sebastian Graf's
 [sgraf812/ascent](https://github.com/sgraf812/ascent).

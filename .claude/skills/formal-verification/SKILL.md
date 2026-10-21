@@ -31,19 +31,19 @@ use the case the session is about.
 
 | binding | this host |
 | --- | --- |
-| bytecode | The loaded image and `riscv-zkvm`'s SP1 machine: `MachineState`, `stepSp1`. The dependency is pinned in `lakefile.toml` and left unmodified. Image facts live under `Cases/<case>/` (`Loaded.lean`, `Image/`). Host wrappers: `MachineChecked/RiscV/Exec`, `MachineChecked/RiscV/Load`. |
-| spec | The high-level claim about what that bytecode computes. The user names it, otherwise the case module and `docs/TO-VERIFY.md`. Blake2s: BLAKE2s-256 of the advice bytes, length and digest committed (`Cases/LeanVM/Blake2s/Loaded.lean`). zip-2005: the guest program over the verified runtime (`docs/PLAN.md`, `docs/TO-VERIFY.md`). |
+| bytecode | The loaded image and `riscv-zkvm`'s SP1 machine: `MachineState`, `stepSp1`. The dependency is pinned in `lakefile.toml` and left unmodified. Image facts live under `Cases/<case>/` (`Loaded.lean`, `Image/`). Host wrappers: `MachineChecked/RiscV/Lprog` (the lift; the preferred route), `MachineChecked/RiscV/Exec`, `MachineChecked/RiscV/Load`. |
+| spec | The high-level claim about what that bytecode computes. The user names it, otherwise the case module and the targets in `ROADMAP.md`. Blake2s: BLAKE2s-256 of the advice bytes, length and digest committed (`Cases/LeanVM/Blake2s/Loaded.lean`). zip-2005: the guest program over the verified runtime (`Cases/Zip2005/PLAN.md`). |
 | proofs | `MachineChecked/RiscV/` (framework) and `Cases/` (`Cases/Zip2005`, `Cases/LeanVM`). |
 | observation | `SafeN` / `Safe` and `Iface.HoldsN` / `Iface.Holds` in `MachineChecked/RiscV/Check/Spec.lean`. Accepting is `Accepted`: SP1 `HALT` with exit code 0. |
 | state rel | `AState.Holds` (`MachineChecked/RiscV/Frame/Sound.lean`). Checker interfaces: `Pre`, `Post`, `Env` (`MachineChecked/RiscV/Check/Domain.lean`, `Check/Spec.lean`). |
-| queue | `docs/PLAN.md` |
-| contract | `docs/PLAN.md` (the judgement and the Rules) and `README.md` |
-| doctrine | `AGENTS.md` and `docs/PLAN.md` § Rules |
+| queue | the case plan (`Cases/<case>/PLAN.md`) |
+| contract | `docs/Architecture.md` (the judgement), `CONTRIBUTING.md` (the ground rules) and `README.md` |
+| doctrine | `AGENTS.md` and `CONTRIBUTING.md` § Ground rules |
 | base | `main` |
 | gates | `lake build`, zero warnings. No `sorry`, no new `axiom`, no `native_decide`. `bv_decide` is allowed (it adds a `…_native.bv_decide.ax_…` axiom). Otherwise `#print axioms` shows only `propext`, `Classical.choice`, and `Quot.sound`. |
-| assumptions | `none` as a file. Standing trust is `docs/PLAN.md` § Rules and `docs/ELF.md` §4. A new hypothesis that restricts the domain goes in the theorem and is noted in `docs/PLAN.md`. Do not create `Assumptions.lean` to have somewhere to write. |
-| mismatches | `none` as a file. Historical false contracts are `docs/ELF.md` §1 (T1, T4, T5, Heap). A new disagreement is written into `docs/PLAN.md` before the proof is weakened. Do not create `docs/mismatches.md`. |
-| coverage | `docs/PLAN.md`. There is no separate matrix. Do not create one. |
+| assumptions | `none` as a file. Standing trust is `CONTRIBUTING.md` § Ground rules and `docs/ELF.md` §4. A new hypothesis that restricts the domain goes in the theorem and is noted in the case plan. Do not create `Assumptions.lean` to have somewhere to write. |
+| mismatches | `none` as a file. Historical false contracts are `docs/ELF.md` §1 (T1, T4, T5, Heap). A new disagreement is written into the case plan before the proof is weakened. Do not create `docs/mismatches.md`. |
+| coverage | the case plan. There is no separate matrix. Do not create one. |
 | scars | `docs/ELF.md` §1 |
 | attack | `none` |
 | prover | `none` |
@@ -81,7 +81,7 @@ Carry the proof from the bytecode to the spec.
    the spec.
 5. **Gates.** `lake build` the modules the pass touched, with zero
    warnings. No `sorry`, no new `axiom`, no `native_decide`.
-6. **Record.** Update `docs/PLAN.md` so it matches the theorems. A
+6. **Record.** Update the case plan so it matches the theorems. A
    disagreement between `stepSp1` and the spec is written there before
    any statement is weakened. Follow [coverage.md](coverage.md).
 
@@ -114,7 +114,7 @@ exit code must be provably nonzero.
 - A precondition the image never meets is a vacuous theorem. That is
   the failure mode in `docs/ELF.md` §1. It is not progress, and it is
   the highest-yield hunt on this host.
-- The bar in `docs/PLAN.md`: no hypothesis the real run does not
+- The bar in the case plan: no hypothesis the real run does not
   satisfy, and no contract quantified over states the run never reaches.
 
 ## Four layers (keep distinct)
@@ -148,7 +148,7 @@ region disjointness, `Env`). Prefer a footprint over requiring the
 whole memory to be unchanged.
 
 A failed attempt to prove the spec is often the most useful output.
-Treat it as a disagreement with the run, and write it in `docs/PLAN.md`
+Treat it as a disagreement with the run, and write it in the case plan
 before changing the statement.
 
 ## Working principles
@@ -157,15 +157,15 @@ before changing the statement.
    mention, before proving the functions underneath it.
 2. Separate representation proofs from semantic proofs.
 3. Make every assumption explicit. A new domain hypothesis is named in
-   `docs/PLAN.md`.
+   the case plan.
 4. Treat accepting halts and noreturn paths as part of the spec.
 5. Use finite datatypes and exhaustive matching where the image is finite.
 6. Do not silently restrict `Pre` until the image happens to agree.
 7. Record every discovered disagreement, including a deliberate
-   difference, in `docs/PLAN.md` before adjusting the proof.
+   difference, in the case plan before adjusting the proof.
 8. Prefer small compositional lemmas feeding the top theorem from the
    loaded state to the spec.
-9. Keep `docs/PLAN.md` current ([coverage.md](coverage.md)).
+9. Keep the case plan current ([coverage.md](coverage.md)).
 10. When adding an assumption, ask whether it is an invariant of the
     run or only avoids a hard case.
 11. Treat proof attempts as bug-finding.
@@ -217,12 +217,12 @@ package that happens to share a symbol.
 
 **Check drift both ways.** An account that overstates is dangerous;
 one that understates makes the pass look weaker than it is and
-misdirects the next reading of `docs/PLAN.md`.
+misdirects the next reading of the case plan.
 
 ## Disagreements
 
 When the bytecode and the spec disagree, do not change the proof
-first. Write the note in `docs/PLAN.md`. Machine behavior is what
+first. Write the note in the case plan. Machine behavior is what
 `stepSp1` does on the image; claimed behavior is what the spec says.
 Record:
 
@@ -245,7 +245,7 @@ assuming X. Write X down.
 ## When the pass is finished
 
 The pass is finished when the top theorem says the loaded bytecode
-meets the spec, the gates are green, and `docs/PLAN.md` matches the
+meets the spec, the gates are green, and the case plan matches the
 theorems. Prefer a story that can be checked:
 
 - **Image** — layout and decode are theorems about this image.
@@ -266,7 +266,7 @@ loaded state).
 
 - **The statement is unsupported** (unsound goal, missing bridge,
   relation bug, upstream `partial` / opaque): stop that lemma. Write
-  the evidence in `docs/PLAN.md`. Restate or fix the relation. Do not
+  the evidence in the case plan. Restate or fix the relation. Do not
   weaken the top theorem to avoid the evidence, and do not send the
   bad statement to a prover.
 - **The statement still looks sound** after real attempts: check
@@ -288,7 +288,7 @@ Before treating the top theorem as the claim:
 - [ ] Assumptions are visible; `Pre` is not vacuously restrictive
 - [ ] Reachable states of this image can meet the stated preconditions
 - [ ] The relation does not identify observably different states
-- [ ] Every function on the path has a theorem, or an explicit gap in `docs/PLAN.md`
+- [ ] Every function on the path has a theorem, or an explicit gap in the case plan
 - [ ] Proof difficulty was checked for semantic signal (bug, disagreement, bad statement) before more tactics
 
 ## Hunt list
@@ -307,7 +307,7 @@ Reads differently?:
 Highest yield: an unsatisfiable precondition; a postcondition that
 drops an accepting path; a claim satisfied by the wrong event; a
 `Pre` that excludes states the real load reaches; a note in
-`docs/PLAN.md` that calls a return-only theorem the spec.
+the case plan that calls a return-only theorem the spec.
 
 ## Anti-patterns
 
@@ -317,10 +317,10 @@ drops an accepting path; a claim satisfied by the wrong event; a
 | Restrict `Pre` until the proof closes | Ask whether the restriction is an invariant of the run; otherwise record the disagreement |
 | Add `axiom` or `sorry` for a stuck lemma | Decompose or restate. The host allows neither |
 | Leave unused hypotheses | Tighten the statement. An unused assumption means the theorem is not tight |
-| Change the spec to match a stuck proof | Record the disagreement in `docs/PLAN.md`, then restate |
+| Change the spec to match a stuck proof | Record the disagreement in the case plan, then restate |
 | Prove the spec against a `partial` / opaque dispatcher | Prove it against the code the image actually runs |
 | Hand-edit a generated image module | The image is an input. Change the proof or the spec |
-| Report progress in chat | `docs/PLAN.md` and the top theorem are the claim |
+| Report progress in chat | the case plan and the top theorem are the claim |
 
 ## Interaction style
 
@@ -336,7 +336,7 @@ drops an accepting path; a claim satisfied by the wrong event; a
 - Honour the **forbidden** list. Do not edit `riscv-zkvm` to make a
   theorem hold.
 - Do not weaken a statement to make it shippable without saying so
-  in the file header and in `docs/PLAN.md`.
+  in the file header and in the case plan.
 - Do not add a `Co-authored-by` trailer. Commits are the user's.
 - Do not describe the pass as finished unless the top theorem exists
-  and `docs/PLAN.md` names it.
+  and the case plan names it.

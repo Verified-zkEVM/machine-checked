@@ -158,63 +158,11 @@ theorem memOk_addr {s : MachineState} {i : Instr} {a : Word} {w : Nat} {st : Boo
   simp only [memOkSp1, hacc, Bool.and_eq_true, isValidMemAddrSp1, decide_eq_true_eq] at h
   exact ⟨h.1.1, h.1.2⟩
 
-/-! ## Reading a state after a step -/
+/-! ## Reading a state after a step
 
-@[simp] theorem pc_setPC (s : MachineState) (v : Word) : (s.setPC v).pc = v := rfl
+The lemmas are in `MachineChecked.RiscV.State`; here some of them are `simp` lemmas. -/
 
-/-! State normal form: one `setPC` outermost, register writes collapsed.
-
-These are proved by `cases s` rather than `rfl` on purpose: `simp` applies a `rfl` lemma as a
-definitional change, and the kernel then re-checks it by unfolding the whole state term, which
-on a long straight-line run recurses too deep. -/
-
-theorem setPC_setPC (s : MachineState) (a b : Word) : (s.setPC a).setPC b = s.setPC b := by
-  cases s; rfl
-
-theorem setReg_setPC (s : MachineState) (a : Word) (r : Reg) (v : Word) :
-    (s.setPC a).setReg r v = (s.setReg r v).setPC a := by
-  cases r <;> rfl
-
-theorem setMem_setPC (s : MachineState) (a x v : Word) :
-    (s.setPC a).setMem x v = (s.setMem x v).setPC a := by
-  cases s; rfl
-
-theorem setByte_setPC (s : MachineState) (a x : Word) (b : BitVec 8) :
-    (s.setPC a).setByte x b = (s.setByte x b).setPC a := by
-  cases s; rfl
-
-theorem setHalfword_setPC (s : MachineState) (a x : Word) (b : BitVec 16) :
-    (s.setPC a).setHalfword x b = (s.setHalfword x b).setPC a := by
-  cases s; rfl
-
-theorem setWord32_setPC (s : MachineState) (a x : Word) (b : BitVec 32) :
-    (s.setPC a).setWord32 x b = (s.setWord32 x b).setPC a := by
-  cases s; rfl
-
-theorem setReg_setReg_same (s : MachineState) (r : Reg) (a b : Word) :
-    (s.setReg r a).setReg r b = s.setReg r b := by
-  cases r <;> simp only [MachineState.setReg] <;> congr 1 <;> funext r' <;> split <;> rfl
-
-theorem setPC_self {s : MachineState} {p : Word} (h : s.pc = p) : s.setPC p = s := by
-  subst h; rfl
-
-@[simp] theorem getReg_x0 (s : MachineState) : s.getReg .x0 = 0 := rfl
-
-theorem getReg_setReg (s : MachineState) (r r' : Reg) (v : Word) :
-    (s.setReg r v).getReg r' = if r' = r ∧ r ≠ .x0 then v else s.getReg r' := by
-  cases r <;> cases r' <;> rfl
-
-@[simp] theorem getReg_setByte (s : MachineState) (a : Word) (b : BitVec 8) (r : Reg) :
-    (s.setByte a b).getReg r = s.getReg r := by
-  cases r <;> rfl
-
-@[simp] theorem getReg_setWord32 (s : MachineState) (a : Word) (b : BitVec 32) (r : Reg) :
-    (s.setWord32 a b).getReg r = s.getReg r := by
-  cases r <;> rfl
-
-@[simp] theorem getReg_setHalfword (s : MachineState) (a : Word) (b : BitVec 16) (r : Reg) :
-    (s.setHalfword a b).getReg r = s.getReg r := by
-  cases r <;> rfl
+attribute [simp] pc_setPC getReg_x0 getReg_setByte getReg_setWord32 getReg_setHalfword
 
 /-! ## Fetching from the function's code -/
 
@@ -315,11 +263,5 @@ theorem safe_ecall {G : MachineState → Prop} {k : Nat} {P : Prop} {x : Machine
   cases hs : stepSp1 x with
   | none => exact SafeN.stuck hs (fun ha => absurd ha.2.1 h5)
   | some y => exact SafeN.of_step (fun ha => h5 ha.2.1) hs (h y (hnext y hs))
-
-/-- A halt with a nonzero exit code does not accept: the run ends there, safely. -/
-theorem safe_halt {G : MachineState → Prop} {k : Nat} {P : Prop} {x : MachineState}
-    (hf : x.code x.pc = some .ECALL) (h5 : x.getReg .x5 = 0) (h10 : x.getReg .x10 ≠ 0) :
-    SafeN G k P x :=
-  SafeN.stuck (stepSp1_halt hf h5) (fun ha => absurd ha.2.2 h10)
 
 end MachineChecked.RiscV.Exec

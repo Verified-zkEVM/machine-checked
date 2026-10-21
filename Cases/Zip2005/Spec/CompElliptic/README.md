@@ -8,6 +8,9 @@ multiple curve forms and coordinate systems, with correct-by-construction typesâ
 reasoning about elliptic-curve arithmetic in formally verified settings, such as zero-knowledge
 circuits. The first form is short Weierstrass over the Pasta (Pallas/Vesta) cycle.
 
+> This copy is vendored for the zip-2005 specification and holds only the modules it needs.
+> Upstream's design notes, `TODO.md` and `TrustBoundary.lean` are not included.
+
 ## Design principles
 
 CompElliptic follows a few named principles, chosen so that the type structure mirrors the
@@ -49,7 +52,7 @@ detail.
 
 ### Consistent terminology
 
-Terminology is [carefully considered](design/naming-survey.md), and consistent with common
+Terminology is carefully considered (upstream keeps a naming survey), and consistent with common
 cryptographic usage and with the Zcash Protocol Specification.
 
 ### Efficiency without abstraction leaks
@@ -154,7 +157,7 @@ Uses of `sorry` are kept minimal and limited to work-in-progress. As stated abov
 ## Future work
 
 Further coordinate systems (projective and Jacobian), curve forms, the represented-group bridge,
-and the circuit model are tracked in [TODO.md](TODO.md).
+and the circuit model are tracked in the upstream repository.
 
 ## License
 

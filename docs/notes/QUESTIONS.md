@@ -1,3 +1,7 @@
+> **Status (2026-10-21): archived.** Early design questions, mostly answered. The open ones (the trust boundary around the ELF, properties beyond functional correctness) are in [`ROADMAP.md`](../../ROADMAP.md)'s open questions.
+
+# Early design questions
+
 1. Which spec counts as the official one for x86 and ARM. ISA.md says "Kraken probably?" for x86 and "?" for ARM. Sail has models for both: ARM's comes from Arm's own ASL spec, and there is a Sail x86 model. You already have a pipeline that turns Sail into Lean for RISC-V, so using Sail for all three would make "verified against the official spec" mean the same thing on every ISA. The cost is that the x86 and ARM Sail models are very large.
 
 
