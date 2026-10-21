@@ -12,6 +12,14 @@ Probably use Kraken; possibly the ACL2 (or prove equivalence)
 
 ?
 
+## Role
+
+Each instruction set's model is the bottom of its stack: the semantics every theorem about a
+binary for that ISA is stated against. RISC-V's stack is built first. x86-64 and AArch64 are
+to become peers of it, with the same layers above their models (`docs/PLAN.md`, "Instruction
+sets"). A model is trusted only while it is named on the trust ladder, and is to be verified
+against the canonical specification chosen here.
+
 ## Status (2026-10-20)
 
 - RISC-V: riscv-zkvm, tied to Sail. It is the only RV64 semantics here.

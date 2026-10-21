@@ -5,6 +5,12 @@ Jasmin), ported, extended with a flat-memory operand and with flags as an `Isa` 
 (`CATCRYPT-PORT.md` P4). We iterate from there. Lprog sits after register allocation, so it
 is lower than the `LogicalProgram` sketched below, which stays as a possible later rung.
 
+The logical machine is also where instruction sets meet. `Lprog`'s syntax and semantics are
+ISA-independent, and an instruction set joins by giving an `Isa` instance, a lift from its
+decoded code and a simulation down to its machine. RISC-V's instance is `Lprog/RiscV.lean` and
+`Lprog/Lift.lean`. x86-64 and AArch64 are to follow the same shape, so that specifications and
+program logics written at this layer serve all three.
+
 ## LogicalProgram: an ISA-independent logical machine
 
 Introduce a small, ISA-independent intermediate machine (`LogicalProgram`) between concrete ISA semantics and higher-level program reasoning.

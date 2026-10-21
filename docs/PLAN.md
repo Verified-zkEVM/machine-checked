@@ -15,8 +15,33 @@ quantified over states the run never reaches.
 what we need from catcrypt-compiler into this repository and own it. That is its machine
 layer, Lprog as our logical machine, its `CorresIsa` ascent and separation logic, its hax
 front end, and its x86-64 and AArch64 models. RISC-V stays on riscv-zkvm. The roadmap is
-[`CATCRYPT-PORT.md`](../CATCRYPT-PORT.md), and phase P below summarises it. M1's remaining
+[`CATCRYPT-PORT.md`](CATCRYPT-PORT.md), and phase P below summarises it. M1's remaining
 work (F3) resumes after the port, using the ported tools where they are simpler.
+
+## Instruction sets: RISC-V first, then the others as peers
+
+The framework is built for RISC-V first, and then generalised. x86-64 and AArch64 are meant to
+become peers of RISC-V, each with the whole stack, not to stay bare models. The order is:
+
+1. **RISC-V end to end.** Loader, judgement, checker, executor, correspondence and the
+   logical machine, on riscv-zkvm, proved out on real guests (zip-2005). This is where the
+   design is settled.
+2. **Keep the shared layers ISA-independent.** The correspondence calculus (`Ascent/`), the
+   logical machine (`Lprog/Syntax`, `Lprog/Sem`), the contract-table composition and the
+   program logics must not mention RISC-V. Anything RISC-V-specific lives under `RiscV/` or in
+   a file that says so (`Lprog/RiscV.lean`, `Lprog/Lift.lean`).
+3. **Bring up x86-64 and AArch64.** Each gets what `RiscV/` has, in this order:
+   - its machine model, verified against its canonical specification (`docs/ISA.md`) or
+     replaced by a verified one;
+   - control flow and a decoder;
+   - an image loader, with `gen-image` and the ELF reader generalised per ISA;
+   - the judgement over its step;
+   - an `Lprog` instance with its lift and simulation;
+   - the checker and executor where they pay off.
+
+   Specifications stated at the logical machine then carry over between instruction sets.
+
+Today `ARM/` and `X86/` hold their trusted models only (phase P6).
 
 ## Architecture
 
@@ -55,7 +80,7 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
 ## Phases
 
 **P. The CatCrypt port (next; highest priority).** Details in
-[`CATCRYPT-PORT.md`](../CATCRYPT-PORT.md), whose steps are numbered P1–P6.
+[`CATCRYPT-PORT.md`](CATCRYPT-PORT.md), whose steps are numbered P1–P6.
 - P1. Intake and toolchain. Files are copied in, not required, and each passes the Rules
   below. Provenance is recorded per directory. We move to the newest Lean the dependencies
   allow. riscv-zkvm binds us: v4.33.1 needs its SP1 backend on a v4.33.1 revision.
@@ -83,7 +108,8 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
 - P5. Descent meets ascent: a CatCrypt-compiled kernel's contract becomes a table entry, and
   hax extraction supplies specs (trust-ladder rung 5).
 - P6. x86-64 and AArch64 from CatCrypt, trusted for now and named on the trust ladder, each
-  to be verified against its canonical spec. *Taken:* `MachineChecked/X86/{BinOp,Model,
+  to be verified against its canonical spec. These are the starting points of the x86-64 and
+  AArch64 stacks, which grow into peers of `RiscV/` (see "Instruction sets" above). *Taken:* `MachineChecked/X86/{BinOp,Model,
   JasminModel}` and `MachineChecked/ARM/Model` with `MachineChecked/Mem64` (no Mathlib, no
   `native_decide`), named in `docs/ELF.md` §4. Open: x86 control flow and decoding, the Sail
   equalities, and `Tools/Elf`/`gen-image` per ISA.
