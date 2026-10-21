@@ -41,9 +41,9 @@ theorem black_box_slot {sp : Word} (h : sp &&& 15#64 = 0#64) :
     alignToDword (sp + signExtend12 0xff0#12 + signExtend12 0x00f#12) = sp - 0x8#64 ∧
       byteOffset (sp + signExtend12 0xff0#12 + signExtend12 0x00f#12) = 7 := by
   have h1 : alignToDword (sp + signExtend12 0xff0#12 + signExtend12 0x00f#12) = sp - 0x8#64 := by
-    simp only [alignToDword, signExtend12]; bv_decide
+    simp only [alignToDword, signExtend12]; bv_decide (config := { enums := false })
   have h2 : (sp + signExtend12 0xff0#12 + signExtend12 0x00f#12) &&& 7#64 = 7#64 := by
-    simp only [signExtend12]; bv_decide
+    simp only [signExtend12]; bv_decide (config := { enums := false })
   exact ⟨h1, by simp only [byteOffset, h2]; rfl⟩
 
 /-- **`black_box` as a correspondence over `stepSp1`.** -/
@@ -65,7 +65,7 @@ theorem black_box_corres (ra sp v : Word) :
     rw [BitVec.toNat_sub]; simp only [BitVec.toNat_ofNat]; omega
   have haddr : (sp + signExtend12 0xff0#12 + signExtend12 0x00f#12).toNat = sp.toNat - 1 := by
     simp only [signExtend12]
-    rw [show sp + BitVec.signExtend 64 0xff0#12 + BitVec.signExtend 64 0x00f#12 = sp - 1#64 by bv_decide,
+    rw [show sp + BitVec.signExtend 64 0xff0#12 + BitVec.signExtend 64 0x00f#12 = sp - 1#64 by bv_decide (config := { enums := false }),
       BitVec.toNat_sub]
     simp only [BitVec.toNat_ofNat]; omega
   have hinMem := hokF.inMem
@@ -118,9 +118,11 @@ theorem black_box_corres (ra sp v : Word) :
   · intro r hr
     simp only [calleeSavedRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg_ite, getReg_setByte', hsp,
-        reduceCtorEq, if_true, if_false, ne_eq, not_false_eq_true, and_self, false_and, signExtend12]
-      bv_decide
+    · have hsp16 : sp + signExtend12 0xff0#12 + signExtend12 0x010#12 = sp := by
+        simp only [signExtend12]; bv_decide (config := { enums := false })
+      simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg_ite, getReg_setByte', hsp,
+        reduceCtorEq, if_true, if_false, ne_eq, not_false_eq_true, and_self, false_and]
+      exact hsp16
     all_goals exact hst _ (by decide) (by decide) (by decide)
   · simp
   · intro a ha

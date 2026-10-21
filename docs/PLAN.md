@@ -64,13 +64,29 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
   onto it. Its own RV64 model and Sail excerpt are not taken.
 - P3. Bridge. `Iface.of_corres` turns a `CorresIsa` proof of an ecall-free body into our
   continuation spec over `SafeN G n P`. Exit: a zip-2005 leaf proved with `CorresIsa`
-  replaces its `Sym` proof in the table.
+  replaces its `Sym` proof in the table. *Done:* `MachineChecked/RiscV/Corres` (`Corres`,
+  `SafeN.of_corres`, `SafeN.of_fn`, the straight-line block rule, `Reach`/`FnSpec`/loops in
+  `Corres/Run`); `black_box_spec` is proved by `Corres`; CatCrypt's `cswap`, `addp256`,
+  `feAdd` and `feSub` run on riscv-zkvm.
 - P4. Lprog as the logical machine: a flat-memory operand, flags as an `Isa` parameter, and
-  a lifter from decoded functions to Lprog, proved by simulation.
+  a lifter from decoded functions to Lprog, proved by simulation. *Done:*
+  `MachineChecked/Lprog` (`Isa` over any operation type and state, `CorresIsa`, `Halts`; the
+  RISC-V instance `rvIsa` runs riscv-zkvm's `execInstrBr` behind `memOkSp1`; `lift`, and
+  `sim_run`/`reach_of_halts`/`reach_of_corresIsa` carry an Lprog run down to `stepSp1`).
+  `memcmp` is proved at Lprog for every length (`Runtime/MemcmpLprog`), and
+  `memcmp8_spec`/`memcmp4_spec` are now derived from it rather than by `Sym`. A non-leaf
+  function with a loop, `Stderr::write_vectored` (`Runtime/WriteVectored`), is proved at Lprog
+  in two `Reaches` segments around its call, which is taken over the machine with
+  `sys_write_spec` from the table and resumed by `sim_return`. Open: no table entry consumes
+  `write_vectored`'s spec yet; calls inside Lprog (`Lcall`) and indirect jumps as `Ligoto`
+  with candidate lists are not lifted.
 - P5. Descent meets ascent: a CatCrypt-compiled kernel's contract becomes a table entry, and
   hax extraction supplies specs (trust-ladder rung 5).
 - P6. x86-64 and AArch64 from CatCrypt, trusted for now and named on the trust ladder, each
-  to be verified against its canonical spec.
+  to be verified against its canonical spec. *Taken:* `MachineChecked/X86/{BinOp,Model,
+  JasminModel}` and `MachineChecked/ARM/Model` with `MachineChecked/Mem64` (no Mathlib, no
+  `native_decide`), named in `docs/ELF.md` §4. Open: x86 control flow and decoding, the Sail
+  equalities, and `Tools/Elf`/`gen-image` per ISA.
 
 Decisions recorded with the port: `CorresIsa` is the ascent, so `riscv-decomp` is dropped.
 Mathlib may be imported by the framework. Where catcrypt-compiler's version of something is

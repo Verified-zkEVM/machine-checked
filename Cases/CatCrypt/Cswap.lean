@@ -56,7 +56,7 @@ theorem sel (sw a b : Word) (h : sw.toNat ≤ 1) :
     rcases Nat.le_one_iff_eq_zero_or_eq_one.mp h with h | h
     · exact Or.inl (BitVec.eq_of_toNat_eq (by simpa using h))
     · exact Or.inr (BitVec.eq_of_toNat_eq (by simpa using h))
-  rcases this with rfl | rfl <;> simp <;> bv_decide
+  rcases this with rfl | rfl <;> simp <;> bv_decide (config := { enums := false })
 
 /-- **`cswap` on riscv-zkvm.** -/
 theorem corres (base : Word) : Corres (SR base) (Pre base) spec 52 := by
@@ -73,7 +73,7 @@ theorem corres (base : Word) : Corres (SR base) (Pre base) spec 52 := by
     unfold spec
     split <;>
       simp_all [getReg_setReg_ite, getReg_x0', signExtend12] <;>
-      bv_decide
+      bv_decide (config := { enums := false })
 end Cswap
 
 end Cases.CatCrypt

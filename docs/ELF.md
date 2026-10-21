@@ -182,7 +182,11 @@ removes the compiler and assembler from the TCB [R]. The irreducible TCB:
 
 1. **The ISA model.** For RISC-V, `riscv-zkvm` ties its hand-written model to Sail with 51
    per-instruction equivalence theorems. x86 and ARM have Sail models too, which is the
-   `ISA.md` question.
+   `ISA.md` question. **Trusted for now:** the x86-64 model `MachineChecked/X86/JasminModel`
+   (a transcription of Jasmin's x86 semantics) and the AArch64 model
+   `MachineChecked/ARM/Model`, both ported from catcrypt-compiler. Neither is proved against
+   a canonical specification here, and no claim about RISC-V rests on them. Each is to be
+   verified against its Sail model, or replaced by a verified model.
 2. **The Lean kernel** (plus whatever `decide`/`native_decide` brings in; `riscv-decomp`'s
    axiom gate already tracks this).
 3. **The import**: that the bytes and load addresses in Lean are the ones the zkVM runs.

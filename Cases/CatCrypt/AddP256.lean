@@ -33,7 +33,7 @@ theorem bv (m : MachineState)
   intro m' X Y R
   simp only [m', X, Y, R, cat4, prog, List.foldl_cons, List.foldl_nil, execInstrBr,
     getReg_setReg_ite, getReg_x0', MachineState.getReg_setPC, signExtend12, p256] at hx hy ⊢
-  bv_decide
+  bv_decide (config := { enums := false })
 
 /-- **`bignum_add_p256` on riscv-zkvm.** -/
 theorem corres (base : Word) :
