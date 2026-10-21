@@ -1,5 +1,9 @@
 # The ELF problem
 
+> **Note (2026-10-20).** `riscv-decomp` is dropped in favour of catcrypt-compiler's
+> `CorresIsa` (`CATCRYPT-PORT.md`). The mentions of `riscv-decomp` and `Decomp.Stepper` below
+> are part of this dated research record. Read "the ascent" for them.
+
 Notes from a `/deep-research` run (2026-10-12; 20 sources fetched, 94 claims extracted, 25
 put through 3-vote adversarial verification, 22 confirmed, 3 refuted) plus a reading of
 `zip-2005-asm`'s ledger. Each claim says where it comes from:
@@ -178,7 +182,11 @@ removes the compiler and assembler from the TCB [R]. The irreducible TCB:
 
 1. **The ISA model.** For RISC-V, `riscv-zkvm` ties its hand-written model to Sail with 51
    per-instruction equivalence theorems. x86 and ARM have Sail models too, which is the
-   `ISA.md` question.
+   `ISA.md` question. **Trusted for now:** the x86-64 model `MachineChecked/X86/JasminModel`
+   (a transcription of Jasmin's x86 semantics) and the AArch64 model
+   `MachineChecked/ARM/Model`, both ported from catcrypt-compiler. Neither is proved against
+   a canonical specification here, and no claim about RISC-V rests on them. Each is to be
+   verified against its Sail model, or replaced by a verified model.
 2. **The Lean kernel** (plus whatever `decide`/`native_decide` brings in; `riscv-decomp`'s
    axiom gate already tracks this).
 3. **The import**: that the bytes and load addresses in Lean are the ones the zkVM runs.

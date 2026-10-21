@@ -56,8 +56,8 @@ Other strong targets:
 
 What the framework needs for functional proofs: the contract checker proves memory-safety
 interfaces; functional results go through the symbolic executor at cut points (as the allocator
-proofs did), heavy for a 4039-instruction unrolled compression. `riscv-decomp` (Myreen-style
-decompilation into a function plus a certificate theorem) is built for this and would make the
-hash proofs proofs about functions, with hash-specs' equivalence lemmas doing the rest; wire it
-in as part of target 2. Toolchain: hash-specs is on v4.34.0 with Mathlib, this repository on
-v4.33.0 without.
+proofs did), heavy for a 4039-instruction unrolled compression. The ascent for these is
+CatCrypt's `CorresIsa`, ported (`CATCRYPT-PORT.md`), with hash-specs' equivalence lemmas doing
+the rest. `riscv-decomp` was considered and dropped (2026-10-20). Toolchain: hash-specs is on
+v4.34.0, this repository on v4.33.0. Mathlib may now be imported anywhere here, so only the
+Lean version separates them.

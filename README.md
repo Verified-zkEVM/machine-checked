@@ -81,6 +81,7 @@ The basic pipeline:
 - TODO proof optimised, formally verified interpreters for each of riscv, x86, and arm
     - each is formally verified wrt the canonical spec (e.g. [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm); the specs are in [docs/ISA.md](docs/ISA.md)).
     - the interpreter should be speicalized in some sense for proof-friendliness (whatever that means exactly)
+    - for now: riscv-zkvm for RISC-V (verified against Sail); CatCrypt's x86-64 and AArch64 models, trusted until each is verified against its canonical spec
 - TODO a strategy for dealing with the ELF (we can tolerate some trust to the compiler - fine);
     - preferably, a generic framework that handles ELFs so that we can focus verification on the bytecode in question
     - USE the debug mode of the e.g. rustc compiler to gain information about the ELF
@@ -88,6 +89,7 @@ The basic pipeline:
     - [ascent](https://github.com/sgraf812/ascent/tree/master/Ascent) - probably want to be compatible with this in perpetuity (and move with any updates to it)
     - [evm-asm](https://github.com/Verified-zkEVM/evm-asm)
     - [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm/)
+    - decided (2026-10-20): we port catcrypt-compiler's Ascent (`CorresIsa`, which descends from sgraf812/ascent) and use Lprog, linear Jasmin, as the logical machine. See [CATCRYPT-PORT.md](CATCRYPT-PORT.md)
 
 ## The idea
 

@@ -11,6 +11,13 @@ that an accepting run of the loaded ELF on an input implies `Zip2005.GuestStatem
 decoded input. The bar: no hypothesis that the real run does not satisfy, and no contract
 quantified over states the run never reaches.
 
+**Priority (2026-10-20): the CatCrypt port comes next and has the highest priority.** We take
+what we need from catcrypt-compiler into this repository and own it. That is its machine
+layer, Lprog as our logical machine, its `CorresIsa` ascent and separation logic, its hax
+front end, and its x86-64 and AArch64 models. RISC-V stays on riscv-zkvm. The roadmap is
+[`CATCRYPT-PORT.md`](../CATCRYPT-PORT.md), and phase P below summarises it. M1's remaining
+work (F3) resumes after the port, using the ported tools where they are simpler.
+
 ## Architecture
 
 **Judgement.** `SafeN n P s`: every accepting state reached from `s` in fewer than `n` steps
@@ -46,6 +53,44 @@ there, or becomes the caller's own `req`. An indirect call or tail call takes a 
 list and a control-flow premise (`CfiOk`) that the target is on it.
 
 ## Phases
+
+**P. The CatCrypt port (next; highest priority).** Details in
+[`CATCRYPT-PORT.md`](../CATCRYPT-PORT.md), whose steps are numbered P1–P6.
+- P1. Intake and toolchain. Files are copied in, not required, and each passes the Rules
+  below. Provenance is recorded per directory. We move to the newest Lean the dependencies
+  allow. riscv-zkvm binds us: v4.33.1 needs its SP1 backend on a v4.33.1 revision.
+- P2. One RV64 backend. CatCrypt's `IsaMachine` gets a byte pc and a code map, and the RV64
+  instance steps with riscv-zkvm's `stepSp1` itself. CatCrypt's RV64 proofs are rewritten
+  onto it. Its own RV64 model and Sail excerpt are not taken.
+- P3. Bridge. `Iface.of_corres` turns a `CorresIsa` proof of an ecall-free body into our
+  continuation spec over `SafeN G n P`. Exit: a zip-2005 leaf proved with `CorresIsa`
+  replaces its `Sym` proof in the table. *Done:* `MachineChecked/RiscV/Corres` (`Corres`,
+  `SafeN.of_corres`, `SafeN.of_fn`, the straight-line block rule, `Reach`/`FnSpec`/loops in
+  `Corres/Run`); `black_box_spec` is proved by `Corres`; CatCrypt's `cswap`, `addp256`,
+  `feAdd` and `feSub` run on riscv-zkvm.
+- P4. Lprog as the logical machine: a flat-memory operand, flags as an `Isa` parameter, and
+  a lifter from decoded functions to Lprog, proved by simulation. *Done:*
+  `MachineChecked/Lprog` (`Isa` over any operation type and state, `CorresIsa`, `Halts`; the
+  RISC-V instance `rvIsa` runs riscv-zkvm's `execInstrBr` behind `memOkSp1`; `lift`, and
+  `sim_run`/`reach_of_halts`/`reach_of_corresIsa` carry an Lprog run down to `stepSp1`).
+  `memcmp` is proved at Lprog for every length (`Runtime/MemcmpLprog`), and
+  `memcmp8_spec`/`memcmp4_spec` are now derived from it rather than by `Sym`. A non-leaf
+  function with a loop, `Stderr::write_vectored` (`Runtime/WriteVectored`), is proved at Lprog
+  in two `Reaches` segments around its call, which is taken over the machine with
+  `sys_write_spec` from the table and resumed by `sim_return`. Open: no table entry consumes
+  `write_vectored`'s spec yet; calls inside Lprog (`Lcall`) and indirect jumps as `Ligoto`
+  with candidate lists are not lifted.
+- P5. Descent meets ascent: a CatCrypt-compiled kernel's contract becomes a table entry, and
+  hax extraction supplies specs (trust-ladder rung 5).
+- P6. x86-64 and AArch64 from CatCrypt, trusted for now and named on the trust ladder, each
+  to be verified against its canonical spec. *Taken:* `MachineChecked/X86/{BinOp,Model,
+  JasminModel}` and `MachineChecked/ARM/Model` with `MachineChecked/Mem64` (no Mathlib, no
+  `native_decide`), named in `docs/ELF.md` §4. Open: x86 control flow and decoding, the Sail
+  equalities, and `Tools/Elf`/`gen-image` per ISA.
+
+Decisions recorded with the port: `CorresIsa` is the ascent, so `riscv-decomp` is dropped.
+Mathlib may be imported by the framework. Where catcrypt-compiler's version of something is
+simpler than ours, it replaces ours.
 
 **A. Structural specifications for one function, derived by the checker**
 - A1. Exit check: `ra`, `sp`, `gp`, `tp`, `s0`–`s11` restored. Protect the slots that
@@ -409,4 +454,12 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
 - Zero build warnings.
 - Every remaining premise is in one list with a satisfiability witness: it holds on the
   reference run.
-- riscv-zkvm stays unmodified at its pin. zip-2005-asm is not imported.
+- riscv-zkvm stays unmodified at its pin, and is the only RV64 semantics. `stepSp1` is the
+  one step. zip-2005-asm is not imported.
+- Mathlib may be imported anywhere.
+- Lean is kept at the latest version we can reach. Today riscv-zkvm's pin is what limits
+  it; when that limit lifts, we move.
+- An ISA model may be trusted only if it is named on the trust ladder (`docs/ELF.md` §4).
+  Every ISA model is to be verified against its canonical spec in the end.
+- Code taken from catcrypt-compiler is ported, not required, and must pass these rules
+  before it lands.
