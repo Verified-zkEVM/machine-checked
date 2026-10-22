@@ -133,6 +133,12 @@ proofs go through the lift.
 
 ## Roadmap steps
 
+0. **A library shared with catcrypt-compiler.** The generic layers (runs, correspondence,
+   `SafeN`, Lprog, and later the Lprog symbolic executor) become one package that both
+   MachineChecked and catcrypt-compiler require, and MachineChecked requires
+   catcrypt-compiler's kernels and machine models instead of copying them. To be agreed with
+   its maintainers: [`docs/notes/SHARED-LIBRARY.md`](docs/notes/SHARED-LIBRARY.md). Steps 1–3
+   build on it.
 1. **Complete the RISC-V lift.** Calls inside Lprog (`Lcall`), indirect jumps with candidate
    lists (`Ligoto`), and system calls as external calls with specifications, so that a whole
    function, and then a whole program, runs at Lprog.

@@ -1,4 +1,4 @@
-> **Status (2026-10-21): archived; largely done.** The port it describes landed: Lprog is the logical machine, its operations are shared (`MachineChecked/Lprog/Op.lean`), the correspondence is `MachineChecked/Ascent`, and the CatCrypt kernels are proved through the lift. References below to `docs/PLAN.md`, `RiscV/Corres`, `CorresIsa` and the small x86 model describe the state when it was written. What remains is in [`ROADMAP.md`](../../ROADMAP.md).
+> **Status (2026-10-22): superseded.** catcrypt-compiler is to be a dependency, with a library shared with its maintainers, not a source to port from: see [`SHARED-LIBRARY.md`](SHARED-LIBRARY.md). The earlier status (2026-10-21, archived; largely done): The port it describes landed: Lprog is the logical machine, its operations are shared (`MachineChecked/Lprog/Op.lean`), the correspondence is `MachineChecked/Ascent`, and the CatCrypt kernels are proved through the lift. References below to `docs/PLAN.md`, `RiscV/Corres`, `CorresIsa` and the small x86 model describe the state when it was written. What remains is in [`ROADMAP.md`](../../ROADMAP.md).
 
 # CatCrypt port: taking what we need from catcrypt-compiler
 
