@@ -47,10 +47,16 @@ jobs:
 
       - name: Build the framework, the tools and the quick case studies
         run: |
-          set -o pipefail
-          lake build MachineChecked Tools Cases.CatCrypt \
+          set -eo pipefail
+          lake build MachineChecked Tools Cases.CatCrypt.Cswap \
             Cases.Zip2005.Runtime.MemcmpLprog Cases.Zip2005.Runtime.WriteVectored \
             Cases.Zip2005.Runtime.BlackBox Cases.LeanVM.Blake2s.Loaded 2>&1 | tee build.log
+          # Each of these kernels takes about 5 GB to elaborate; built in parallel they exhaust
+          # the runner's memory, so one at a time.
+          for m in FeAdd FeSub AddP256; do
+            lake build Cases.CatCrypt.$m 2>&1 | tee -a build.log
+          done
+          lake build Cases.CatCrypt 2>&1 | tee -a build.log
           if grep -E '^warning: ' build.log; then
             echo "::error::the build has warnings"; exit 1
           fi
