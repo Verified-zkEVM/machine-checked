@@ -23,7 +23,7 @@
 
 import MachineChecked.RiscV.Sym.Mem
 import MachineChecked.RiscV.Sym.Core
-import Precompile.Sp1
+import MachineChecked.RiscV.Accel
 
 namespace MachineChecked.RiscV.Sym
 
@@ -181,13 +181,13 @@ theorem step_uint256Mul {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     simpa using this
   have hxr : s.readWords a0 4 = x := hx.readWords' hxl
   have hvalid : s.sp1AccelValid Sp1.UINT256_MUL = true := by
-    rw [Precompile.sp1AccelValid_uint256Mul, ha0, ha1, hmod]
+    rw [sp1AccelValid_uint256Mul, ha0, ha1, hmod]
     exact ⟨hz0.validDwordRange, hz1.validDwordRange, hm⟩
   have hid : Sp1.isAccelId (s.getReg .x5) = true := by rw [ht0]; decide
   rw [stepSp1_accel hfetch hid (ht0 ▸ hvalid)]
   congr 2
   unfold MachineState.execSp1Accel
-  rw [ht0, Precompile.sp1AccelWrite_uint256Mul, ha0, ha1, hxr, hy, hmod]
+  rw [ht0, sp1AccelWrite_uint256Mul, ha0, ha1, hxr, hy, hmod]
   rfl
 
 /-- `PALLAS_ADD`: `P` at `a0`, `Q` at `a1`, both 8 cells; writes `P + Q` at `a0`. -/
@@ -196,34 +196,34 @@ theorem step_pallasAdd {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ha1 : s.getReg .x11 = a1) {P Q : List Word} (hP : Region a0 P s) (hPl : P.length = 8)
     (hQ : Region a1 Q s) (hQl : Q.length = 8) (hz0 : ZiskOk a0 8) (hz1 : ZiskOk a1 8)
     (hPv : Accel.ptValid Sp1.pallasP 4 P = true) (hQv : Accel.ptValid Sp1.pallasP 4 Q = true)
-    (hne : Precompile.Pallas.xOf P ≠ Precompile.Pallas.xOf Q) :
+    (hne : Wire.xOf P ≠ Wire.xOf Q) :
     stepSp1 s = some ((s.writeWords a0 (Accel.curveAddL Sp1.pallasP 4 P Q)).setPC (s.pc + 4)) := by
   have hPr : s.readWords a0 8 = P := hP.readWords' hPl
   have hQr : s.readWords a1 8 = Q := hQ.readWords' hQl
   have hvalid : s.sp1AccelValid Sp1.PALLAS_ADD = true := by
-    rw [Precompile.sp1AccelValid_pallasAdd, ha0, ha1, hPr, hQr]
+    rw [sp1AccelValid_pallasAdd, ha0, ha1, hPr, hQr]
     exact ⟨hz0.validDwordRange, hz1.validDwordRange, hPv, hQv, hne⟩
   have hid : Sp1.isAccelId (s.getReg .x5) = true := by rw [ht0]; decide
   rw [stepSp1_accel hfetch hid (ht0 ▸ hvalid)]
   congr 2
   unfold MachineState.execSp1Accel
-  rw [ht0, Precompile.sp1AccelWrite_pallasAdd, ha0, ha1, hPr, hQr]
+  rw [ht0, sp1AccelWrite_pallasAdd, ha0, ha1, hPr, hQr]
 
 /-- `PALLAS_DOUBLE`: `P` at `a0`, 8 cells; writes `2P` at `a0`. -/
 theorem step_pallasDouble {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ht0 : s.getReg .x5 = Sp1.PALLAS_DOUBLE) {a0 : Word} (ha0 : s.getReg .x10 = a0)
     {P : List Word} (hP : Region a0 P s) (hPl : P.length = 8) (hz0 : ZiskOk a0 8)
-    (hPv : Accel.ptValid Sp1.pallasP 4 P = true) (hy : Precompile.Pallas.yOf P ≠ 0) :
+    (hPv : Accel.ptValid Sp1.pallasP 4 P = true) (hy : Wire.yOf P ≠ 0) :
     stepSp1 s = some ((s.writeWords a0 (Accel.curveDblL Sp1.pallasP 4 P)).setPC (s.pc + 4)) := by
   have hPr : s.readWords a0 8 = P := hP.readWords' hPl
   have hvalid : s.sp1AccelValid Sp1.PALLAS_DOUBLE = true := by
-    rw [Precompile.sp1AccelValid_pallasDouble, ha0, hPr]
+    rw [sp1AccelValid_pallasDouble, ha0, hPr]
     exact ⟨hz0.validDwordRange, hPv, hy⟩
   have hid : Sp1.isAccelId (s.getReg .x5) = true := by rw [ht0]; decide
   rw [stepSp1_accel hfetch hid (ht0 ▸ hvalid)]
   congr 2
   unfold MachineState.execSp1Accel
-  rw [ht0, Precompile.sp1AccelWrite_pallasDouble, ha0, hPr]
+  rw [ht0, sp1AccelWrite_pallasDouble, ha0, hPr]
 
 /-! ## Shape projections for `(s.writeWords b ws).setPC p` -/
 
@@ -286,7 +286,7 @@ theorem SafeN.uint256Mul {G : MachineState → Prop} {n : Nat} {P : Prop} {s : M
   intro _
   apply k
   unfold MachineState.execSp1Accel
-  rw [ht0, Precompile.sp1AccelWrite_uint256Mul, ha0, ha1, hxr, hy, hmod]
+  rw [ht0, sp1AccelWrite_uint256Mul, ha0, ha1, hxr, hy, hmod]
   rfl
 
 theorem SafeN.pallasAdd {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
@@ -301,7 +301,7 @@ theorem SafeN.pallasAdd {G : MachineState → Prop} {n : Nat} {P : Prop} {s : Ma
   intro _
   apply k
   unfold MachineState.execSp1Accel
-  rw [ht0, Precompile.sp1AccelWrite_pallasAdd, ha0, ha1, hpr, hqr]
+  rw [ht0, sp1AccelWrite_pallasAdd, ha0, ha1, hpr, hqr]
 
 theorem SafeN.pallasDouble {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ht0 : s.getReg .x5 = Sp1.PALLAS_DOUBLE) {a0 : Word} (ha0 : s.getReg .x10 = a0)
@@ -313,7 +313,7 @@ theorem SafeN.pallasDouble {G : MachineState → Prop} {n : Nat} {P : Prop} {s :
   intro _
   apply k
   unfold MachineState.execSp1Accel
-  rw [ht0, Precompile.sp1AccelWrite_pallasDouble, ha0, hpr]
+  rw [ht0, sp1AccelWrite_pallasDouble, ha0, hpr]
 
 theorem SafeN.commit {G : MachineState → Prop} {n : Nat} {P : Prop} {s : MachineState} (hfetch : s.code s.pc = some .ECALL)
     (ht0 : s.getReg .x5 = Sp1.COMMIT)

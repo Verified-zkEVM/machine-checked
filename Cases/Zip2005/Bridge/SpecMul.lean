@@ -25,7 +25,7 @@ curve (`ValidA (mulBase pt)`).
 -/
 
 namespace Cases.Zip2005.SpecMul
-open RiscvZkvm.Rv64 Cases.Zip2005.Precompile.Pallas
+open RiscvZkvm.Rv64 Cases.Zip2005.Precompile.Pallas MachineChecked.RiscV.Wire
 
 local notation "p" => Sp1.pallasP
 

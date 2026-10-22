@@ -67,7 +67,7 @@ theorem codeWithin_of_image {img : Image} (hwf : img.codeWF = true) {lo hi : Nat
     (hs : s.code = img.codeAt) : CodeWithin lo hi s := by
   intro a ha
   rw [hs] at ha
-  by_contra hn
+  refine Classical.byContradiction fun hn => ?_
   apply ha
   apply Image.codeAt_outside hwf
   intro c hc

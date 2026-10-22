@@ -17,7 +17,7 @@ form, for an input that is a valid spec point.
 
 namespace Cases.Zip2005.SpecMul
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Precompile.Pallas CompElliptic.CurveForms
+open RiscvZkvm.Rv64 Cases.Zip2005.Precompile.Pallas MachineChecked.RiscV.Wire CompElliptic.CurveForms
 open Zcash.Circuits (Fp Fq Point)
 
 /-- Mathlib's group on the spec's curve `y² = x³ + 5` (definitionally `Cases.Zip2005.Precompile.Pallas.C`). -/

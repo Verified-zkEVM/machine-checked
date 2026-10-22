@@ -14,6 +14,7 @@
 -/
 
 import MachineChecked.RiscV.Sym.Ro
+import Batteries.Data.List.Perm
 
 namespace MachineChecked.RiscV.Sym
 

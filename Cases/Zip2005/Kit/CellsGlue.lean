@@ -1,3 +1,4 @@
+import Lean
 import MachineChecked.RiscV.Sym.Frame
 
 /-!

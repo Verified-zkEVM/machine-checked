@@ -13,7 +13,7 @@ spec's `step` (`sinStep_spec`), and the chunk fold from a domain point is `hashT
 
 namespace Cases.Zip2005.SpecMul
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Precompile.Pallas CompElliptic.CurveForms
+open RiscvZkvm.Rv64 Cases.Zip2005.Precompile.Pallas MachineChecked.RiscV.Wire CompElliptic.CurveForms
 open Zcash.Circuits (Fp Fq Point)
 
 /-- The spec point an eight-word affine point (canonical limbs) denotes. -/

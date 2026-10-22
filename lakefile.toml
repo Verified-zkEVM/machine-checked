@@ -15,7 +15,8 @@ rev = "4634e41b229da4256e4a1f1688b94133fffa4af0"
 
 # Mathlib, as a direct require at the tag matching `lean-toolchain`. Only the ZIP 2005
 # specification and its closure (`Cases/Zip2005/Spec`) use it; `MachineChecked` and `Tools` do
-# not import it. Run `lake exe cache get` for the oleans.
+# not import it (the executor takes `List.Subperm` from Batteries, which comes with it). Run
+# `lake exe cache get` for the oleans.
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"

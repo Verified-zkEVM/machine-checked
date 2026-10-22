@@ -892,7 +892,7 @@ partial def omegaWith (prop : Expr) (keep : LocalDecl → MetaM Bool) (extras : 
         unless d.userName.toString.startsWith "hbr" do continue
         let ty ← instantiateMVars d.type
         unless (ty.find? (·.isConstOf ``BitVec.ult)).isSome do continue
-        let brLemmas := #[``BitVec.ult, ``decide_eq_true_eq, ``not_not, ``Bool.not_eq_true,
+        let brLemmas := #[``BitVec.ult, ``decide_eq_true_eq, ``Classical.not_not, ``Bool.not_eq_true,
           ``decide_eq_false_iff_not, ``Nat.not_lt, ``BitVec.toNat_add, ``BitVec.toNat_ofNat,
           ``BitVec.toNat_ushiftRight, ``BitVec.toNat_shiftLeft, ``BitVec.toNat_setWidth]
         let r ← simpWith ty #[] brLemmas (dec := false)

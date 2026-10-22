@@ -23,10 +23,11 @@
 
 import Cases.Zip2005.Precompile.Prime
 import Mathlib.AlgebraicGeometry.EllipticCurve.Affine.Point
+import MachineChecked.RiscV.Accel
 
 namespace Cases.Zip2005.Precompile.Pallas
 
-open RiscvZkvm.Rv64 WeierstrassCurve
+open RiscvZkvm.Rv64 WeierstrassCurve MachineChecked.RiscV.Wire
 
 /-- The Pallas base field. A field by `pallasP_prime`. -/
 abbrev F := ZMod Sp1.pallasP
@@ -215,12 +216,9 @@ theorem curveDbl_spec {x1 y1 : ℕ} (hx1 : x1 < p) (hy1 : y1 < p) (hy0 : y1 ≠ 
   simp only [Affine.Point.some.injEq]
   exact ⟨hXe, hYe⟩
 
-/-! ### On the wire format -/
+/-! ### On the wire format
 
-/-- The `x` coordinate of a four-limb-per-coordinate `x || y` point. -/
-def xOf (pt : List Word) : ℕ := Accel.leLimbsToNat (pt.take 4)
-/-- The `y` coordinate of a four-limb-per-coordinate `x || y` point. -/
-def yOf (pt : List Word) : ℕ := Accel.leLimbsToNat (pt.drop 4)
+`xOf` and `yOf` (`MachineChecked.RiscV.Wire`) read the coordinates. -/
 
 theorem ptValid_iff (pt : List Word) :
     Accel.ptValid p 4 pt = true ↔ xOf pt < p ∧ yOf pt < p := by
