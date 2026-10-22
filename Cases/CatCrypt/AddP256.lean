@@ -15,7 +15,6 @@ that its result `r` satisfies `x + y = r + c·p256` with `r < p256` and `c ∈ {
 namespace Cases.CatCrypt.AddP256
 
 open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lprog Cases.CatCrypt.Image.AddP256
-open MachineChecked.Ascent (Corres)
 
 /-- The NIST P-256 prime. -/
 def p256 : Nat := 2 ^ 256 - 2 ^ 224 + 2 ^ 192 + 2 ^ 96 - 1
@@ -38,7 +37,7 @@ theorem bv (m : MachineState)
 
 /-- **`bignum_add_p256` on riscv-zkvm.** -/
 theorem corres (base : Word) :
-    Corres stepSp1 (KSR base prog) (KPre fun x y => x < p256 ∧ y < p256)
+    CorresSp1 (KSR base prog) (KPre fun x y => x < p256 ∧ y < p256)
       (KSpec fun x y => (x + y) % p256) := by
   refine kernel_corres base prog (by decide) _ _ ?_
   rintro m ⟨hx, hy⟩
