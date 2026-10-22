@@ -124,6 +124,13 @@ def SafeN (step : σ → Outcome σ → Prop) (accept : σ → Prop)
   once, generically.
 - **Contracts** are in continuation form with the budget, as today:
   `∀ G n P s, Pre s → (∀ t, Post s t → SafeN … G n P t) → SafeN … G n P s`.
+- **Correspondence is a contract.** `Ascent.Corres` is restated in this continuation form:
+  `SR m a → P a → (∀ t, SR t (fa a) → SafeN … G n Q t) → SafeN … G n Q m`. On a relational
+  machine (Lprog with external calls) this is the right notion: every run, not some run, must
+  reach a related state or stop safely. The present form over `Reaches` (some run reaches a
+  related state; total correctness) implies it on a deterministic machine, by
+  `SafeN.of_reaches`, so the CatCrypt kernels' statements remain valid and give contracts
+  directly (`SafeN.of_corres`).
 - **Composition** is a generic `table_sound`, by strong induction on the budget over a family
   of contracts (the shape of `Check/Sound/Act.lean`'s `table_sound`). At an `Lcall`, the
   callee's contract is used at a smaller budget, which is what makes recursion compose.
