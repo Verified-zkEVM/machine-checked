@@ -27,6 +27,7 @@
 
 import MachineChecked.RiscV.Accept
 import MachineChecked.Ascent.Run
+import MachineChecked.Ascent.Safe
 import MachineChecked.RiscV.State
 
 namespace MachineChecked.RiscV
@@ -68,9 +69,10 @@ theorem not_accepted_of_step {s t : MachineState} (h : stepSp1 s = some t) : ¬ 
 
 /-! ## The judgement -/
 
+/-- The generic judgement (`Ascent.SafeN`) at `stepSp1`, which never goes `wrong`, with
+    `Accepted` as the accepting states. -/
 def SafeN (G : MachineState → Prop) (n : Nat) (P : Prop) (s : MachineState) : Prop :=
-  ∀ m < n, ∀ s', stepsSp1 m s = some s' → (∀ j ≤ m, ∀ x, stepsSp1 j s = some x → G x) →
-    Accepted s' → P
+  Ascent.SafeN (Ascent.detStep stepSp1) Accepted G n P s
 
 def Safe (G : MachineState → Prop) (P : Prop) (s : MachineState) : Prop := ∀ n, SafeN G n P s
 
@@ -79,22 +81,15 @@ namespace SafeN
 variable {G : MachineState → Prop}
 
 theorem zero {P : Prop} {s : MachineState} : SafeN G 0 P s :=
-  fun _ h => absurd h (Nat.not_lt_zero _)
+  Ascent.SafeN.zero
 
 theorem mono {P : Prop} {s : MachineState} {k n : Nat} (hk : k ≤ n) (h : SafeN G n P s) :
-    SafeN G k P s := fun m hm => h m (Nat.lt_of_lt_of_le hm hk)
+    SafeN G k P s := Ascent.SafeN.mono hk h
 
 /-- A step from a state that does not accept: one budget unit is spent. -/
 theorem step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
-    (hs : stepSp1 s = some t) (ht : SafeN G n P t) : SafeN G (n + 1) P s := by
-  intro m hm s' hr hg ha
-  cases m with
-  | zero => simp at hr; subst hr; exact absurd ha hna
-  | succ m =>
-    obtain ⟨s1, h1, h2⟩ := stepsSp1_succ hr
-    rw [hs] at h1; cases h1
-    exact ht m (by omega) s' h2
-      (fun j hj x hx => hg (j + 1) (by omega) x (by simp [stepsSp1_succ', hs, hx])) ha
+    (hs : stepSp1 s = some t) (ht : SafeN G n P t) : SafeN G (n + 1) P s :=
+  Ascent.SafeN.step hna (fun _ => (Ascent.detStep_of_some hs).1) ht
 
 /-- A step does not need budget: `SafeN n` passes back along it. -/
 theorem of_step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
@@ -103,11 +98,8 @@ theorem of_step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
 
 /-- A state with no step: safe unless it accepts. -/
 theorem stuck {P : Prop} {s : MachineState} {n : Nat} (hs : stepSp1 s = none)
-    (hp : Accepted s → P) : SafeN G n P s := by
-  intro m _ s' hr _ ha
-  cases m with
-  | zero => simp at hr; subst hr; exact hp ha
-  | succ m => simp [stepsSp1_succ', hs] at hr
+    (hp : Accepted s → P) : SafeN G n P s :=
+  Ascent.SafeN.stuck (fun _ => (Ascent.detStep_of_none hs).1) hp
 
 /-- From a state that does not accept, safe for `n + 1` steps if every successor is safe
     for `n`. -/
@@ -119,9 +111,8 @@ theorem intro {P : Prop} {s : MachineState} {n : Nat} (hna : ¬ Accepted s)
 
 /-- The guard holds at the current state of every run it constrains. -/
 theorem assume {P : Prop} {s : MachineState} {n : Nat} (h : G s → SafeN G n P s) :
-    SafeN G n P s := by
-  intro m hm s' hr hg ha
-  exact h (hg 0 (Nat.zero_le _) s rfl) m hm s' hr hg ha
+    SafeN G n P s :=
+  Ascent.SafeN.assume h
 
 /-! ### The symbolic executor's forms
 
@@ -170,12 +161,12 @@ theorem trap {P : Prop} {s : MachineState} {n : Nat} (h : s.code s.pc = none) : 
 
 /-- Anything is safe for a true `P`. -/
 theorem of_true {P : Prop} {n : Nat} (hp : P) (s : MachineState) : SafeN G n P s :=
-  fun _ _ _ _ _ _ => hp
+  Ascent.SafeN.of_true (fun _ => Ascent.detStep_ne_wrong) hp s
 
 /-- Monotonicity in `P`. -/
 theorem imp {P Q : Prop} {s : MachineState} {n : Nat} (h : SafeN G n P s) (hpq : P → Q) :
     SafeN G n Q s :=
-  fun m hm s' hr hg ha => hpq (h m hm s' hr hg ha)
+  Ascent.SafeN.imp h hpq
 
 /-- Name a value: the executor's way of introducing an atom. -/
 theorem gen {P : Prop} {s : MachineState} {n : Nat} {α : Sort _} (e : α)
@@ -199,37 +190,15 @@ hands over to the code after the loop. The iteration count is the induction; the
 
 theorem loop {P : Prop} {n : Nat} (Inv : Nat → MachineState → Prop) (N : Nat)
     (hbody : ∀ i, i < N → ∀ s, Inv i s → (∀ t, Inv (i + 1) t → SafeN G n P t) → SafeN G n P s)
-    (hN : ∀ s, Inv N s → SafeN G n P s) : ∀ s, Inv 0 s → SafeN G n P s := by
-  have : ∀ j, j ≤ N → ∀ s, Inv (N - j) s → SafeN G n P s := by
-    intro j
-    induction j with
-    | zero => intro _ s hs; simpa using hN s hs
-    | succ j ih =>
-      intro hj s hs
-      have hlt : N - (j + 1) < N := by omega
-      refine hbody _ hlt s hs ?_
-      intro t ht
-      have : N - (j + 1) + 1 = N - j := by omega
-      exact ih (by omega) t (this ▸ ht)
-  intro s hs
-  exact this N (Nat.le_refl N) s (by simpa using hs)
+    (hN : ∀ s, Inv N s → SafeN G n P s) : ∀ s, Inv 0 s → SafeN G n P s :=
+  Ascent.loop Inv N hbody hN
 
 /-- A loop whose iteration count is not known in advance: a measure that decreases on
     every iteration that does not exit. -/
 theorem loop_measure {P : Prop} {n : Nat} (Inv : MachineState → Prop) (μ : MachineState → Nat)
     (hbody : ∀ s, Inv s → (∀ t, Inv t → μ t < μ s → SafeN G n P t) → SafeN G n P s) :
-    ∀ s, Inv s → SafeN G n P s := by
-  have : ∀ m s, μ s ≤ m → Inv s → SafeN G n P s := by
-    intro m
-    induction m with
-    | zero =>
-      intro s hμ hs
-      exact hbody s hs (fun t _ hlt => absurd hlt (by omega))
-    | succ m ih =>
-      intro s hμ hs
-      exact hbody s hs (fun t ht hlt => ih t (by omega) ht)
-  intro s hs
-  exact this _ s (Nat.le_refl _) hs
+    ∀ s, Inv s → SafeN G n P s :=
+  Ascent.loop_measure Inv μ hbody
 
 end SafeN
 

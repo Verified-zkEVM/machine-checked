@@ -22,6 +22,7 @@ import MachineChecked.RiscV.Lprog.Lift
 import MachineChecked.RiscV.Lprog.Block
 import MachineChecked.Ascent.Run
 import MachineChecked.Ascent.Corres
+import MachineChecked.Ascent.Safe
 import MachineChecked.Lprog.Syntax
 import MachineChecked.Lprog.Sem
 import MachineChecked.Lprog.Op
