@@ -57,7 +57,8 @@ jobs:
             lake build Cases.CatCrypt.$m 2>&1 | tee -a build.log
           done
           lake build Cases.CatCrypt 2>&1 | tee -a build.log
-          if grep -E '^warning: ' build.log; then
+          # Lean's diagnostics, not Lake's notices (e.g. a dependency built from source).
+          if grep -E '^warning: .*\.lean:' build.log; then
             echo "::error::the build has warnings"; exit 1
           fi
 
@@ -89,6 +90,6 @@ jobs:
           set -o pipefail
           lake build MachineChecked Tools Cases 2>&1 | tee build.log
           # The known baseline: warnings in the vendored code under Cases/Zip2005/Spec.
-          if grep -E '^warning: ' build.log | grep -v '^warning: Cases/Zip2005/Spec/'; then
+          if grep -E '^warning: .*\.lean:' build.log | grep -v '^warning: Cases/Zip2005/Spec/'; then
             echo "::error::warnings outside the Cases/Zip2005/Spec baseline"; exit 1
           fi
