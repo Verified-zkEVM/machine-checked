@@ -28,6 +28,7 @@
 import MachineChecked.RiscV.Accept
 import MachineChecked.Ascent.Run
 import MachineChecked.Ascent.Safe
+import MachineChecked.Ascent.Corres
 import MachineChecked.RiscV.State
 
 namespace MachineChecked.RiscV
@@ -70,9 +71,9 @@ theorem not_accepted_of_step {s t : MachineState} (h : stepSp1 s = some t) : ¬ 
 /-! ## The judgement -/
 
 /-- The generic judgement (`Ascent.SafeN`) at `stepSp1`, which never goes `wrong`, with
-    `Accepted` as the accepting states. -/
+    `Accepted` as the accepting states, every one of which must give `P`. -/
 def SafeN (G : MachineState → Prop) (n : Nat) (P : Prop) (s : MachineState) : Prop :=
-  Ascent.SafeN (Ascent.detStep stepSp1) Accepted G n P s
+  Ascent.SafeN (Ascent.detStep stepSp1) Accepted G n (fun _ => P) s
 
 def Safe (G : MachineState → Prop) (P : Prop) (s : MachineState) : Prop := ∀ n, SafeN G n P s
 
@@ -161,12 +162,12 @@ theorem trap {P : Prop} {s : MachineState} {n : Nat} (h : s.code s.pc = none) : 
 
 /-- Anything is safe for a true `P`. -/
 theorem of_true {P : Prop} {n : Nat} (hp : P) (s : MachineState) : SafeN G n P s :=
-  Ascent.SafeN.of_true (fun _ => Ascent.detStep_ne_wrong) hp s
+  Ascent.SafeN.of_true (fun _ => Ascent.detStep_ne_wrong) (fun _ => hp) s
 
 /-- Monotonicity in `P`. -/
 theorem imp {P Q : Prop} {s : MachineState} {n : Nat} (h : SafeN G n P s) (hpq : P → Q) :
     SafeN G n Q s :=
-  Ascent.SafeN.imp h hpq
+  Ascent.SafeN.imp h fun _ _ => hpq
 
 /-- Name a value: the executor's way of introducing an atom. -/
 theorem gen {P : Prop} {s : MachineState} {n : Nat} {α : Sort _} (e : α)
@@ -209,6 +210,20 @@ theorem SafeN.of_reaches {G : MachineState → Prop} {n : Nat} {P : Prop} {Q : M
     SafeN G n P s := by
   obtain ⟨k, t, hk', ht⟩ := h
   exact SafeN.steps hk' (hk t ht)
+
+/-- A correspondence over riscv-zkvm's machine: the generic one (`Ascent.Corres`) at
+    `stepSp1`, with `Accepted` as the accepting states. -/
+abbrev CorresSp1 {AState : Type} (SR : MachineState → AState → Prop) (Pre : AState → Prop)
+    (fa : AState → AState) : Prop :=
+  Ascent.Corres (Ascent.detStep stepSp1) Accepted SR Pre fa
+
+/-- **A correspondence as a contract**: from a state related to an abstract state satisfying
+    the precondition, `SafeN` holds if it holds from every state related to the result. -/
+theorem SafeN.of_corres {AState : Type} {SR : MachineState → AState → Prop} {Pre : AState → Prop}
+    {fa : AState → AState} (h : CorresSp1 SR Pre fa)
+    {G : MachineState → Prop} {n : Nat} {P : Prop} {m : MachineState} {a : AState} (hSR : SR m a)
+    (hPre : Pre a) (hk : ∀ t, SR t (fa a) → SafeN G n P t) : SafeN G n P m :=
+  h G n _ m a hSR hPre hk
 
 /-- The unbounded judgement, from the bounded one at every budget. -/
 theorem Safe.safeN {G : MachineState → Prop} {P : Prop} {s : MachineState} (h : Safe G P s)
