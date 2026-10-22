@@ -1,6 +1,6 @@
 # Design note: Lprog as a program-level verification layer
 
-**Status: proposal, for review.** It fixes the design of milestones A–D in
+**Status: accepted (2026-10-22).** It fixes the design of milestones A–D in
 [`ROADMAP.md`](../../ROADMAP.md) steps 1–3 (issues #2–#5). Nothing here is implemented yet.
 
 ## Goal
@@ -28,7 +28,8 @@ A program is a list of functions. A function has a name, a body (as today), and 
 structure Lfundef (Op Reg : Type) where
   name  : String
   body  : Lcmd Op Reg
-  depth : Nat              -- the most stack it uses below its entry sp, callees excluded
+  depth : Nat              -- the most stack it uses below its entry sp, callees excluded;
+                           -- an untrusted annotation (see Decisions)
 ```
 
 A state is a stack of activations, the register file and the rest of the machine:
@@ -63,8 +64,10 @@ simulation of the machine instead of an abstraction of it, and leaves real abstr
 - An indirect call `Lcall [f₁, …, fₖ] r` calls the candidate whose entry the register `r`
   holds, and goes `wrong` if it holds none of them; a control-flow premise in the contract
   (as `Env.Cfi` today) says which candidates a site has.
-- Tail calls lift to `Lcall` followed by `Lret`, or directly as a jump to another function's
-  entry with the frame replaced; the choice is left to the implementation.
+- A tail call (`jal x0, f`, or `jalr x0` to a candidate entry) lifts to `Ltail f`, which
+  replaces the current frame by one for `f` with the same `ret` and `top`, and leaves the link
+  register alone. It is defined only if `sp` is back at `top` (the caller has released its
+  frame). The callee's `Lret` then returns straight to the caller's caller, as on the machine.
 
 Because `Lret` goes `wrong` on a bad return address, and the judgement (§5) excludes `wrong`,
 return-address integrity is proved at Lprog as part of every function's proof. It is what
@@ -210,10 +213,23 @@ Each re-proof keeps its machine-level statement (via the transfer theorem), so c
 change and the end theorem stays green at every step. `PanicPaths`, the open premise of
 `guest_run`, is out of scope.
 
-## Open points for review
+## Decisions on the points left open
 
-1. **Tail calls:** `Lcall; Lret`, or a frame-replacing jump (§2)?
-2. **`depth` per function:** taken from the checker's inference, or proved per function at
-   Lprog? (The window only needs to be large enough for the contract.)
-3. **The checker:** emit Lprog contracts, or retire it once the executor covers its ground?
-   To be decided in milestone C, with numbers.
+1. **Tail calls are a frame-replacing `Ltail`** (§2), not `Lcall; Lret`. On the machine a tail
+   call does not touch `ra`, and the callee returns to the caller's caller. `Lcall; Lret` would
+   push a frame the machine never has, and write a link register the machine never writes, so
+   the simulation would not hold. `Ltail` is the machine's behaviour exactly. For contracts it
+   is a call whose continuation is the caller's own, used at a smaller budget like `Lcall`.
+2. **`depth` is an untrusted annotation of the lifted program.** Nothing in the semantics or
+   in the lift's correctness depends on it: `Lret` checks only that `sp` is back at `top`, and
+   memory is flat. `depth` serves contracts, which name the window `[top - depth, top)` as the
+   function's own. A wrong `depth` makes a contract unprovable, never unsound. So it can come
+   from any tool: initially the stack bounds `Tools/Infer.lean` already computes (the checker's
+   `Iface.depth`), with a per-function override.
+3. **The checker is retired, unless milestone C's numbers say otherwise.** Its trusted part
+   (the Boolean check and its soundness proof over the machine) is a second proof route, which
+   this design exists to remove. Its useful part (inferring footprints, stack bounds and
+   indirect-call candidates for every function) moves to `Tools/` as an untrusted producer of
+   annotations and draft contracts, which the Lprog executor re-proves. Exception, decided in
+   milestone C: if the executor is markedly slower on the 68 functions the checker covers
+   today, `Check` is ported to emit Lprog contracts instead.
