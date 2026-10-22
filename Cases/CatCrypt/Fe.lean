@@ -1,4 +1,4 @@
-import MachineChecked.RiscV.Corres.Block
+import MachineChecked.RiscV.Lprog.Block
 
 /-!
 # Four-limb values in registers, for catcrypt-compiler's RV64 kernels
@@ -8,14 +8,17 @@ limbs, little-endian) and leave the result in `a0..a3`. `limbs4` reads such a va
 natural number, and `limbs4_eq_toNat` relates it to the 256-bit concatenation `bv_decide`
 reasons about.
 
-A kernel is stated as a correspondence (`MachineChecked.RiscV.Corres`) between the machine
-and an abstract state that is either the entry (two values, at the block's start) or the
-exit (one value, past the block): `KState`, `KSR`.
+A kernel is stated as a correspondence (`MachineChecked.Ascent.Corres` over `stepSp1`)
+between the machine and an abstract state that is either the entry (two values, at the
+block's start) or the exit (one value, past the block): `KState`, `KSR`. It is proved through
+the lift: the block runs at Lprog (`MachineChecked.RiscV.Lprog.corres_block`), and its effect
+is the fold of `execInstrBr` over it.
 -/
 
 namespace Cases.CatCrypt
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Lprog
+open MachineChecked.Ascent (Corres)
 
 /-- The Curve25519 prime. -/
 def p25519 : Nat := 2 ^ 255 - 19
@@ -62,22 +65,25 @@ def KSpec (f : Nat → Nat → Nat) : KState → KState
   | .entry x y => .exit (f x y)
   | .exit z => .exit z
 
-/-- **A straight-line kernel.** A block of straight instructions whose fold takes the inputs
-    in `a0..a7` to `f x y` in `a0..a3`, for inputs satisfying `pre`, corresponds to `f`. -/
-theorem kernel_corres (base : Word) (prog : List Instr) (hall : prog.all isStraight = true)
+/-- Registers agreeing, so do the values in `a0..a3`. -/
+theorem regA_of_agree {t u : MachineState} (h : Agree t u) : regA t = regA u := by
+  simp only [regA, h.regs]
+
+/-- **A straight-line kernel.** A block of pure instructions whose fold takes the inputs in
+    `a0..a7` to `f x y` in `a0..a3`, for inputs satisfying `pre`, corresponds to `f`. -/
+theorem kernel_corres (base : Word) (prog : List Instr) (hall : prog.all isPure = true)
     (pre : Nat → Nat → Prop) (f : Nat → Nat → Nat)
     (h : ∀ m : MachineState, pre (regA m) (regB m) →
       regA (prog.foldl execInstrBr m) = f (regA m) (regB m)) :
-    Corres (KSR base prog) (KPre pre) (KSpec f) prog.length := by
-  apply Corres.straight prog hall
+    Corres stepSp1 (KSR base prog) (KPre pre) (KSpec f) := by
+  apply corres_block base prog hall
   · rintro m (⟨x, y⟩ | z) hSR hP
-    · exact codeFrom_of_codeAt hSR.1 hSR.2.1
+    · exact ⟨hSR.1, hSR.2.1⟩
     · exact hP.elim
-  · rintro m (⟨x, y⟩ | z) hSR hP
-    · obtain ⟨hc, hpc, hx, hy⟩ := hSR
+  · rintro m (⟨x, y⟩ | z) t hSR hP hag htpc htc
+    · obtain ⟨-, -, hx, hy⟩ := hSR
       subst hx hy
-      exact ⟨codeAt_of_code_eq (code_foldl_straight prog m hall) hc,
-        by rw [pc_foldl_straight prog m hall, hpc], h m hP⟩
+      exact ⟨htc, htpc, (regA_of_agree hag).trans (h m hP)⟩
     · exact hP.elim
 
 /-- The reduction the kernels' `bv_decide` facts give: a value below `p` that differs from `S`

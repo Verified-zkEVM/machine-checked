@@ -4,10 +4,11 @@
   Ported from catcrypt-compiler `CatCrypt/Crypto/SecureCompilation/VIR/JasminLprogExport/Types.lean`
   at `69ffea9f` (MIT, Copyright (c) 2024-2026 CatCrypt Contributors; see
   `MachineChecked/Ascent/LICENSE-catcrypt`). Changed: the namespace; the instruction-info,
-  alignment and stack fields of `Lfundef` that no semantics here reads are dropped; the
-  operation of `Lopn` is a parameter `Op` (catcrypt-compiler carries a mnemonic `String`, which
-  is `Op := String`); an operand `cmp` is added, so that an instruction set without flags
-  (RISC-V) can state a branch condition, and an operand `mem` for a flat memory address.
+  alignment and stack fields of `Lfundef` that no semantics here reads are dropped; `Lopn`
+  carries one operation of a type `Op` (catcrypt-compiler carries a mnemonic `String` with
+  destination and source operand lists; here the operation names its own registers, see
+  `Lprog.Op`); the array operands are dropped, since memory is flat; an operand `cmp` is added,
+  so that an instruction set without flags (RISC-V) can state a branch condition.
 -/
 
 /-!
@@ -36,22 +37,16 @@ inductive LabelKind where
 inductive LOperand where
   /-- A named register. -/
   | reg (name : String)
-  /-- An array element `base[idx]`. -/
-  | arr (base : String) (idx : Nat)
   /-- An immediate. -/
   | imm (value : Int)
-  /-- A register-indexed array element `base[idx * scale]`. -/
-  | arrIdx (base idx : String) (scale : Nat)
-  /-- A flat memory access of `width` bytes at the address in register `base` plus `off`. -/
-  | mem (base : String) (off : Int) (width : Nat)
   /-- A comparison `op` of two operands, as a branch condition. -/
   | cmp (op : String) (a b : LOperand)
   deriving DecidableEq, Repr
 
 /-- An instruction (`Linear.linstr_r`), over operations `Op`. -/
 inductive LinstrR (Op : Type) where
-  /-- Write `dsts`, applying the operation `opn` to `srcs`. -/
-  | Lopn (dsts : List LOperand) (opn : Op) (srcs : List LOperand)
+  /-- An operation: it names the registers and memory it reads and writes. -/
+  | Lopn (opn : Op)
   | Lsyscall (name : String)
   /-- Call the function at `target`, the return address into `ra` (or onto the stack). -/
   | Lcall (ra : Option String) (target : String × LLabel)

@@ -6,7 +6,7 @@ case depends on the framework, and nothing in the framework depends on a case.
 | directory | binary | what is verified |
 | --- | --- | --- |
 | [`Zip2005/`](Zip2005/README.md) | An SP1 guest compiled from Rust that checks a Zcash Orchard statement (ZIP 2005) | The whole guest, from its loaded ELF to its high-level statement: runtime, allocator, cryptography and `main`, composed through the contract table. |
-| [`CatCrypt/`](CatCrypt/README.md) | RV64 kernels emitted by catcrypt-compiler | Field and point kernels at their encoded bytes, by correspondence. |
+| [`CatCrypt/`](CatCrypt/README.md) | RV64 kernels emitted by catcrypt-compiler | Field and point kernels at their encoded bytes, through the lift to Lprog. |
 | [`LeanVM/`](LeanVM/README.md) | A leanVM guest (BLAKE2s) | Loading and the image; the start of a second target. |
 
 ## Anatomy of a case
@@ -16,9 +16,16 @@ case depends on the framework, and nothing in the framework depends on a case.
   is not trusted.
 - `Loaded.lean`: facts about the loaded image (layout, code, entry state), proved from the
   image rather than assumed.
-- Function specifications, one module per function or family. Each is proved with the
-  checker, the symbolic executor, the correspondence or the logical machine.
+- Function specifications, one module per function or family. New proofs go through the
+  lift to the low logical program (`MachineChecked/RiscV/Lprog`); the zip-2005 proofs mostly
+  use the layer-0 tools (the checker, the symbolic executor).
+- The specification itself (for example `Zip2005/Spec`). In the roadmap's terms this is layer
+  2 material; until that layer exists, each case connects its specification to its proofs
+  directly.
 - A top-level theorem over the binary's accepting runs, built from the specifications through
   the contract table.
 
-New cases are welcome; `CONTRIBUTING.md` describes how to add one.
+Each case's README says where its binary came from and under what licence.
+
+New cases are welcome; `CONTRIBUTING.md` describes how to add one, and
+[`ROADMAP.md`](../ROADMAP.md) lists the targets we would like to see.

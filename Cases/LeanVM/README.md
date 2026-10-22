@@ -2,7 +2,7 @@
 
 A second target for the framework: guests of [leanVM](https://github.com/leanEthereum/leanVM),
 `no_std` Rust built for `riscv64im-unknown-none-elf` against its SDK, on the
-`riscv-exploration` branch. `docs/TO-VERIFY.md` lists it.
+`riscv-exploration` branch. It is one of the targets in [`ROADMAP.md`](../../ROADMAP.md).
 
 ## Blake2s
 
@@ -12,9 +12,11 @@ advice's first word says, in plain Rust; it commits the length and the digest. 1
 957 instruction words: `compress` (644), `main` (220), the SDK's `finish` (47), `memset`
 (38), `_start` (14) and four one-`unimp` panic stubs.
 
-- `experiments/leanvm/fetch.sh` fetches the ELF by content, checks its SHA-256
-  (`6d83bc01…`), writes the `llvm-nm` boundaries, and prints the load digest
-  (`0x10000000 2adaee33…`, entry plus every `PT_LOAD` segment).
+- The ELF is identified by content: SHA-256 `6d83bc01…`, load digest `0x10000000 2adaee33…`
+  (entry plus every `PT_LOAD` segment). The fetch script is not published yet.
+- **Provenance and licence.** leanVM, its SDK and the guest are Apache-2.0
+  ([leanVM](https://github.com/leanEthereum/leanVM)). `Blake2s/Image/` holds this binary's
+  machine code decoded as Lean data.
 - `Blake2s/Image/` is `gen-image`'s output: one module per function (`words`, `prog`), the
   three data chunks (`.rodata` and `.data` at `0x40000000`, `.bss` after), and the
   `Layout`. gen-image cross-checked it against riscv-zkvm's `Interpreter.load`.
@@ -23,8 +25,8 @@ advice's first word says, in plain Rust; it commits the length and the digest. 1
 
 **The specification** of the hash is the Lean one in
 [hash-specs](https://github.com/dhsorens/hash-specs) (`Hash.BLAKE2.*`: reference, fast,
-streaming, and their equivalence). It is on Lean `v4.34.0` with Mathlib; this repository is on
-`v4.33.0` with no Mathlib, so the dependency is not taken yet. When the proof reaches the
+streaming, and their equivalence). It is on a newer Lean than this repository, so the dependency is
+not taken yet. When the proof reaches the
 digest, either this repository moves to the same toolchain and requires hash-specs, or the
 Mathlib-free reference module is what the guest's `compress` is proved against. The statement
 to aim for: a run of the guest with advice word `n` commits `n` and `BLAKE2s-256` of the

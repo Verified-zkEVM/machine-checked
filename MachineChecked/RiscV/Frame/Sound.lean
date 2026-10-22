@@ -50,9 +50,6 @@ def AState.Holds (E : Ent) (A : AState) (s : MachineState) : Prop :=
   (∀ r, (A.get r).Holds E (s.getReg r)) ∧
   ∀ p ∈ A.slots, p.2.Holds E (s.getMem (E .x2 + p.1))
 
-theorem mem_allRegs (r : Reg) : r ∈ allRegs := by
-  cases r <;> simp [allRegs]
-
 theorem getD_map_allRegs (f : Reg → AVal) (r : Reg) (d : AVal) :
     (allRegs.map f).getD (regIdx r) d = f r := by
   cases r <;> rfl
@@ -131,16 +128,6 @@ theorem holds_entry {E} {s : MachineState} (hE : ∀ r, r ≠ .x0 → s.getReg r
 end AState
 
 /-! ## Machine facts the transfer proof needs -/
-
-theorem getReg_setMem {s : MachineState} {a v : Word} {r : Reg} :
-    (s.setMem a v).getReg r = s.getReg r := by
-  cases r <;> rfl
-
-theorem getMem_setMem {s : MachineState} {a v x : Word} :
-    (s.setMem a v).getMem x = if x = a then v else s.getMem x := by
-  by_cases h : x = a
-  · subst h; simp
-  · simp [h]
 
 /-- An address lies less than 8 bytes above its doubleword. -/
 theorem sub_alignToDword_lt (a : Word) : (a - alignToDword a).toNat < 8 := by
@@ -501,8 +488,6 @@ theorem transfer_some_plain {pc : Word} {A : AState} {i : Instr} {o : Out}
     (h : transfer pc A i = some o) : i ≠ .ECALL ∧ i ≠ .EBREAK ∧ ∀ c r, i ≠ .CSRS c r := by
   refine ⟨?_, ?_, fun c r => ?_⟩ <;> (rintro rfl; simp [transfer, aluResult, loadOf, storeOf] at h)
 
-theorem setReg_x0 (s : MachineState) (v : Word) : s.setReg .x0 v = s := rfl
-
 /-! ## One checked step -/
 
 theorem Fn.step_of_instrAt {f : Fn} {i : Nat} {A : AState} {ins : Instr}
@@ -711,7 +696,7 @@ theorem runFrag_sound {E} {fb : Word} :
       simp only [runFrag, if_true, Option.some.injEq] at hr; subst hr
       simp only [fragLen, if_true, Option.some.injEq] at hk; subst hk
       obtain ⟨s1, hs1, hrest⟩ := stepsSp1_succ hsteps
-      simp only [stepsSp1, Option.some.injEq] at hrest; subst hrest
+      simp only [stepsSp1_zero, Option.some.injEq] at hrest; subst hrest
       have hex := stepSp1_exec hfetch (by simp) (by simp) (by simp) hs1
       subst hex
       refine ⟨?_, by simp, ?_⟩

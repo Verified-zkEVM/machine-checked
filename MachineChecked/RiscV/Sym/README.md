@@ -1,5 +1,9 @@
 # Sym
 
+**A layer-0 proof tool** (see [`../README.md`](../README.md)): it proves things about
+riscv-zkvm's machine directly, without the lift to Lprog. Its results enter the contract table
+as `SafeN` facts.
+
 The symbolic executor, `sym_exec`. Given a goal `SafeN G n P s`, it steps the machine from
 `s` one instruction at a time. It keeps the register file and memory regions as facts, splits
 at branches, applies callee specifications at calls, and stops at a return or a requested pc.

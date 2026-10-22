@@ -1,29 +1,18 @@
-# A record of the "canonical" ISA specs
+# The canonical specification of each instruction set
 
-## RISCV
+Each instruction set's model is the bottom of its stack (layer 0 of
+[`ROADMAP.md`](../ROADMAP.md)): the semantics every theorem about a binary for that ISA is
+stated against. A model is trusted only while it is named on the trust ladder
+([`ELF.md`](ELF.md) §4), and is to be verified against the canonical specification chosen
+here, or replaced by a model that already is.
 
-the SAIL spec
+| ISA | canonical specification | model here | status |
+| --- | --- | --- | --- |
+| RISC-V | the Sail RISC-V model | [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm), a dependency | tied to Sail; the only RV64 semantics |
+| x86-64 | undecided: Sail x86, the ACL2 x86 model, or Kraken (or an equivalence between them) | `MachineChecked/X86/Model.lean`, a transcription of Jasmin's x86 semantics | trusted |
+| AArch64 | undecided; the natural candidate is sail-arm, generated from Arm's own ASL | `MachineChecked/ARM/Model.lean`, hand-written | trusted |
 
-## x86
-
-Probably use Kraken; possibly the ACL2 (or prove equivalence)
-
-## ARM
-
-?
-
-## Role
-
-Each instruction set's model is the bottom of its stack: the semantics every theorem about a
-binary for that ISA is stated against. RISC-V's stack is built first. x86-64 and AArch64 are
-to become peers of it, with the same layers above their models (`docs/PLAN.md`, "Instruction
-sets"). A model is trusted only while it is named on the trust ladder, and is to be verified
-against the canonical specification chosen here.
-
-## Status (2026-10-20)
-
-- RISC-V: riscv-zkvm, tied to Sail. It is the only RV64 semantics here.
-- x86-64 and AArch64: CatCrypt's models are ported and trusted for now. The x86 model is
-  Sail-tied for the core ALU only, and AArch64 is hand-written. Each is named on the trust
-  ladder (`docs/ELF.md` §4) and is to be verified against the canonical spec chosen above.
-  A model that is already verified is preferred.
+Choosing Sail for all three would make "verified against the canonical specification" mean
+the same thing on every ISA, and there is already a pipeline from Sail to Lean for RISC-V.
+The cost is that the x86 and ARM Sail models are very large. The choice is open for
+discussion.

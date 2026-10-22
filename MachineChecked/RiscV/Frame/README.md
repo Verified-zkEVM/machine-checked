@@ -1,5 +1,9 @@
 # Frame
 
+**A layer-0 proof tool** (see [`../README.md`](../README.md)): it proves things about
+riscv-zkvm's machine directly, without the lift to Lprog. Its results enter the contract table
+as `SafeN` facts.
+
 The frame analysis: the first checker, and the base the contract checker grew from. For one
 activation of a function, it shows return-address integrity. At every way the activation
 leaves the function, whether by a `ret` or by any transfer out of its address range, `ra`

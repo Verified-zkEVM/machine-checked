@@ -53,13 +53,6 @@ import MachineChecked.RiscV.Sym.Ro
 import MachineChecked.RiscV.Sym.Carry
 import MachineChecked.RiscV.Sym.ByteFold
 
-namespace MachineChecked.RiscV.Sym
-
-/-- `getReg .x0 = 0`, for the executor's register table. -/
-theorem getReg_x0 (s : RiscvZkvm.Rv64.MachineState) : s.getReg .x0 = 0 := rfl
-
-end MachineChecked.RiscV.Sym
-
 open Lean Meta Elab Tactic
 
 namespace MachineChecked.RiscV.Sym.Meta
@@ -563,13 +556,13 @@ def St.refresh (st : St) : MetaM St := do
   let mut regs := st.regs
   for i in [0:32] do
     if let some f := st.regs[i]! then
-      let pf ← if i == 0 then pure (mkApp (mkConst ``MachineChecked.RiscV.Sym.getReg_x0) s) else do
+      let pf ← if i == 0 then pure (mkApp (mkConst ``MachineChecked.RiscV.getReg_x0) s) else do
         let hi ← natLt i 32
         let raw := mkAppN (mkConst ``MachineChecked.RiscV.Sym.Regs.get) #[s, st.regList, st.hregs, mkNatLit i, hi]
         mkExpectedTypeHint raw (mkEqW (mkGetReg s i) f.val)
       regs := regs.set! i (some { f with proof := pf })
   let sameM := st.sM == s
-  let hunch ← if sameM then pure st.hunchM else mkAppM ``MachineChecked.RiscV.Sym.Unchanged.of_mem_eq' #[st.hunchM, st.hmem]
+  let hunch ← if sameM then pure st.hunchM else mkAppM ``MachineChecked.RiscV.Sym.Unchanged.of_mem_eq #[st.hunchM, st.hmem]
   let regions ← st.regions.mapM fun R => do
     if let some outW := R.outW then
       if st.s0 == s then return { R with hyp := R.hypM }
@@ -578,7 +571,7 @@ def St.refresh (st : St) : MetaM St := do
         | none => rflOf (← mkEq (← mkAppM ``List.length #[R.listExpr]) (mkNatLit R.n)) (mkNatLit R.n)
       return { R with hyp := ← mkAppM ``MachineChecked.RiscV.Sym.Region.of_unchanged' #[R.hypM, hunch, hn, outW] }
     if sameM then return { R with hyp := R.hypM }
-    return { R with hyp := ← mkAppM ``MachineChecked.RiscV.Sym.Region.of_mem_eq' #[R.hypM, st.hmem] }
+    return { R with hyp := ← mkAppM ``MachineChecked.RiscV.Sym.Region.of_mem_eq #[R.hypM, st.hmem] }
   let same0 := st.s0 == s
   let codes ← st.codes.mapM fun c => do
     if same0 then return { c with hyp := c.hyp0 }
@@ -3422,7 +3415,7 @@ def readPost (old : St) (t : Expr) (hyps : Array Expr) : SymM Unit := do
   let mut consumed : Array FVarId := #[]
   let mut purePost : Array Expr := #[]
   let mut postCarry : Option Expr := none
-  regs := regs.set! 0 (some ⟨mkWordLit 0, Lin.lit 0, mkApp (mkConst ``MachineChecked.RiscV.Sym.getReg_x0) t⟩)
+  regs := regs.set! 0 (some ⟨mkWordLit 0, Lin.lit 0, mkApp (mkConst ``MachineChecked.RiscV.getReg_x0) t⟩)
   for h in hyps do
     let ty ← withMainContext do instantiateMVars (← inferType h)
     if let some (_, _, _, t') ← withMainContext (carryParts? ty) then

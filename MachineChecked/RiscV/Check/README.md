@@ -1,5 +1,9 @@
 # Check
 
+**A layer-0 proof tool** (see [`../README.md`](../README.md)): it proves things about
+riscv-zkvm's machine directly, without the lift to Lprog. Its results enter the contract table
+as `SafeN` facts.
+
 The contract checker. From a function's code, an untrusted annotation (a certificate) and the
 interfaces of its callees, `Domain.lean` computes a Boolean that says the function meets its
 own interface. The kernel runs it. The soundness theorems turn an accepted check into a

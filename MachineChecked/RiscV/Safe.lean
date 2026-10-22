@@ -26,6 +26,8 @@
 -/
 
 import MachineChecked.RiscV.Accept
+import MachineChecked.Ascent.Run
+import MachineChecked.RiscV.State
 
 namespace MachineChecked.RiscV
 
@@ -33,10 +35,8 @@ open RiscvZkvm.Rv64
 
 /-! ## Runs -/
 
-/-- `n` steps of the SP1 backend. -/
-def stepsSp1 : Nat → MachineState → Option MachineState
-  | 0, s => some s
-  | n + 1, s => (stepSp1 s).bind (stepsSp1 n)
+/-- `n` steps of the SP1 backend: the generic run (`Ascent.steps`) of `stepSp1`. -/
+abbrev stepsSp1 : Nat → MachineState → Option MachineState := Ascent.steps stepSp1
 
 @[simp] theorem stepsSp1_zero (s : MachineState) : stepsSp1 0 s = some s := rfl
 
@@ -45,21 +45,15 @@ theorem stepsSp1_succ' (n : Nat) (s : MachineState) :
 
 theorem stepsSp1_succ {n : Nat} {s s' : MachineState} (h : stepsSp1 (n + 1) s = some s') :
     ∃ s1, stepSp1 s = some s1 ∧ stepsSp1 n s1 = some s' := by
-  simpa [stepsSp1, Option.bind_eq_some_iff] using h
+  simpa [stepsSp1_succ', Option.bind_eq_some_iff] using h
 
 theorem stepsSp1_succ_of_step {n : Nat} {s s₁ : MachineState} (h : stepSp1 s = some s₁) :
-    stepsSp1 (n + 1) s = stepsSp1 n s₁ := by
-  rw [stepsSp1_succ', h]; rfl
+    stepsSp1 (n + 1) s = stepsSp1 n s₁ :=
+  Ascent.steps_succ_of_step h
 
 theorem stepsSp1_add (m n : Nat) (s : MachineState) :
-    stepsSp1 (m + n) s = (stepsSp1 m s).bind (stepsSp1 n) := by
-  induction m generalizing s with
-  | zero => simp
-  | succ m ih =>
-    rw [Nat.succ_add, stepsSp1_succ', stepsSp1_succ']
-    cases stepSp1 s with
-    | none => rfl
-    | some s₁ => simpa using ih s₁
+    stepsSp1 (m + n) s = (stepsSp1 m s).bind (stepsSp1 n) :=
+  Ascent.steps_add m n s
 
 /-- A stuck state ends the run where it is. -/
 theorem stepsSp1_of_stuck {s s' : MachineState} {k : Nat} (hstuck : stepSp1 s = none)
@@ -67,10 +61,6 @@ theorem stepsSp1_of_stuck {s s' : MachineState} {k : Nat} (hstuck : stepSp1 s = 
   cases k with
   | zero => simp at h; exact ⟨rfl, h.symm⟩
   | succ k => rw [stepsSp1_succ', hstuck] at h; exact absurd h (by simp)
-
-/-- An accepting state is stuck (`HALT` stops the machine). -/
-theorem stepSp1_of_accepted {s : MachineState} (h : Accepted s) : stepSp1 s = none :=
-  Accepted.stuck h
 
 /-- A state that steps is not accepting. -/
 theorem not_accepted_of_step {s t : MachineState} (h : stepSp1 s = some t) : ¬ Accepted s :=
@@ -99,12 +89,12 @@ theorem step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
     (hs : stepSp1 s = some t) (ht : SafeN G n P t) : SafeN G (n + 1) P s := by
   intro m hm s' hr hg ha
   cases m with
-  | zero => simp [stepsSp1] at hr; subst hr; exact absurd ha hna
+  | zero => simp at hr; subst hr; exact absurd ha hna
   | succ m =>
     obtain ⟨s1, h1, h2⟩ := stepsSp1_succ hr
     rw [hs] at h1; cases h1
     exact ht m (by omega) s' h2
-      (fun j hj x hx => hg (j + 1) (by omega) x (by simp [stepsSp1, hs, hx])) ha
+      (fun j hj x hx => hg (j + 1) (by omega) x (by simp [stepsSp1_succ', hs, hx])) ha
 
 /-- A step does not need budget: `SafeN n` passes back along it. -/
 theorem of_step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
@@ -116,8 +106,8 @@ theorem stuck {P : Prop} {s : MachineState} {n : Nat} (hs : stepSp1 s = none)
     (hp : Accepted s → P) : SafeN G n P s := by
   intro m _ s' hr _ ha
   cases m with
-  | zero => simp [stepsSp1] at hr; subst hr; exact hp ha
-  | succ m => simp [stepsSp1, hs] at hr
+  | zero => simp at hr; subst hr; exact hp ha
+  | succ m => simp [stepsSp1_succ', hs] at hr
 
 /-- From a state that does not accept, safe for `n + 1` steps if every successor is safe
     for `n`. -/
@@ -242,6 +232,14 @@ theorem loop_measure {P : Prop} {n : Nat} (Inv : MachineState → Prop) (μ : Ma
   exact this _ s (Nat.le_refl _) hs
 
 end SafeN
+
+/-- **The bridge for a run.** A run from `s` to states that are all safe for `n` steps makes
+    `s` safe for `n` steps. -/
+theorem SafeN.of_reaches {G : MachineState → Prop} {n : Nat} {P : Prop} {Q : MachineState → Prop}
+    {s : MachineState} (h : Ascent.Reaches stepSp1 Q s) (hk : ∀ t, Q t → SafeN G n P t) :
+    SafeN G n P s := by
+  obtain ⟨k, t, hk', ht⟩ := h
+  exact SafeN.steps hk' (hk t ht)
 
 /-- The unbounded judgement, from the bounded one at every budget. -/
 theorem Safe.safeN {G : MachineState → Prop} {P : Prop} {s : MachineState} (h : Safe G P s)

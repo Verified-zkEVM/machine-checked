@@ -1,3 +1,5 @@
+> **Status (2026-10-21): archived.** An investigation, not implemented. The symbolic executor is layer-0 tooling; see [`ROADMAP.md`](../../ROADMAP.md).
+
 # SYMM: the symbolic executor on Lean's `SymM`
 
 Plan for moving `sym_exec` (`MachineChecked/RiscV/Sym/`) and the proof patterns around it onto

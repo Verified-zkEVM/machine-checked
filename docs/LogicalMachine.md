@@ -1,15 +1,13 @@
-NOTE note yet implemented, a draft architecture note
+# The structured logical program: a design sketch
 
-**Status (2026-10-20).** The logical machine is, for now, CatCrypt's **Lprog** (linear
-Jasmin), ported, extended with a flat-memory operand and with flags as an `Isa` parameter
-(`CATCRYPT-PORT.md` P4). We iterate from there. Lprog sits after register allocation, so it
-is lower than the `LogicalProgram` sketched below, which stays as a possible later rung.
-
-The logical machine is also where instruction sets meet. `Lprog`'s syntax and semantics are
-ISA-independent, and an instruction set joins by giving an `Isa` instance, a lift from its
-decoded code and a simulation down to its machine. RISC-V's instance is `Lprog/RiscV.lean` and
-`Lprog/Lift.lean`. x86-64 and AArch64 are to follow the same shape, so that specifications and
-program logics written at this layer serve all three.
+> **Status (2026-10-21): a sketch of layer 1, not implemented.** In
+> [`ROADMAP.md`](../ROADMAP.md)'s terms this is the *structured logical program* (layer 1):
+> variables, structured control flow, function contracts. What exists is the layer below it,
+> the *low logical program* (layer 0.5): `MachineChecked/Lprog`, CatCrypt's linear Jasmin
+> (`Lprog`) with operations shared by every instruction set (`Lprog/Op.lean`). RISC-V lifts
+> into it (`MachineChecked/RiscV/Lprog`). The lift from layer 0.5 into the structured program
+> sketched here is decompilation, per function and possibly partial. The home for this layer
+> is `MachineChecked/Logical/`.
 
 ## LogicalProgram: an ISA-independent logical machine
 

@@ -153,7 +153,7 @@ theorem place {x S align size : Word} (hx : x &&& 31#64 = 0#64) (hx40 : x < 1#64
         (32#64 ≤ align → x + 32#64 ≤
           ((align + (x + 16#64) + 0xffffffffffffffff#64) &&& (0#64 - align))) := by
     intro x S align size hx hx40 hS hS' hp hp0 hov1 hov2 hr
-    bv_decide
+    bv_decide (config := { timeout := 120 })
   exact this x S align size hx hx40 hS hS' hp hp0 hov1 hov2 hr
 
 /-! ## What `alloc` promises -/

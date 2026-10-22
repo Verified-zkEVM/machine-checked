@@ -1,18 +1,18 @@
 # Ascent
 
-The correspondence calculus, independent of any instruction set. A concrete program, run
-by some step function, *corresponds* to an abstract function when every run from a related
-state ends in a state related to the abstract result.
+**Shared by every layer of the [roadmap](../../ROADMAP.md).** Runs and correspondence for any
+machine, given only its step function. Nothing here mentions an instruction set.
 
 | file | contents |
 | --- | --- |
-| `Refines.lean` | `RefinesP` and `RefinesO`: refinement of a partial semantics by abstract programs at three result monads (pure, `Option`, `Except`), and how they relate. |
-| `Corres.lean` | `CorresM step SR P fa c`: from a state related by `SR` to an abstract state satisfying `P`, running `c` succeeds and ends related to `fa` of it. `StepTriple` is the same thing as a Hoare triple. Includes the rules `weaken`, `congr` and `seq`. |
+| `Run.lean` | `steps f n s` (exactly `n` steps of a partial step function `f`) and `Reaches f Q s` (some run from `s` ends in a state satisfying `Q`), with the rules `step`, `steps`, `trans`, `mono` and `loop`. |
+| `Corres.lean` | `Corres f SR P fa`: from a state related by `SR` to an abstract state satisfying `P`, the machine reaches a state related to `fa` of it. With `refl`, `weaken` and `seq`. |
 
-Nothing here mentions a machine. Instances live with each ISA: `RiscV/Corres.lean` takes
-`step` to be riscv-zkvm's `stepsSp1`, and `Lprog/Sem.lean` defines `CorresIsa` over the
-logical machine. The bridges to the framework's judgement, `SafeN`, are in those
-instances.
+These are the one notion of a run in the repository. riscv-zkvm's machine is an instance
+(`RiscV/Safe.lean`: `stepsSp1 := steps stepSp1`), and so is the low logical program
+(`Lprog/Sem.lean`: `Isa.Reaches := Reaches (I.step body)`). A lift's transfer theorem carries
+a `Reaches` at one level to a `Reaches` at the other (`RiscV/Lprog/Lift.lean`,
+`reach_of_reaches`), so correspondences and runs proved high up hold of the machine.
 
 Ported from catcrypt-compiler's ascent, which follows Sebastian Graf's
 [ascent](https://github.com/sgraf812/ascent). [`PROVENANCE.md`](PROVENANCE.md) has the origin of

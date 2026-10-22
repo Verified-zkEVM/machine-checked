@@ -7,7 +7,7 @@
   doublewords); that comparison is the executable glue between the ELF and these facts.
 
   The guest is `programs/blake2s/blake2s.elf` of leanEthereum/leanVM at
-  `9255db3ea2a604898c8af4677f4707d5f671f83a` (see `experiments/leanvm/fetch.sh`): BLAKE2s-256
+  `9255db3ea2a604898c8af4677f4707d5f671f83a` (see `Cases/LeanVM/README.md`): BLAKE2s-256
   of the bytes `0, 1, 2, …` (mod 251), as many as the advice's first word says, in plain
   Rust; the length and the digest are committed. The functions: `compress`
   (`F_10000038`), `main` (`F_10000a48`), the SDK's `finish` (`F_10000dd8`), `memset`

@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Also build every case study (a few hours)"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Cache .lake
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml') }}-${{ github.sha }}
+          restore-keys: |
+            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml') }}-
+
+      - name: Fetch Mathlib's cache
+        run: lake exe cache get
+
+      - name: No sorry, axiom or native_decide in the sources
+        run: |
+          # Declarations and tactic uses, not mentions in comments or docstrings. The vendored
+          # specification libraries under Cases/Zip2005/Spec are upstream code and are checked
+          # by their own axiom census (Spec/Zip2005.lean) instead.
+          if grep -rnE '^\s*(private |protected )?axiom\s|^\s*(by\s+)?native_decide\b|:=\s*by\s+native_decide\b|<;>\s*native_decide\b|\bsorry\b\s*$|:=\s*sorry\b|by\s+sorry\b' \
+              --include='*.lean' --exclude-dir=Spec MachineChecked Cases Tools scripts; then
+            echo "::error::found sorry, axiom or native_decide"; exit 1
+          fi
+
+      - name: Build the framework, the tools and the quick case studies
+        run: |
+          set -o pipefail
+          lake build MachineChecked Tools Cases.CatCrypt \
+            Cases.Zip2005.Runtime.MemcmpLprog Cases.Zip2005.Runtime.WriteVectored \
+            Cases.Zip2005.Runtime.BlackBox Cases.LeanVM.Blake2s.Loaded 2>&1 | tee build.log
+          if grep -E '^warning: ' build.log; then
+            echo "::error::the build has warnings"; exit 1
+          fi
+
+      - name: Axiom check
+        run: |
+          lake env lean scripts/AxiomCheck.lean 2>&1 | tee axioms.log
+          # Every listed axiom must be a standard one or a bv_decide certificate.
+          bad=$(tr ',[]' '\n\n\n' < axioms.log | sed 's/^ *//; s/ *$//' \
+            | grep -vE "^$|depends on axioms:|does not depend on any axioms|^(propext|Classical\.choice|Quot\.sound)$|\.bv_decide\.ax_" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::non-standard axioms: $bad"; exit 1
+          fi
+
+  full:
+    if: github.event_name == 'workflow_dispatch' && inputs.full
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Fetch Mathlib's cache
+        run: lake exe cache get
+      - name: Build everything
+        run: |
+          set -o pipefail
+          lake build MachineChecked Tools Cases 2>&1 | tee build.log
+          # The known baseline: warnings in the vendored code under Cases/Zip2005/Spec.
+          if grep -E '^warning: ' build.log | grep -v '^warning: Cases/Zip2005/Spec/'; then
+            echo "::error::warnings outside the Cases/Zip2005/Spec baseline"; exit 1
+          fi

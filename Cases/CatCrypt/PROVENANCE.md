@@ -13,4 +13,5 @@ artifact: every theorem here is about them under `stepSp1`, and nothing depends 
 catcrypt-compiler's own RV64 model.
 
 The proofs are new. They restate catcrypt-compiler's `*Bytes_correct` theorems as
-correspondences (`MachineChecked.RiscV.Corres`) over riscv-zkvm's `stepSp1`.
+correspondences (`MachineChecked.Ascent.Corres`) over riscv-zkvm's `stepSp1`, proved through the
+lift to Lprog.

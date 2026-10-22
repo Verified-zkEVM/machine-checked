@@ -14,7 +14,7 @@
   bytes.
 -/
 
-import MachineChecked.Lprog.Lift
+import MachineChecked.RiscV.Lprog.Lift
 import Cases.Zip2005.Image.F_7803f54c
 
 namespace Cases.Zip2005
@@ -50,7 +50,7 @@ end Cases.Zip2005
 
 namespace Cases.Zip2005.MemcmpLprog
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.Lprog Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.Lprog MachineChecked.RiscV.Lprog Cases.Zip2005.Image
 
 /-- The instructions of `memcmp`. -/
 def prog : List Instr := F_7803f54c.prog.filterMap id
@@ -106,14 +106,14 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
     apply reaches_label (kd := .internal) (l := 2) (by decide)
     apply reaches_opn hag1 (i := .LBU .x14 .x11 0) (by decide) rfl
       (by simp [memOkSp1, memAccess, h11, signExtend12, hvb j hj, alignedFor, execInstrBr,
-        getReg_setReg_ite])
+        getReg_setReg])
     intro r2 m2 hag2
     -- the two bytes are loaded
     generalize hu2 : execInstrBr (execInstrBr u (.LBU .x13 .x10 0)) (.LBU .x14 .x11 0) = u2 at hag2
-    have e : ∀ r, u2.getReg r = if .x14 = r then (u0.getByte (b + BitVec.ofNat 64 j)).zeroExtend 64
-        else if .x13 = r then (u0.getByte (a + BitVec.ofNat 64 j)).zeroExtend 64 else u.getReg r := by
+    have e : ∀ r, u2.getReg r = if r = .x14 then (u0.getByte (b + BitVec.ofNat 64 j)).zeroExtend 64
+        else if r = .x13 then (u0.getByte (a + BitVec.ofNat 64 j)).zeroExtend 64 else u.getReg r := by
       intro r; subst hu2
-      simp [execInstrBr, getReg_setReg_ite, MachineState.getByte, h10, h11, hmem, signExtend12]
+      simp [execInstrBr, getReg_setReg, MachineState.getByte, h10, h11, hmem, signExtend12]
     have em : ∀ addr, u2.getMem addr = u0.getMem addr := by
       intro addr; subst hu2; simp [execInstrBr, hmem]
     have ec : u2.code = u0.code := by subst hu2; simp [execInstrBr, hcode]
@@ -133,7 +133,7 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
       refine ⟨by decide, ?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
       · rw [hag3.regs]
         simp only [e, if_true, bne_iff_ne, ne_eq, reduceCtorEq, if_false] at hne
-        simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg_ite, e, reduceCtorEq,
+        simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, e, reduceCtorEq,
           if_true, if_false, and_self, ne_eq, not_false_eq_true]
         constructor
         · intro h; exact absurd (by bv_omega) hne
@@ -143,10 +143,10 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
       · rw [hag3.regs]
         simp only [clobbered, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
         obtain ⟨h0, h1, h2, h3, h4⟩ := hr
-        simp [execInstrBr, getReg_setReg_ite, e, Ne.symm h0, Ne.symm h3, Ne.symm h4]
+        simp [execInstrBr, getReg_setReg, e, h0, h3, h4]
         exact hkept r (by simp [clobbered, h0, h1, h2, h3, h4])
       · rw [hag3.regs]
-        simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg_ite, e, reduceCtorEq,
+        simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, e, reduceCtorEq,
           if_true, if_false, and_self, ne_eq, not_false_eq_true]
         rw [BitVec.sub_eq_add_neg]
         exact sext32_sub_bytes _ _
@@ -166,16 +166,16 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
       intro r5 m5 hag5
       generalize hu5 : execInstrBr (execInstrBr (execInstrBr u2 (.ADDI .x11 .x11 1))
         (.ADDI .x12 .x12 0xfff)) (.ADDI .x10 .x10 1) = u5 at hag5
-      have e5 : ∀ r, u5.getReg r = if .x10 = r then a + BitVec.ofNat 64 (j + 1)
-          else if .x12 = r then BitVec.ofNat 64 (n - (j + 1))
-          else if .x11 = r then b + BitVec.ofNat 64 (j + 1) else u2.getReg r := by
+      have e5 : ∀ r, u5.getReg r = if r = .x10 then a + BitVec.ofNat 64 (j + 1)
+          else if r = .x12 then BitVec.ofNat 64 (n - (j + 1))
+          else if r = .x11 then b + BitVec.ofNat 64 (j + 1) else u2.getReg r := by
         have hinc : ∀ x : Word, x + BitVec.ofNat 64 j + 1#64 = x + BitVec.ofNat 64 (j + 1) := by
           intro x; rw [BitVec.add_assoc]; congr 1
           apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_add, BitVec.toNat_ofNat]; omega
         have hdec : BitVec.ofNat 64 (n - j) + 18446744073709551615#64 = BitVec.ofNat 64 (n - (j + 1)) := by
           rw [ofNat_add_neg_one (by omega), show n - j - 1 = n - (j + 1) by omega]
         intro r; subst hu5
-        simp [execInstrBr, getReg_setReg_ite, e, h10, h11, h12, signExtend12, hinc, hdec]
+        simp [execInstrBr, getReg_setReg, e, h10, h11, h12, signExtend12, hinc, hdec]
       have em5 : ∀ addr, u5.getMem addr = u0.getMem addr := by
         intro addr; subst hu5; simp [execInstrBr, em]
       have ec5 : u5.code = u0.code := by subst hu5; simp [execInstrBr, ec]
@@ -186,7 +186,7 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
         simp only [clobbered, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr'
         obtain ⟨h0, h1, h2, h3, h4⟩ := hr'
         rw [e5, e]
-        simp only [Ne.symm h0, Ne.symm h1, Ne.symm h2, Ne.symm h3, Ne.symm h4, if_false]
+        simp only [h0, h1, h2, h3, h4, if_false]
         exact hkept r hr
       apply reaches_label (kd := .internal) (l := 7) (by decide)
       apply reaches_cond hag5 (op := "ne") (a := .x12) (b := .x0) (l := 1) (by decide)
@@ -196,7 +196,7 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
         have hlt : j + 1 < n := by
           rcases Nat.lt_or_ge (j + 1) n with h | hge
           · exact h
-          · simp [e5, getReg_x0', show n - (j + 1) = 0 by omega] at hc
+          · simp [e5, getReg_x0, show n - (j + 1) = 0 by omega] at hc
         exact ih (j + 1) r5 m5 u5 (by omega) hlt hag5 (by simp [e5]) (by simp [e5]) (by simp [e5])
           em5 ec5 kept5 (fun i hi => by
             rcases Nat.lt_succ_iff_lt_or_eq.mp hi with h | rfl
@@ -205,7 +205,7 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
       · -- the last byte agrees: the blocks are equal
         intro hc
         have hz : n - (j + 1) = 0 := by
-          simp only [e5, reduceCtorEq, if_false, if_true, getReg_x0', bne_eq_false_iff_eq] at hc
+          simp only [e5, reduceCtorEq, if_false, if_true, getReg_x0, bne_eq_false_iff_eq] at hc
           exact ofNat_eq_zero (by omega) hc
         apply reaches_label (kd := .internal) (l := 8) (by decide)
         apply reaches_opn hag5 (i := .ADDI .x10 .x0 0) (by decide) rfl rfl
@@ -215,8 +215,8 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
         simp only [Post]
         refine ⟨by decide, ?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
         · rw [hag6.regs]
-          simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg_ite, reduceCtorEq,
-            if_true, and_self, ne_eq, not_false_eq_true, getReg_x0']
+          simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, reduceCtorEq,
+            if_true, and_self, ne_eq, not_false_eq_true, getReg_x0]
           refine ⟨fun _ i hi => ?_, fun _ => by simp [signExtend12]⟩
           rcases Nat.lt_or_ge i j with h | h
           · exact hbytes i h
@@ -225,11 +225,11 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
         · exact (hag6.mem addr).trans (by simp [execInstrBr, em5])
         · exact hag6.code.trans (by simp [execInstrBr, ec5])
         · rw [hag6.regs]
-          have h0 : Reg.x10 ≠ r := fun h => hr (by simp [clobbered, ← h])
-          simp [execInstrBr, getReg_setReg_ite, h0]
+          have h0 : r ≠ Reg.x10 := fun h => hr (by simp [clobbered, h])
+          simp [execInstrBr, getReg_setReg, h0]
           exact kept5 r hr
         · rw [hag6.regs]
-          simp [execInstrBr, getReg_setReg_ite, getReg_x0', signExtend12]
+          simp [execInstrBr, getReg_setReg, getReg_x0, signExtend12]
 
 /-- **`memcmp` at Lprog**: from the entry, the run halts at the return, in a state `Post` describes. -/
 theorem halts (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
@@ -244,7 +244,7 @@ theorem halts (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
   · -- no bytes: the result is zero
     intro hc
     have hz : n = 0 := by
-      simp only [h12, getReg_x0', beq_iff_eq] at hc
+      simp only [h12, getReg_x0, beq_iff_eq] at hc
       exact ofNat_eq_zero hn hc
     subst hz
     apply reaches_label (kd := .internal) (l := 8) (by decide)
@@ -255,19 +255,19 @@ theorem halts (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
     simp only [Post]
     refine ⟨by decide, ?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
     · rw [hag1.regs]
-      simp [execInstrBr, getReg_setReg_ite, getReg_x0', signExtend12]
+      simp [execInstrBr, getReg_setReg, getReg_x0, signExtend12]
     · exact hag1.mem addr
     · exact hag1.code
     · rw [hag1.regs]
-      have h0 : Reg.x10 ≠ r := fun h => hr (by simp [clobbered, ← h])
-      simp [execInstrBr, getReg_setReg_ite, h0]
+      have h0 : r ≠ Reg.x10 := fun h => hr (by simp [clobbered, h])
+      simp [execInstrBr, getReg_setReg, h0]
     · rw [hag1.regs]
-      simp [execInstrBr, getReg_setReg_ite, getReg_x0', signExtend12]
+      simp [execInstrBr, getReg_setReg, getReg_x0, signExtend12]
   · -- some bytes: the loop
     intro hc
     have hpos : 0 < n := by
       rcases Nat.eq_zero_or_pos n with h | h
-      · subst h; simp [h12, getReg_x0'] at hc
+      · subst h; simp [h12, getReg_x0] at hc
       · exact h
     exact loop u0 a b n hn hva hvb n 0 regs m u0 (by omega) hpos hag (by simp [h10])
       (by simp [h11]) (by simp [h12]) (fun _ => rfl) rfl (fun _ _ => rfl)
@@ -291,7 +291,7 @@ theorem safe {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
       SafeN G k P t) :
     SafeN G k P s := by
   have hc : CodeAt F_7803f54c.base (prog.map some) s := prog_map ▸ hcode
-  refine SafeN.of_reach (reach_of_halts wf (sim_entry (fun _ => 0) hc hpc)
+  refine SafeN.of_reaches (reach_of_halts wf (sim_entry (fun _ => 0) hc hpc)
     (halts s a b n hn hva hvb _ _ (agree_ofParts_regsOf _ s) h10 h11 h12)) ?_
   rintro t ⟨s', hs', hpc', hx10, hmem, hcode', hkept, hsx⟩
   apply hk

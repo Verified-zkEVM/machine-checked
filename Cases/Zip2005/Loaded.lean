@@ -41,7 +41,7 @@ theorem stackTop_word : image.memAt 0x780014b0#64 = 0x78000000#64 := by
 /-- Any state an SP1 run of the loaded guest reaches has the image's code. -/
 theorem code_of_run {input : List (BitVec 8)} {n : Nat} {s : MachineState}
     (h : stepsSp1 n (image.state input) = some s) : s.code = image.codeAt := by
-  rw [stepsSp1_code h]; rfl
+  rw [MachineChecked.RiscV.Sym.code_steps h]; rfl
 
 /-! ## The spike functions' code -/
 

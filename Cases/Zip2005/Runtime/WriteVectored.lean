@@ -14,13 +14,13 @@
   resumes at Lprog after it. `spec` puts the three together.
 -/
 
-import MachineChecked.Lprog.Lift
+import MachineChecked.RiscV.Lprog.Lift
 import Cases.Zip2005.Runtime.Trivial
 import Cases.Zip2005.Image.F_7803c684
 
 namespace Cases.Zip2005.WriteVectored
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.Lprog
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.Lprog MachineChecked.RiscV.Lprog
   Cases.Zip2005.Image
 
 set_option autoImplicit false
@@ -137,14 +137,14 @@ theorem tail (s0 : MachineState) (sp : Word) (xs : List Word) (regs : String →
   apply reaches_opn hag1 (i := .ADDI .x12 .x9 0) (by decide) rfl rfl
   intro r2 m2 hag2
   apply reaches_label (kd := .internal) (l := 18) (by decide)
-  refine Isa.Reaches.done ⟨rfl, AtCall.of_agree hag2 ⟨?_, ?_, ?_, ?_, ?_⟩⟩
-  · simp [execInstrBr, getReg_setReg_ite, h2]
-  · simp [execInstrBr, getReg_setReg_ite, h8]
-  · simp [execInstrBr, getReg_setReg_ite, h9]
-  · simp [execInstrBr, getReg_setReg_ite, signExtend12, getReg_x0']
+  refine MachineChecked.Ascent.Reaches.done ⟨rfl, AtCall.of_agree hag2 ⟨?_, ?_, ?_, ?_, ?_⟩⟩
+  · simp [execInstrBr, getReg_setReg, h2]
+  · simp [execInstrBr, getReg_setReg, h8]
+  · simp [execInstrBr, getReg_setReg, h9]
+  · simp [execInstrBr, getReg_setReg, signExtend12, getReg_x0]
   · refine hs.step (fun a => by simp [execInstrBr]) (by simp [execInstrBr]) fun r hr => ?_
     obtain ⟨-, -, -, -, h10, -, h12⟩ := kept_ne hr
-    simp [execInstrBr, getReg_setReg_ite, Ne.symm h10, Ne.symm h12]
+    simp [execInstrBr, getReg_setReg, h10, h12]
 
 theorem se_24 : signExtend12 (0x018 : BitVec 12) = 24#64 := by decide
 theorem se_16 : signExtend12 (0x010 : BitVec 12) = 16#64 := by decide
@@ -180,19 +180,19 @@ theorem loop (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {lo
       apply reaches_label (kd := .internal) (l := 15) (by decide)
       apply reaches_opn hag1 (i := .ADDI .x11 .x0 1) (by decide) rfl rfl
       intro r2 m2 hag2
-      refine tail s0 sp xs r2 m2 _ hag2 (by simp [execInstrBr, getReg_setReg_ite, h2])
-        (by simp [execInstrBr, getReg_setReg_ite, h8]) ?_ ?_
+      refine tail s0 sp xs r2 m2 _ hag2 (by simp [execInstrBr, getReg_setReg, h2])
+        (by simp [execInstrBr, getReg_setReg, h8]) ?_ ?_
       · rw [← hfl, show 2 * j = xs.length by omega, List.drop_length]
-        simp [execInstrBr, getReg_setReg_ite, getReg_x0', signExtend12, firstLen]
+        simp [execInstrBr, getReg_setReg, getReg_x0, signExtend12, firstLen]
       · have hs1 : Saved s0 sp (execInstrBr u (.ADDI .x9 .x0 0)) :=
           hs.step (fun a => by simp [execInstrBr]) (by simp [execInstrBr]) fun r hr => by
             obtain ⟨-, -, -, h9, -, -, -⟩ := kept_ne hr
-            simp [execInstrBr, getReg_setReg_ite, Ne.symm h9]
+            simp [execInstrBr, getReg_setReg, h9]
         exact hs1.step (fun a => by simp [execInstrBr]) (by simp [execInstrBr]) fun r hr => by
           obtain ⟨-, -, -, -, -, h11, -⟩ := kept_ne hr
-          simp [execInstrBr, getReg_setReg_ite, Ne.symm h11]
+          simp [execInstrBr, getReg_setReg, h11]
     · intro hc
-      simp [h12, getReg_x0'] at hc
+      simp [h12, getReg_x0] at hc
   | succ k ih =>
     intro j regs m u hk hj hag h2 h8 h11 h12 hfl hreg hs
     have hjn : j < n := by omega
@@ -200,7 +200,7 @@ theorem loop (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {lo
     apply reaches_cond hag (op := "eq") (a := .x12) (b := .x0) (l := 14) (by decide)
       (c := u.getReg .x12 == u.getReg .x0) (by simp [cmpEval]) (j := 28) (by decide)
     · intro hc
-      simp only [h12, getReg_x0', beq_iff_eq] at hc
+      simp only [h12, getReg_x0, beq_iff_eq] at hc
       have := ofNat_eq_zero (by omega) hc
       omega
     intro _
@@ -217,17 +217,17 @@ theorem loop (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {lo
     intro r3 m3 hag3
     generalize hu3 : execInstrBr (execInstrBr (execInstrBr u (.LD .x9 .x11 0x018))
       (.ADDI .x11 .x11 0x010)) (.ADDI .x12 .x12 0xff0) = u3 at hag3
-    have e : ∀ r, u3.getReg r = if .x12 = r then BitVec.ofNat 64 (16 * (n - (j + 1)))
-        else if .x11 = r then bufs + BitVec.ofNat 64 (16 * (j + 1)) - 16#64
-        else if .x9 = r then xs[2 * j + 1]! else u.getReg r := by
+    have e : ∀ r, u3.getReg r = if r = .x12 then BitVec.ofNat 64 (16 * (n - (j + 1)))
+        else if r = .x11 then bufs + BitVec.ofNat 64 (16 * (j + 1)) - 16#64
+        else if r = .x9 then xs[2 * j + 1]! else u.getReg r := by
       intro r; subst hu3
-      simp [execInstrBr, getReg_setReg_ite, h11, h12, se_24', se_16', se_m16', addr_next, count_dec hjn,
+      simp [execInstrBr, getReg_setReg, h11, h12, se_24', se_16', se_m16', addr_next, count_dec hjn,
         hreg (2 * j + 1) (by omega), addr_len]
     have em : ∀ a, u3.getMem a = u.getMem a := by intro a; subst hu3; simp [execInstrBr]
     have ec : u3.code = u.code := by subst hu3; simp [execInstrBr]
     have hs3 : Saved s0 sp u3 := hs.step em ec fun r hr => by
       obtain ⟨-, -, -, h9, -, h11, h12⟩ := kept_ne hr
-      rw [e]; simp [Ne.symm h9, Ne.symm h11, Ne.symm h12]
+      rw [e]; simp [h9, h11, h12]
     have hreg3 : Region bufs xs u3 := fun i hi => (em _).trans (hreg i hi)
     clear hu3
     apply reaches_label (kd := .internal) (l := 11) (by decide)
@@ -235,13 +235,13 @@ theorem loop (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {lo
       (c := u3.getReg .x9 == u3.getReg .x0) (by simp [cmpEval]) (j := 14) (by decide)
     · -- an empty slice: round again
       intro hc
-      simp only [e, getReg_x0', beq_iff_eq, reduceCtorEq, if_false, if_true] at hc
+      simp only [e, getReg_x0, beq_iff_eq, reduceCtorEq, if_false, if_true] at hc
       refine ih (j + 1) r3 m3 u3 (by omega) hjn hag3 (by simp [e, h2]) (by simp [e, h8])
         (by simp [e]) (by simp [e]) ?_ hreg3 hs3
       rw [← hfl, firstLen_drop (j := j) (by omega), if_pos hc, show 2 * (j + 1) = 2 * j + 2 by omega]
     · -- the first non-empty slice: load its pointer and go to the call
       intro hc
-      simp only [e, getReg_x0', beq_eq_false_iff_ne, ne_eq, reduceCtorEq, if_false, if_true] at hc
+      simp only [e, getReg_x0, beq_eq_false_iff_ne, ne_eq, reduceCtorEq, if_false, if_true] at hc
       apply reaches_label (kd := .internal) (l := 12) (by decide)
       apply reaches_opn hag3 (i := .LD .x11 .x11 0) (by decide) rfl
         (memOk_LD (by
@@ -251,13 +251,13 @@ theorem loop (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {lo
       intro r4 m4 hag4
       apply reaches_label (kd := .internal) (l := 13) (by decide)
       apply reaches_goto (n := "") (l := 16) (by decide) (j := 32) (by decide)
-      refine tail s0 sp xs r4 m4 _ hag4 (by simp [execInstrBr, getReg_setReg_ite, e, h2])
-        (by simp [execInstrBr, getReg_setReg_ite, e, h8]) ?_ ?_
+      refine tail s0 sp xs r4 m4 _ hag4 (by simp [execInstrBr, getReg_setReg, e, h2])
+        (by simp [execInstrBr, getReg_setReg, e, h8]) ?_ ?_
       · rw [← hfl, firstLen_drop (j := j) (by omega), if_neg hc]
-        simp [execInstrBr, getReg_setReg_ite, e]
+        simp [execInstrBr, getReg_setReg, e]
       · refine hs3.step (fun a => by simp [execInstrBr]) (by simp [execInstrBr]) fun r hr => ?_
         obtain ⟨-, -, -, -, -, h11, -⟩ := kept_ne hr
-        simp [execInstrBr, getReg_setReg_ite, Ne.symm h11]
+        simp [execInstrBr, getReg_setReg, h11]
 
 theorem cw_of_code {lo hi : Nat} {u v : MachineState} (h : CodeWithin lo hi u) (hc : v.code = u.code) :
     CodeWithin lo hi v := fun a ha => h a (by rwa [hc] at ha)
@@ -326,17 +326,17 @@ theorem toCall (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {
   apply reaches_label (kd := .internal) (l := 1) (by decide)
   apply reaches_opn hag1 (i := .SD .x2 .x1 0x018) (by decide) rfl
     (sdOk hfr (cw_of_code hcw c1) (i := 9) (by omega)
-      (by simp [execInstrBr, getReg_setReg_ite, h2, a9]))
+      (by simp [execInstrBr, getReg_setReg, h2, a9]))
   intro r2 m2 hag2
   apply reaches_label (kd := .internal) (l := 2) (by decide)
   apply reaches_opn hag2 (i := .SD .x2 .x8 0x010) (by decide) rfl
     (sdOk hfr (cw_of_code hcw (by simp [execInstrBr])) (i := 8) (by omega)
-      (by simp [execInstrBr, getReg_setReg_ite, getReg_setMem', h2, a8]))
+      (by simp [execInstrBr, getReg_setReg, getReg_setMem, h2, a8]))
   intro r3 m3 hag3
   apply reaches_label (kd := .internal) (l := 3) (by decide)
   apply reaches_opn hag3 (i := .SD .x2 .x9 0x008) (by decide) rfl
     (sdOk hfr (cw_of_code hcw (by simp [execInstrBr])) (i := 7) (by omega)
-      (by simp [execInstrBr, getReg_setReg_ite, getReg_setMem', h2, a7]))
+      (by simp [execInstrBr, getReg_setReg, getReg_setMem, h2, a7]))
   intro r4 m4 hag4
   apply reaches_label (kd := .internal) (l := 4) (by decide)
   apply reaches_opn hag4 (i := .ADDI .x8 .x2 0x020) (by decide) rfl rfl
@@ -359,12 +359,12 @@ theorem toCall (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {
       else if a = sp - 0x50#64 + BitVec.ofNat 64 (8 * 8) then s0.getReg .x8
       else if a = sp - 0x50#64 + BitVec.ofNat 64 (8 * 9) then s0.getReg .x1 else s0.getMem a := by
     intro a; subst hu
-    simp [execInstrBr, getMem_setMem_ite, getReg_setMem', getReg_setReg_ite, h2, a9, a8, a7]
-  have e : ∀ r, u.getReg r = if .x12 = r then BitVec.ofNat 64 (16 * (n - 0))
-      else if .x11 = r then bufs + BitVec.ofNat 64 (16 * 0) - 16#64
-      else if .x8 = r then sp else if .x2 = r then sp - 32#64 else s0.getReg r := by
+    simp [execInstrBr, getMem_setMem, getReg_setMem, getReg_setReg, h2, a9, a8, a7]
+  have e : ∀ r, u.getReg r = if r = .x12 then BitVec.ofNat 64 (16 * (n - 0))
+      else if r = .x11 then bufs + BitVec.ofNat 64 (16 * 0) - 16#64
+      else if r = .x8 then sp else if r = .x2 then sp - 32#64 else s0.getReg r := by
     intro r; subst hu
-    simp [execInstrBr, getReg_setMem', getReg_setReg_ite, h2, h11, h12, sp_32, sp_back, bufs_m16,
+    simp [execInstrBr, getReg_setMem, getReg_setReg, h2, h11, h12, sp_32, sp_back, bufs_m16,
       slli4 hn]
   have ec : u.code = s0.code := by subst hu; simp [execInstrBr]
   have hunch : Unchanged (frame sp) s0 u := by
@@ -381,7 +381,7 @@ theorem toCall (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {
     · rw [em]; simp [hne 8 7 (by omega) (by omega) (by omega)]
     · rw [em]; simp
     · obtain ⟨-, h2', h8', -, -, h11', h12'⟩ := kept_ne hr
-      rw [e]; simp [Ne.symm h2', Ne.symm h8', Ne.symm h11', Ne.symm h12']
+      rw [e]; simp [h2', h8', h11', h12']
   clear hu
   exact loop s0 sp bufs xs n hxl hok hn n 0 r7 m7 u (by omega) (Nat.zero_le _) hag7
     (by simp [e]) (by simp [e]) (by simp [e]) (by simp [e]) (by simp)
@@ -423,15 +423,15 @@ theorem fromCall (s0 : MachineState) (sp : Word) (xs : List Word) {lo hi : Nat}
   intro r2 m2 hag2
   apply reaches_label (kd := .internal) (l := 22) (by decide)
   apply reaches_opn hag2 (i := .LD .x1 .x2 0x018) (by decide) rfl
-    (memOk_LD (by simpa [execInstrBr, getReg_setReg_ite, h2, b9] using dwordOk hfr (i := 9) (by omega)))
+    (memOk_LD (by simpa [execInstrBr, getReg_setReg, h2, b9] using dwordOk hfr (i := 9) (by omega)))
   intro r3 m3 hag3
   apply reaches_label (kd := .internal) (l := 23) (by decide)
   apply reaches_opn hag3 (i := .LD .x8 .x2 0x010) (by decide) rfl
-    (memOk_LD (by simpa [execInstrBr, getReg_setReg_ite, h2, b8] using dwordOk hfr (i := 8) (by omega)))
+    (memOk_LD (by simpa [execInstrBr, getReg_setReg, h2, b8] using dwordOk hfr (i := 8) (by omega)))
   intro r4 m4 hag4
   apply reaches_label (kd := .internal) (l := 24) (by decide)
   apply reaches_opn hag4 (i := .LD .x9 .x2 0x008) (by decide) rfl
-    (memOk_LD (by simpa [execInstrBr, getReg_setReg_ite, h2, b7] using dwordOk hfr (i := 7) (by omega)))
+    (memOk_LD (by simpa [execInstrBr, getReg_setReg, h2, b7] using dwordOk hfr (i := 7) (by omega)))
   intro r5 m5 hag5
   apply reaches_label (kd := .internal) (l := 25) (by decide)
   apply reaches_opn hag5 (i := .ADDI .x2 .x2 0x020) (by decide) rfl rfl
@@ -442,15 +442,15 @@ theorem fromCall (s0 : MachineState) (sp : Word) (xs : List Word) {lo hi : Nat}
   simp only [Nat.reduceMul] at hra hfp hs1
   refine ⟨by dsimp only; decide, ⟨?_, ?_, ?_, ?_, ?_, ?_, fun r hr => ?_, fun a ha => ?_, ?_⟩⟩ <;>
     simp only [Agree.regs hag6, Agree.mem hag6, Agree.code hag6]
-  · simp [execInstrBr, getReg_setReg_ite, h2, b9, hra]
-  · simp [execInstrBr, getReg_setReg_ite, h2, sp_back]
-  · simp [execInstrBr, getReg_setReg_ite, h2, b8, hfp]
-  · simp [execInstrBr, getReg_setReg_ite, h2, b7, hs1]
-  · simp [execInstrBr, getReg_setReg_ite, signExtend12, getReg_x0']
-  · simp [execInstrBr, getReg_setReg_ite, h9, signExtend12]
+  · simp [execInstrBr, getReg_setReg, h2, b9, hra]
+  · simp [execInstrBr, getReg_setReg, h2, sp_back]
+  · simp [execInstrBr, getReg_setReg, h2, b8, hfp]
+  · simp [execInstrBr, getReg_setReg, h2, b7, hs1]
+  · simp [execInstrBr, getReg_setReg, signExtend12, getReg_x0]
+  · simp [execInstrBr, getReg_setReg, h9, signExtend12]
   · obtain ⟨h1, h2', h8, h9', h10, h11, -⟩ := kept_ne hr
-    simp [execInstrBr, getReg_setReg_ite, Ne.symm h1, Ne.symm h2', Ne.symm h8, Ne.symm h9', Ne.symm h10,
-      Ne.symm h11]
+    simp [execInstrBr, getReg_setReg, h1, h2', h8, h9', h10,
+      h11]
     exact hs.regs r hr
   · simp [execInstrBr]; exact hs.unch a ha
   · simp [execInstrBr]; exact hs.code
@@ -506,7 +506,7 @@ theorem spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
   have hfr : RegionOk Ro.layout.textLo Ro.layout.textHi (sp - 0x50#64) 10 := hstk.frame 10 (by decide)
   have hc' : CodeAt F_7803c684.base (prog.map some) s := prog_map ▸ hcode
   -- from the entry to the call, at Lprog
-  refine SafeN.of_reaches wf (sim_entry (fun _ => 0) hc' (by rw [hpc]; rfl))
+  refine SafeN.of_lift wf (sim_entry (fun _ => 0) hc' (by rw [hpc]; rfl))
     (toCall s sp bufs xs cnt hxl hokx hfr hcw hdis _ _ (agree_ofParts_regsOf _ s) hsp hb hc hx) ?_
   rintro sA tA hsA ⟨hpcA, hatV⟩
   have hsim0code : CodeAt F_7803c684.base (prog.map some) tA := hsA.code
@@ -518,7 +518,7 @@ theorem spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
   have hpcv : tA.pc = 0x7803c6cc#64 := by rw [hpcA']; rfl
   generalize ht1 : execInstrBr tA (.AUIPC .x1 0xfffe0) = t1
   have hs1 : stepSp1 tA = some t1 := ht1 ▸ stepSp1_plain hf18 rfl (by decide) (by decide)
-  have h1pc : t1.pc = 0x7803c6d0#64 := by subst ht1; simp [execInstrBr, hpcv, pc_setPC']
+  have h1pc : t1.pc = 0x7803c6d0#64 := by subst ht1; simp [execInstrBr, hpcv, pc_setPC]
   have h1c : t1.code = tA.code := by subst ht1; simp [execInstrBr]
   have hf19 : t1.code t1.pc = some (.JALR .x1 .x1 0x8d8) := by
     rw [h1c, h1pc]
@@ -527,13 +527,13 @@ theorem spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     rw [this]; decide
   generalize ht2 : execInstrBr t1 (.JALR .x1 .x1 0x8d8) = t2
   have hs2 : stepSp1 t1 = some t2 := ht2 ▸ stepSp1_plain hf19 rfl (by decide) (by decide)
-  have e1 : ∀ r, t1.getReg r = if .x1 = r then 0x7803c6cc#64 + 0xfffffffffffe0000#64 else tA.getReg r := by
-    intro r; subst ht1; simp [execInstrBr, getReg_setReg_ite, hpcv]
-  have e2 : ∀ r, t2.getReg r = if .x1 = r then 0x7803c6d4#64 else tA.getReg r := by
-    intro r; subst ht2; simp [execInstrBr, getReg_setReg_ite, h1pc, e1]
+  have e1 : ∀ r, t1.getReg r = if r = .x1 then 0x7803c6cc#64 + 0xfffffffffffe0000#64 else tA.getReg r := by
+    intro r; subst ht1; simp [execInstrBr, getReg_setReg, hpcv]
+  have e2 : ∀ r, t2.getReg r = if r = .x1 then 0x7803c6d4#64 else tA.getReg r := by
+    intro r; subst ht2; simp [execInstrBr, getReg_setReg, h1pc, e1]
     split <;> rfl
   have h2pc : t2.pc = 0x7801bfa4#64 := by
-    subst ht2; simp [execInstrBr, pc_setPC', e1, signExtend12]
+    subst ht2; simp [execInstrBr, pc_setPC, e1, signExtend12]
   have h2m : ∀ a, t2.getMem a = tA.getMem a := by
     intro a; subst ht2 ht1; simp [execInstrBr]
   have h2c : t2.code = s.code := by subst ht2; simp [execInstrBr, h1c, htc]
@@ -547,7 +547,7 @@ theorem spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
   -- back at Lprog, after the call
   have h3x : ∀ r ∈ calleeSavedRegs, t3.getReg r = tA.getReg r := fun r hr => by
     rw [h3cs r hr, e2]
-    have : Reg.x1 ≠ r := by
+    have : r ≠ Reg.x1 := by
       intro h; subst h; revert hr; decide
     simp [this]
   have hs3 : Saved s sp t3 := by
@@ -563,7 +563,7 @@ theorem spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     · rw [h3x r (by revert hr; revert r; decide)]; exact hsA.regs r hr
   have hsim3 := sim_return (base := F_7803c684.base) (prog := prog) (k := 19) (by decide) (fun _ => 0)
     (codeAt_of_code_eq (h3c.trans (h2c.trans htc.symm)) hsim0code) (by rw [h3pc]; decide)
-  refine SafeN.of_reaches wf hsim3 (fromCall s sp xs hfr _ _ t3 (agree_ofParts_regsOf _ t3)
+  refine SafeN.of_lift wf hsim3 (fromCall s sp xs hfr _ _ t3 (agree_ofParts_regsOf _ t3)
     (by rw [h3x .x2 (by decide)]; exact hat.x2) (by rw [h3x .x9 (by decide)]; exact hat.x9) hs3) ?_
   rintro s' t' hs' ⟨-, hpc', hdV⟩
   have hd := Done.of_agree (agree_symm hs'.agree) hdV
