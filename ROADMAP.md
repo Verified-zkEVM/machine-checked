@@ -120,7 +120,7 @@ binary comes from, and what its specification would be.
 | layer | roadmap | what exists |
 | --- | --- | --- |
 | 2 | spec refinement | Nothing generic (`MachineChecked/Refine` is a placeholder). Each case study's specification, for example `Cases/Zip2005/Spec`, connects to its proofs directly. |
-| 1 | structured logical program | Nothing yet (`MachineChecked/Logical` is a placeholder). `docs/LogicalMachine.md` sketches it. |
+| 1 | structured logical program | Nothing yet (`MachineChecked/Logical` is a placeholder). catcrypt-compiler's `NFProg` is proposed as its seed ([`docs/notes/SHARED-LIBRARY.md`](docs/notes/SHARED-LIBRARY.md)); `docs/LogicalMachine.md` is an earlier sketch. |
 | 0.5 | low logical program | `MachineChecked/Lprog`: linear Jasmin with shared control flow and shared operations (`Op.lean`), independent of any ISA. |
 | 0 → 0.5 | lift 1 | RISC-V: `MachineChecked/RiscV/Lprog`. Each instruction is translated to a shared operation and proved against riscv-zkvm; the simulation carries every Lprog run down to the machine. It covers straight-line code, branches, jumps and returns; calls, indirect jumps and system calls stop a run at Lprog and are taken over the machine. |
 | 0 | ISA | RISC-V: riscv-zkvm, tied to Sail, with the judgement `SafeN` over its `stepSp1`, and the layer-0 proof tools. AArch64 and x86-64: trusted machine models only. |
@@ -133,12 +133,12 @@ proofs go through the lift.
 
 ## Roadmap steps
 
-0. **A library shared with catcrypt-compiler.** The generic layers (runs, correspondence,
-   `SafeN`, Lprog, and later the Lprog symbolic executor) become one package that both
-   MachineChecked and catcrypt-compiler require, and MachineChecked requires
-   catcrypt-compiler's kernels and machine models instead of copying them. To be agreed with
-   its maintainers: [`docs/notes/SHARED-LIBRARY.md`](docs/notes/SHARED-LIBRARY.md). Steps 1–3
-   build on it.
+0. **A library shared with catcrypt-compiler** ([`docs/notes/SHARED-LIBRARY.md`](docs/notes/SHARED-LIBRARY.md)).
+   The generic layers (runs with events, correspondence, `SafeN`, `SContract`, Lprog, and
+   later the Lprog symbolic executor) become one Mathlib-free package that both projects
+   require. The machine models (`IsaMachine`, x86-64, AArch64, and an RV64 model on
+   riscv-zkvm's decode and execute) move to it or to a second package, and MachineChecked
+   proves that `stepSp1` refines the RV64 model outside `ecall`. Steps 1–3 build on it.
 1. **Complete the RISC-V lift.** Calls inside Lprog (`Lcall`), indirect jumps with candidate
    lists (`Ligoto`), and system calls as external calls with specifications, so that a whole
    function, and then a whole program, runs at Lprog.
@@ -148,7 +148,10 @@ proofs go through the lift.
    convention as parameters: the contract table stated over Lprog, and SP1 as the first
    instance of a context.
 4. **The structured logical program (layer 1)** and the decompiling lift into it, per
-   function and possibly partial.
+   function and possibly partial. The proposed seed is catcrypt-compiler's `NFProg`, with a
+   dialect for flat memory and pointers. Lift 2 comes first by validation (an untrusted
+   decompiler, `NFProg`'s compilation to Lprog, catcrypt-compiler's validator); code from
+   rustc, such as zip-2005, needs a more general checker.
 5. **Program logics at layer 1, and specification refinement (layer 2),** driven by the
    first targets.
 6. **AArch64 and x86-64.** Verify the models against their canonical specifications or
