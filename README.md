@@ -98,7 +98,9 @@ To check one file while working, use `lake env lean path/to/File.lean`.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Contributions are welcome. While the project is young, please get in touch with the maintainer,
+Derek Sorensen, before starting work, for example on the [Lean Zulip](https://leanprover.zulipchat.com),
+so that we can agree where it fits. Then see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Licence
 

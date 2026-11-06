@@ -5,6 +5,11 @@ support for more instruction sets, fixes and documentation.
 
 ## Where to start
 
+**Get in touch first.** The project is young and its design is still moving, so before you
+start work, please reach out to the maintainer, Derek Sorensen, for example on the
+[Lean Zulip](https://leanprover.zulipchat.com). A short conversation about what you have in mind
+and where it fits saves work on both sides.
+
 - [`ROADMAP.md`](ROADMAP.md) describes the layers of the framework, where the code stands,
   the targets and what is next. It is the best place to see where a contribution fits.
 - [`README.md`](README.md) explains the idea and the layout, and
