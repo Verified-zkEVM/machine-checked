@@ -2,6 +2,13 @@
 
 Formally verify machine code directly in Lean.
 
+> **Early days.** MachineChecked is a young research project, and it is changing quickly: its
+> layers, interfaces and file layout will move as the design settles. Some layers exist only on
+> paper, some proofs rest on premises that are still open, and the AArch64 and x86-64 models are
+> trusted rather than verified. The [roadmap](ROADMAP.md) says what exists and what doesn't. Read
+> a result here as evidence, not yet as an audit: check exactly what each theorem states and
+> assumes before relying on it. Questions, issues and feedback are very welcome.
+
 MachineChecked takes the binary a compiler produced, not its source, and proves in Lean that it
 meets a high-level specification. The compiler and assembler are not trusted. What is
 trusted is the model of the instruction set, the Lean kernel, and the step that reads the binary
