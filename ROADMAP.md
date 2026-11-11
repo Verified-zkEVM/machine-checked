@@ -137,8 +137,9 @@ proofs go through the lift.
    The generic layers (runs with events, correspondence, `SafeN`, `SContract`, Lprog, and
    later the Lprog symbolic executor) become one Mathlib-free package that both projects
    require. The machine models (`IsaMachine`, x86-64, AArch64, and an RV64 model on
-   riscv-zkvm's decode and execute) move to it or to a second package, and MachineChecked
-   proves that `stepSp1` refines the RV64 model outside `ecall`. Steps 1–3 build on it.
+   riscv-zkvm's decode and execute) move later to a second package, and MachineChecked
+   proves that `stepSp1` refines the RV64 model outside `ecall`. Steps 1–3 build on the
+   generic package, not on the models.
 1. **Complete the RISC-V lift.** Calls inside Lprog (`Lcall`), indirect jumps with candidate
    lists (`Ligoto`), and system calls as external calls with specifications, so that a whole
    function, and then a whole program, runs at Lprog.

@@ -1,7 +1,7 @@
 # Design note: Lprog as a program-level verification layer
 
-**Status: proposed (2026-10-22), revised after review by the catcrypt-compiler maintainers
-(2026-10-27).** It sets out the design of milestones A–D in [`ROADMAP.md`](../../ROADMAP.md)
+**Status: agreed (2026-11-11), after two reviews by the catcrypt-compiler maintainers
+(PR #16).** It sets out the design of milestones A–D in [`ROADMAP.md`](../../ROADMAP.md)
 steps 1–3 (issues #2–#5). Its generic parts (§1–§5, §8, §10) are to be shared with
 catcrypt-compiler ([`docs/notes/SHARED-LIBRARY.md`](../notes/SHARED-LIBRARY.md)); the review
 changed calls (§2), external calls (§4), the judgement (§5) and registers (§8), and added
@@ -149,8 +149,9 @@ def SafeN (step : σ → Outcome (σ × List E) → Prop) (accept : σ → Prop)
   `RefinesO` (`HaxAscent/Ascent/Refines.lean`), forward simulation of an abstract function
   under a precondition. MachineChecked's `Corres` over `Reaches` (one step, iterated) and
   catcrypt-compiler's `CorresIsaRun` (a whole run, ending halted) are instances. `RefinesP`
-  takes a partial function `C → Option D`, and Lprog's step is a relation, so the instance
-  needs either a relational `RefinesP` or a restriction to deterministic machines: open.
+  takes a partial function `C → Option D`, and Lprog's step is a relation, so the package has
+  a relational `RefinesR (step : C → D → Prop)`, with a progress clause as well as the related
+  end; `RefinesP` is its instance at `fun c d => sem c = some d`.
 - **Correspondence as a contract.** On a relational machine (Lprog with external calls) the
   useful statement is the continuation form,
   `SR m a → P a → (∀ t, SR t (fa a) → SafeN … G n Q t) → SafeN … G n Q m`: every run, not
@@ -160,9 +161,11 @@ def SafeN (step : σ → Outcome (σ × List E) → Prop) (accept : σ → Prop)
 - **`SContract`** (catcrypt-compiler's `SepLogic/Contract.lean`) sits beside `SafeN` in the
   shared package: total (a run exists), framed (a write set), with a two-run `ct` field, and
   generic in state, locations and trace. `SafeN`'s contracts are partial, because a whole
-  program may trap or panic; `SContract` suits kernels, which always halt. Whether there is a
-  bridge from `SContract` to a `SafeN` contract (the direction that holds on a deterministic
-  machine) is open. Composing `ct` across `Lcall` needs its own rule.
+  program may trap or panic; `SContract` suits kernels, which always halt. The package has a
+  bridge from `SContract` to a `SafeN` contract on deterministic machines, so that a kernel's
+  `SContract` serves as a contract at an `Lcall` (the route of `SafeN.of_corres`); the `ct`
+  field has no counterpart, since `SafeN` ignores events. Composing `ct` across `Lcall` needs
+  its own rule: open.
 - **Composition** is a generic `table_sound`, by strong induction on the budget over a family
   of contracts (the shape of `Check/Sound/Act.lean`'s `table_sound`). At an `Lcall`, the
   callee's contract is used at a smaller budget, which is what makes recursion compose.
