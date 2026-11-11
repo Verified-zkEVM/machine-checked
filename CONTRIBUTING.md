@@ -5,6 +5,11 @@ support for more instruction sets, fixes and documentation.
 
 ## Where to start
 
+**Get in touch first.** The project is young and its design is still moving, so before you
+start work, please reach out to the maintainer, Derek Sorensen, for example on the
+[Lean Zulip](https://leanprover.zulipchat.com). A short conversation about what you have in mind
+and where it fits saves work on both sides.
+
 - [`ROADMAP.md`](ROADMAP.md) describes the layers of the framework, where the code stands,
   the targets and what is next. It is the best place to see where a contribution fits.
 - [`README.md`](README.md) explains the idea and the layout, and
@@ -161,7 +166,7 @@ says otherwise. When in doubt, match the surrounding code.
 - Types and structures are `UpperCamelCase`, definitions are `lowerCamelCase`, and theorems
   are `snake_case`.
 - A theorem's name describes its statement: `_of_` separates the conclusion from the
-  hypotheses (`reach_of_halts`, `noCodeAt_of_codeWithin`), and standard words name standard
+  hypotheses (`regs_of_agree`, `noCodeAt_of_codeWithin`), and standard words name standard
   facts (`refl`, `symm`, `trans`, `congr`, `mono`, `ext`, `iff`).
 - Name a declaration for what it says, never for where it came from or when it was written.
   Do not use paper numbering, phase codes or dates in names. Put citations in the module

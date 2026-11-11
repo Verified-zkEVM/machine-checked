@@ -46,8 +46,10 @@ require.
   - later, a symbolic executor at Lprog (MachineChecked's milestone B).
 - **Machine models,** in a second package, so that the generic package does not inherit
   riscv-zkvm's toolchain: catcrypt-compiler's `IsaMachine` and its x86-64, AArch64 and RV64
-  models and decoders. MachineChecked's copies of the x86-64 and AArch64 models are then
-  deleted. The RV64 model is based on riscv-zkvm's RV64IM decode and execute, keeping
+  models and decoders. For x86-64 the semantics both projects take is Kraken's x64 model
+  (`docs/ISA.md`), so catcrypt-compiler's x86-64 model sits on it or is proved against it, and
+  MachineChecked's Jasmin transcription is deleted. MachineChecked's AArch64 model is deleted
+  in favour of the shared one. The RV64 model is based on riscv-zkvm's RV64IM decode and execute, keeping
   catcrypt-compiler's Zkt leakage; MachineChecked proves that `stepSp1` refines it outside
   `ecall`. catcrypt-compiler has deferred its AArch64 and RV64 work for now, so this package
   comes after the generic one.

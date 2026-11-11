@@ -5,7 +5,9 @@
 steps 1–3 (issues #2–#5). Its generic parts (§1–§5, §8, §10) are to be shared with
 catcrypt-compiler ([`docs/notes/SHARED-LIBRARY.md`](../notes/SHARED-LIBRARY.md)); the review
 changed calls (§2), external calls (§4), the judgement (§5) and registers (§8), and added
-leakage (§10). Nothing here is implemented on `main` yet.
+leakage (§10). Milestone A is implemented (#17) without the review's changes, which follow as
+#18 (events) and #19 (the call field); [As built](#as-built-milestone-a) at the end records
+where the code departs from the text.
 
 ## Goal
 
@@ -301,3 +303,41 @@ change and the end theorem stays green at every step. `PanicPaths`, the open pre
    annotations and draft contracts, which the Lprog executor re-proves. Exception, decided in
    milestone C: if the executor is markedly slower on the 68 functions the checker covers
    today, `Check` is ported to emit Lprog contracts instead.
+
+## As built (milestone A)
+
+Milestone A follows §1–§5, §7 and §8, with these departures. The code is the reference.
+
+- **No events, and a fixed link register.** Milestone A was built before the review: the step
+  is `σ → Outcome σ → Prop` with no events (§3, §4; #18), and `Isa` has a fixed `link`
+  register instead of the `call` and `retOk` fields (§2, §8; #19). A call writes the link
+  register, and a return checks it and `sp`.
+
+- **`Lext` takes no name.** SP1's context (`RiscV/Lprog/Lift.lean`, `sp1Ctx`) is not restated
+  per system call: its specification is "the outcome of riscv-zkvm's own `sp1Ecall` on a
+  machine state the Lprog state stands for". Over-approximation (§7) then holds by definition,
+  and per-call facts are lemmas over it (`lsafe_write` in `RiscV/Lprog/Rules.lean`). Accepting
+  is an `ecall` with `t0 = 0` (`HALT`) and exit code 0, or an empty stack.
+- **`Labort`.** An instruction the lift does not cover lifts to `Labort`, which goes `wrong`.
+  A proof that reaches one fails, instead of silently stopping.
+- **The postcondition is a predicate of the final state**, `Q : σ → Prop`, not a `Prop`.
+  `RiscV.SafeN` is the instance at `fun _ => P`, so its statement is unchanged.
+- **The transfer quantifies over every budget** (`AllSafe` in `RiscV/Lprog/Transfer.lean`):
+  `SafeN` at Lprog for all `n` gives `SafeN` over `stepSp1` for the given `N`. A Lprog step can
+  be matched by zero machine steps (a label), so budgets do not line up one to one; contracts
+  proved for every budget, as all of them are, lose nothing.
+- **Straight-line blocks run over the machine.** `reaches_block` and `corres_block`
+  (`RiscV/Lprog/Block.lean`) are proved directly over `stepSp1`, not through the lift: a block
+  is not a whole function, and under partial correctness a lifted block cannot hand control
+  back to code outside the lifted program. Giving a lifted program exit points is #20.
+- **Indirect calls and tail calls take every function as a candidate** (`List.range
+  fs.length`). The control-flow premise of §2 is a hypothesis of the rules (`lsafe_call`,
+  `lsafe_tail`: the register holds some function's base), not a narrowed list.
+- **A lifted function carries its address.** `Fn` (`RiscV/Lprog/Lift.lean`) is `{name, base,
+  prog, depth}`, with the decoded instructions as constants in the case file; `ProgOk` asks
+  only that bases are 4-aligned.
+- **Return-address alignment is asked only of inner frames** (`RetOk`): the outermost
+  frame's return value is the caller's, unconstrained, and the machine continues at
+  `ra &&& ~~~1`.
+- **Not yet built:** `table_sound` (§5) and the memory vocabulary of §6. Contracts compose by
+  hand, as in `Cases/Zip2005/Runtime/WriteVectored.lean`, until milestone C needs the table (#21).

@@ -4,16 +4,16 @@
   `subtle::black_box::<u8>`: the byte, through a stack slot the optimiser
   cannot see through.
 
-  Proved at Lprog and carried down to `stepSp1` by the lift, like `MemcmpLprog`. The function
-  is five instructions: open a 16-byte frame, store the byte at `sp - 1`, load it back
-  zero-extended, close the frame, return. At Lprog the body runs to its return in a state
-  standing for the machine after the first four (`halts`, with the two memory checks as side
-  conditions); `reach_of_halts` turns that into a run over `stepSp1`, and what the
-  specification asks of the end state (the frame closed, the byte in `a0`, memory changed only
-  in the frame) is read off those four instructions.
+  Proved at Lprog and carried down to `stepSp1` by the transfer theorem, like `MemcmpLprog`.
+  The function is five instructions: open a 16-byte frame, store the byte at `sp - 1`, load it
+  back zero-extended, close the frame, return. Its contract at Lprog (`contract`, with the two
+  memory checks as side conditions) returns in a state standing for the machine after the first
+  four; `SafeN.of_contract` carries it to `stepSp1`, and what the specification asks of the end
+  state (the frame closed, the byte in `a0`, memory changed only in the frame) is read off those
+  four instructions.
 -/
 
-import MachineChecked.RiscV.Lprog.Lift
+import MachineChecked.RiscV.Lprog.Rules
 import Cases.Zip2005.Runtime.Stubs
 import Cases.Zip2005.Kit.Bytes
 import Cases.Zip2005.Image.F_7803a0fc
@@ -29,36 +29,46 @@ def prog : List Instr := F_7803a0fc.prog.filterMap id
 
 theorem prog_map : prog.map some = F_7803a0fc.prog := by decide
 
-theorem wf : WF prog := by unfold WF; decide
+/-- `black_box`, as a function of the image. -/
+def F : Fn := ⟨"black_box", F_7803a0fc.base, prog, 0x10⟩
+
+/-- The program: `black_box` alone. -/
+def fs : List Fn := [F]
+
+theorem hok : ProgOk fs := by decide
+
+theorem hf : (liftProg fs)[0]? = some (liftFn fs F) := rfl
 
 /-- The machine after the body, before the return. -/
 def body (u : MachineState) : MachineState :=
   execInstrBr (execInstrBr (execInstrBr (execInstrBr u (.ADDI .x2 .x2 0xff0#12))
     (.SB .x2 .x10 0x00f#12)) (.LBU .x10 .x2 0x00f#12)) (.ADDI .x2 .x2 0x010#12)
 
-/-- **`black_box` at Lprog**: from the entry, the run halts at the return, in a state standing
-    for `body u0`. -/
-theorem halts (u0 : MachineState) (regs : String → BitVec 64) (m : MachineState)
+/-- **`black_box`'s contract at Lprog**: from the call, it returns in a state standing for
+    `body u0`. -/
+theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (u0 : MachineState) (regs : Reg → BitVec 64) (m : MachineState)
     (hag : Agree (ofParts regs m) u0)
     (hSB : memOkSp1 (execInstrBr u0 (.ADDI .x2 .x2 0xff0#12)) (.SB .x2 .x10 0x00f#12) = true)
     (hLBU : memOkSp1 (execInstrBr (execInstrBr u0 (.ADDI .x2 .x2 0xff0#12))
-      (.SB .x2 .x10 0x00f#12)) (.LBU .x10 .x2 0x00f#12) = true) :
-    rvIsa.Halts (lift prog)
-      (fun s => s.pc = 2 * prog.length + 1 ∧ Agree (ofParts s.regs s.m) (body u0)) ⟨0, regs, m⟩ := by
-  apply reaches_label (kd := .internal) (l := 0) (by decide)
-  apply reaches_opn hag (i := .ADDI .x2 .x2 0xff0#12) (by decide) rfl rfl
+      (.SB .x2 .x10 0x00f#12)) (.LBU .x10 .x2 0x00f#12) = true)
+    (hra : (body u0).getReg .x1 = ret) (hsp : (body u0).getReg .x2 = top)
+    (hpost : ∀ r' m', Agree (ofParts r' m') (body u0) → LSafeN fs G N Q ⟨rest, r', m'⟩) :
+    LSafeN fs G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  apply SafeN.label hf (kd := .internal) (l := 0) (by decide)
+  apply lsafe_opn hf hag (i := .ADDI .x2 .x2 0xff0#12) (by decide) rfl rfl
   intro r1 m1 hag1
-  apply reaches_label (kd := .internal) (l := 1) (by decide)
-  apply reaches_opn hag1 (i := .SB .x2 .x10 0x00f#12) (by decide) rfl hSB
+  apply SafeN.label hf (kd := .internal) (l := 1) (by decide)
+  apply lsafe_opn hf hag1 (i := .SB .x2 .x10 0x00f#12) (by decide) rfl hSB
   intro r2 m2 hag2
-  apply reaches_label (kd := .internal) (l := 2) (by decide)
-  apply reaches_opn hag2 (i := .LBU .x10 .x2 0x00f#12) (by decide) rfl hLBU
+  apply SafeN.label hf (kd := .internal) (l := 2) (by decide)
+  apply lsafe_opn hf hag2 (i := .LBU .x10 .x2 0x00f#12) (by decide) rfl hLBU
   intro r3 m3 hag3
-  apply reaches_label (kd := .internal) (l := 3) (by decide)
-  apply reaches_opn hag3 (i := .ADDI .x2 .x2 0x010#12) (by decide) rfl rfl
+  apply SafeN.label hf (kd := .internal) (l := 3) (by decide)
+  apply lsafe_opn hf hag3 (i := .ADDI .x2 .x2 0x010#12) (by decide) rfl rfl
   intro r4 m4 hag4
-  apply reaches_label (kd := .internal) (l := 4) (by decide)
-  exact halts_ret (by decide) ⟨congrArg (· + 1) (length_liftFrom 0 prog), hag4⟩
+  apply SafeN.label hf (kd := .internal) (l := 4) (by decide)
+  exact lsafe_ret hf hag4 (by decide) hra hsp (hpost _ _ hag4)
 
 end Cases.Zip2005.BlackBox
 
@@ -125,30 +135,33 @@ theorem black_box_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
     simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, hsp, reduceCtorEq,
       if_true, ne_eq, not_false_eq_true, and_self, getReg_setByte]
     apply isValidMemAddrSp1_of_lt; rw [haddr]; omega
-  -- run at Lprog, carried down
+  -- the contract at Lprog, carried down
   have hc : CodeAt F_7803a0fc.base (BlackBox.prog.map some) s := BlackBox.prog_map ▸ hcode
-  refine SafeN.of_reaches (reach_of_halts BlackBox.wf (sim_entry (fun _ => 0) hc hpc)
-    (BlackBox.halts s _ _ (agree_ofParts_regsOf _ s) hSB hLBU)) ?_
-  rintro t ⟨s', hs', hpc', hag'⟩
-  have hU : Agree t (BlackBox.body s) := hs'.agree.symm.trans hag'
   have hst : ∀ (r : Reg), r ≠ .x2 → r ≠ .x10 → (BlackBox.body s).getReg r = s.getReg r := by
     intro r h2 h10
     simp only [BlackBox.body, execInstrBr, MachineState.getReg_setPC, getReg_setReg, getReg_setByte]
     simp [h2, h10]
+  have hsp' : (BlackBox.body s).getReg .x2 = sp := by
+    have hsp16 : sp + signExtend12 0xff0#12 + signExtend12 0x010#12 = sp := by
+      simp only [signExtend12]; bv_decide (config := { enums := false })
+    simp only [BlackBox.body, execInstrBr, MachineState.getReg_setPC, getReg_setReg,
+      getReg_setByte, hsp, reduceCtorEq, if_true, if_false, ne_eq, not_false_eq_true, and_self,
+      false_and]
+    exact hsp16
+  refine SafeN.of_contract BlackBox.hok (g := 0) (fn := BlackBox.F) rfl hpc
+    (fun f hf => by simp only [BlackBox.fs, List.mem_singleton] at hf; subst hf; exact hc)
+    (Post := fun v => Agree v (BlackBox.body s))
+    (fun _ _ hpost => BlackBox.contract s _ _ (agree_ofParts_regsOf s) hSB hLBU
+      (hst .x1 (by decide) (by decide)) (hsp'.trans hsp.symm) hpost) ?_
+  intro t r' m' hag hpc' hpost
+  have hU : Agree t (BlackBox.body s) := hag.symm.trans hpost
   apply hk
-  · rcases hs'.pc with ⟨hle, -⟩ | ⟨-, ht⟩
-    · rw [hpc'] at hle; omega
-    · rw [ht, hU.regs, hst .x1 (by decide) (by decide), hra, hra1]
+  · rw [hpc', hra, hra1]
   · intro r hr
     rw [hU.regs]
     simp only [calleeSavedRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · have hsp16 : sp + signExtend12 0xff0#12 + signExtend12 0x010#12 = sp := by
-        simp only [signExtend12]; bv_decide (config := { enums := false })
-      simp only [BlackBox.body, execInstrBr, MachineState.getReg_setPC, getReg_setReg,
-        getReg_setByte, hsp, reduceCtorEq, if_true, if_false, ne_eq, not_false_eq_true, and_self,
-        false_and]
-      exact hsp16
+    · rw [hsp', hsp]
     all_goals exact hst _ (by decide) (by decide)
   · rw [hU.code]; simp [BlackBox.body, execInstrBr]
   · intro a ha
