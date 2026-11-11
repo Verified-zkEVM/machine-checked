@@ -116,8 +116,9 @@ require.
 ## Order of work
 
 1. **Agree this note** (PR #16).
-2. **MachineChecked aligns milestone A** (PR #17): events in the step, and calls and returns as
-   a field of the instruction set.
+2. **MachineChecked aligns milestone A** (PR #17, merged without them): events in the step
+   (#18), and calls and returns as a field of the instruction set (#19), as follow-up PRs
+   before the package is created.
 3. **Create the package**, jointly, in two stages.
    - First, what moves as it is: MachineChecked's `Ascent` (runs, outcomes, `SafeN`) and
      `Lprog`, and catcrypt-compiler's `RefinesP`/`RefinesO`, as instances of `RefinesR`. The
