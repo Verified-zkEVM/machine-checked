@@ -3,18 +3,19 @@
 
   `memcmp(a, b, n)` proved at Lprog, for every length `n`, and carried down to `stepSp1`.
 
-  The function's twelve instructions are lifted to an Lprog body (`lift`), and the body is run
-  at Lprog: the byte loop by induction on the bytes left (`loop`), the entry and the empty
-  case on top (`halts`). `reach_of_halts` turns the run into one over `stepSp1`, so `safe` is a
-  specification over the machine with nothing symbolic left in its proof: the result is zero
-  exactly when the `n` bytes at `a` and at `b` agree, memory and code are untouched, and every
-  register but `x10`..`x14` keeps its value.
+  The function's twelve instructions are lifted to an Lprog program of one function
+  (`liftProg`), and its contract is proved at Lprog: the byte loop by induction on the bytes
+  left (`loop`), the entry and the empty case on top (`contract`). The transfer theorem
+  (`SafeN.of_contract`) carries it to `stepSp1`, so `safe` is a specification over the machine
+  with nothing symbolic left in its proof: the result is zero exactly when the `n` bytes at `a`
+  and at `b` agree, memory and code are untouched, and every register but `x10`..`x14` keeps
+  its value.
 
   `Memcmp.lean` proves the same function by symbolic execution, for blocks of 32 and 64
   bytes.
 -/
 
-import MachineChecked.RiscV.Lprog.Lift
+import MachineChecked.RiscV.Lprog.Rules
 import Cases.Zip2005.Image.F_7803f54c
 
 namespace Cases.Zip2005
@@ -57,19 +58,26 @@ def prog : List Instr := F_7803f54c.prog.filterMap id
 
 theorem prog_map : prog.map some = F_7803f54c.prog := by decide
 
-theorem wf : WF prog := by unfold WF; decide
+/-- `memcmp`, as a function of the image. -/
+def F : Fn := ⟨"memcmp", F_7803f54c.base, prog, 0⟩
+
+/-- The program: `memcmp` alone. -/
+def fs : List Fn := [F]
+
+theorem hok : ProgOk fs := by decide
+
+theorem hf : (liftProg fs)[0]? = some (liftFn fs F) := rfl
 
 /-- The registers `memcmp` may change. -/
 def clobbered : List Reg := [.x10, .x11, .x12, .x13, .x14]
 
-/-- The end of a run of `memcmp` from a machine state `u0`, as an Lprog state. -/
-def Post (u0 : MachineState) (a b : Word) (n : Nat) (s : State rvIsa) : Prop :=
-  s.pc = 2 * prog.length + 1 ∧
-  ((ofParts s.regs s.m).getReg .x10 = 0 ↔
+/-- What `memcmp` leaves behind from a machine state `u0`, in a machine state `v` it returns in. -/
+def Post (u0 : MachineState) (a b : Word) (n : Nat) (v : MachineState) : Prop :=
+  (v.getReg .x10 = 0 ↔
     ∀ i < n, u0.getByte (a + BitVec.ofNat 64 i) = u0.getByte (b + BitVec.ofNat 64 i)) ∧
-  (∀ addr, s.m.getMem addr = u0.getMem addr) ∧ s.m.code = u0.code ∧
-  (∀ r, r ∉ clobbered → (ofParts s.regs s.m).getReg r = u0.getReg r) ∧
-  BitVec.signExtend 64 (((ofParts s.regs s.m).getReg .x10).truncate 32) = (ofParts s.regs s.m).getReg .x10
+  (∀ addr, v.getMem addr = u0.getMem addr) ∧ v.code = u0.code ∧
+  (∀ r, r ∉ clobbered → v.getReg r = u0.getReg r) ∧
+  BitVec.signExtend 64 ((v.getReg .x10).truncate 32) = v.getReg .x10
 
 theorem ofNat_eq_zero {x : Nat} (hx : x < 2 ^ 64) (h : BitVec.ofNat 64 x = 0#64) : x = 0 := by
   have := congrArg BitVec.toNat h
@@ -83,28 +91,31 @@ theorem ofNat_add_neg_one {x : Nat} (h : 0 < x) :
 
 set_option maxHeartbeats 4000000 in
 /-- **The byte loop**, from byte `j < n`, at the loop head. -/
-theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
+theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
     (hva : ∀ i < n, isValidMemAddrSp1 (a + BitVec.ofNat 64 i) = true)
-    (hvb : ∀ i < n, isValidMemAddrSp1 (b + BitVec.ofNat 64 i) = true) :
-    ∀ k j (regs : String → BitVec 64) (m u : MachineState), n - j = k → j < n →
+    (hvb : ∀ i < n, isValidMemAddrSp1 (b + BitVec.ofNat 64 i) = true)
+    (hra : u0.getReg .x1 = ret) (hsp : u0.getReg .x2 = top)
+    (hpost : ∀ r' m', Post u0 a b n (ofParts r' m') → LSafeN fs G N Q ⟨rest, r', m'⟩) :
+    ∀ k j (regs : Reg → BitVec 64) (m u : MachineState), n - j = k → j < n →
       Agree (ofParts regs m) u →
       u.getReg .x10 = a + BitVec.ofNat 64 j → u.getReg .x11 = b + BitVec.ofNat 64 j →
       u.getReg .x12 = BitVec.ofNat 64 (n - j) →
       (∀ addr, u.getMem addr = u0.getMem addr) → u.code = u0.code →
       (∀ r, r ∉ clobbered → u.getReg r = u0.getReg r) →
       (∀ i < j, u0.getByte (a + BitVec.ofNat 64 i) = u0.getByte (b + BitVec.ofNat 64 i)) →
-      rvIsa.Halts (lift prog) (Post u0 a b n) ⟨2, regs, m⟩ := by
+      LSafeN fs G N Q ⟨⟨0, 2, ret, top⟩ :: rest, regs, m⟩ := by
   intro k
   induction k with
   | zero => intro j _ _ _ hk hj; omega
   | succ k ih =>
     intro j regs m u hk hj hag h10 h11 h12 hmem hcode hkept hbytes
-    apply reaches_label (kd := .internal) (l := 1) (by decide)
-    apply reaches_opn hag (i := .LBU .x13 .x10 0) (by decide) rfl
+    apply SafeN.label hf (kd := .internal) (l := 1) (by decide)
+    apply lsafe_opn hf hag (i := .LBU .x13 .x10 0) (by decide) rfl
       (by simp [memOkSp1, memAccess, h10, signExtend12, hva j hj, alignedFor])
     intro r1 m1 hag1
-    apply reaches_label (kd := .internal) (l := 2) (by decide)
-    apply reaches_opn hag1 (i := .LBU .x14 .x11 0) (by decide) rfl
+    apply SafeN.label hf (kd := .internal) (l := 2) (by decide)
+    apply lsafe_opn hf hag1 (i := .LBU .x14 .x11 0) (by decide) rfl
       (by simp [memOkSp1, memAccess, h11, signExtend12, hvb j hj, alignedFor, execInstrBr,
         getReg_setReg])
     intro r2 m2 hag2
@@ -118,19 +129,26 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
       intro addr; subst hu2; simp [execInstrBr, hmem]
     have ec : u2.code = u0.code := by subst hu2; simp [execInstrBr, hcode]
     clear hu2
-    apply reaches_label (kd := .internal) (l := 3) (by decide)
+    apply SafeN.label hf (kd := .internal) (l := 3) (by decide)
     have hbj : j < n := hj
-    apply reaches_cond hag2 (op := "ne") (a := .x13) (b := .x14) (l := 10) (by decide)
+    apply lsafe_cond hf hag2 (op := "ne") (a := .x13) (b := .x14) (l := 10) (by decide)
       (c := u2.getReg .x13 != u2.getReg .x14) (by simp [cmpEval]) (j := 20) (by decide)
     · -- the bytes differ: the result is their difference
       intro hne
-      apply reaches_label (kd := .internal) (l := 10) (by decide)
-      apply reaches_opn hag2 (i := .SUB .x10 .x13 .x14) (by decide) rfl rfl
+      apply SafeN.label hf (kd := .internal) (l := 10) (by decide)
+      apply lsafe_opn hf hag2 (i := .SUB .x10 .x13 .x14) (by decide) rfl rfl
       intro r3 m3 hag3
-      apply reaches_label (kd := .internal) (l := 11) (by decide)
-      apply halts_ret (by decide)
+      apply SafeN.label hf (kd := .internal) (l := 11) (by decide)
+      have hx : ∀ r, r ∉ clobbered → (execInstrBr u2 (.SUB .x10 .x13 .x14)).getReg r = u0.getReg r := by
+        intro r hr
+        simp only [clobbered, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+        obtain ⟨h0, h1, h2, h3, h4⟩ := hr
+        simp [execInstrBr, getReg_setReg, e, h0, h3, h4]
+        exact hkept r (by simp [clobbered, h0, h1, h2, h3, h4])
+      apply lsafe_ret hf hag3 (by decide) ((hx .x1 (by decide)).trans hra) ((hx .x2 (by decide)).trans hsp)
+      apply hpost
       simp only [Post]
-      refine ⟨by decide, ?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
+      refine ⟨?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
       · rw [hag3.regs]
         simp only [e, if_true, bne_iff_ne, ne_eq, reduceCtorEq, if_false] at hne
         simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, e, reduceCtorEq,
@@ -140,11 +158,7 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
         · intro h; exact absurd (congrArg _ (h j hj)) hne
       · exact (hag3.mem addr).trans ((by simp [execInstrBr, em]))
       · exact hag3.code.trans (by simp [execInstrBr, ec])
-      · rw [hag3.regs]
-        simp only [clobbered, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-        obtain ⟨h0, h1, h2, h3, h4⟩ := hr
-        simp [execInstrBr, getReg_setReg, e, h0, h3, h4]
-        exact hkept r (by simp [clobbered, h0, h1, h2, h3, h4])
+      · rw [hag3.regs]; exact hx r hr
       · rw [hag3.regs]
         simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, e, reduceCtorEq,
           if_true, if_false, and_self, ne_eq, not_false_eq_true]
@@ -155,14 +169,14 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
       have hbyte : u0.getByte (a + BitVec.ofNat 64 j) = u0.getByte (b + BitVec.ofNat 64 j) := by
         simp only [e, if_true, bne_eq_false_iff_eq, reduceCtorEq, if_false] at heq
         exact zeroExtend_byte_inj _ _ heq
-      apply reaches_label (kd := .internal) (l := 4) (by decide)
-      apply reaches_opn hag2 (i := .ADDI .x11 .x11 1) (by decide) rfl rfl
+      apply SafeN.label hf (kd := .internal) (l := 4) (by decide)
+      apply lsafe_opn hf hag2 (i := .ADDI .x11 .x11 1) (by decide) rfl rfl
       intro r3 m3 hag3
-      apply reaches_label (kd := .internal) (l := 5) (by decide)
-      apply reaches_opn hag3 (i := .ADDI .x12 .x12 0xfff) (by decide) rfl rfl
+      apply SafeN.label hf (kd := .internal) (l := 5) (by decide)
+      apply lsafe_opn hf hag3 (i := .ADDI .x12 .x12 0xfff) (by decide) rfl rfl
       intro r4 m4 hag4
-      apply reaches_label (kd := .internal) (l := 6) (by decide)
-      apply reaches_opn hag4 (i := .ADDI .x10 .x10 1) (by decide) rfl rfl
+      apply SafeN.label hf (kd := .internal) (l := 6) (by decide)
+      apply lsafe_opn hf hag4 (i := .ADDI .x10 .x10 1) (by decide) rfl rfl
       intro r5 m5 hag5
       generalize hu5 : execInstrBr (execInstrBr (execInstrBr u2 (.ADDI .x11 .x11 1))
         (.ADDI .x12 .x12 0xfff)) (.ADDI .x10 .x10 1) = u5 at hag5
@@ -188,8 +202,8 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
         rw [e5, e]
         simp only [h0, h1, h2, h3, h4, if_false]
         exact hkept r hr
-      apply reaches_label (kd := .internal) (l := 7) (by decide)
-      apply reaches_cond hag5 (op := "ne") (a := .x12) (b := .x0) (l := 1) (by decide)
+      apply SafeN.label hf (kd := .internal) (l := 7) (by decide)
+      apply lsafe_cond hf hag5 (op := "ne") (a := .x12) (b := .x0) (l := 1) (by decide)
         (c := u5.getReg .x12 != u5.getReg .x0) (by simp [cmpEval]) (j := 2) (by decide)
       · -- the back edge: one more byte agrees
         intro hc
@@ -207,13 +221,19 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
         have hz : n - (j + 1) = 0 := by
           simp only [e5, reduceCtorEq, if_false, if_true, getReg_x0, bne_eq_false_iff_eq] at hc
           exact ofNat_eq_zero (by omega) hc
-        apply reaches_label (kd := .internal) (l := 8) (by decide)
-        apply reaches_opn hag5 (i := .ADDI .x10 .x0 0) (by decide) rfl rfl
+        apply SafeN.label hf (kd := .internal) (l := 8) (by decide)
+        apply lsafe_opn hf hag5 (i := .ADDI .x10 .x0 0) (by decide) rfl rfl
         intro r6 m6 hag6
-        apply reaches_label (kd := .internal) (l := 9) (by decide)
-        apply halts_ret (by decide)
+        apply SafeN.label hf (kd := .internal) (l := 9) (by decide)
+        have hx : ∀ r, r ∉ clobbered → (execInstrBr u5 (.ADDI .x10 .x0 0)).getReg r = u0.getReg r := by
+          intro r hr
+          have h0 : r ≠ Reg.x10 := fun h => hr (by simp [clobbered, h])
+          simp [execInstrBr, getReg_setReg, h0]
+          exact kept5 r hr
+        apply lsafe_ret hf hag6 (by decide) ((hx .x1 (by decide)).trans hra) ((hx .x2 (by decide)).trans hsp)
+        apply hpost
         simp only [Post]
-        refine ⟨by decide, ?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
+        refine ⟨?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
         · rw [hag6.regs]
           simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, reduceCtorEq,
             if_true, and_self, ne_eq, not_false_eq_true, getReg_x0]
@@ -224,22 +244,23 @@ theorem loop (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
             exact hbyte
         · exact (hag6.mem addr).trans (by simp [execInstrBr, em5])
         · exact hag6.code.trans (by simp [execInstrBr, ec5])
-        · rw [hag6.regs]
-          have h0 : r ≠ Reg.x10 := fun h => hr (by simp [clobbered, h])
-          simp [execInstrBr, getReg_setReg, h0]
-          exact kept5 r hr
+        · rw [hag6.regs]; exact hx r hr
         · rw [hag6.regs]
           simp [execInstrBr, getReg_setReg, getReg_x0, signExtend12]
 
-/-- **`memcmp` at Lprog**: from the entry, the run halts at the return, in a state `Post` describes. -/
-theorem halts (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
+/-- **`memcmp`'s contract at Lprog**: from the call, every continuation safe from the states
+    `Post` describes is safe. -/
+theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
     (hva : ∀ i < n, isValidMemAddrSp1 (a + BitVec.ofNat 64 i) = true)
     (hvb : ∀ i < n, isValidMemAddrSp1 (b + BitVec.ofNat 64 i) = true)
-    (regs : String → BitVec 64) (m : MachineState) (hag : Agree (ofParts regs m) u0)
-    (h10 : u0.getReg .x10 = a) (h11 : u0.getReg .x11 = b) (h12 : u0.getReg .x12 = BitVec.ofNat 64 n) :
-    rvIsa.Halts (lift prog) (Post u0 a b n) ⟨0, regs, m⟩ := by
-  apply reaches_label (kd := .internal) (l := 0) (by decide)
-  apply reaches_cond hag (op := "eq") (a := .x12) (b := .x0) (l := 8) (by decide)
+    (regs : Reg → BitVec 64) (m : MachineState) (hag : Agree (ofParts regs m) u0)
+    (h10 : u0.getReg .x10 = a) (h11 : u0.getReg .x11 = b) (h12 : u0.getReg .x12 = BitVec.ofNat 64 n)
+    (hra : u0.getReg .x1 = ret) (hsp : u0.getReg .x2 = top)
+    (hpost : ∀ r' m', Post u0 a b n (ofParts r' m') → LSafeN fs G N Q ⟨rest, r', m'⟩) :
+    LSafeN fs G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  apply SafeN.label hf (kd := .internal) (l := 0) (by decide)
+  apply lsafe_cond hf hag (op := "eq") (a := .x12) (b := .x0) (l := 8) (by decide)
     (c := u0.getReg .x12 == u0.getReg .x0) (by simp [cmpEval]) (j := 16) (by decide)
   · -- no bytes: the result is zero
     intro hc
@@ -247,20 +268,23 @@ theorem halts (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
       simp only [h12, getReg_x0, beq_iff_eq] at hc
       exact ofNat_eq_zero hn hc
     subst hz
-    apply reaches_label (kd := .internal) (l := 8) (by decide)
-    apply reaches_opn hag (i := .ADDI .x10 .x0 0) (by decide) rfl rfl
+    apply SafeN.label hf (kd := .internal) (l := 8) (by decide)
+    apply lsafe_opn hf hag (i := .ADDI .x10 .x0 0) (by decide) rfl rfl
     intro r1 m1 hag1
-    apply reaches_label (kd := .internal) (l := 9) (by decide)
-    apply halts_ret (by decide)
+    apply SafeN.label hf (kd := .internal) (l := 9) (by decide)
+    have hx : ∀ r, r ∉ clobbered → (execInstrBr u0 (.ADDI .x10 .x0 0)).getReg r = u0.getReg r := by
+      intro r hr
+      have h0 : r ≠ Reg.x10 := fun h => hr (by simp [clobbered, h])
+      simp [execInstrBr, getReg_setReg, h0]
+    apply lsafe_ret hf hag1 (by decide) ((hx .x1 (by decide)).trans hra) ((hx .x2 (by decide)).trans hsp)
+    apply hpost
     simp only [Post]
-    refine ⟨by decide, ?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
+    refine ⟨?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
     · rw [hag1.regs]
       simp [execInstrBr, getReg_setReg, getReg_x0, signExtend12]
     · exact hag1.mem addr
     · exact hag1.code
-    · rw [hag1.regs]
-      have h0 : r ≠ Reg.x10 := fun h => hr (by simp [clobbered, h])
-      simp [execInstrBr, getReg_setReg, h0]
+    · rw [hag1.regs]; exact hx r hr
     · rw [hag1.regs]
       simp [execInstrBr, getReg_setReg, getReg_x0, signExtend12]
   · -- some bytes: the loop
@@ -269,7 +293,7 @@ theorem halts (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
       rcases Nat.eq_zero_or_pos n with h | h
       · subst h; simp [h12, getReg_x0] at hc
       · exact h
-    exact loop u0 a b n hn hva hvb n 0 regs m u0 (by omega) hpos hag (by simp [h10])
+    exact loop u0 a b n hn hva hvb hra hsp hpost n 0 regs m u0 (by omega) hpos hag (by simp [h10])
       (by simp [h11]) (by simp [h12]) (fun _ => rfl) rfl (fun _ _ => rfl)
       (fun i hi => absurd hi (Nat.not_lt_zero i))
 
@@ -291,17 +315,17 @@ theorem safe {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
       SafeN G k P t) :
     SafeN G k P s := by
   have hc : CodeAt F_7803f54c.base (prog.map some) s := prog_map ▸ hcode
-  refine SafeN.of_reaches (reach_of_halts wf (sim_entry (fun _ => 0) hc hpc)
-    (halts s a b n hn hva hvb _ _ (agree_ofParts_regsOf _ s) h10 h11 h12)) ?_
-  rintro t ⟨s', hs', hpc', hx10, hmem, hcode', hkept, hsx⟩
+  refine SafeN.of_contract hok (g := 0) (fn := F) rfl hpc
+    (fun f hf => by simp only [fs, List.mem_singleton] at hf; subst hf; exact hc)
+    (Post := Post s a b n)
+    (fun _ _ hk => contract s a b n hn hva hvb _ _ (agree_ofParts_regsOf s) h10 h11 h12 rfl rfl hk) ?_
+  intro t r' m' hag hpc' ⟨hx10, hmem, hcode', hkept, hsx⟩
   apply hk
-  · rcases hs'.pc with ⟨hle, _⟩ | ⟨_, ht⟩
-    · rw [hpc'] at hle; omega
-    · rw [ht, ← hs'.agree.regs .x1, hkept .x1 (by decide), hra]
-  · rw [← hs'.agree.code]; exact hcode'
-  · intro addr; rw [← hs'.agree.mem addr]; exact hmem addr
-  · intro r hr; rw [← hs'.agree.regs r]; exact hkept r hr
-  · rw [← hs'.agree.regs]; exact hx10
-  · rw [← hs'.agree.regs]; exact hsx
+  · rw [hpc', hra]
+  · rw [← hag.code]; exact hcode'
+  · intro addr; rw [← hag.mem addr]; exact hmem addr
+  · intro r hr; rw [← hag.regs r]; exact hkept r hr
+  · rw [← hag.regs]; exact hx10
+  · rw [← hag.regs]; exact hsx
 
 end Cases.Zip2005.MemcmpLprog

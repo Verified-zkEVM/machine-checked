@@ -166,7 +166,7 @@ says otherwise. When in doubt, match the surrounding code.
 - Types and structures are `UpperCamelCase`, definitions are `lowerCamelCase`, and theorems
   are `snake_case`.
 - A theorem's name describes its statement: `_of_` separates the conclusion from the
-  hypotheses (`reach_of_halts`, `noCodeAt_of_codeWithin`), and standard words name standard
+  hypotheses (`regs_of_agree`, `noCodeAt_of_codeWithin`), and standard words name standard
   facts (`refl`, `symm`, `trans`, `congr`, `mono`, `ext`, `iff`).
 - Name a declaration for what it says, never for where it came from or when it was written.
   Do not use paper numbering, phase codes or dates in names. Put citations in the module

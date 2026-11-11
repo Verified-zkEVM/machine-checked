@@ -6,15 +6,14 @@ import Cases.CatCrypt.Image.Cswap
 
 Ported from catcrypt-compiler's `cswapBytes_correct` (`RiscvBytesProof`, rv64 stack), which
 states the kernel over catcrypt-compiler's own RV64 model. Here the same bytes, decoded by
-riscv-zkvm's `decode`, run under `stepSp1`, through the lift (`corres_block`): from a state holding two field elements in
-`a0..a3` and `a4..a7` and a swap word `t0 ∈ {0, 1}`, the 52 instructions swap the two
-elements exactly when `t0 = 1`, and leave `t0` and the code alone.
+riscv-zkvm's `decode`, run under `stepSp1` as a straight-line block (`corres_block`): from a
+state holding two field elements in `a0..a3` and `a4..a7` and a swap word `t0 ∈ {0, 1}`, the 52
+instructions swap the two elements exactly when `t0 = 1`, and leave `t0` and the code alone.
 -/
 
 namespace Cases.CatCrypt
 
 open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Lprog
-open MachineChecked.Ascent (Corres)
 
 /-- The abstract state of `cswap`: the pc, two four-limb values and the swap word. -/
 structure SwapState where
@@ -60,7 +59,7 @@ theorem sel (sw a b : Word) (h : sw.toNat ≤ 1) :
   rcases this with rfl | rfl <;> simp <;> bv_decide (config := { enums := false })
 
 /-- **`cswap` on riscv-zkvm.** -/
-theorem corres (base : Word) : Corres stepSp1 (SR base) (Pre base) spec := by
+theorem corres (base : Word) : CorresSp1 (SR base) (Pre base) spec := by
   apply corres_block base prog (by decide)
   · rintro m x ⟨hc, hpc, -⟩ ⟨hb, -⟩
     exact ⟨hc, hpc.trans hb⟩
