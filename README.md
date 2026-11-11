@@ -2,6 +2,17 @@
 
 Formally verify machine code directly in Lean.
 
+> [!WARNING]
+> **Early days.** MachineChecked is a young research project, and it is changing quickly: its
+> layers, interfaces and file layout will move as the design settles. Some layers exist only on
+> paper, some proofs rest on premises that are still open, and the AArch64 and x86-64 models are
+> trusted rather than verified. The [roadmap](ROADMAP.md) says what exists and what doesn't. Read
+> a result here as evidence, not yet as an audit: check exactly what each theorem states and
+> assumes before relying on it. Questions, issues and feedback are very welcome.
+>
+> **Want to contribute?** Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) first, and get in
+> touch before starting work.
+
 MachineChecked takes the binary a compiler produced, not its source, and proves in Lean that it
 meets a high-level specification. The compiler and assembler are not trusted. What is
 trusted is the model of the instruction set, the Lean kernel, and the step that reads the binary
@@ -91,7 +102,9 @@ To check one file while working, use `lake env lean path/to/File.lean`.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Contributions are welcome. While the project is young, please get in touch with the maintainer,
+Derek Sorensen, before starting work, for example on the [Lean Zulip](https://leanprover.zulipchat.com),
+so that we can agree where it fits. Then see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Licence
 
