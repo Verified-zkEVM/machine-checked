@@ -123,7 +123,7 @@ binary comes from, and what its specification would be.
 | 1 | structured logical program | Nothing yet (`MachineChecked/Logical` is a placeholder). `docs/LogicalMachine.md` sketches it. |
 | 0.5 | low logical program | `MachineChecked/Lprog`: linear Jasmin with shared control flow and shared operations (`Op.lean`), independent of any ISA. |
 | 0 → 0.5 | lift 1 | RISC-V: `MachineChecked/RiscV/Lprog`. Each instruction is translated to a shared operation and proved against riscv-zkvm; the simulation carries every Lprog run down to the machine. It covers straight-line code, branches, jumps and returns; calls, indirect jumps and system calls stop a run at Lprog and are taken over the machine. |
-| 0 | ISA | RISC-V: riscv-zkvm, tied to Sail, with the judgement `SafeN` over its `stepSp1`, and the layer-0 proof tools. AArch64 and x86-64: trusted machine models only. |
+| 0 | ISA | RISC-V: riscv-zkvm, tied to Sail, with the judgement `SafeN` over its `stepSp1`, and the layer-0 proof tools. x86-64: Kraken's x64 semantics is chosen (`docs/ISA.md`) and not yet required; a trusted transcription of Jasmin's stands in. AArch64: a trusted machine model only. |
 | -1 | ELF and context | RISC-V on SP1 only: the loader, SP1's acceptance and its system calls. The context is not yet a parameter. |
 | all | runs and correspondence | `MachineChecked/Ascent`: one notion of a run and one correspondence, for any step function. Every layer's runs are instances. |
 
@@ -145,7 +145,8 @@ proofs go through the lift.
    function and possibly partial.
 5. **Program logics at layer 1, and specification refinement (layer 2),** driven by the
    first targets.
-6. **AArch64 and x86-64.** Verify the models against their canonical specifications or
-   replace them; then decoders, loaders and lifts into the shared layer 0.5. The s2n-bignum
-   style routines are the first targets here.
+6. **AArch64 and x86-64.** For x86-64, require Kraken (which moves the toolchain), state
+   the judgement over its x64 semantics and lift its programs into the shared layer 0.5. For
+   AArch64, choose the canonical specification and verify or replace the model; then its
+   loader and lift. The s2n-bignum style routines are the first targets here.
 7. **More targets,** from the list above and from proposals.

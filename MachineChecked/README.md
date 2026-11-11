@@ -68,8 +68,9 @@ Layers 1 and 2 do not exist yet. Today each case study's specification (for exam
 
 The trusted base is listed in [`docs/ELF.md`](../docs/ELF.md) §4. Within this directory:
 - riscv-zkvm's model (a dependency, tied to Sail) is trusted for RISC-V.
-- `ARM/Model.lean` and `X86/Model.lean` are trusted until each is verified against its
-  canonical specification ([`docs/ISA.md`](../docs/ISA.md)).
+- `ARM/Model.lean` is trusted until it is verified against its canonical specification
+  ([`docs/ISA.md`](../docs/ISA.md)). `X86/Model.lean` is trusted and stands in until Kraken,
+  x86-64's chosen semantics, is required; it is then removed.
 - Everything else is proved. No file uses `sorry`, `axiom` or `native_decide`.
 
 Code ported from catcrypt-compiler records its origin in the module header and in the
