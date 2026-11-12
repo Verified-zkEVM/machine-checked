@@ -5,13 +5,14 @@ defaultTargets = ["MachineChecked", "Tools"]
 moreLeanArgs = ["--tstack=400000"]
 
 # The RV64IM machine model, its decoder and ELF loader, used unmodified. Pinned to the
-# commit zip-2005-asm resolved (branch `sp1-backend`, which runs SP1 guests), so the two
-# repositories agree on `decode` and `stepSp1`. A commit forfeits release oleans, but our
+# merge of `sp1-backend` into `main` (Verified-zkEVM/riscv-zkvm#96, branch
+# `merge/sp1-backend`), the first commit with `stepSp1` on Lean v4.33.1; re-pin to `main`
+# once that merges. A commit forfeits release oleans, but our
 # import closure (`Rv64` + `Interpreter`) never reaches the generated Sail tree.
 [[require]]
 name = "riscv-zkvm"
 git = "https://github.com/Verified-zkEVM/riscv-zkvm"
-rev = "4634e41b229da4256e4a1f1688b94133fffa4af0"
+rev = "76c52d825093b3bd9cb1b77703e26f187c5f936a"
 
 # Mathlib, as a direct require at the tag matching `lean-toolchain`. Only the ZIP 2005
 # specification and its closure (`Cases/Zip2005/Spec`) use it; `MachineChecked` and `Tools` do
@@ -20,7 +21,7 @@ rev = "4634e41b229da4256e4a1f1688b94133fffa4af0"
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
-rev = "v4.33.0"
+rev = "v4.33.1"
 
 # The framework: ISA-independent definitions at the top level, RISC-V under `MachineChecked.RiscV`.
 [[lean_lib]]
