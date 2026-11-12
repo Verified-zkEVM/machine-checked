@@ -120,7 +120,7 @@ binary comes from, and what its specification would be.
 | layer | roadmap | what exists |
 | --- | --- | --- |
 | 2 | spec refinement | Nothing generic (`MachineChecked/Refine` is a placeholder). Each case study's specification, for example `Cases/Zip2005/Spec`, connects to its proofs directly. |
-| 1 | structured logical program | Nothing yet (`MachineChecked/Logical` is a placeholder). `docs/LogicalMachine.md` sketches it. |
+| 1 | structured logical program | Nothing yet (`MachineChecked/Logical` is a placeholder). catcrypt-compiler's `NFProg` is proposed as its seed ([`docs/notes/SHARED-LIBRARY.md`](docs/notes/SHARED-LIBRARY.md)); `docs/LogicalMachine.md` is an earlier sketch. |
 | 0.5 | low logical program | `MachineChecked/Lprog`: linear Jasmin with shared control flow and shared operations (`Op.lean`), independent of any ISA. Programs with a call stack, calls, tail calls, returns checked against the call, and external calls given by an execution context; the judgement is `Ascent.SafeN`. Design: `docs/design/Lprog.md`. |
 | 0 → 0.5 | lift 1 | RISC-V: `MachineChecked/RiscV/Lprog`. A program of functions lifts whole: operations, branches, jumps, calls, tail calls, returns and `ecall`s, with SP1's system calls as the context. The transfer theorem carries `SafeN` at Lprog down to `stepSp1`. Not yet: contracts composed by a table, a symbolic executor at Lprog, exit points for lifting part of a program. |
 | 0 | ISA | RISC-V: riscv-zkvm, tied to Sail, with the judgement `SafeN` over its `stepSp1`, and the layer-0 proof tools. x86-64: Kraken's x64 semantics is chosen (`docs/ISA.md`) and not yet required; a trusted transcription of Jasmin's stands in. AArch64: DeepMind's arm64-semantics is chosen (`docs/ISA.md`) and not yet required; a trusted hand-written model stands in. |
@@ -133,6 +133,13 @@ proofs go through the lift.
 
 ## Roadmap steps
 
+0. **A library shared with catcrypt-compiler** ([`docs/notes/SHARED-LIBRARY.md`](docs/notes/SHARED-LIBRARY.md)).
+   The generic layers (runs with events, correspondence, `SafeN`, `SContract`, Lprog, and
+   later the Lprog symbolic executor) become one Mathlib-free package that both projects
+   require. The machine models (`IsaMachine`, x86-64 on Kraken, AArch64, and an RV64 model
+   on riscv-zkvm's decode and execute) move later to a second package, and MachineChecked
+   proves that `stepSp1` refines the RV64 model outside `ecall`. Steps 1–3 build on the
+   generic package, not on the models.
 1. **Complete the RISC-V lift.** Done for programs (milestone A of `docs/design/Lprog.md`):
    calls, tail calls, returns and system calls run at Lprog, and `write_vectored`'s call to
    `sys_write` uses its callee's contract. Next: a symbolic executor at Lprog (milestone B).
@@ -142,7 +149,10 @@ proofs go through the lift.
    convention as parameters: the contract table stated over Lprog, and SP1 as the first
    instance of a context.
 4. **The structured logical program (layer 1)** and the decompiling lift into it, per
-   function and possibly partial.
+   function and possibly partial. The proposed seed is catcrypt-compiler's `NFProg`, with a
+   dialect for flat memory and pointers. Lift 2 comes first by validation (an untrusted
+   decompiler, `NFProg`'s compilation to Lprog, catcrypt-compiler's validator); code from
+   rustc, such as zip-2005, needs a more general checker.
 5. **Program logics at layer 1, and specification refinement (layer 2),** driven by the
    first targets.
 6. **AArch64 and x86-64.** For x86-64, require Kraken (which moves the toolchain), state

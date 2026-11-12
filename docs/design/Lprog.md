@@ -1,8 +1,13 @@
 # Design note: Lprog as a program-level verification layer
 
-**Status: accepted (2026-10-22).** It fixes the design of milestones A–D in
-[`ROADMAP.md`](../../ROADMAP.md) steps 1–3 (issues #2–#5). Milestone A is implemented;
-[As built](#as-built-milestone-a) at the end records where the code departs from the text.
+**Status: agreed (2026-11-11), after two reviews by the catcrypt-compiler maintainers
+(PR #16).** It sets out the design of milestones A–D in [`ROADMAP.md`](../../ROADMAP.md)
+steps 1–3 (issues #2–#5). Its generic parts (§1–§5, §8, §10) are to be shared with
+catcrypt-compiler ([`docs/notes/SHARED-LIBRARY.md`](../notes/SHARED-LIBRARY.md)); the review
+changed calls (§2), external calls (§4), the judgement (§5) and registers (§8), and added
+leakage (§10). Milestone A is implemented (#17) without the review's changes, which follow as
+#18 (events) and #19 (the call field); [As built](#as-built-milestone-a) at the end records
+where the code departs from the text.
 
 ## Goal
 
@@ -39,8 +44,8 @@ A state is a stack of activations, the register file and the rest of the machine
 structure Frame where
   fn  : Nat                -- index of the function in the program
   pc  : Nat                -- index into its body
-  ret : BitVec 64          -- the return value the link register held at the call
-  top : BitVec 64          -- sp at the call: the frame window is [top - depth, top)
+  ret : BitVec 64          -- the return value the call recorded (§2)
+  top : BitVec 64          -- sp after the call's effect: the frame window is [top - depth, top)
 
 structure State (I : Isa) where
   stack : List Frame       -- innermost first; empty when the program has returned
@@ -55,19 +60,25 @@ simulation of the machine instead of an abstraction of it, and leaves real abstr
 
 ## 2. Primitive calls, and return-address integrity
 
-- `Lcall f` pushes a frame for `f` at its first instruction. It sets the link register to a
-  return value the instruction set supplies (for RISC-V, the machine return address `pc + 4`)
-  and records it as the frame's `ret`, with the current `sp` as `top`. Code that saves and
-  restores the link register (as compiled code does) therefore runs unchanged.
+Where the return address goes is the instruction set's business, not Lprog's: RISC-V and
+AArch64 write a link register, x86 pushes it on the stack. So the effect of a call and the
+check of a return are a field of `Isa` (§8), and Lprog's rules are stated through it.
+
+- `Lcall f` pushes a frame for `f` at its first instruction. It applies the instruction set's
+  call effect, which yields the return value (for RISC-V, the machine return address `pc + 4`,
+  written to the link register; for x86, the same address pushed below `sp`). The frame
+  records it as `ret`, and `sp` after the effect as `top`. Code that saves and restores the
+  return address (as compiled code does) therefore runs unchanged.
 - `Lret` pops the frame and continues after the call in the caller. It is defined only if the
-  link register holds the frame's `ret` and `sp` is back at `top`. Otherwise it goes `wrong`
-  (§3).
+  instruction set's return check holds of the frame: for RISC-V, the link register holds `ret`
+  and `sp` is back at `top`; for x86, the doubleword at `sp` is `ret`, `sp` is back at `top`,
+  and the return pops it. Otherwise it goes `wrong` (§3).
 - An indirect call `Lcall [f₁, …, fₖ] r` calls the candidate whose entry the register `r`
   holds, and goes `wrong` if it holds none of them; a control-flow premise in the contract
   (as `Env.Cfi` today) says which candidates a site has.
 - A tail call (`jal x0, f`, or `jalr x0` to a candidate entry) lifts to `Ltail f`, which
-  replaces the current frame by one for `f` with the same `ret` and `top`, and leaves the link
-  register alone. It is defined only if `sp` is back at `top` (the caller has released its
+  replaces the current frame by one for `f` with the same `ret` and `top`, and leaves the
+  return address alone. It is defined only if `sp` is back at `top` (the caller has released its
   frame). The callee's `Lret` then returns straight to the caller's caller, as on the machine.
 
 Because `Lret` goes `wrong` on a bad return address, and the judgement (§5) excludes `wrong`,
@@ -88,7 +99,14 @@ one of:
   to be unreachable.
 
 The distinction is what makes the transfer to the machine sound: every Lprog outcome other
-than `wrong` is matched by the machine (§7).
+than `wrong` is matched by the machine (§7). catcrypt-compiler's steps return `Option`, which
+conflates the two; the review agreed on separating them.
+
+Each step also yields a list of **events** of a type `E`, the leakage an observer sees (§10):
+
+```lean
+step : σ → Outcome (σ × List E) → Prop
+```
 
 ## 4. External calls
 
@@ -97,9 +115,12 @@ state before and the states after (or `trap`). The context is a record:
 
 ```lean
 structure Context (I : Isa) where
-  ext    : String → I.Regs → I.M → Outcome (I.Regs × I.M) → Prop
+  ext    : String → I.Regs → I.M → Outcome (I.Regs × I.M × List I.E) → Prop
   accept : I.Regs → I.M → Prop     -- for SP1: HALT with exit code 0
 ```
+
+A specification returns the events of the call as well as its result, so a constant-time
+proof can go through an external call.
 
 For SP1, the specifications are restated once from the facts the layer-0 tools prove today
 (`Sym/Syscall.lean`, `Check/Ecall.lean`, `Exec/Hint.lean`): `HALT`, `WRITE`, `COMMIT`,
@@ -109,29 +130,44 @@ into `Lext` on the id in `t0`. The context is not otherwise parameterised in thi
 ## 5. One judgement, generic
 
 `SafeN` moves to `MachineChecked/Ascent/Safe.lean`, stated for any machine given by a step
-relation with outcomes and an accept predicate:
+relation with outcomes and events, and an accept predicate. It ignores the events:
 
 ```lean
-def SafeN (step : σ → Outcome σ → Prop) (accept : σ → Prop)
+def SafeN (step : σ → Outcome (σ × List E) → Prop) (accept : σ → Prop)
     (G : σ → Prop) (n : Nat) (P : Prop) (s : σ) : Prop :=
   -- every run of fewer than n steps from s, along which G holds,
   -- never reaches `wrong`, and ends accepting only if P
 ```
 
-- RISC-V's `SafeN` becomes the instance at `stepSp1` (deterministic, never `wrong`) and
-  `Accepted`, keeping its name and every lemma's name, so nothing that uses it changes.
+- RISC-V's `SafeN` becomes the instance at `stepSp1` (deterministic, never `wrong`, with
+  `E = Unit`) and `Accepted`, keeping its name and every lemma's name, so nothing that uses it
+  changes.
 - Lprog's judgement is the instance at `Isa.step` and the context's `accept`.
 - The rules (`step`, `of_step`, `steps`, `assume`, `loop`, `loop_measure`, `cases`) are proved
   once, generically.
 - **Contracts** are in continuation form with the budget, as today:
   `∀ G n P s, Pre s → (∀ t, Post s t → SafeN … G n P t) → SafeN … G n P s`.
-- **Correspondence is a contract.** `Ascent.Corres` is restated in this continuation form:
-  `SR m a → P a → (∀ t, SR t (fa a) → SafeN … G n Q t) → SafeN … G n Q m`. On a relational
-  machine (Lprog with external calls) this is the right notion: every run, not some run, must
-  reach a related state or stop safely. The present form over `Reaches` (some run reaches a
-  related state; total correctness) implies it on a deterministic machine, by
-  `SafeN.of_reaches`, so the CatCrypt kernels' statements remain valid and give contracts
-  directly (`SafeN.of_corres`).
+- **Correspondence.** The shared package starts from catcrypt-compiler's `RefinesP` and
+  `RefinesO` (`HaxAscent/Ascent/Refines.lean`), forward simulation of an abstract function
+  under a precondition. MachineChecked's `Corres` over `Reaches` (one step, iterated) and
+  catcrypt-compiler's `CorresIsaRun` (a whole run, ending halted) are instances. `RefinesP`
+  takes a partial function `C → Option D`, and Lprog's step is a relation, so the package has
+  a relational `RefinesR (step : C → D → Prop)`, with a progress clause as well as the related
+  end; `RefinesP` is its instance at `fun c d => sem c = some d`.
+- **Correspondence as a contract.** On a relational machine (Lprog with external calls) the
+  useful statement is the continuation form,
+  `SR m a → P a → (∀ t, SR t (fa a) → SafeN … G n Q t) → SafeN … G n Q m`: every run, not
+  some run, must reach a related state or stop safely. Total correctness over `Reaches` implies
+  it on a deterministic machine, by `SafeN.of_reaches`, so the CatCrypt kernels' statements
+  give contracts directly (`SafeN.of_corres`).
+- **`SContract`** (catcrypt-compiler's `SepLogic/Contract.lean`) sits beside `SafeN` in the
+  shared package: total (a run exists), framed (a write set), with a two-run `ct` field, and
+  generic in state, locations and trace. `SafeN`'s contracts are partial, because a whole
+  program may trap or panic; `SContract` suits kernels, which always halt. The package has a
+  bridge from `SContract` to a `SafeN` contract on deterministic machines, so that a kernel's
+  `SContract` serves as a contract at an `Lcall` (the route of `SafeN.of_corres`); the `ct`
+  field has no counterpart, since `SafeN` ignores events. Composing `ct` across `Lcall` needs
+  its own rule: open.
 - **Composition** is a generic `table_sound`, by strong induction on the budget over a family
   of contracts (the shape of `Check/Sound/Act.lean`'s `table_sound`). At an `Lcall`, the
   callee's contract is used at a smaller budget, which is what makes recursion compose.
@@ -174,21 +210,33 @@ covers the machine's one run, which is what `SafeN` over `stepSp1` needs.
 
 ## 8. Registers
 
-`Isa` gets a register type with decidable equality, a link register and a stack register:
+`Isa` gets a register type with decidable equality, a stack register, an event type, and the
+effect of calls and returns (§2):
 
 ```lean
 structure Isa where
   Reg : Type
   [decEq : DecidableEq Reg]
-  link : Reg
   sp   : Reg
+  E    : Type                                   -- events (§10); Unit for SP1
+  call : (ret : BitVec 64) → Regs → M → Regs × M -- RISC-V: write the link register; x86: push
+  retOk : Frame → Regs → M → Option (Regs × M)  -- the return check, and its effect
   ...
 ```
+
+`call` and `retOk` replace the fixed link register of the first draft; catcrypt-compiler's
+`Isa.withCalls` handles x86's push the same way.
 
 The register file is accessed only through `get`/`set` and their lemmas, so its
 representation can change later without touching proofs. RISC-V uses riscv-zkvm's own `Reg`,
 which removes the translation between register names and `Reg` from the lift. `x0` reads as
 zero through the interface.
+
+**Syntax.** Operations are typed (`Op`) and the state is generic, replacing
+catcrypt-compiler's mnemonic strings and fixed `LstateMF`. catcrypt-compiler's region proofs
+use the array operands `arr` and `arrIdx`; they stay, or are shown expressible as `load` and
+`store`. catcrypt-compiler's Jasmin export keeps Jasmin's linear syntax, with a proved
+translation from the shared Lprog.
 
 ## 9. Automation
 
@@ -208,12 +256,26 @@ timed against today's (a 58-instruction deserialiser, the 293-instruction alloca
 235-instruction segment of `main` with fifteen contracts). The target is within about twice
 today's build time.
 
-## 10. Plan
+## 10. Leakage and constant time
+
+Constant time and speculative constant time are in scope. The step's events (§3) carry what an
+observer sees, under the instruction set's timing regime: addresses accessed, branch
+directions, variable-time operations. `SafeN` ignores them. Constant time is a separate
+two-run judgement: two runs from states that agree on public data produce equal events, as in
+`SContract.ct` and catcrypt-compiler's `IsaMachine.RunL` over `CTLeak` and Lprog `EntryCT`.
+Each lift proves that its events match the machine's.
+
+Open: whether the event type follows catcrypt-compiler's leakage model exactly; where
+speculative constant time lives (a speculative semantics over the shared Lprog, or per
+backend, as in catcrypt-compiler's x86 backend today); and the timing regime for RISC-V
+outside SP1 (Zkt).
+
+## 11. Plan
 
 | milestone | delivers | exit test |
 | --- | --- | --- |
-| A | §1–§5, §7, §8; SP1's context; the existing Lprog proofs ported | `write_vectored`'s call to `sys_write` is an Lprog call using a contract, no machine steps by hand |
-| B | §9 | the three benchmarks re-proved, within about 2× build time |
+| A | §1–§5, §7, §8; events in the step (`E = Unit` for SP1); SP1's context; the existing Lprog proofs ported | `write_vectored`'s call to `sys_write` is an Lprog call using a contract, no machine steps by hand |
+| B | §9, in the shared package | the three benchmarks re-proved, within about 2× build time |
 | C | contracts and the table at Lprog; the runtime (memcpy, memset, memcmp, syscalls, allocator) re-proved; the checker's future decided (issue #12) | the runtime's machine-level statements are unchanged and proved through Lprog |
 | D | the rest of zip-2005, bottom-up through the call graph; `RiscV/Sym`, `Exec`, `Frame` deleted | every function on the Lprog route; `guest_run` unchanged |
 
@@ -246,6 +308,11 @@ change and the end theorem stays green at every step. `PanicPaths`, the open pre
 
 Milestone A follows §1–§5, §7 and §8, with these departures. The code is the reference.
 
+- **No events, and a fixed link register.** Milestone A was built before the review: the step
+  is `σ → Outcome σ → Prop` with no events (§3, §4; #18), and `Isa` has a fixed `link`
+  register instead of the `call` and `retOk` fields (§2, §8; #19). A call writes the link
+  register, and a return checks it and `sp`.
+
 - **`Lext` takes no name.** SP1's context (`RiscV/Lprog/Lift.lean`, `sp1Ctx`) is not restated
   per system call: its specification is "the outcome of riscv-zkvm's own `sp1Ecall` on a
   machine state the Lprog state stands for". Over-approximation (§7) then holds by definition,
@@ -262,8 +329,7 @@ Milestone A follows §1–§5, §7 and §8, with these departures. The code is t
 - **Straight-line blocks run over the machine.** `reaches_block` and `corres_block`
   (`RiscV/Lprog/Block.lean`) are proved directly over `stepSp1`, not through the lift: a block
   is not a whole function, and under partial correctness a lifted block cannot hand control
-  back to code outside the lifted program. Giving a lifted program exit points is follow-up
-  work.
+  back to code outside the lifted program. Giving a lifted program exit points is #20.
 - **Indirect calls and tail calls take every function as a candidate** (`List.range
   fs.length`). The control-flow premise of §2 is a hypothesis of the rules (`lsafe_call`,
   `lsafe_tail`: the register holds some function's base), not a narrowed list.
@@ -274,4 +340,4 @@ Milestone A follows §1–§5, §7 and §8, with these departures. The code is t
   frame's return value is the caller's, unconstrained, and the machine continues at
   `ra &&& ~~~1`.
 - **Not yet built:** `table_sound` (§5) and the memory vocabulary of §6. Contracts compose by
-  hand, as in `Cases/Zip2005/Runtime/WriteVectored.lean`, until milestone C needs the table.
+  hand, as in `Cases/Zip2005/Runtime/WriteVectored.lean`, until milestone C needs the table (#21).

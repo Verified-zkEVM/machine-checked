@@ -1,6 +1,8 @@
 # The structured logical program: a design sketch
 
-> **Status (2026-10-21): a sketch of layer 1, not implemented.** In
+> **Status (2026-10-27): an earlier sketch of layer 1, not implemented.** catcrypt-compiler's
+> `NFProg` is now proposed as layer 1's seed ([`notes/SHARED-LIBRARY.md`](notes/SHARED-LIBRARY.md)).
+> The 2026-10-21 status follows. In
 > [`ROADMAP.md`](../ROADMAP.md)'s terms this is the *structured logical program* (layer 1):
 > variables, structured control flow, function contracts. What exists is the layer below it,
 > the *low logical program* (layer 0.5): `MachineChecked/Lprog`, CatCrypt's linear Jasmin
