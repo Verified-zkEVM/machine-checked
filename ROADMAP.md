@@ -69,6 +69,37 @@ higher up.
 
 RISC-V is built first. ARM and x86 follow, as peers.
 
+### Across instruction sets: decompiling and transpiling
+
+![Each instruction set (ARM, RISC-V, x86) decompiles into linear Jasmin; programs are
+transpiled between instruction sets.](docs/media/machine-checked-structure.png)
+
+The figure is the guiding picture, for now, of how the work is organised at the level of
+instruction sets. The aim is a decompiler and transpiler framework in which every arrow is
+verified and the diagram commutes.
+
+- **Decompile** is lift 1 above: from each ISA into linear Jasmin, the low logical program of
+  layer 0.5, with a simulation that carries every run of the lifted program down to a run of
+  the machine.
+- **Transpile** is new: a translation of a program from one ISA to another, in each direction,
+  with a simulation relating the runs of the two programs.
+- **Commuting** means that the routes agree. Transpiling a program from ISA A to ISA B and then
+  decompiling it gives the same layer-0.5 program, up to a stated equivalence, as decompiling
+  it from A directly. Likewise transpiling A to B and then B to C agrees with transpiling A to
+  C. The equivalence at layer 0.5 is behavioural (the same observable runs), with the ABI
+  parameters, such as register names and the calling convention, mapped between the ISAs.
+
+The payoff is that a property proved once at layer 0.5 holds of the program on every ISA it
+reaches, whichever route it took. Open design questions:
+
+- whether a transpiler is built directly, ISA to ISA, or as decompiling into linear Jasmin and
+  compiling down again, in which case commuting needs a compiler from layer 0.5 to each ISA
+  and a round-trip theorem;
+- what a transpiler does with what one ISA has and another lacks: flags (RISC-V has none),
+  instructions without a counterpart, different syscalls and calling conventions;
+- the equivalence itself: which observations it keeps (outputs, memory, leakage) and how the
+  contexts of the two ISAs are related.
+
 ### Layer -1: the ELF and its context
 
 How an ELF is loaded into the ISA layer. This depends on the context: riscv-zkvm, for example,
@@ -149,4 +180,7 @@ proofs go through the lift.
    the judgement over its x64 semantics and lift its programs into the shared layer 0.5. For
    AArch64, likewise require arm64-semantics, state the judgement over its `Steps` and lift
    into layer 0.5. The s2n-bignum style routines are the first targets here.
-7. **More targets,** from the list above and from proposals.
+7. **Transpiling between instruction sets,** once each ISA has its lift: verified
+   translations between RISC-V, AArch64 and x86-64, and the theorems that the figure above
+   commutes.
+8. **More targets,** from the list above and from proposals.
