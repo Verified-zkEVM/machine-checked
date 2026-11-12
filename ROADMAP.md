@@ -74,8 +74,9 @@ RISC-V is built first. ARM and x86 follow, as peers.
 
 ### Across instruction sets: decompiling and transpiling
 
-![Each instruction set (ARM, RISC-V, x86) decompiles into linear Jasmin; programs are
-transpiled between instruction sets.](docs/media/machine-checked-structure.png)
+![Each instruction set (ARM, RISC-V, x86) decompiles into linear Jasmin, which lifts into
+Pancake (Flapjack); programs are transpiled between instruction
+sets.](docs/media/machine-checked-structure.png)
 
 The figure is the guiding picture, for now, of how the work is organised at the level of
 instruction sets. The aim is a decompiler and transpiler framework in which every arrow is
@@ -83,7 +84,8 @@ verified and the diagram commutes.
 
 - **Decompile** is lift 1 above: from each ISA into linear Jasmin, the low logical program of
   layer 0.5, with a simulation that carries every run of the lifted program down to a run of
-  the machine.
+  the machine. Lift 2 continues from linear Jasmin into Pancake, Flapjack's language (layer 1),
+  the top of the figure.
 - **Transpile** is new: a translation of a program from one ISA to another, in each direction,
   with a simulation relating the runs of the two programs.
 - **Commuting** means that the routes agree. Transpiling a program from ISA A to ISA B and then
