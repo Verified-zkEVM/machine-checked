@@ -4,10 +4,11 @@
   RISC-V as an instruction set of the low logical program, on riscv-zkvm.
 
   Each instruction that does not transfer control (a pure instruction other than `auipc`, or a
-  load or store) is translated to a shared operation (`opOf`). Registers are named
-  `x0`..`x31`, and `x0` is read as the immediate zero. The state beside the registers is a
-  riscv-zkvm `MachineState`, whose registers and pc are ignored. Its memory (`rvMem`) is
-  riscv-zkvm's, behind SP1's memory check, so `rvIsa` is `Isa.ofOps` over SP1's memory.
+  load or store) is translated to a shared operation (`opOf`). The registers are riscv-zkvm's
+  own (`Reg`), with `ra` the link register and `sp` the stack pointer, and `x0` is read as the
+  immediate zero. The state beside the registers is a riscv-zkvm `MachineState`, whose
+  registers and pc are ignored. Its memory (`rvMem`) is riscv-zkvm's, behind SP1's memory
+  check, so `rvIsa` is `Isa.ofOps` over SP1's memory.
 
   `opOf_spec` is the translation's correctness: the operation succeeds exactly when SP1's
   memory check `memOkSp1` passes, and its result agrees with riscv-zkvm's `execInstrBr`.
@@ -26,30 +27,12 @@ namespace MachineChecked.RiscV.Lprog
 
 open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.Lprog
 
-/-- The name of a register in Lprog. -/
-def regName (r : Reg) : String := toString r
-
-/-- The register a name stands for. -/
-def regOfName (n : String) : Option Reg := allRegs.find? (fun r => regName r == n)
-
-theorem regOfName_regName (r : Reg) : regOfName (regName r) = some r := by
-  cases r <;> rfl
-
-theorem regName_inj {r r' : Reg} (h : regName r = regName r') : r = r' := by
-  have := regOfName_regName r
-  rw [h, regOfName_regName] at this
-  exact (Option.some.inj this).symm
-
 /-- A machine state with the registers of an Lprog register file. -/
-def ofParts (regs : String → BitVec 64) (m : MachineState) : MachineState :=
-  { m with regs := fun r => regs (regName r) }
+def ofParts (regs : Reg → BitVec 64) (m : MachineState) : MachineState :=
+  { m with regs := regs }
 
-/-- The register file a machine state gives Lprog: each register name reads `getReg`, every
-    other name keeps its value in `old`. -/
-def regsOf (old : String → BitVec 64) (t : MachineState) : String → BitVec 64 :=
-  fun n => match regOfName n with
-    | some r => t.getReg r
-    | none => old n
+/-- The register file a machine state gives Lprog: each register as `getReg` reads it. -/
+def regsOf (t : MachineState) : Reg → BitVec 64 := fun r => t.getReg r
 
 /-! ## Operations -/
 
@@ -86,70 +69,70 @@ def opnOk (i : Instr) : Bool := isPure i || (i.isMemAccess && !isCSRS i)
 /-! ## The translation -/
 
 /-- A register as an operand of a condition; `x0` is the immediate zero. -/
-def opnd (r : Reg) : LOperand := if r = .x0 then .imm 0 else .reg (regName r)
+def opnd (r : Reg) : LOperand Reg := if r = .x0 then .imm 0 else .reg r
 
 /-- A register as an expression; `x0` is the immediate zero. -/
-def rv (r : Reg) : Expr := if r = .x0 then .imm 0 else .reg (regName r)
+def rv (r : Reg) : Expr Reg := if r = .x0 then .imm 0 else .reg r
 
 /-- A sign-extended 12-bit immediate. -/
-def se12 (imm : BitVec 12) : Expr := .imm (signExtend12 imm)
+def se12 (imm : BitVec 12) : Expr Reg := .imm (signExtend12 imm)
 
 /-- A shift amount. -/
-def sh (n : Nat) : Expr := .imm (BitVec.ofNat 64 n)
+def sh (n : Nat) : Expr Reg := .imm (BitVec.ofNat 64 n)
 
 /-- The address `rs1 + offset` of a load or store. -/
-def addr (rs1 : Reg) (off : BitVec 12) : Expr := .bin .add (rv rs1) (se12 off)
+def addr (rs1 : Reg) (off : BitVec 12) : Expr Reg := .bin .add (rv rs1) (se12 off)
 
 /-- **The translation of an instruction into a shared operation.** Defined for the
     operations (`opnOk`); anything else is `skip`, and is not lifted as an operation. -/
-def opOf : Instr → Op
-  | .ADD rd a b => .set (regName rd) (.bin .add (rv a) (rv b))
-  | .SUB rd a b => .set (regName rd) (.bin .sub (rv a) (rv b))
-  | .SLL rd a b => .set (regName rd) (.bin .shl (rv a) (.bin .and (rv b) (.imm 63)))
-  | .SRL rd a b => .set (regName rd) (.bin .lshr (rv a) (.bin .and (rv b) (.imm 63)))
-  | .SRA rd a b => .set (regName rd) (.bin .ashr (rv a) (.bin .and (rv b) (.imm 63)))
-  | .AND rd a b => .set (regName rd) (.bin .and (rv a) (rv b))
-  | .OR rd a b => .set (regName rd) (.bin .or (rv a) (rv b))
-  | .XOR rd a b => .set (regName rd) (.bin .xor (rv a) (rv b))
-  | .SLT rd a b => .set (regName rd) (.bin .slt (rv a) (rv b))
-  | .SLTU rd a b => .set (regName rd) (.bin .ult (rv a) (rv b))
-  | .ADDI rd a i => .set (regName rd) (.bin .add (rv a) (se12 i))
-  | .ANDI rd a i => .set (regName rd) (.bin .and (rv a) (se12 i))
-  | .ORI rd a i => .set (regName rd) (.bin .or (rv a) (se12 i))
-  | .XORI rd a i => .set (regName rd) (.bin .xor (rv a) (se12 i))
-  | .SLTI rd a i => .set (regName rd) (.bin .slt (rv a) (se12 i))
-  | .SLTIU rd a i => .set (regName rd) (.bin .ult (rv a) (se12 i))
-  | .SLLI rd a s => .set (regName rd) (.bin .shl (rv a) (sh s.toNat))
-  | .SRLI rd a s => .set (regName rd) (.bin .lshr (rv a) (sh s.toNat))
-  | .SRAI rd a s => .set (regName rd) (.bin .ashr (rv a) (sh s.toNat))
-  | .LUI rd i => .set (regName rd) (.imm ((i.zeroExtend 32 <<< 12 : BitVec 32).signExtend 64))
-  | .LD rd a o => .load (regName rd) .b8 false (addr a o)
-  | .LW rd a o => .load (regName rd) .b4 true (addr a o)
-  | .LWU rd a o => .load (regName rd) .b4 false (addr a o)
-  | .LB rd a o => .load (regName rd) .b1 true (addr a o)
-  | .LH rd a o => .load (regName rd) .b2 true (addr a o)
-  | .LBU rd a o => .load (regName rd) .b1 false (addr a o)
-  | .LHU rd a o => .load (regName rd) .b2 false (addr a o)
+def opOf : Instr → Op Reg
+  | .ADD rd a b => .set rd (.bin .add (rv a) (rv b))
+  | .SUB rd a b => .set rd (.bin .sub (rv a) (rv b))
+  | .SLL rd a b => .set rd (.bin .shl (rv a) (.bin .and (rv b) (.imm 63)))
+  | .SRL rd a b => .set rd (.bin .lshr (rv a) (.bin .and (rv b) (.imm 63)))
+  | .SRA rd a b => .set rd (.bin .ashr (rv a) (.bin .and (rv b) (.imm 63)))
+  | .AND rd a b => .set rd (.bin .and (rv a) (rv b))
+  | .OR rd a b => .set rd (.bin .or (rv a) (rv b))
+  | .XOR rd a b => .set rd (.bin .xor (rv a) (rv b))
+  | .SLT rd a b => .set rd (.bin .slt (rv a) (rv b))
+  | .SLTU rd a b => .set rd (.bin .ult (rv a) (rv b))
+  | .ADDI rd a i => .set rd (.bin .add (rv a) (se12 i))
+  | .ANDI rd a i => .set rd (.bin .and (rv a) (se12 i))
+  | .ORI rd a i => .set rd (.bin .or (rv a) (se12 i))
+  | .XORI rd a i => .set rd (.bin .xor (rv a) (se12 i))
+  | .SLTI rd a i => .set rd (.bin .slt (rv a) (se12 i))
+  | .SLTIU rd a i => .set rd (.bin .ult (rv a) (se12 i))
+  | .SLLI rd a s => .set rd (.bin .shl (rv a) (sh s.toNat))
+  | .SRLI rd a s => .set rd (.bin .lshr (rv a) (sh s.toNat))
+  | .SRAI rd a s => .set rd (.bin .ashr (rv a) (sh s.toNat))
+  | .LUI rd i => .set rd (.imm ((i.zeroExtend 32 <<< 12 : BitVec 32).signExtend 64))
+  | .LD rd a o => .load rd .b8 false (addr a o)
+  | .LW rd a o => .load rd .b4 true (addr a o)
+  | .LWU rd a o => .load rd .b4 false (addr a o)
+  | .LB rd a o => .load rd .b1 true (addr a o)
+  | .LH rd a o => .load rd .b2 true (addr a o)
+  | .LBU rd a o => .load rd .b1 false (addr a o)
+  | .LHU rd a o => .load rd .b2 false (addr a o)
   | .SD a b o => .store .b8 (addr a o) (rv b)
   | .SW a b o => .store .b4 (addr a o) (rv b)
   | .SB a b o => .store .b1 (addr a o) (rv b)
   | .SH a b o => .store .b2 (addr a o) (rv b)
-  | .MV rd a => .set (regName rd) (rv a)
-  | .LI rd v => .set (regName rd) (.imm v)
-  | .ADDIW rd a i => .set (regName rd) (.un (.sext .b4) (.bin .add (rv a) (se12 i)))
-  | .SUBW rd a b => .set (regName rd) (.un (.sext .b4) (.bin .sub (rv a) (rv b)))
+  | .MV rd a => .set rd (rv a)
+  | .LI rd v => .set rd (.imm v)
+  | .ADDIW rd a i => .set rd (.un (.sext .b4) (.bin .add (rv a) (se12 i)))
+  | .SUBW rd a b => .set rd (.un (.sext .b4) (.bin .sub (rv a) (rv b)))
   | .SRLW rd a b =>
-    .set (regName rd) (.un (.sext .b4) (.bin .lshr (.un (.zext .b4) (rv a)) (.bin .and (rv b) (.imm 31))))
-  | .SLLIW rd a s => .set (regName rd) (.un (.sext .b4) (.bin .shl (rv a) (sh s.toNat)))
-  | .SRLIW rd a s => .set (regName rd) (.un (.sext .b4) (.bin .lshr (.un (.zext .b4) (rv a)) (sh s.toNat)))
-  | .MUL rd a b => .set (regName rd) (.bin .mul (rv a) (rv b))
-  | .MULH rd a b => .set (regName rd) (.bin .mulh (rv a) (rv b))
-  | .MULHSU rd a b => .set (regName rd) (.bin .mulhsu (rv a) (rv b))
-  | .MULHU rd a b => .set (regName rd) (.bin .mulhu (rv a) (rv b))
-  | .DIV rd a b => .set (regName rd) (.bin .div (rv a) (rv b))
-  | .DIVU rd a b => .set (regName rd) (.bin .divu (rv a) (rv b))
-  | .REM rd a b => .set (regName rd) (.bin .rem (rv a) (rv b))
-  | .REMU rd a b => .set (regName rd) (.bin .remu (rv a) (rv b))
+    .set rd (.un (.sext .b4) (.bin .lshr (.un (.zext .b4) (rv a)) (.bin .and (rv b) (.imm 31))))
+  | .SLLIW rd a s => .set rd (.un (.sext .b4) (.bin .shl (rv a) (sh s.toNat)))
+  | .SRLIW rd a s => .set rd (.un (.sext .b4) (.bin .lshr (.un (.zext .b4) (rv a)) (sh s.toNat)))
+  | .MUL rd a b => .set rd (.bin .mul (rv a) (rv b))
+  | .MULH rd a b => .set rd (.bin .mulh (rv a) (rv b))
+  | .MULHSU rd a b => .set rd (.bin .mulhsu (rv a) (rv b))
+  | .MULHU rd a b => .set rd (.bin .mulhu (rv a) (rv b))
+  | .DIV rd a b => .set rd (.bin .div (rv a) (rv b))
+  | .DIVU rd a b => .set rd (.bin .divu (rv a) (rv b))
+  | .REM rd a b => .set rd (.bin .rem (rv a) (rv b))
+  | .REMU rd a b => .set rd (.bin .remu (rv a) (rv b))
   | _ => .skip
 
 /-- SP1's memory, on riscv-zkvm's machine state: an access must be in SP1's address space and
@@ -173,7 +156,7 @@ def rvMem : Mem MachineState where
     else none
 
 /-- **RISC-V on SP1**, over the shared operations. -/
-abbrev rvIsa : Isa := Isa.ofOps MachineState rvMem
+abbrev rvIsa : Isa := Isa.ofOps Reg .x1 .x2 MachineState rvMem
 
 /-! ## Agreement -/
 
@@ -205,15 +188,15 @@ theorem Agree.execInstrBr {t u : MachineState} (h : Agree t u) {i : Instr} (hi :
 
 /-! ## The translation is correct -/
 
-theorem getReg_ofParts (regs : String → BitVec 64) (m : MachineState) (r : Reg) :
-    (ofParts regs m).getReg r = if r = .x0 then 0 else regs (regName r) := by
+theorem getReg_ofParts (regs : Reg → BitVec 64) (m : MachineState) (r : Reg) :
+    (ofParts regs m).getReg r = if r = .x0 then 0 else regs r := by
   cases r <;> rfl
 
-theorem rv_eval (regs : String → BitVec 64) (m : MachineState) (r : Reg) :
+theorem rv_eval (regs : Reg → BitVec 64) (m : MachineState) (r : Reg) :
     (rv r).eval regs = (ofParts regs m).getReg r := by
   rw [getReg_ofParts]; unfold rv; split <;> rfl
 
-theorem opnd_val (regs : String → BitVec 64) (m : MachineState) (r : Reg) :
+theorem opnd_val (regs : Reg → BitVec 64) (m : MachineState) (r : Reg) :
     operandVal regs (opnd r) = some ((ofParts regs m).getReg r) := by
   rw [getReg_ofParts]; unfold opnd; split <;> rfl
 
@@ -221,9 +204,9 @@ theorem agree_setPC (t : MachineState) (v : Word) : Agree t (t.setPC v) :=
   ⟨fun _ => by simp, fun _ => rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-- Writing a register in Lprog agrees with writing it in the machine. -/
-theorem agree_set (regs : String → BitVec 64) (m : MachineState) (rd : Reg) {v v' : Word} (p : Word)
+theorem agree_set (regs : Reg → BitVec 64) (m : MachineState) (rd : Reg) {v v' : Word} (p : Word)
     (h : v = v') :
-    Agree (ofParts (updReg regs (regName rd) v) m) (((ofParts regs m).setReg rd v').setPC p) := by
+    Agree (ofParts (updReg regs rd v) m) (((ofParts regs m).setReg rd v').setPC p) := by
   subst h
   refine ⟨fun r => ?_, fun _ => by simp; rfl, by simp; rfl, by simp; rfl, by simp; rfl,
     by simp; rfl, by simp; rfl⟩
@@ -232,10 +215,9 @@ theorem agree_set (regs : String → BitVec 64) (m : MachineState) (rd : Reg) {v
   · subst h0; simp [eq_comm]
   · by_cases hr : rd = r
     · subst hr; simp [h0, updReg]
-    · have : regName r ≠ regName rd := fun e => hr (regName_inj e).symm
-      simp [h0, Ne.symm hr, updReg, this]
+    · simp [h0, Ne.symm hr, updReg]
 
-theorem ofParts_setMem (regs : String → BitVec 64) (m : MachineState) (a v : Word) :
+theorem ofParts_setMem (regs : Reg → BitVec 64) (m : MachineState) (a v : Word) :
     ofParts regs (m.setMem a v) = (ofParts regs m).setMem a v := rfl
 
 theorem toNat_and_63 (x : Word) : x.toNat &&& 63 = x.toNat % 64 :=
@@ -266,15 +248,15 @@ theorem sext32_lshr_zext (x : Word) (n : Nat) :
 
 /-! What `ofParts` leaves alone. -/
 
-@[simp] theorem getMem_ofParts (regs : String → BitVec 64) (m : MachineState) (a : Word) :
+@[simp] theorem getMem_ofParts (regs : Reg → BitVec 64) (m : MachineState) (a : Word) :
     (ofParts regs m).getMem a = m.getMem a := rfl
-@[simp] theorem getByte_ofParts (regs : String → BitVec 64) (m : MachineState) (a : Word) :
+@[simp] theorem getByte_ofParts (regs : Reg → BitVec 64) (m : MachineState) (a : Word) :
     (ofParts regs m).getByte a = m.getByte a := rfl
-@[simp] theorem getHalfword_ofParts (regs : String → BitVec 64) (m : MachineState) (a : Word) :
+@[simp] theorem getHalfword_ofParts (regs : Reg → BitVec 64) (m : MachineState) (a : Word) :
     (ofParts regs m).getHalfword a = m.getHalfword a := rfl
-@[simp] theorem getWord32_ofParts (regs : String → BitVec 64) (m : MachineState) (a : Word) :
+@[simp] theorem getWord32_ofParts (regs : Reg → BitVec 64) (m : MachineState) (a : Word) :
     (ofParts regs m).getWord32 a = m.getWord32 a := rfl
-@[simp] theorem noCodeAt_ofParts (regs : String → BitVec 64) (m : MachineState) (a : Word) (w : Nat) :
+@[simp] theorem noCodeAt_ofParts (regs : Reg → BitVec 64) (m : MachineState) (a : Word) (w : Nat) :
     noCodeAt (ofParts regs m) a w = noCodeAt m a w := rfl
 
 theorem ite_some_eq_some {α : Type} {c : Prop} [Decidable c] {x y : α} :
@@ -287,7 +269,7 @@ theorem ite_some_eq_none {α : Type} {c : Prop} [Decidable c] {x : α} :
 
 /-- **Correctness of the translation.** For an operation, the shared operation succeeds exactly
     when SP1's memory check passes, and then agrees with riscv-zkvm's `execInstrBr`. -/
-theorem opOf_spec {i : Instr} (hi : opnOk i = true) (regs : String → BitVec 64) (m : MachineState) :
+theorem opOf_spec {i : Instr} (hi : opnOk i = true) (regs : Reg → BitVec 64) (m : MachineState) :
     match (opOf i).eval rvMem regs m with
     | some (r', m') =>
       memOkSp1 (ofParts regs m) i = true ∧ Agree (ofParts r' m') (execInstrBr (ofParts regs m) i)

@@ -33,9 +33,11 @@ What it changes, compared with RISC-V:
   join the trusted base for x86-64 (`ELF.md` §4). Closing that gap (checking the assembly
   against the bytes of the binary) is later work.
 - **Its scope** is sequential user-level code in 64-bit mode: all general-purpose registers
-  with partial-register access, status flags, memory, ADX/BMI/BMI2. Faults, virtual memory,
+  with partial-register access, status flags, memory, ADX and `MULX`. Faults, virtual memory,
   segment registers, other modes and mutable globals (`.data`, `.bss`) are out of scope. The
   first x86-64 targets (s2n-bignum-style routines, hash kernels) fit inside it.
+  Instructions it lacks (for example the rest of BMI1 and BMI2, `BT`, `XCHG`) are
+  contributed to Kraken when a target needs them.
 - **Toolchain.** Kraken follows Lean nightlies and the module system; requiring it moves this
   repository's toolchain (see `ROADMAP.md`).
 

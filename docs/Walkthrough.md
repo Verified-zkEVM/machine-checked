@@ -51,69 +51,83 @@ contract table (`docs/Architecture.md`).
 
 ## 3. The lift (layer 0 to layer 0.5)
 
-The instructions are lifted to a low-logical-program body (`MachineChecked/RiscV/Lprog`):
+The function is lifted to a low logical program (`MachineChecked/RiscV/Lprog`), here a program
+of one function:
 
 ```lean
 def prog : List Instr := F_7803f54c.prog.filterMap id
-theorem wf : WF prog := by unfold WF; decide      -- every branch lands inside the function
+def F : Fn := ⟨"memcmp", F_7803f54c.base, prog, 0⟩
+def fs : List Fn := [F]
 ```
 
-`lift prog` puts a label before each instruction and translates the instruction:
+`liftProg fs` puts a label before each instruction and translates the instruction:
 - an operation becomes `Lopn (opOf i)`, a shared operation (`MachineChecked/Lprog/Op.lean`):
-  `LBU x13, 0(x10)` becomes `load "x13" .b1 false (x10 + 0)`;
+  `LBU x13, 0(x10)` becomes `load .x13 .b1 false (x10 + 0)`;
 - a conditional branch becomes `Lcond` on a comparison, to the label of its target;
-- `jalr x0, 0(ra)` becomes `Lret`.
+- `jalr x0, 0(ra)` becomes `Lret`, a call `Lcall`, a tail call `Ltail`, `ecall` `Lext`;
+- anything the lift does not cover becomes `Labort`.
 
-Nothing in the body mentions RISC-V any more except register names. The translation is
-proved once, for every instruction (`opOf_spec`), against riscv-zkvm's own `execInstrBr`.
+Nothing in the body mentions RISC-V any more except its registers. The translation of an
+operation is proved once, for every instruction (`opOf_spec`), against riscv-zkvm's own
+`execInstrBr`.
 
 ## 4. The proof at Lprog (layer 0.5)
 
-The body is run with one rule per instruction kind (`MachineChecked/RiscV/Lprog/Lift.lean`):
-`reaches_label`, `reaches_opn`, `reaches_cond`, `reaches_goto`, `halts_ret`. Each takes a
-machine state `u` the Lprog state stands for (`Agree (ofParts regs m) u`), so what an
-instruction reads is stated on `u`, in riscv-zkvm's terms:
+A state of the program is a stack of activations, the registers and the memory. `Lret` is
+defined only when `ra` holds the value the call put there and `sp` is back where it was;
+otherwise the step goes `wrong`, and the judgement at Lprog (the generic `SafeN`) excludes
+`wrong`, so a proof at Lprog also proves that the function returns where it was called from.
+
+The function's contract is proved with one rule per instruction
+(`MachineChecked/Lprog/Sem.lean`, `MachineChecked/RiscV/Lprog/Rules.lean`): `SafeN.label`,
+`lsafe_opn`, `lsafe_cond`, `SafeN.goto`, `lsafe_ret`. Each takes a machine state `u` the
+Lprog state stands for (`Agree (ofParts regs m) u`), so what an instruction reads is stated
+on `u`, in riscv-zkvm's terms:
 
 ```lean
-apply reaches_opn hag (i := .LBU .x13 .x10 0) (by decide) rfl
+apply lsafe_opn hf hag (i := .LBU .x13 .x10 0) (by decide) rfl
   (by simp [memOkSp1, memAccess, h10, signExtend12, hva j hj, alignedFor])
 intro r1 m1 hag1
 ```
 
 `(by decide)` finds the instruction in the body; the last argument is SP1's memory check for
-the load, which holds because the address is valid. The rule hands back the next Lprog state
-and its agreement with `execInstrBr u i`.
+the load, which holds because the address is valid. The rule continues from every next Lprog
+state, with its agreement with `execInstrBr u i`.
 
 The loop is an induction on the number of bytes left (`loop`). At the branch back to the
-loop head, `reaches_cond` splits on the comparison; one side returns, the other applies the
-induction hypothesis. `halts` adds the entry and the empty case. The result:
+loop head, `lsafe_cond` splits on the comparison; one side returns, the other applies the
+induction hypothesis. `contract` adds the entry and the empty case. The result is in
+continuation form, at Lprog:
 
 ```lean
-theorem halts ... : rvIsa.Halts (lift prog) (Post u0 a b n) ⟨0, regs, m⟩
+theorem contract ... (hpost : ∀ r' m', Post u0 a b n (ofParts r' m') → LSafeN fs G N Q ⟨rest, r', m'⟩) :
+    LSafeN fs G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩
 ```
 
-the run of the body from its first label halts in a state satisfying `Post`.
+from the call, every continuation safe from the states `Post` describes is safe.
 
 ## 5. Back down to the machine
 
-The lift's simulation carries the Lprog run to a run of `stepSp1` from any machine state the
-entry Lprog state stands for (`sim_entry`, `reach_of_halts`), and the bridge passes `SafeN`
-back along it (`SafeN.of_reaches`):
+The transfer theorem (`MachineChecked/RiscV/Lprog/Transfer.lean`) carries a contract at Lprog
+to the machine: every step of `stepSp1` from a state the Lprog state stands for is matched at
+Lprog, and Lprog's `wrong` matches nothing. `SafeN.of_contract` states it for a function's
+entry:
 
 ```lean
-refine SafeN.of_reaches (reach_of_halts wf (sim_entry (fun _ => 0) hc hpc)
-  (halts s a b n hn hva hvb _ _ (agree_ofParts_regsOf _ s) h10 h11 h12)) ?_
+refine SafeN.of_contract hok (g := 0) (fn := F) rfl hpc hcodes (Post := Post s a b n)
+  (fun _ _ hk => contract s a b n hn hva hvb _ _ (agree_ofParts_regsOf s) h10 h11 h12 rfl rfl hk) ?_
 ```
 
-What remains is to read the machine state at the end off the Lprog state that stands for it
-(`hs'.agree`, `hs'.pc`). Nothing symbolic is left in the proof, and nothing in it depends on
-how the run was found.
+What remains is to read the machine state the function returns in off the Lprog state that
+stands for it (`hag`). Nothing symbolic is left in the proof, and nothing in it depends on how
+the run was found.
 
 ## Where to go from here
 
-- A function with a call out of it: `Cases/Zip2005/Runtime/WriteVectored.lean`. The run at
-  Lprog stops at the call, the call is taken over the machine with the callee's
-  specification, and `sim_return` resumes at Lprog after it.
-- Straight-line kernels: `Cases/CatCrypt/` and `MachineChecked/RiscV/Lprog/Block.lean`.
-- What is not lifted yet (calls inside Lprog, indirect jumps, system calls) and what comes
-  after layer 0.5: [`ROADMAP.md`](../ROADMAP.md).
+- A function with a loop, a call and a system call: `Cases/Zip2005/Runtime/WriteVectored.lean`.
+  The call of `sys_write` is an Lprog call that uses `sys_write`'s contract at Lprog, which
+  tail-calls `syscall_write`'s, whose `WRITE` is SP1's execution context.
+- Straight-line kernels, run over the machine: `Cases/CatCrypt/` and
+  `MachineChecked/RiscV/Lprog/Block.lean`.
+- What is not lifted yet (jump tables) and what comes after layer 0.5:
+  [`ROADMAP.md`](../ROADMAP.md).

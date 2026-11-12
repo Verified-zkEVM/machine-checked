@@ -15,9 +15,11 @@ import Cases.Zip2005.Runtime.BlackBox
 
 -- the lift
 #print axioms MachineChecked.RiscV.Lprog.opOf_spec
-#print axioms MachineChecked.RiscV.Lprog.sim_step
-#print axioms MachineChecked.RiscV.Lprog.reach_of_reaches
+#print axioms MachineChecked.RiscV.Lprog.transfer
 #print axioms MachineChecked.RiscV.Lprog.SafeN.of_lift
+#print axioms MachineChecked.RiscV.Lprog.SafeN.of_contract
+#print axioms MachineChecked.RiscV.Lprog.lsafe_call
+#print axioms MachineChecked.RiscV.Lprog.lsafe_write
 #print axioms MachineChecked.RiscV.Lprog.corres_block
 
 -- the CatCrypt kernels
@@ -28,5 +30,6 @@ import Cases.Zip2005.Runtime.BlackBox
 
 -- zip-2005 functions proved through the lift
 #print axioms Cases.Zip2005.MemcmpLprog.safe
+#print axioms Cases.Zip2005.WriteVectored.contract
 #print axioms Cases.Zip2005.WriteVectored.spec
 #print axioms Cases.Zip2005.black_box_spec

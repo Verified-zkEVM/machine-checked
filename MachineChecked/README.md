@@ -48,10 +48,11 @@ The final theorem is always stated at layer 0, as `SafeN` over riscv-zkvm's `ste
 two ways:
 
 - **Through the lift** (the intended route). A function's decoded instructions are lifted to
-  an Lprog body (`RiscV/Lprog/Lift.lean`), the body is run at Lprog with the `reaches_*`
-  rules, and the run is carried down to `stepSp1` by the simulation (`reach_of_halts`,
-  `SafeN.of_lift`). The CatCrypt kernels (`Cases/CatCrypt`) and three zip-2005 functions are
-  proved this way.
+  an Lprog body (`RiscV/Lprog/Lift.lean`), a contract is proved for it at Lprog with the
+  rules of `Lprog/Sem.lean` and `RiscV/Lprog/Rules.lean`, and the transfer theorem carries it
+  down to `stepSp1` (`RiscV/Lprog/Transfer.lean`, `SafeN.of_contract`). Three zip-2005
+  functions are proved this way; the CatCrypt kernels (`Cases/CatCrypt`) are straight-line
+  blocks, proved over the machine with `RiscV/Lprog/Block.lean`.
 - **With the layer-0 tools.** The contract checker (`RiscV/Check`) derives structural
   specifications for every function; the symbolic executor (`RiscV/Sym`) and hand proofs
   (`RiscV/Exec`) prove functional ones over the machine. Most of zip-2005 is proved this way;

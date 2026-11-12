@@ -1,14 +1,15 @@
 /-
   MachineChecked.RiscV.Lprog.Block
 
-  Straight-line code through the lift: the counterpart of catcrypt-compiler's `steps_block`
-  (`RiscvPc64`, rv64 stack), proved at Lprog and carried down by the lift's simulation.
+  Straight-line code: the counterpart of catcrypt-compiler's `steps_block` (`RiscvPc64`, rv64
+  stack).
 
-  A block of *pure* instructions (straight, and not reading the pc) lifts to labels and
-  operations only. At Lprog it runs from its first label to its end in a state that stands for
-  the fold of `execInstrBr` over it (`reaches_pure`). Carried down (`reaches_block`), a machine
-  holding the block at its pc reaches, over `stepSp1`, a state agreeing with that fold, at the
-  end of the block; as a correspondence, `corres_block`.
+  A machine holding a block of *pure* instructions (straight, and not reading the pc) at its pc
+  reaches, over `stepSp1`, the fold of `execInstrBr` over the block, at the end of the block
+  (`reaches_block`); as a correspondence (`corres_block`), a contract in continuation form. A
+  block is a piece of a function, not a function, so it is run over the machine rather than
+  lifted: under partial correctness a lifted body cannot hand over to code outside the program
+  where it ends.
 
   The fold's effect is then a term in the initial registers. Unfolding it and reading a
   register gives a tree in which each value is copied into every later instruction that reads
@@ -19,7 +20,7 @@
   equation `hv`, the facts `bv_decide` takes.
 -/
 
-import MachineChecked.RiscV.Lprog.Lift
+import MachineChecked.RiscV.Lprog.Transfer
 import MachineChecked.Ascent.Corres
 
 namespace MachineChecked.RiscV.Lprog
@@ -30,66 +31,62 @@ open MachineChecked.Ascent (Reaches Corres)
 theorem opnOk_of_isPure {i : Instr} (h : isPure i = true) : opnOk i = true := by
   simp [opnOk, h]
 
-theorem memOkSp1_of_isPure {u : MachineState} {i : Instr} (h : isPure i = true) :
-    memOkSp1 u i = true := by
-  cases i <;> simp_all [isPure, isStraight, memOkSp1, memAccess]
-
-theorem wfI_of_isPure {k len : Nat} {i : Instr} (h : isPure i = true) : wfI k len i = true := by
-  cases i <;> simp_all [isPure, isStraight, wfI]
-
-theorem liftI_of_isPure {k : Nat} {i : Instr} (h : isPure i = true) :
-    liftI k i = .Lopn (opOf i) := by
-  simp [liftI, opnOk_of_isPure h]
-
-/-- **A pure block at Lprog.** From label `k` of a lifted pure block, in a state standing for
-    `u`, the run reaches the end of the body in a state standing for the fold of `execInstrBr`
-    over the rest of the block. -/
-theorem reaches_pure {prog : List Instr} (hall : prog.all isPure = true) :
-    ∀ (n k : Nat), k + n = prog.length → ∀ (regs : String → BitVec 64) (m u : MachineState),
-      Agree (ofParts regs m) u →
-      rvIsa.Reaches (lift prog) (fun s => s.pc = 2 * prog.length ∧
-        Agree (ofParts s.regs s.m) ((prog.drop k).foldl execInstrBr u)) ⟨2 * k, regs, m⟩ := by
-  intro n
-  induction n with
-  | zero =>
-    intro k hk regs m u hag
-    rw [Nat.add_zero] at hk
-    subst hk
-    exact Ascent.Reaches.done ⟨rfl, by simpa using hag⟩
-  | succ n ih =>
-    intro k hk regs m u hag
-    have hkl : k < prog.length := by omega
-    have hpure : isPure prog[k] = true := List.all_eq_true.mp hall _ (List.getElem_mem hkl)
-    have hlab : (lift prog)[2 * k]? = some (.Llabel .internal k) := by
-      simpa [lift] using getElem?_liftFrom_even 0 prog k hkl
-    have hop : (lift prog)[2 * k + 1]? = some (.Lopn (opOf prog[k])) := by
-      have := getElem?_liftFrom_odd 0 prog k hkl
-      simp only [Nat.zero_add] at this
-      rw [lift, this, liftI_of_isPure hpure]
-    refine reaches_label hlab (reaches_opn hag hop (opnOk_of_isPure hpure)
-      (memOkSp1_of_isPure hpure) fun regs' m' hag' => ?_)
-    rw [show 2 * k + 1 + 1 = 2 * (k + 1) by omega]
-    have := ih (k + 1) (by omega) regs' m' _ hag'
-    rwa [List.drop_eq_getElem_cons hkl, List.foldl_cons]
-
-theorem wf_of_isPure {prog : List Instr} (hall : prog.all isPure = true) : WF prog :=
-  fun _ hk => wfI_of_isPure (List.all_eq_true.mp hall _ (List.getElem_mem hk))
-
-/-- **A pure block, through the lift.** A machine holding the pure block `prog` at its pc
-    reaches, over `stepSp1`, a state agreeing with the fold of `execInstrBr` over the block,
-    at the end of the block, with the block still in place. -/
+/-- **A pure block.** A machine holding the pure block `prog` at its pc reaches, over
+    `stepSp1`, the fold of `execInstrBr` over the block, at the end of the block, with the
+    block still in place. -/
 theorem reaches_block {base : Word} {prog : List Instr} (hall : prog.all isPure = true)
     {t : MachineState} (hcode : CodeAt base (prog.map some) t) (hpc : t.pc = base) :
     Reaches stepSp1 (fun t' => Agree t' (prog.foldl execInstrBr t) ∧
       t'.pc = base + BitVec.ofNat 64 (4 * prog.length) ∧ CodeAt base (prog.map some) t') t := by
-  have h := reaches_pure hall prog.length 0 (by omega) (regsOf (fun _ => 0) t) t t
-    (agree_ofParts_regsOf _ t)
-  refine Ascent.Reaches.mono (reach_of_reaches (wf_of_isPure hall) (sim_entry _ hcode hpc) h) ?_
-  rintro t' ⟨s', hs', hpc', hag'⟩
-  refine ⟨hs'.agree.symm.trans (by simpa using hag'), ?_, hs'.code⟩
-  rcases hs'.pc with ⟨-, h⟩ | ⟨h, -⟩
-  · rw [h, hpc', show 2 * prog.length / 2 = prog.length by omega]
-  · omega
+  have key : ∀ n k (u : MachineState), k + n = prog.length → CodeAt base (prog.map some) u →
+      u.pc = base + BitVec.ofNat 64 (4 * k) →
+      Reaches stepSp1 (fun t' => t' = (prog.drop k).foldl execInstrBr u) u := by
+    intro n
+    induction n with
+    | zero =>
+      intro k u hk _ _
+      exact Ascent.Reaches.done (by simp [show k = prog.length by omega])
+    | succ n ih =>
+      intro k u hk hc hupc
+      have hkl : k < prog.length := by omega
+      have hpure : isPure prog[k] = true := List.all_eq_true.mp hall _ (List.getElem_mem hkl)
+      have hs : isStraight prog[k] = true := by simp [isPure] at hpure; exact hpure.1
+      have hop := opnOk_of_isPure hpure
+      refine Ascent.Reaches.step (stepSp1_ctl (fetch_at hc hkl hupc) (isStraight_isMemAccess hs)
+        (isStraight_ne_ecall hs) (isStraight_ne_ebreak hs)) ?_
+      have := ih (k + 1) (execInstrBr u prog[k]) (by omega)
+        (codeAt_of_code_eq (code_execInstrBr_opn hop) hc)
+        (by rw [pc_execInstrBr_opn hop, hupc, addr_succ])
+      rwa [List.drop_eq_getElem_cons hkl, List.foldl_cons]
+  refine Ascent.Reaches.mono (key prog.length 0 t (by omega) hcode (by simp [hpc])) ?_
+  rintro t' rfl
+  simp only [List.drop_zero]
+  refine ⟨Agree.refl _, ?_, ?_⟩
+  · have : ∀ (is : List Instr) (u : MachineState), is.all isPure = true →
+        (is.foldl execInstrBr u).pc = u.pc + BitVec.ofNat 64 (4 * is.length) ∧
+          (is.foldl execInstrBr u).code = u.code := by
+      intro is
+      induction is with
+      | nil => intro u _; simp
+      | cons i is ih =>
+        intro u hall
+        simp only [List.all_cons, Bool.and_eq_true] at hall
+        obtain ⟨h1, h2⟩ := ih (execInstrBr u i) hall.2
+        rw [List.foldl_cons, h1, h2, pc_execInstrBr_opn (opnOk_of_isPure hall.1),
+          code_execInstrBr_opn (opnOk_of_isPure hall.1), List.length_cons, BitVec.add_assoc,
+          show 4 * (is.length + 1) = 4 + 4 * is.length by omega, BitVec.ofNat_add]
+        exact ⟨rfl, rfl⟩
+    rw [(this prog t hall).1, hpc]
+  · have : ∀ (is : List Instr) (u : MachineState), is.all isPure = true →
+        (is.foldl execInstrBr u).code = u.code := by
+      intro is
+      induction is with
+      | nil => intro u _; rfl
+      | cons i is ih =>
+        intro u hall
+        simp only [List.all_cons, Bool.and_eq_true] at hall
+        rw [List.foldl_cons, ih _ hall.2, code_execInstrBr_opn (opnOk_of_isPure hall.1)]
+    exact codeAt_of_code_eq (this prog t hall) hcode
 
 /-- **A correspondence for a pure block.** If every related state holds the block at its pc,
     and every state agreeing with the fold of `execInstrBr` over the block, at its end and
@@ -101,11 +98,11 @@ theorem corres_block {AState : Type} {SR : MachineState → AState → Prop} {P 
     (hpost : ∀ m a t, SR m a → P a → Agree t (prog.foldl execInstrBr m) →
       t.pc = base + BitVec.ofNat 64 (4 * prog.length) → CodeAt base (prog.map some) t →
       SR t (fa a)) :
-    Corres stepSp1 SR P fa := by
-  intro m a hSR hP
-  obtain ⟨hc, hpc⟩ := hcode m a hSR hP
-  exact Ascent.Reaches.mono (reaches_block hall hc hpc) fun t ⟨hag, htpc, htc⟩ =>
-    hpost m a t hSR hP hag htpc htc
+    CorresSp1 SR P fa :=
+  Corres.of_reaches (fun _ ha => Accepted.stuck ha) fun m a hSR hP =>
+    let ⟨hc, hpc⟩ := hcode m a hSR hP
+    Ascent.Reaches.mono (reaches_block hall hc hpc) fun t ⟨hag, htpc, htc⟩ =>
+      hpost m a t hSR hP hag htpc htc
 
 /-! ## The registers of a pure block, one named value per instruction -/
 
