@@ -51,8 +51,9 @@ of each layer and the targets, is [`ROADMAP.md`](ROADMAP.md).
 
 ## Instruction sets
 
-![Each instruction set (ARM, RISC-V, x86) decompiles into linear Jasmin; programs are
-transpiled between instruction sets.](docs/media/machine-checked-structure.png)
+![Each instruction set (ARM, RISC-V, x86) decompiles into linear Jasmin, which lifts into
+Pancake (Flapjack); programs are transpiled between instruction
+sets.](docs/media/machine-checked-structure.png)
 
 The framework is built for RISC-V first: layers -1 to 0.5 exist there today, on
 [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm)'s model, whose step function is what
