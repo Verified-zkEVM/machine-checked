@@ -31,8 +31,9 @@ refinement, and the two meet there.
 
 ### Layer 1: structured logical programs
 
-The ISA-independent layer, inspired by Pancake. Registers become variables, stack frames
-are abstracted away, and control flow is structured. It is the layer meant for proving:
+The ISA-independent layer: Pancake, with the semantics of [Flapjack](https://github.com/pirapira/flapjack), the Lean port of the Pancake
+compiler. Registers become variables, stack frames are abstracted away, and control flow is
+structured. It is the layer meant for proving:
 - **Program logics** that give the machinery to reason about programs.
 - **Function contracts and their composition** (calls, linking), with the ABI and the
   context as parameters.
@@ -40,11 +41,13 @@ are abstracted away, and control flow is structured. It is the layer meant for p
 The lift into this layer is real decompilation. It turns registers into variables and frames
 into locals, and rebuilds structured control flow from the control-flow graph. It will not
 always succeed, so it is per function and may be partial. A function that cannot be lifted
-stays at layer 0.5 and is proved there.
+stays at layer 0.5 and is proved there. Its output is Pancake source, so Flapjack can compile it
+back down (see the next section).
 
 ### Layer 0.5: low logical programs
 
-The first lifting target, inspired by linear Jasmin and Pancake. It still has registers, flat
+The first lifting target, inspired by linear Jasmin and by the lower intermediate languages of
+Pancake's compiler (Stack and Lab). It still has registers, flat
 memory and labels, but it is one shared language for every ISA: shared control flow, and a
 shared set of operations (bitvector expressions, loads and stores, flags and carries as
 explicit values). Only ABI-level details, such as register names and the calling convention,
@@ -90,11 +93,27 @@ verified and the diagram commutes.
   parameters, such as register names and the calling convention, mapped between the ISAs.
 
 The payoff is that a property proved once at layer 0.5 holds of the program on every ISA it
-reaches, whichever route it took. Open design questions:
+reaches, whichever route it took.
 
-- whether a transpiler is built directly, ISA to ISA, or as decompiling into linear Jasmin and
-  compiling down again, in which case commuting needs a compiler from layer 0.5 to each ISA
-  and a round-trip theorem;
+**Compiling back down.** Two verified compilers in Lean go the other way, so a transpiler can
+be our decompiler followed by one of them:
+
+- **Flapjack** compiles Pancake (layer 1) to RISC-V, AArch64 and x86-64.
+- **catcrypt-compiler** compiles through a Jasmin dialect and a linear form close to linear
+  Jasmin (layer 0.5) to the same three ISAs; Jasmin itself is a third.
+
+We use them in two stages. First as a sanity check: decompile a binary, recompile the result
+and compare its behaviour with the original's on tests. Then for proof: a round-trip theorem
+that the recompiled program refines the original and the original refines it, in the shape of
+the `DecompilerSound` statement of the
+[flapjack-flip](https://github.com/dhsorens/flapjack-flip) challenge. For that, each compiler's
+correctness theorem has to be stated over this repository's semantics of its target
+(riscv-zkvm, Kraken, arm64-semantics), not over its own machine model.
+
+Open design questions:
+
+- whether some transpilers are better built directly, ISA to ISA, than through a decompiler
+  and a compiler;
 - what a transpiler does with what one ISA has and another lacks: flags (RISC-V has none),
   instructions without a counterpart, different syscalls and calling conventions;
 - the equivalence itself: which observations it keeps (outputs, memory, leakage) and how the
@@ -172,15 +191,16 @@ proofs go through the lift.
 3. **Contracts and composition at layer 0.5,** with the execution context and the calling
    convention as parameters: the contract table stated over Lprog, and SP1 as the first
    instance of a context.
-4. **The structured logical program (layer 1)** and the decompiling lift into it, per
-   function and possibly partial.
+4. **The structured logical program (layer 1)** as Pancake, with Flapjack's semantics, and the
+   decompiling lift into it, per function and possibly partial. Recompiling its output with
+   Flapjack is the first sanity check.
 5. **Program logics at layer 1, and specification refinement (layer 2),** driven by the
    first targets.
 6. **AArch64 and x86-64.** For x86-64, require Kraken (which moves the toolchain), state
    the judgement over its x64 semantics and lift its programs into the shared layer 0.5. For
    AArch64, likewise require arm64-semantics, state the judgement over its `Steps` and lift
    into layer 0.5. The s2n-bignum style routines are the first targets here.
-7. **Transpiling between instruction sets,** once each ISA has its lift: verified
-   translations between RISC-V, AArch64 and x86-64, and the theorems that the figure above
-   commutes.
+7. **Transpiling between instruction sets,** once each ISA has its lift: our decompiler
+   followed by Flapjack, catcrypt-compiler or Jasmin, first checked on tests and then proved,
+   and the theorems that the figure above commutes.
 8. **More targets,** from the list above and from proposals.
