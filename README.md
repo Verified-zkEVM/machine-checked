@@ -57,12 +57,11 @@ sets.](docs/media/machine-checked-structure.png)
 
 The framework is built for RISC-V first: layers -1 to 0.5 exist there today, on
 [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm)'s model, whose step function is what
-SP1 executes. x86-64 and AArch64 are meant to be peers of RISC-V. x86-64's semantics will be
-[Kraken](https://github.com/AeneasVerif/kraken)'s x64 model, and AArch64's will be
-DeepMind's
-[arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics);
-neither is a dependency yet ([`docs/ISA.md`](docs/ISA.md)). Everything from layer 0.5 up is
-shared between them.
+SP1 executes. x86-64 and AArch64 are meant to be peers of RISC-V. x86-64's semantics is
+[Kraken](https://github.com/AeneasVerif/kraken)'s x64 model, and AArch64's is DeepMind's
+[arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics):
+both are dependencies, used unmodified at a pinned commit ([`docs/ISA.md`](docs/ISA.md)), with
+no judgement over them yet. Everything from layer 0.5 up is shared between them.
 
 ## Repository map
 
@@ -73,7 +72,7 @@ MachineChecked/        the framework, by layer (see MachineChecked/README.md)
   Lprog/               layer 0.5: the low logical program and its shared operations
   RiscV/               layers -1 and 0 for RISC-V on SP1, and the layer-0 proof tools
     Lprog/             the RISC-V lift into layer 0.5, with its simulation
-  ARM/, X86/           layer 0 for AArch64 and x86-64: machine models (trusted)
+  ARM/, X86/           layer 0 for AArch64 and x86-64: their semantics (dependencies)
   Logical/, Refine/    layers 1 and 2: not started
 Cases/                 case studies: real binaries, verified (see Cases/README.md)
 Tools/                 build-time tools: ELF to Lean, contract inference (see Tools/README.md)

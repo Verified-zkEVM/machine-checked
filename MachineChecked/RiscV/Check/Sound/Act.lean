@@ -31,10 +31,10 @@ theorem stepSp1_sd_aligned {x x' : MachineState} {rs1 rs2 : Reg} {off : BitVec 1
     Aligned (x.getReg rs1 + signExtend12 off) := by
   unfold stepSp1 at hs
   rw [hf] at hs
-  simp only [Instr.isMemAccess, if_true] at hs
+  simp only [Instr.isMemAccess, ite_true] at hs
   split at hs
   · rename_i hok
-    simp only [memOkSp1, memAccess, Bool.and_eq_true, alignedFor, if_true, isAligned8,
+    simp only [memOkSp1, memAccess, Bool.and_eq_true, alignedFor, ite_true, isAligned8,
       beq_iff_eq] at hok
     exact (aligned_iff _).mpr hok.1.2
   · cases hs
@@ -555,7 +555,7 @@ theorem frag_sound (h : ActHyp c anno C n G P s0) {k : Nat} {fb : Word} :
     have hF := h.factsV V
     by_cases hj : i = .JALR .x0 .x5 0
     · subst hj
-      simp only [Ctx.runFrag, if_true, Option.some.injEq] at hr; subst hr
+      simp only [Ctx.runFrag, ite_true, Option.some.injEq] at hr; subst hr
       cases hs : stepSp1 z with
       | none => exact SafeN.stuck hs (fun ha => absurd ha (not_accepted_of_code hfetch (by simp)))
       | some z' =>
@@ -566,7 +566,7 @@ theorem frag_sound (h : ActHyp c anno C n G P s0) {k : Nat} {fb : Word} :
         · simp only [execInstrBr, setReg_x0]
           show (z.getReg .x5 + signExtend12 0) &&& ~~~1#64 = _
           simp [signExtend12]
-    · simp only [Ctx.runFrag, hj, if_false] at hr
+    · simp only [Ctx.runFrag, hj, ite_false] at hr
       cases hp : plainStep c.env c.σ (closure c.env c.σ none) (fb + BitVec.ofNat 64 (4 * m)) A i
           none with
       | none => rw [hp] at hr; cases hr
@@ -920,7 +920,7 @@ theorem entryState_sound (hF : Facts env σ (regsOf s) s) (hcode : s.code = C) :
     intro r
     by_cases h0 : r = .x0
     · subst h0; simp [AState.get, AVal.Holds, MachineState.getReg]
-    · simp only [AState.get, h0, if_false, Iface.entryState, AState.addFacts, entryBase,
+    · simp only [AState.get, h0, ite_false, Iface.entryState, AState.addFacts, entryBase,
         getD_map_allRegs]
       cases hl : σ.vals.lookup r with
       | none => simp [AVal.Holds, regsOf]

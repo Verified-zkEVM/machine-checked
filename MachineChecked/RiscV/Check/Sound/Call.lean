@@ -516,13 +516,13 @@ theorem writerOkNow_frame (hF : Facts env σ E s0) {A : AState} {x : MachineStat
   simp only [writerOkNow] at h
   rw [hK] at h
   simp only [writerKinds, List.all_cons, List.all_nil, Bool.and_true, hkd, hnp, Bool.false_eq_true,
-    if_false, Bool.and_eq_true] at h
+    ite_false, Bool.and_eq_true] at h
   cases hvals : writerFields A e.1 kd with
   | none => rw [hvals] at h; simp at h
   | some vals =>
     obtain ⟨v, hv, _⟩ := writerFields_some hvals off hoff
     rw [hf0] at hv ⊢
-    simp only [AVal.addK, fieldAt, AVal.frameOff?, if_true] at hv ⊢
+    simp only [AVal.addK, fieldAt, AVal.frameOff?, ite_true] at hv ⊢
     exact ⟨f0 + off, rfl, v, lookup_mem hv⟩
 
 /-! ### Passing writers -/
@@ -721,7 +721,7 @@ theorem passEntry_sound (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (
               rw [hkd] at hkd'; cases hkd'
               obtain ⟨f', hf'', v, hv⟩ := hfld off hoff
               rw [hf''] at hf'
-              simp only [AVal.frameOff?, if_true, Option.some.injEq] at hf'
+              simp only [AVal.frameOff?, ite_true, Option.some.injEq] at hf'
               subst hf'
               exact ⟨hsl _ hv, (hfs f' (by
                 simp only [fieldSlots, List.mem_filterMap]
@@ -1526,7 +1526,7 @@ theorem instInv_holds {E' : Ent} {A : AState} {M : Word → Word}
     cases j with
     | zero => rfl
     | succ i =>
-      simp only [Function.comp, Nat.succ_ne_zero, if_false, Nat.add_sub_cancel, Kind.val]
+      simp only [Function.comp, Nat.succ_ne_zero, ite_false, Nat.add_sub_cancel, Kind.val]
       cases hoff : kd.fields[i]? with
       | none =>
         have : vals[i]? = none := by
@@ -1847,7 +1847,7 @@ theorem call_post (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf : 
     show (AState.get _ r).Holds E' (t.getReg r)
     by_cases h0 : r = .x0
     · subst h0; simp [AState.get, AVal.Holds, MachineState.getReg]
-    simp only [AState.get, h0, if_false, callRegs, getD_map_allRegs]
+    simp only [AState.get, h0, ite_false, callRegs, getD_map_allRegs]
     split
     · rename_i hr
       rw [hfresh _ (by rw [← hfl]; rcases hr with rfl | rfl <;> simp [freshList])]
@@ -1857,7 +1857,7 @@ theorem call_post (hF : Facts env σ E s0) {ref : Option (AVal × Word)} (hrf : 
         have hr : r ∈ savedRegs := List.contains_iff_mem.mp hs
         rw [hsaved r hr]
         have := hy' r
-        simp only [AState.get, h0, if_false] at this
+        simp only [AState.get, h0, ite_false] at this
         exact this
       · trivial
   · -- memory outside what the function writes and its writers' keys

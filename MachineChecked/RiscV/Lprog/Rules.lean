@@ -32,7 +32,7 @@ variable {fs : List Fn} {G : State rvIsa → Prop} {n : Nat} {Q : State rvIsa �
   {fd : Lfundef (Op Reg) Reg}
 
 theorem regs_of_agree (hag : Agree (ofParts regs m) u) {r : Reg} (hr : r ≠ .x0) : regs r = u.getReg r := by
-  rw [← hag.regs r, getReg_ofParts, if_neg hr]
+  rw [← hag.regs r, getReg_ofParts, ite_eq_right hr]
 
 /-- An operation (pure, or a load or store) the memory check admits. -/
 theorem lsafe_opn (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts regs m) u) {i : Instr}
@@ -122,10 +122,10 @@ theorem lsafe_write (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts re
   have h10 : w.getReg .x10 ≠ 13#64 := fun e => hfd ((hag.regs .x10).symm.trans ((hagw.regs .x10).trans e))
   have hstep : sp1Ecall w = some (w.setPC (w.pc + 4)) := by
     have hacc : Sp1.isAccelId 2#64 = false := by decide
-    simp only [sp1Ecall, h5, hacc, Bool.false_eq_true, if_false]
+    simp only [sp1Ecall, h5, hacc, Bool.false_eq_true, ite_false]
     simp only [show (2#64 : Word) ≠ Sp1.HINT_LEN by decide, show (2#64 : Word) ≠ Sp1.HINT_READ by decide,
       show (2#64 : Word) ≠ Sp1.COMMIT by decide, show (2#64 : Word) ≠ Sp1.COMMIT_DEFERRED_PROOFS by decide,
-      if_false, show Sp1.isHostId 2#64 = true by decide, if_true]
+      ite_false, show Sp1.isHostId 2#64 = true by decide, ite_true]
     unfold step
     rw [hcw]
     simp [h5, h10]

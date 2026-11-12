@@ -388,7 +388,7 @@ theorem instInv_sound {C} {A : AState} {x : MachineState} (hx : St env σ C E s0
     cases j with
     | zero => rfl
     | succ i =>
-      simp only [Function.comp, Nat.succ_ne_zero, if_false, Nat.add_sub_cancel, Kind.val]
+      simp only [Function.comp, Nat.succ_ne_zero, ite_false, Nat.add_sub_cancel, Kind.val]
       cases hoff : kd.fields[i]? with
       | none =>
         have : vals[i]? = none := by

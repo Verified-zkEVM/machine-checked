@@ -4,15 +4,32 @@ defaultTargets = ["MachineChecked", "Tools"]
 # Generated image modules are deep literals; mirror riscv-zkvm's own setting.
 moreLeanArgs = ["--tstack=400000"]
 
-# The RV64IM machine model, its decoder and ELF loader, used unmodified. Pinned to the
-# merge of `sp1-backend` into `main` (Verified-zkEVM/riscv-zkvm#96, branch
-# `merge/sp1-backend`), the first commit with `stepSp1` on Lean v4.33.1; re-pin to `main`
-# once that merges. A commit forfeits release oleans, but our
-# import closure (`Rv64` + `Interpreter`) never reaches the generated Sail tree.
+# The three instruction-set semantics (`docs/ISA.md`), each used unmodified at a pinned commit.
+
+# RISC-V: the RV64IM machine model, its decoder and ELF loader. Pinned to riscv-zkvm's Lean
+# v4.36 commit (Verified-zkEVM/riscv-zkvm#97, stacked on #96); re-pin to `main` once both
+# land. A commit forfeits release oleans, but our import closure (`Rv64` + `Interpreter`)
+# never reaches the generated Sail tree.
 [[require]]
 name = "riscv-zkvm"
 git = "https://github.com/Verified-zkEVM/riscv-zkvm"
-rev = "76c52d825093b3bd9cb1b77703e26f187c5f936a"
+rev = "d81a91030371d1b66ad1a5ff5d348077d3690d6a"
+
+# x86-64: Kraken's x64 semantics. Only `Kraken.X64.Semantics` and its closure are imported
+# (`MachineChecked/X86/Kraken.lean`), not its examples and tests.
+[[require]]
+name = "Kraken"
+git = "https://github.com/AeneasVerif/kraken"
+rev = "0fccb2d8fcf9069b345f29b10090a97658819874"
+
+# AArch64: the trusted package `arm64` of DeepMind's arm64-semantics, which lives in a
+# subdirectory of google-deepmind/code-verification. Only that package is required, not
+# its `ProofLib`, case studies or tests.
+[[require]]
+name = "arm64"
+git = "https://github.com/google-deepmind/code-verification"
+rev = "b0f729accbc21a0413e7ca4e1da43fa45b5f2e1b"
+subDir = "arm64-semantics/Arm64"
 
 # Mathlib, as a direct require at the tag matching `lean-toolchain`. Only the ZIP 2005
 # specification and its closure (`Cases/Zip2005/Spec`) use it; `MachineChecked` and `Tools` do
@@ -21,7 +38,7 @@ rev = "76c52d825093b3bd9cb1b77703e26f187c5f936a"
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
-rev = "v4.33.1"
+rev = "v4.36.0-rc2"
 
 # The framework: ISA-independent definitions at the top level, RISC-V under `MachineChecked.RiscV`.
 [[lean_lib]]

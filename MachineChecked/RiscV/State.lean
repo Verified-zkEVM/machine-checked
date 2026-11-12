@@ -96,7 +96,7 @@ theorem getMem_writeWords_of_ne {s : MachineState} {base a : Word} {ws : List Wo
       have := h (i + 1) (by simp; omega)
       rw [show 8 * (i + 1) = 8 * i + 8 by omega, BitVec.ofNat_add] at this
       intro he; apply this; rw [he, BitVec.add_assoc, BitVec.add_comm (BitVec.ofNat 64 (8 * i))]; rfl)]
-    rw [getMem_setMem, if_neg (by simpa using h 0 (by simp))]
+    rw [getMem_setMem, ite_eq_right (by simpa using h 0 (by simp))]
 
 /-- The 32 registers. -/
 def allRegs : List Reg :=

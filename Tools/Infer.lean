@@ -845,7 +845,7 @@ structure Result where
   status : Except String (Iface × Array (Option AState) × List Word)
   given : Option Given := none
 
-def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
+def run (img : Elf64Image) (syms : List Sym) (env : Env) (givens : List Given) :
     IO (Array Result × List Iface × Std.HashMap Word Prem × Array (Sym × Fn)) := do
   let progOf (s : Sym) : Except String (List (Option Instr)) :=
     (wordsAt img s.addr (s.size / 4)).map (·.map decode)
@@ -860,7 +860,7 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
       fns := fns.push (s, { base := BitVec.ofNat 64 s.addr, prog, frags })
   let isEntry : Std.HashSet Word := fns.foldl (fun acc (_, f) => acc.insert f.base) {}
   let useful (c : Word) : Bool := env.protKey c || isEntry.contains c
-  let givenAt : Std.HashSet Word := given.foldl (fun acc g => acc.insert g.σ.entry) {}
+  let givenAt : Std.HashSet Word := givens.foldl (fun acc g => acc.insert g.σ.entry) {}
   let fnAt : Std.HashMap Word Fn := fns.foldl (fun acc (_, f) => acc.insert f.base f) {}
   -- Bottom-up, under the given premises. A function's discovering run finds the cells its
   -- checks rely on; the exact run, with those cells declared, is what the checker will see.
@@ -868,10 +868,10 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
       Std.HashMap Word (Iface × Array (Option AState) × List Word) × Std.HashMap Word String ×
         Std.HashSet Word := Id.run do
     let mut done : Std.HashMap Word (Iface × Array (Option AState) × List Word) := {}
-    for g in given do done := done.insert g.σ.entry (g.σ, #[], [])
+    for g in givens do done := done.insert g.σ.entry (g.σ, #[], [])
     let mut failed : Std.HashMap Word String := {}
     let mut pending : Std.HashSet Word := fns.foldl (fun acc (_, f) => acc.insert f.base) {}
-    for g in given do pending := pending.erase g.σ.entry
+    for g in givens do pending := pending.erase g.σ.entry
     let mut changed := true
     while changed do
       changed := false
@@ -1063,7 +1063,7 @@ def run (img : Elf64Image) (syms : List Sym) (env : Env) (given : List Given) :
   let tbl : List Iface := (fns.toList.filterMap fun (_, f) => (done[f.base]?).map (·.1))
   let mut out : Array Result := #[]
   for (s, f) in fns do
-    if let some g := given.find? (·.addr == s.addr) then
+    if let some g := givens.find? (·.addr == s.addr) then
       out := out.push ⟨s, f, .ok (g.σ, #[], []), some g⟩
       continue
     match done[f.base]? with
@@ -1269,12 +1269,12 @@ def main (args : List String) : IO UInt32 := do
   let env : Env := { stackTop, prot := (BitVec.ofNat 64 protLo, protHi - protLo) :: statics,
                      init := fun a => memAt img a.toNat, cfi }
   if !env.wf then IO.eprintln "infer-contracts: Env not well-formed"; return 1
-  let given ← match (args.drop 10).take 1 with
+  let givens ← match (args.drop 10).take 1 with
     | [regPath] => match parseGiven (← IO.FS.readFile regPath) with
       | .ok g => pure g
       | .error e => IO.eprintln s!"infer-contracts: {e}"; return 1
     | _ => pure []
-  let (res, tbl, prem, fns) ← run img syms env given
+  let (res, tbl, prem, fns) ← run img syms env givens
   -- `INFER_TRACE=addr,...`: what a function wants, and what its call sites give it.
   if let some tr := (← IO.getEnv "INFER_TRACE") then
     let tblM : Std.HashMap Word Iface := tbl.foldl (fun acc g => acc.insert g.entry g) {}

@@ -111,9 +111,9 @@ theorem safe_step {G : MachineState → Prop} {k : Nat} {P : Prop} {s : MachineS
     (h : memOkSp1 s i = true → SafeN G k P (execInstrBr s i)) : SafeN G k P s := by
   have hs := stepSp1_eq hf he hb hc
   by_cases hm : memOkSp1 s i = true
-  · rw [if_pos hm] at hs
+  · rw [ite_eq_left hm] at hs
     exact SafeN.of_step (not_accepted_of_code hf he) hs (h hm)
-  · rw [if_neg hm] at hs
+  · rw [ite_eq_right hm] at hs
     exact SafeN.stuck hs (fun ha => absurd ha (not_accepted_of_code hf he))
 
 /-- Execute one instruction, spending one unit of budget. -/
@@ -123,9 +123,9 @@ theorem safe_step1 {G : MachineState → Prop} {k : Nat} {P : Prop} {s : Machine
     (h : memOkSp1 s i = true → SafeN G k P (execInstrBr s i)) : SafeN G (k + 1) P s := by
   have hs := stepSp1_eq hf he hb hc
   by_cases hm : memOkSp1 s i = true
-  · rw [if_pos hm] at hs
+  · rw [ite_eq_left hm] at hs
     exact SafeN.step (not_accepted_of_code hf he) hs (h hm)
-  · rw [if_neg hm] at hs
+  · rw [ite_eq_right hm] at hs
     exact SafeN.stuck hs (fun ha => absurd ha (not_accepted_of_code hf he))
 
 /-- A load whose value does not matter: the destination register takes an arbitrary value.
@@ -219,7 +219,7 @@ theorem setMem (h : Frame σ C s0 s) {k : Word} (hk : Aligned k → Written σ (
     (v : Word) : Frame σ C s0 (s.setMem k v) := by
   refine ⟨h.code0, by rw [MachineState.code_setMem]; exact h.code, by rw [getReg_setMem]; exact h.ra,
     fun r hr => by rw [getReg_setMem]; exact h.saved r hr, fun a ha hw => ?_⟩
-  rw [getMem_setMem, if_neg (by intro e; subst e; exact hw (hk ha))]
+  rw [getMem_setMem, ite_eq_right (by intro e; subst e; exact hw (hk ha))]
   exact h.mem a ha hw
 
 theorem setByte (h : Frame σ C s0 s) {a : Word}

@@ -45,18 +45,12 @@ jobs:
             echo "::error::found sorry, axiom or native_decide"; exit 1
           fi
 
-      - name: Build the framework, the tools and the quick case studies
+      # The case studies are not built on pull requests for now (see `Cases/README.md`); the
+      # on-demand `full` job builds them.
+      - name: Build the framework and the tools
         run: |
           set -eo pipefail
-          lake build MachineChecked Tools Cases.CatCrypt.Cswap \
-            Cases.Zip2005.Runtime.MemcmpLprog Cases.Zip2005.Runtime.WriteVectored \
-            Cases.Zip2005.Runtime.BlackBox Cases.LeanVM.Blake2s.Loaded 2>&1 | tee build.log
-          # Each of these kernels takes about 5 GB to elaborate; built in parallel they exhaust
-          # the runner's memory, so one at a time.
-          for m in FeAdd FeSub AddP256; do
-            lake build Cases.CatCrypt.$m 2>&1 | tee -a build.log
-          done
-          lake build Cases.CatCrypt 2>&1 | tee -a build.log
+          lake build MachineChecked Tools 2>&1 | tee build.log
           # Lean's diagnostics, not Lake's notices (e.g. a dependency built from source).
           if grep -E '^warning: .*\.lean:' build.log; then
             echo "::error::the build has warnings"; exit 1
@@ -92,4 +86,14 @@ jobs:
           # The known baseline: warnings in the vendored code under Cases/Zip2005/Spec.
           if grep -E '^warning: .*\.lean:' build.log | grep -v '^warning: Cases/Zip2005/Spec/'; then
             echo "::error::warnings outside the Cases/Zip2005/Spec baseline"; exit 1
+          fi
+      - name: Axiom check, framework and case studies
+        run: |
+          for f in scripts/AxiomCheck.lean scripts/AxiomCheckCases.lean; do
+            lake env lean "$f" 2>&1 | tee -a axioms.log
+          done
+          bad=$(tr ',[]' '\n\n\n' < axioms.log | sed 's/^ *//; s/ *$//' \
+            | grep -vE "^$|depends on axioms:|does not depend on any axioms|^(propext|Classical\.choice|Quot\.sound)$|\.bv_decide\.ax_" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::non-standard axioms: $bad"; exit 1
           fi

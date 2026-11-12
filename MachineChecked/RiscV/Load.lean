@@ -210,7 +210,7 @@ theorem word?_outside {c : DataChunk} (hhi : c.hi ≤ 2 ^ 64) {a : Word}
       omega
   simp only [word?]
   split
-  · rw [if_neg (by omega), if_neg (by omega)]
+  · rw [ite_eq_right (by omega), ite_eq_right (by omega)]
   · rfl
 
 theorem word?_at {c : DataChunk} (hhi : c.hi ≤ 2 ^ 64) {j : Nat} (hj : j < c.size) :
@@ -221,10 +221,10 @@ theorem word?_at {c : DataChunk} (hhi : c.hi ≤ 2 ^ 64) {j : Nat} (hj : j < c.s
   have hd : (c.base + BitVec.ofNat 64 (8 * j) - c.base).toNat = 8 * j := by
     rw [BitVec.add_comm, BitVec.add_sub_cancel, h8]
   simp only [word?, hd, wordAt]
-  rw [if_pos (by omega), show 8 * j / 8 = j by omega]
+  rw [ite_eq_left (by omega), show 8 * j / 8 = j by omega]
   by_cases hw : j < c.words.length
-  · rw [if_pos hw, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hw]; rfl
-  · rw [if_neg hw, if_pos (by omega), List.getD_eq_getElem?_getD,
+  · rw [ite_eq_left hw, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hw]; rfl
+  · rw [ite_eq_right hw, ite_eq_left (by omega), List.getD_eq_getElem?_getD,
       List.getElem?_eq_none (by omega)]; rfl
 
 end DataChunk

@@ -53,7 +53,7 @@ theorem sp1AccelWrite_uint256Mul (s : MachineState) :
         (Accel.leLimbsToNat (s.readWords (s.getReg .x10) 4))
         (Accel.leLimbsToNat (s.readWords (s.getReg .x11) 4)) 0
         (Accel.leLimbsToNat (s.readWords (s.getReg .x11 + 32) 4)))) := by
-  simp (config := { decide := true }) only [MachineState.sp1AccelWrite, if_true, if_false]
+  simp (config := { decide := true }) only [MachineState.sp1AccelWrite, ite_true, ite_false]
 
 /-- **The `UINT256_MUL` trap condition, exactly.** The model continues iff both
     operand blocks are valid dword ranges (four at `a0`; eight at `a1`, covering
@@ -64,7 +64,7 @@ theorem sp1AccelValid_uint256Mul (s : MachineState) :
       MachineState.validDwordRange (s.getReg .x10) 4 = true ∧
       MachineState.validDwordRange (s.getReg .x11) 8 = true ∧
       Accel.leLimbsToNat (s.readWords (s.getReg .x11 + 32) 4) ≠ 0 := by
-  simp (config := { decide := true }) only [MachineState.sp1AccelValid, if_true, if_false]
+  simp (config := { decide := true }) only [MachineState.sp1AccelValid, ite_true, ite_false]
   simp only [Bool.and_eq_true, Bool.not_eq_true', beq_eq_false_iff_ne, and_assoc, ne_eq]
 
 /-! ### `PALLAS_ADD` -/
@@ -73,7 +73,7 @@ theorem sp1AccelWrite_pallasAdd (s : MachineState) :
     s.sp1AccelWrite Sp1.PALLAS_ADD =
       (s.getReg .x10, Accel.curveAddL Sp1.pallasP 4 (s.readWords (s.getReg .x10) 8)
         (s.readWords (s.getReg .x11) 8)) := by
-  simp (config := { decide := true }) only [MachineState.sp1AccelWrite, if_true, if_false]
+  simp (config := { decide := true }) only [MachineState.sp1AccelWrite, ite_true, ite_false]
 
 /-- **The `PALLAS_ADD` trap condition, exactly.** Valid dword ranges at `a0` and
     `a1`, all four coordinates reduced, and `x₁ ≠ x₂` as integers. On-curve is
@@ -85,7 +85,7 @@ theorem sp1AccelValid_pallasAdd (s : MachineState) :
       Accel.ptValid Sp1.pallasP 4 (s.readWords (s.getReg .x10) 8) = true ∧
       Accel.ptValid Sp1.pallasP 4 (s.readWords (s.getReg .x11) 8) = true ∧
       xOf (s.readWords (s.getReg .x10) 8) ≠ xOf (s.readWords (s.getReg .x11) 8) := by
-  simp (config := { decide := true }) only [MachineState.sp1AccelValid, if_true, if_false]
+  simp (config := { decide := true }) only [MachineState.sp1AccelValid, ite_true, ite_false]
   simp only [Bool.and_eq_true, Bool.not_eq_true', beq_eq_false_iff_ne, and_assoc, xOf, ne_eq]
 
 /-! ### `PALLAS_DOUBLE` -/
@@ -93,7 +93,7 @@ theorem sp1AccelValid_pallasAdd (s : MachineState) :
 theorem sp1AccelWrite_pallasDouble (s : MachineState) :
     s.sp1AccelWrite Sp1.PALLAS_DOUBLE =
       (s.getReg .x10, Accel.curveDblL Sp1.pallasP 4 (s.readWords (s.getReg .x10) 8)) := by
-  simp (config := { decide := true }) only [MachineState.sp1AccelWrite, if_true, if_false]
+  simp (config := { decide := true }) only [MachineState.sp1AccelWrite, ite_true, ite_false]
 
 /-- **The `PALLAS_DOUBLE` trap condition, exactly.** A valid dword range at `a0`,
     both coordinates reduced, and `y ≠ 0`. `a1` is ignored. -/
@@ -102,7 +102,7 @@ theorem sp1AccelValid_pallasDouble (s : MachineState) :
       MachineState.validDwordRange (s.getReg .x10) 8 = true ∧
       Accel.ptValid Sp1.pallasP 4 (s.readWords (s.getReg .x10) 8) = true ∧
       yOf (s.readWords (s.getReg .x10) 8) ≠ 0 := by
-  simp (config := { decide := true }) only [MachineState.sp1AccelValid, if_true, if_false]
+  simp (config := { decide := true }) only [MachineState.sp1AccelValid, ite_true, ite_false]
   simp only [Bool.and_eq_true, Bool.not_eq_true', beq_eq_false_iff_ne, and_assoc, yOf, ne_eq]
 
 end MachineChecked.RiscV
