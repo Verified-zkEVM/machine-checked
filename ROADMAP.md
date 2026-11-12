@@ -123,7 +123,7 @@ binary comes from, and what its specification would be.
 | 1 | structured logical program | Nothing yet (`MachineChecked/Logical` is a placeholder). `docs/LogicalMachine.md` sketches it. |
 | 0.5 | low logical program | `MachineChecked/Lprog`: linear Jasmin with shared control flow and shared operations (`Op.lean`), independent of any ISA. Programs with a call stack, calls, tail calls, returns checked against the call, and external calls given by an execution context; the judgement is `Ascent.SafeN`. Design: `docs/design/Lprog.md`. |
 | 0 → 0.5 | lift 1 | RISC-V: `MachineChecked/RiscV/Lprog`. A program of functions lifts whole: operations, branches, jumps, calls, tail calls, returns and `ecall`s, with SP1's system calls as the context. The transfer theorem carries `SafeN` at Lprog down to `stepSp1`. Not yet: contracts composed by a table, a symbolic executor at Lprog, exit points for lifting part of a program. |
-| 0 | ISA | RISC-V: riscv-zkvm, tied to Sail, with the judgement `SafeN` over its `stepSp1`, and the layer-0 proof tools. x86-64: Kraken's x64 semantics is chosen (`docs/ISA.md`) and not yet required; a trusted transcription of Jasmin's stands in. AArch64: a trusted machine model only. |
+| 0 | ISA | RISC-V: riscv-zkvm, tied to Sail, with the judgement `SafeN` over its `stepSp1`, and the layer-0 proof tools. x86-64: Kraken's x64 semantics is chosen (`docs/ISA.md`) and not yet required; a trusted transcription of Jasmin's stands in. AArch64: DeepMind's arm64-semantics is chosen (`docs/ISA.md`) and not yet required; a trusted hand-written model stands in. |
 | -1 | ELF and context | RISC-V on SP1 only: the loader, SP1's acceptance and its system calls. The context is not yet a parameter. |
 | all | runs and correspondence | `MachineChecked/Ascent`: one notion of a run and one correspondence, for any step function. Every layer's runs are instances. |
 
@@ -147,6 +147,6 @@ proofs go through the lift.
    first targets.
 6. **AArch64 and x86-64.** For x86-64, require Kraken (which moves the toolchain), state
    the judgement over its x64 semantics and lift its programs into the shared layer 0.5. For
-   AArch64, choose the canonical specification and verify or replace the model; then its
-   loader and lift. The s2n-bignum style routines are the first targets here.
+   AArch64, likewise require arm64-semantics, state the judgement over its `Steps` and lift
+   into layer 0.5. The s2n-bignum style routines are the first targets here.
 7. **More targets,** from the list above and from proposals.

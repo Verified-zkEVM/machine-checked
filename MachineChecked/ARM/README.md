@@ -10,9 +10,9 @@ counterpart of `RiscV/`, to be built out after it.
 | `Model.lean` | The AArch64 machine model: one state (the `X` registers, the carry and zero flags, byte-addressed memory, the pc) and one step over a scalar general-purpose subset: 64-bit arithmetic with the carry chain, the 32-bit `W` forms (acting on the low halves of the `X` registers), doubleword loads and stores, `CMP`, `CBNZ` and `B.cond`. **Trusted.** |
 | `Mem64.lean` | Byte-addressed memory with little-endian doubleword access, used by the model. |
 
-The model is not yet proved against a canonical AArch64 specification. It is named as trusted
-on the trust ladder (`docs/ELF.md` §4), and is to be verified against the specification chosen in
-`docs/ISA.md` or replaced by a model that already is. It has no decoder yet. Nothing outside
+The model is not proved against a canonical AArch64 specification. It is named as trusted on
+the trust ladder (`docs/ELF.md` §4) and stands in until DeepMind's arm64-semantics, the
+semantics chosen in `docs/ISA.md`, is required; then it is removed. It has no decoder yet. Nothing outside
 this directory imports it.
 
 ## Where it is going
