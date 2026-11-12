@@ -51,6 +51,9 @@ of each layer and the targets, is [`ROADMAP.md`](ROADMAP.md).
 
 ## Instruction sets
 
+![Each instruction set (ARM, RISC-V, x86) decompiles into linear Jasmin; programs are
+transpiled between instruction sets.](docs/media/machine-checked-structure.png)
+
 The framework is built for RISC-V first: layers -1 to 0.5 exist there today, on
 [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm)'s model, whose step function is what
 SP1 executes. x86-64 and AArch64 are meant to be peers of RISC-V. x86-64's semantics will be
