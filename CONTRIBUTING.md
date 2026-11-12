@@ -59,9 +59,10 @@ These hold for every change. A pull request that breaks one is not merged.
 
 ### Semantics and trust
 
-- **One semantics per instruction set.** For RISC-V it is riscv-zkvm's `stepSp1`, used
-  unmodified at the pinned revision. Do not add a second RISC-V semantics. If another model is
-  ever needed, prove it equal to `stepSp1`.
+- **One semantics per instruction set.** For RISC-V it is riscv-zkvm's `stepSp1`, and for
+  x86-64 Kraken's x64 semantics, each used unmodified at its pinned revision. Do not add a
+  second semantics for either. If another model is ever needed, prove it against the one
+  there is.
 - **Trusted models are named.** An instruction-set model may be trusted only if it is listed
   on the trust ladder (`docs/ELF.md` §4). Every model is to be verified against its canonical
   specification (`docs/ISA.md`) in the end.

@@ -181,15 +181,17 @@ on Rust binaries. The pattern to reimplement is well tested, though:
 removes the compiler and assembler from the TCB [R]. The irreducible TCB:
 
 1. **The ISA model.** For RISC-V, `riscv-zkvm` ties its hand-written model to Sail with 51
-   per-instruction equivalence theorems. x86 and ARM have Sail models too, which is the
-   `ISA.md` question. **Trusted for now:** the x86-64 model `MachineChecked/X86/Model`
-   (a transcription of Jasmin's x86 semantics) and the AArch64 model
-   `MachineChecked/ARM/Model`, both ported from catcrypt-compiler. Neither is proved against
-   a canonical specification here, and no claim about RISC-V rests on them. Each is to be
-   verified against its Sail model, or replaced by a verified model.
+   per-instruction equivalence theorems. For x86-64 the model is Kraken's x64 semantics
+   (`ISA.md`), a dependency used unmodified at its pin, as riscv-zkvm is for RISC-V. Until it
+   is required, `MachineChecked/X86/Model` (a transcription of Jasmin's x86 semantics) stands
+   in, trusted and unused. **Trusted for now:** the AArch64 model `MachineChecked/ARM/Model`,
+   ported from catcrypt-compiler, not proved against a canonical specification here (the
+   choice is open in `ISA.md`). No claim about RISC-V rests on either.
 2. **The Lean kernel** (plus whatever `decide`/`native_decide` brings in; `riscv-decomp`'s
    axiom gate already tracks this).
 3. **The import**: that the bytes and load addresses in Lean are the ones the zkVM runs.
+   For x86-64 the import is the assembly instead: Kraken's programs are assembly, so the
+   assembler and linker are trusted to produce bytes that run as the assembly says.
    seL4 never removed this either [R]. It can be shrunk by having the zkVM's own loader
    produce the image digest the proof is stated over.
 4. **The zkVM's own semantics**: syscalls, the halt and exit-code convention, memory
@@ -211,7 +213,7 @@ Each rung changes the TCB, so each one is a milestone.
 | **3** | **Whole-program invariants proved**: RA integrity, bounded indirect control flow, statics discipline (`StaticsOk`), heap discipline (`HeapOk`) | The vacuity class is gone by construction | PLAN items 2–4 |
 | **4** | **The runtime is verified once per toolchain build** (memcpy, the allocator, the panic path, SP1 syscalls), keyed by the hash of its bytes and reused across guests | Contracts become theorems. They are the same bytes in every guest built with the same toolchain and features | PLAN item 5 |
 | **5** | **Translation validation against the source** (Aeneas/hax extraction of the guest), using line, inline and location tables to pair regions | Specs come from the source instead of being written from the disassembly. Panics become `fail` | Not started |
-| **6** | Loader/ELF formalised in Lean; ISA model validated against Sail for every ISA | Only the kernel and Sail remain | RISC-V's Sail tie is done |
+| **6** | Loader/ELF formalised in Lean; each ISA model validated against its canonical specification (`ISA.md`: Sail for RISC-V, Kraken for x86-64) | Only the kernel and the canonical specifications remain | RISC-V's Sail tie is done |
 
 Two rules keep this honest:
 
