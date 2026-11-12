@@ -63,6 +63,8 @@ Where the main systems sit relative to MachineChecked's stack.
 | Arm ASL / MRA ✔ | ISA specification | — (executable) | Armv8-A, v8-M | — | — | 0 (root of trust) |
 | Anthropic / Theorem (2026) ✔ (secondary) | static musl RISC-V binaries | Rocq | RISC-V | no | — | whole stack, AI-driven |
 | CakeML / Silver / Pancake ○ | compiler output | HOL4 | several, incl. RISC-V | verified compiler | HOL4 L3 models | 0.5 / 1 inspiration |
+| Flapjack ✔ | compiler output (Pancake to machine code) | Lean 4 | RISC-V, AArch64, x86-64, MIPS32 | verified compiler (RISC-V) | own, L3-derived for RISC-V | 1 (Pancake) and the way back down |
+| flapjack-flip / rv2pancake ✔ | Flapjack RISC-V binaries to Pancake | Lean 4 | RV64 | no | riscv-zkvm (challenge); own (rv2pancake) | lift 1 + lift 2 |
 | Jasmin ○ | compiler output | Coq (EasyCrypt) | x86-64 (more recently others) | verified compiler | Jasmin's x86 semantics | 0.5 (linear Jasmin) |
 | Vale ○ | assembly | Dafny / F* | x86-64, ARM | assembler-printing trusted | hand-written | — |
 | Bedrock2 + riscv-coq ○ | compiler output | Coq | RISC-V | verified compiler | riscv-coq | 1 (logic), 0 |
@@ -351,6 +353,41 @@ which is not repeated here. Two lessons from this survey bear on them:
 - **Verified-zkEVM rust-lean** (arXiv 2605.30106): a Rust-to-Lean pipeline with AI provers,
   as a possible source of layer-2 specifications. Not checked.
 
+### 4.6 Flapjack, flapjack-flip and rv2pancake ✔ (READMEs, 2026-11-12)
+
+- **[Flapjack](https://github.com/pirapira/flapjack)** (Yoichi Hirai; BSD-3-Clause; Lean
+  v4.33.1): an in-progress Lean port of the Pancake compiler. It proves a compiler correctness
+  theorem from Pancake to RISC-V, mirroring CakeML's `pan_to_target` theorem, under explicit
+  assumptions. Back ends:
+  - **RISC-V,** over Flapjack's own model derived from L3, not Sail.
+    `flapjack-riscv-check` proves that model runs in lockstep with Sail on the 37 instructions
+    the back end emits, under restrictions (no hint encodings, aligned accesses to plain RAM,
+    Sail configured to match L3). The correctness theorem has not been carried over to Sail.
+  - **AArch64 and x86-64,** following CakeML's `arm8` and `x64` targets, parity-tested byte for
+    byte against the original Pancake compiler, over closed models of the instructions they
+    emit (plus CakeML's L3 `arm8` model for AArch64).
+  - **MIPS32,** for the Ziren zkVM, over Ziren's own Lean model.
+
+  Its README warns that the theorem "might not mean anything" until reviewed.
+- **[flapjack-flip](https://github.com/dhsorens/flapjack-flip)**: a challenge to build a
+  verified decompiler from Flapjack's RISC-V binaries, run on riscv-zkvm, back to Pancake
+  source. Its frozen `DecompilerSound` requires that the output recompile and that the two
+  programs refine each other in both directions, for every oracle, every initial oracle state
+  and every step budget. The starting decompiler is sound and passes 0 of 120 tests.
+- **[rv2pancake](https://github.com/Th0rgal/rv2pancake)** (third party; no licence): an
+  attempt at the challenge, from RV64IM to Pancake in Lean v4.35.0, with its own decoder, ELF
+  loader and machine. Its core proves a per-instruction lifting simulation and validates its
+  optimisations by untrusted proposals and verified checkers, against a weak observational
+  equivalence (`a0` and memory at termination). Under the challenge's contract it certifies 5
+  of 120 tests. Its earlier 120 of 120 came from tests, not proofs.
+- **Borrow:**
+  - Layer 1 is Pancake with Flapjack's semantics (`ROADMAP.md`).
+  - Flapjack is a way back down for the decompiler's output: first as a sanity check
+    (recompile and test), then for proof, with `DecompilerSound` as the shape of the
+    round-trip theorem.
+  - rv2pancake's experience says per-instruction lifting is the easy part; recovering
+    structured control flow with proof is the hard part.
+
 ---
 
 ## 5. Binary lifting and verified decompilation
@@ -627,6 +664,7 @@ related practitioner account: <https://blog.zksecurity.xyz/posts/end-coding> (no
 | lift 1, indirect jumps | Get candidate lists from untrusted tools (ddisasm, Ghidra) and check them. Make return-address integrity and bounded control flow explicit preconditions (VT). | §5.1, §5.5 |
 | **0.5 shared IR** | An IR without a formal semantics is a liability (P-Code). FoxDec 3.0 is the nearest analogue; MachineChecked's in-Lean simulation is the stronger form. | §5.2, §5.4 |
 | **lift 2 (0.5 → 1)** | Myreen-style decompilation into ordinary Lean functions with a correspondence theorem. Treat the stack as a separate object. Split-point (loop-head) discovery is where optimised code breaks, so allow hints. | §2.1, §2.3 |
+| lift 2, its target | Lift into Pancake and recompile with Flapjack: on tests first, then with a round-trip theorem shaped like flapjack-flip's `DecompilerSound`. Structured control flow, not instructions, is the hard part (rv2pancake). | §4.6 |
 | **1 program logics** | Include a conjunction rule. A relational logic covers constant time and equivalence. Bedrock2 and Pancake are the design references. | §3.3, §2.4, §4.5 |
 | **2 refinement** | Generate, decompile, prove equal (CC 2009). Prove optimised code equivalent to a simple version, then verify the simple one (relational logic). Fiat, Jasmin/EasyCrypt and hash-specs supply specifications. | §2.2, §3.3, §7 |
 | **x86-64 assembler gap** | Close it by reading the bytes back and proving them against the assembly (decompile-with-proof or binary TV), as every byte-level system does. | §4.4, §5.2 |
