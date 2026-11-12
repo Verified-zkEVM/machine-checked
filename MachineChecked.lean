@@ -29,7 +29,5 @@ import MachineChecked.Lprog.Expr
 import MachineChecked.Lprog.Syntax
 import MachineChecked.Lprog.Sem
 import MachineChecked.Lprog.Op
-import MachineChecked.ARM.Mem64
-import MachineChecked.ARM.Model
-import MachineChecked.X86.BinOp
-import MachineChecked.X86.Model
+import MachineChecked.ARM.Arm64
+import MachineChecked.X86.Kraken

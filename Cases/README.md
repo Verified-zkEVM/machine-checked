@@ -3,6 +3,12 @@
 Case studies: real binaries, loaded and verified with the framework in `MachineChecked/`. A
 case depends on the framework, and nothing in the framework depends on a case.
 
+> [!NOTE]
+> **Paused.** While the framework is reworked, the case studies are not rebuilt on pull
+> requests, and they have not been checked on the current toolchain (Lean v4.36.0-rc2): some
+> may not build. They were last built in full on Lean v4.33.1. CI's on-demand `full` job
+> builds them and runs their axiom check (`scripts/AxiomCheckCases.lean`).
+
 | directory | binary | what is verified |
 | --- | --- | --- |
 | [`Zip2005/`](Zip2005/README.md) | An SP1 guest compiled from Rust that checks a Zcash Orchard statement (ZIP 2005) | The whole guest, from its loaded ELF to its high-level statement: runtime, allocator, cryptography and `main`, composed through the contract table. |

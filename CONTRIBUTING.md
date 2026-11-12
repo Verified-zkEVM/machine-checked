@@ -95,9 +95,10 @@ lake build Cases                          # every case study (a few hours)
 lake env lean path/to/File.lean           # check one file
 ```
 
-Continuous integration (`.github/workflows/ci.yml`) builds the framework, the tools and the
-quick case studies on every pull request, and fails on a warning, `sorry`, `axiom` or
-`native_decide`. The full build of the case studies runs on demand.
+Continuous integration (`.github/workflows/ci.yml`) builds the framework and the tools on
+every pull request, and fails on a warning, `sorry`, `axiom` or `native_decide`. For now the
+case studies are not built on pull requests (`Cases/README.md`); the full build of them runs on
+demand.
 
 Before opening a pull request:
 1. Build every module you touched and every module that imports it. A change to a widely
