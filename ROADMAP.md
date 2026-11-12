@@ -121,8 +121,8 @@ binary comes from, and what its specification would be.
 | --- | --- | --- |
 | 2 | spec refinement | Nothing generic (`MachineChecked/Refine` is a placeholder). Each case study's specification, for example `Cases/Zip2005/Spec`, connects to its proofs directly. |
 | 1 | structured logical program | Nothing yet (`MachineChecked/Logical` is a placeholder). `docs/LogicalMachine.md` sketches it. |
-| 0.5 | low logical program | `MachineChecked/Lprog`: linear Jasmin with shared control flow and shared operations (`Op.lean`), independent of any ISA. |
-| 0 → 0.5 | lift 1 | RISC-V: `MachineChecked/RiscV/Lprog`. Each instruction is translated to a shared operation and proved against riscv-zkvm; the simulation carries every Lprog run down to the machine. It covers straight-line code, branches, jumps and returns; calls, indirect jumps and system calls stop a run at Lprog and are taken over the machine. |
+| 0.5 | low logical program | `MachineChecked/Lprog`: linear Jasmin with shared control flow and shared operations (`Op.lean`), independent of any ISA. Programs with a call stack, calls, tail calls, returns checked against the call, and external calls given by an execution context; the judgement is `Ascent.SafeN`. Design: `docs/design/Lprog.md`. |
+| 0 → 0.5 | lift 1 | RISC-V: `MachineChecked/RiscV/Lprog`. A program of functions lifts whole: operations, branches, jumps, calls, tail calls, returns and `ecall`s, with SP1's system calls as the context. The transfer theorem carries `SafeN` at Lprog down to `stepSp1`. Not yet: contracts composed by a table, a symbolic executor at Lprog, exit points for lifting part of a program. |
 | 0 | ISA | RISC-V: riscv-zkvm, tied to Sail, with the judgement `SafeN` over its `stepSp1`, and the layer-0 proof tools. x86-64: Kraken's x64 semantics is chosen (`docs/ISA.md`) and not yet required; a trusted transcription of Jasmin's stands in. AArch64: DeepMind's arm64-semantics is chosen (`docs/ISA.md`) and not yet required; a trusted hand-written model stands in. |
 | -1 | ELF and context | RISC-V on SP1 only: the loader, SP1's acceptance and its system calls. The context is not yet a parameter. |
 | all | runs and correspondence | `MachineChecked/Ascent`: one notion of a run and one correspondence, for any step function. Every layer's runs are instances. |
@@ -133,9 +133,9 @@ proofs go through the lift.
 
 ## Roadmap steps
 
-1. **Complete the RISC-V lift.** Calls inside Lprog (`Lcall`), indirect jumps with candidate
-   lists (`Ligoto`), and system calls as external calls with specifications, so that a whole
-   function, and then a whole program, runs at Lprog.
+1. **Complete the RISC-V lift.** Done for programs (milestone A of `docs/design/Lprog.md`):
+   calls, tail calls, returns and system calls run at Lprog, and `write_vectored`'s call to
+   `sys_write` uses its callee's contract. Next: a symbolic executor at Lprog (milestone B).
 2. **Move zip-2005 onto the lift.** Re-prove its function specifications at Lprog, so the
    end theorem goes through one route. This is also the test of step 1 at scale.
 3. **Contracts and composition at layer 0.5,** with the execution context and the calling

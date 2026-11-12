@@ -8,17 +8,17 @@ limbs, little-endian) and leave the result in `a0..a3`. `limbs4` reads such a va
 natural number, and `limbs4_eq_toNat` relates it to the 256-bit concatenation `bv_decide`
 reasons about.
 
-A kernel is stated as a correspondence (`MachineChecked.Ascent.Corres` over `stepSp1`)
-between the machine and an abstract state that is either the entry (two values, at the
-block's start) or the exit (one value, past the block): `KState`, `KSR`. It is proved through
-the lift: the block runs at Lprog (`MachineChecked.RiscV.Lprog.corres_block`), and its effect
-is the fold of `execInstrBr` over it.
+A kernel is stated as a correspondence (`MachineChecked.RiscV.CorresSp1`, a contract in
+continuation form over `stepSp1`) between the machine and an abstract state that is either the
+entry (two values, at the block's start) or the exit (one value, past the block): `KState`,
+`KSR`. The block runs over the machine as a straight-line block
+(`MachineChecked.RiscV.Lprog.corres_block`), and its effect is the fold of `execInstrBr` over
+it.
 -/
 
 namespace Cases.CatCrypt
 
 open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Lprog
-open MachineChecked.Ascent (Corres)
 
 /-- The Curve25519 prime. -/
 def p25519 : Nat := 2 ^ 255 - 19
@@ -75,7 +75,7 @@ theorem kernel_corres (base : Word) (prog : List Instr) (hall : prog.all isPure 
     (pre : Nat → Nat → Prop) (f : Nat → Nat → Nat)
     (h : ∀ m : MachineState, pre (regA m) (regB m) →
       regA (prog.foldl execInstrBr m) = f (regA m) (regB m)) :
-    Corres stepSp1 (KSR base prog) (KPre pre) (KSpec f) := by
+    CorresSp1 (KSR base prog) (KPre pre) (KSpec f) := by
   apply corres_block base prog hall
   · rintro m (⟨x, y⟩ | z) hSR hP
     · exact ⟨hSR.1, hSR.2.1⟩

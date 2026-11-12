@@ -11,7 +11,7 @@ semantics in the repository. The execution context is SP1.
 | file | contents |
 | --- | --- |
 | `State.lean` | Reading a machine state after an update: the pc, registers after register and memory writes, a normal form. |
-| `Safe.lean` | The judgement every result is written in. `SafeN G n P s`: every accepting state reached from `s` in fewer than `n` steps, along a run every state of which satisfies the guard `G`, satisfies `P`. `stepsSp1` is the generic run (`Ascent.steps`) of `stepSp1`, and `SafeN.of_reaches` passes `SafeN` back along a run. |
+| `Safe.lean` | The judgement every result is written in. `SafeN G n P s`, the instance of `Ascent.SafeN` at `stepSp1`: every accepting state reached from `s` in fewer than `n` steps, along a run every state of which satisfies the guard `G`, satisfies `P`. `stepsSp1` is the generic run (`Ascent.steps`) of `stepSp1`, and `SafeN.of_reaches` passes `SafeN` back along a run. |
 | `Accept.lean` | The accepting halt (`Accepted`): the `ECALL` with `t0 = 0` and exit code 0 that an SP1 verifier checks. |
 | `Accel.lean` | The SP1 accelerator arms ZIP 2005 uses (`UINT256_MUL`, `PALLAS_ADD`, `PALLAS_DOUBLE`), cut out of riscv-zkvm's dispatch: each arm's write and exact trap condition, and the point coordinates `Wire.xOf`/`Wire.yOf`. |
 
