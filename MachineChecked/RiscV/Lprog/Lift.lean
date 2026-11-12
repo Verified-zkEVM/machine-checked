@@ -199,7 +199,7 @@ theorem labelIdx_liftFrom (fs : List Fn) (base : Word) (len : Nat) :
     · have := labelIdx_liftFrom fs base len (k + 1) is l (by omega)
         (by simp only [List.length_cons] at h2; omega)
       unfold labelIdx at this
-      simp only [beq_iff_eq, hkl, if_false, this, Option.map_some, Bool.false_eq_true]
+      simp only [beq_iff_eq, hkl, ite_false, this, Option.map_some, Bool.false_eq_true]
       congr 1; omega
 
 /-- The body of a lifted function. -/

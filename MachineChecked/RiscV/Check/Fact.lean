@@ -659,7 +659,7 @@ theorem Builtin.runOn_sound {gs : List (Option (Fact α))} (hg : GsOk A ν gs) {
         subst hf
         bsimp
         have hw : (ν w).toNat = r1.const := by omega
-        rw [h1, rv64_divu, if_neg (by simp [BitVec.toNat_eq] at hc0 ⊢; omega),
+        rw [h1, rv64_divu, ite_eq_right (by simp [BitVec.toNat_eq] at hc0 ⊢; omega),
           BitVec.toNat_udiv, hw, Nat.mul_comm]
         exact Nat.div_mul_le_self _ _
       · simp only [reduceCtorEq] at h
@@ -682,7 +682,7 @@ theorem Builtin.runOn_sound {gs : List (Option (Fact α))} (hg : GsOk A ν gs) {
           simp only [beq_iff_eq, BitVec.toNat_eq, BitVec.toNat_ofNat, Nat.zero_mod]; omega
         intro f hf
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hf
-        rcases hf with rfl | rfl <;> bsimp <;> rw [h1, rv64_remu, if_neg hne, BitVec.toNat_umod, hw]
+        rcases hf with rfl | rfl <;> bsimp <;> rw [h1, rv64_remu, ite_eq_right hne, BitVec.toNat_umod, hw]
         · have := Nat.mod_lt (ν u).toNat (Nat.pos_of_ne_zero hc0); omega
         · exact Nat.mod_le _ _
       · simp only [reduceCtorEq] at h

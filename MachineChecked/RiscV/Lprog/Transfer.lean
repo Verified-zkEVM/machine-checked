@@ -78,7 +78,7 @@ theorem agree_set' {regs : Reg → BitVec 64} {m u : MachineState} (hag : Agree 
   rw [getReg_ofParts, MachineState.getReg_setPC, getReg_setReg]
   by_cases h0 : r = .x0
   · subst h0
-    simp only [getReg_x0, if_true]
+    simp only [getReg_x0, ite_true]
     split
     · next h => exact absurd h.1.symm h.2
     · rfl
@@ -86,7 +86,7 @@ theorem agree_set' {regs : Reg → BitVec 64} {m u : MachineState} (hag : Agree 
     · subst hr; simp [h0, updReg]
     · have := hag.regs r
       rw [getReg_ofParts] at this
-      simp only [h0, if_false] at this
+      simp only [h0, ite_false] at this
       simp [h0, hr, updReg, this]
 
 /-- An operation advances the pc by four. -/
@@ -421,7 +421,7 @@ theorem back_jal (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
   unfold liftJal at hstep
   by_cases h0 : rd = .x0
   · subst h0
-    rw [if_pos rfl] at hstep
+    rw [ite_eq_left rfl] at hstep
     have hag' : Agree (ofParts regs m) (execInstrBr t (.JAL .x0 off)) := hag.trans (agree_setPC t _)
     split at hstep
     · next hj =>
@@ -439,10 +439,10 @@ theorem back_jal (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
             hL.next ((hstep _).2 (by simp [Isa.stepI, hsp, callee_direct hglt]))⟩
         · exact (hL.not_wrong ((hstep _).2 (by simp [Isa.stepI, hsp]))).elim
       · exact (back_abort hL hstep).elim
-  · rw [if_neg h0] at hstep
+  · rw [ite_eq_right h0] at hstep
     by_cases h1 : rd = .x1
     · subst h1
-      rw [if_pos rfl] at hstep
+      rw [ite_eq_left rfl] at hstep
       split at hstep
       · next g hg =>
         obtain ⟨fn, hfn, hbase⟩ := entryOf_spec hg
@@ -455,7 +455,7 @@ theorem back_jal (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
           (by simp only [pc_setPC]; rw [h.tpc, hbase]) hret hbelow,
           hL.next ((hstep _).2 (by simp [Isa.stepI, callee_direct hglt]))⟩
       · exact (back_abort hL hstep).elim
-    · rw [if_neg h1] at hstep
+    · rw [ite_eq_right h1] at hstep
       exact (back_abort hL hstep).elim
 
 theorem back_jalr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
@@ -471,7 +471,7 @@ theorem back_jalr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩
   unfold liftJalr at hstep
   by_cases h0 : rd = .x0
   · subst h0
-    rw [if_pos rfl] at hstep
+    rw [ite_eq_left rfl] at hstep
     have hag' : Agree (ofParts regs m) (execInstrBr t (.JALR .x0 rs off)) := hag.trans (agree_setPC t _)
     split at hstep
     · next hr =>
@@ -501,10 +501,10 @@ theorem back_jalr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩
             (by simp only [execInstrBr, pc_setPC]; rw [hbase, htgt]) h.sim.chain.2.1 h.sim.chain.2.2,
             hL.next ((hstep _).2 (by simp only [Isa.stepI, hsp, hc]; simp))⟩
       · exact (hL.not_wrong ((hstep _).2 (by simp [Isa.stepI, hsp]))).elim
-  · rw [if_neg h0] at hstep
+  · rw [ite_eq_right h0] at hstep
     by_cases h1 : rd = .x1
     · subst h1
-      rw [if_pos rfl] at hstep
+      rw [ite_eq_left rfl] at hstep
       cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (List.range fs.length)) with
       | none => exact (hL.not_wrong ((hstep _).2 (by simp only [Isa.stepI, hc]))).elim
       | some g =>
@@ -516,7 +516,7 @@ theorem back_jalr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩
         exact .inl ⟨_, h.enter (top := regs .x2) (agree_set' hag .x1 _ (by rw [h.tpc])) (by simp) hfn
           (by simp only [pc_setPC]; rw [hbase, htgt]) hret hbelow,
           hL.next ((hstep _).2 (by simp only [Isa.stepI, hc]))⟩
-    · rw [if_neg h1] at hstep
+    · rw [ite_eq_right h1] at hstep
       exact (back_abort hL hstep).elim
 
 theorem stepSp1_ecall {t : MachineState} (hf : t.code t.pc = some .ECALL) : stepSp1 t = sp1Ecall t := by
@@ -549,10 +549,10 @@ theorem back_instr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m�
   have hbody := h.body.2
   generalize f.prog[k]'h.hk = i at hfetch hstep hbody
   by_cases hop : opnOk i = true
-  · simp only [liftI, hop, if_true] at hstep
+  · simp only [liftI, hop, ite_true] at hstep
     refine ⟨back_opn hL h hfetch hop hstep, fun ha => ?_⟩
     exact absurd (Option.some.inj (hfetch.symm.trans ha.1)) (not_ecall_of_opnOk hop)
-  · simp only [liftI, hop, Bool.false_eq_true, if_false] at hstep hbody
+  · simp only [liftI, hop, Bool.false_eq_true, ite_false] at hstep hbody
     refine ⟨?_, fun ha => ?_⟩
     · cases i
       case AUIPC rd imm => exact back_auipc hL h hfetch hstep

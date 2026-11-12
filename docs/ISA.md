@@ -9,8 +9,8 @@ here, or replaced by a model that already is.
 | ISA | canonical specification | model here | status |
 | --- | --- | --- | --- |
 | RISC-V | the Sail RISC-V model | [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm), a dependency | tied to Sail; the only RV64 semantics |
-| x86-64 | [Kraken](https://github.com/AeneasVerif/kraken)'s x64 semantics (decided 2026-11-11, below) | `MachineChecked/X86/Model.lean`, a transcription of Jasmin's x86 semantics, until Kraken is required | trusted |
-| AArch64 | [DeepMind's arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) (decided 2026-11-12, below) | `MachineChecked/ARM/Model.lean`, hand-written, until arm64-semantics is required | trusted |
+| x86-64 | [Kraken](https://github.com/AeneasVerif/kraken)'s x64 semantics (decided 2026-11-11, below) | Kraken, a dependency, imported by `MachineChecked/X86/Kraken.lean` | required; trusted (the canonical specification) |
+| AArch64 | [DeepMind's arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) (decided 2026-11-12, below) | arm64-semantics' trusted package, a dependency, imported by `MachineChecked/ARM/Arm64.lean` | required; trusted (the canonical specification) |
 
 ## x86-64: Kraken
 
@@ -38,11 +38,12 @@ What it changes, compared with RISC-V:
   first x86-64 targets (s2n-bignum-style routines, hash kernels) fit inside it.
   Instructions it lacks (for example the rest of BMI1 and BMI2, `BT`, `XCHG`) are
   contributed to Kraken when a target needs them.
-- **Toolchain.** Kraken follows Lean nightlies and the module system; requiring it moves this
-  repository's toolchain (see `ROADMAP.md`).
+- **Toolchain.** Kraken follows Lean nightlies and the module system. It does not build on
+  v4.35.0, so this repository moved to v4.36.0-rc2 to require it.
 
-Until Kraken is required, `MachineChecked/X86/Model.lean` stays, trusted and unused. It is
-removed when Kraken comes in.
+Kraken is required at a pinned commit (`lakefile.toml`). `MachineChecked/X86/Kraken.lean`
+imports `Kraken.X64.Semantics` and nothing else of Kraken's. The trusted transcription of
+Jasmin's x86 semantics that stood in before is removed.
 
 ## AArch64: DeepMind's arm64-semantics
 
@@ -79,5 +80,6 @@ What to know about it:
 - **Toolchain.** It pins Lean v4.34.0 and builds warning-free on v4.36.0-rc2 (checked
   2026-11-12). It uses the module system, as Kraken does.
 
-Until arm64-semantics is required, `MachineChecked/ARM/Model.lean` stays, trusted and unused.
-It is removed when arm64-semantics comes in.
+arm64-semantics is required at a pinned commit (`lakefile.toml`, with `subDir` set to the
+package). `MachineChecked/ARM/Arm64.lean` imports `Arm64.Trusted`. The hand-written model
+ported from catcrypt-compiler that stood in before is removed.

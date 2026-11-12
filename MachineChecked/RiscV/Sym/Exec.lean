@@ -210,8 +210,8 @@ end shapes
 
 /-! ## Branch direction -/
 
-theorem ite_true_of {α : Type} {c : Prop} [Decidable c] {a b : α} (h : c) : (if c then a else b) = a := if_pos h
-theorem ite_false_of {α : Type} {c : Prop} [Decidable c] {a b : α} (h : ¬ c) : (if c then a else b) = b := if_neg h
+theorem ite_true_of {α : Type} {c : Prop} [Decidable c] {a b : α} (h : c) : (if c then a else b) = a := ite_eq_left h
+theorem ite_false_of {α : Type} {c : Prop} [Decidable c] {a b : α} (h : ¬ c) : (if c then a else b) = b := ite_eq_right h
 
 theorem beq_word_true {a b : Word} (h : a = b) : (a == b) = true := by subst h; simp
 theorem beq_word_false {a b : Word} (h : a ≠ b) : (a == b) = false := by simpa using h

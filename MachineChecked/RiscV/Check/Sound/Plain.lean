@@ -26,7 +26,7 @@ theorem loadVal_sound (hF : Facts env σ E s0) {kn : Kn} {A : AState} {x : Machi
     (hkr : KnRoots E kn) (hb : b.Holds E addr) :
     (loadVal env σ kn A b true).Holds E (x.getMem addr) := by
   unfold loadVal
-  simp only [if_true]
+  simp only [ite_true]
   split
   · rename_i k hk
     rw [AVal.frameOff?_some hk] at hb
@@ -275,7 +275,7 @@ theorem aluStep_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineState}
             (if i' = pc.toNat ∧ j' = 0 then w else E.sym i' j') = E.sym i' j' := fun i' j' => by
           by_cases hc : i' = pc.toNat ∧ j' = 0
           · exact Or.inl hc
-          · exact Or.inr (if_neg hc)
+          · exact Or.inr (ite_eq_right hc)
         have hm : args'.map (·.eval (E.withSym fun i' j' =>
               if i' = pc.toNat ∧ j' = 0 then w else E.sym i' j')) = args'.map (·.eval E) :=
           List.map_congr_left fun a ha => AVal.eval_agree hV (hfree a ha)
@@ -384,39 +384,39 @@ theorem fieldStore_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineSta
       fun a ha hnw' hno' hns => ?_, fun hh a hha hnp => ?_, Env.Inv_setMem_not_own h.inv hno,
       h.slots, St.facts_setMem h hnh, fun p hp => ?_, ?_⟩
     · have hsl := slot_facts hF (h.slots p hp)
-      rw [getMem_setMem, if_neg]
+      rw [getMem_setMem, ite_eq_right]
       · exact h.holds.2 p hp
       · intro heq; exact hnw (Or.inl (heq ▸ hsl.2))
-    · rw [getMem_setMem, if_neg]
+    · rw [getMem_setMem, ite_eq_right]
       · exact h.mem a ha hnw' hno' hns
       · rintro rfl; exact hns hsh
-    · rw [getMem_setMem, if_neg]
+    · rw [getMem_setMem, ite_eq_right]
       · exact h.heap hh a hha hnp
       · rintro rfl; exact hnh hha
     · by_cases hvp : v.isPtr = true
-      · rw [if_pos hvp] at hp
+      · rw [ite_eq_left hvp] at hp
         simp only [List.mem_cons] at hp
         rcases hp with rfl | hp
         · refine ⟨hbp, by rw [holds_eval hb hbp]; exact hfkey, ?_⟩
-          rw [holds_eval hb hbp, getMem_setMem, if_pos rfl]
+          rw [holds_eval hb hbp, getMem_setMem, ite_eq_left rfl]
           exact hv rfl
         · obtain ⟨hpm, hpc⟩ := List.mem_filter.mp hp
           obtain ⟨hp1', hp2', hp3'⟩ := h.wmem p hpm
           refine ⟨hp1', hp2', ?_⟩
           simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, beq_iff_eq] at hpc
-          rw [getMem_setMem, if_neg]
+          rw [getMem_setMem, ite_eq_right]
           · exact hp3'
           · intro heq
             apply hpc.1
             apply AVal.base_eq hp1' hbp hpc.2
             rw [AVal.eval_base hp1', hpc.2, ← holds_eval hb hbp, AVal.eval_base hbp] at heq
             bv_omega
-      · rw [if_neg hvp] at hp
+      · rw [ite_eq_right hvp] at hp
         obtain ⟨hpm, hpc⟩ := List.mem_filter.mp hp
         obtain ⟨hp1', hp2', hp3'⟩ := h.wmem p hpm
         refine ⟨hp1', hp2', ?_⟩
         simp only [Bool.and_eq_true, bne_iff_ne, ne_eq, beq_iff_eq] at hpc
-        rw [getMem_setMem, if_neg]
+        rw [getMem_setMem, ite_eq_right]
         · exact hp3'
         · intro heq
           apply hpc.1
@@ -425,10 +425,10 @@ theorem fieldStore_sound (hF : Facts env σ E s0) {A B : AState} {x : MachineSta
           bv_omega
     · refine ⟨fun e' he' a ha => ?_, fun hh k p hw hhit hf hst => ?_⟩
       · rw [hone e' he'] at ha
-        rw [getMem_setMem, if_neg (hnstable a ha)]
+        rw [getMem_setMem, ite_eq_right (hnstable a ha)]
         exact h.strs.1 e he a ha
       · refine (h.strs.2 hh k p hw hhit hf hst).congr fun a ha => ?_
-        rw [getMem_setMem, if_neg]
+        rw [getMem_setMem, ite_eq_right]
         rintro rfl
         exact (hhit a ha).2 hsh
   · cases hs
@@ -525,18 +525,18 @@ theorem bufStore_sound (hF : Facts env σ E s0) {kn : Kn} {A : AState} {x : Mach
     intro a _
     by_cases heq : a = alignToDword addr
     · subst heq; exact Or.inr hpay
-    · left; rw [getMem_setMem, if_neg heq]
+    · left; rw [getMem_setMem, ite_eq_right heq]
   refine ⟨⟨fun r => by rw [getReg_setMem]; exact h.holds.1 r, fun p hp => ?_⟩, by simp [h.code],
     fun a ha hnw hno hns => ?_, fun hh a hha hnp => ?_, ?_, h.slots, fun f hf => ?_,
     St.wmem_setMem hF h (Or.inr hown), ⟨fun e' he' a ha => ?_, fun hh k p hw' hhit hfl hst => ?_⟩⟩
   · have hsl := slot_facts hF (h.slots p hp)
-    rw [getMem_setMem, if_neg]
+    rw [getMem_setMem, ite_eq_right]
     · exact h.holds.2 p hp
     · intro heq; exact not_own_of_inWin hF.wf hF.top hF.depth hsl.2 (heq ▸ hown)
-  · rw [getMem_setMem, if_neg]
+  · rw [getMem_setMem, ite_eq_right]
     · exact h.mem a ha hnw hno hns
     · rintro rfl; exact hno hown
-  · rw [getMem_setMem, if_neg]
+  · rw [getMem_setMem, ite_eq_right]
     · exact h.heap hh a hha hnp
     · rintro rfl
       apply hnp
@@ -558,14 +558,14 @@ theorem bufStore_sound (hF : Facts env σ E s0) {kn : Kn} {A : AState} {x : Mach
     | atom i args =>
       simp only [Fact.Holds, Model.atomIn] at this ⊢
       exact env.model.atom_keep i _ _ _ hchg this
-  · rw [getMem_setMem, if_neg]
+  · rw [getMem_setMem, ite_eq_right]
     · exact h.strs.1 e' he' a ha
     · rintro rfl; exact ((hF.strs.1 e' he').2.2.1 _ ha).2 hown
   · have h1 := h.strs.2 hh k p hw' hhit hfl hst
     refine h1.trans (Model.Keeps.of_keep h1.1 (fun a ha => ?_) (fun a ha => ?_) (fun a ha => ?_))
     · by_cases heq : a = alignToDword addr
       · subst heq; exact Or.inr ⟨hheap, hpay⟩
-      · left; rw [getMem_setMem, if_neg heq]
+      · left; rw [getMem_setMem, ite_eq_right heq]
     · intro hh'
       exact hfl a (Model.fields_congr_stable h1.2.2 a ha) (hF.ok.1 a hh')
     · intro hh'
@@ -620,13 +620,13 @@ theorem storeStep_sound (hF : Facts env σ E s0) {kn : Kn} {A B : AState} {x : M
             simp only [hr2] at hp
             split at hp
             · rcases List.mem_cons.mp hp with rfl | hp
-              · rw [← hkeyF, getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+              · rw [← hkeyF, getMem_setMem, ite_eq_left (by simp [Width.target]), hv rfl, ← hr2]
                 exact h.holds.1 rs2
               · exact keep p hp
             · exact keep p hp
-      · rw [getMem_setMem, if_neg (fun he => hnw (Or.inl (by rw [he]; exact hkw)))]
+      · rw [getMem_setMem, ite_eq_right (fun he => hnw (Or.inl (by rw [he]; exact hkw)))]
         exact h.mem a ha hnw hno hns
-      · rw [getMem_setMem, if_neg]
+      · rw [getMem_setMem, ite_eq_right]
         · exact h.heap hh a hha hnp
         · rintro rfl; exact hnh hha
       · have sub : ∀ p ∈ A.slots.filter (fun p => !mayHit w k p.1), p ∈ A.slots :=
@@ -669,7 +669,7 @@ theorem storeStep_sound (hF : Facts env σ E s0) {kn : Kn} {A B : AState} {x : M
           intro he
           rw [← he] at hhit
           exact (hF.foot d hd _ hsl.1 hhit).1 hsl.2
-        rw [getMem_setMem, if_neg hne]; exact h.holds.2 p hp
+        rw [getMem_setMem, ite_eq_right hne]; exact h.holds.2 p hp
       · cases hfs : fieldStore env σ A b w (A.get rs2) with
         | some B' =>
           rw [hfs] at hs

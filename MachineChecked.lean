@@ -30,4 +30,3 @@ import MachineChecked.Lprog.Syntax
 import MachineChecked.Lprog.Sem
 import MachineChecked.Lprog.Op
 import MachineChecked.ARM.Arm64
-import MachineChecked.X86.Kraken

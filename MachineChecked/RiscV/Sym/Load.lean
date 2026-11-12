@@ -112,7 +112,7 @@ theorem roImage_of_image {img : Image} (hwf : img.dataWF = true) (L : Layout) {k
   have hi' : i < (((c.words ++ List.replicate c.zeros 0).drop (64 * j)).take 64).length := by
     simp only [List.length_take, List.length_drop]; omega
   rw [getElem!_pos (c.words ++ List.replicate c.zeros 0) (64 * j + i) hn']
-  rw [List.getElem!_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop, if_pos (by omega),
+  rw [List.getElem!_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop, ite_eq_left (by omega),
     List.getElem?_eq_getElem hn']
   rfl
 

@@ -27,7 +27,7 @@ theorem getMem_writeBytesAsWords_of :
         have := ha (i + 1) (by simp at hi ⊢; omega)
         rw [show 8 * (i + 1) = 8 * i + 8 by omega, BitVec.ofNat_add] at this
         intro he; apply this; rw [he, BitVec.add_assoc, BitVec.add_comm (BitVec.ofNat 64 (8 * i))]; rfl)]
-    rw [getMem_setMem, if_neg (by simpa using ha 0 (by simp))]
+    rw [getMem_setMem, ite_eq_right (by simpa using ha 0 (by simp))]
 termination_by bs => bs.length
 decreasing_by simp; omega
 
@@ -133,7 +133,7 @@ theorem sys_hintLen {x y : MachineState} (hf : x.code x.pc = some .ECALL)
     (ht : x.getReg .x5 = Sp1.HINT_LEN) (hs : stepSp1 x = some y) : SysNext x y false [] := by
   rw [stepSp1_ecall_fetch hf] at hs
   have hacc : Sp1.isAccelId Sp1.HINT_LEN = false := by decide
-  simp only [sp1Ecall, ht, hacc, Bool.false_eq_true, if_false, if_true, Option.some.injEq] at hs
+  simp only [sp1Ecall, ht, hacc, Bool.false_eq_true, ite_false, ite_true, Option.some.injEq] at hs
   subst hs
   refine ⟨rfl, by simp [hintLen], fun r hr => ?_, (fun h => by cases h), fun a _ => by simp [hintLen]⟩
   simp only [hintLen, MachineState.getReg_setPC]
@@ -145,7 +145,7 @@ theorem sys_hintRead {x y : MachineState} (hf : x.code x.pc = some .ECALL)
   rw [stepSp1_ecall_fetch hf] at hs
   have hacc : Sp1.isAccelId Sp1.HINT_READ = false := by decide
   have hne : Sp1.HINT_READ ≠ Sp1.HINT_LEN := by decide
-  simp only [sp1Ecall, ht, hacc, hne, Bool.false_eq_true, if_false, if_true] at hs
+  simp only [sp1Ecall, ht, hacc, hne, Bool.false_eq_true, ite_false, ite_true] at hs
   unfold hintRead at hs
   cases hn : frontHintLen x with
   | none => rw [hn] at hs; cases hs
@@ -184,7 +184,7 @@ theorem sys_hintRead {x y : MachineState} (hf : x.code x.pc = some .ECALL)
           rw [hn'] at hR
           simp only [MachineState.getMem_setPC]
           show (MachineState.setMem _ _ _).getMem a = _
-          rw [getMem_setMem, if_neg ?_]
+          rw [getMem_setMem, ite_eq_right ?_]
           · apply getMem_writeBytesAsWords_of
             intro i hi he
             apply hR; rw [he]
@@ -203,7 +203,7 @@ theorem sys_commit {x y : MachineState} (hf : x.code x.pc = some .ECALL)
   · have hacc : Sp1.isAccelId Sp1.COMMIT = false := by decide
     have h1 : Sp1.COMMIT ≠ Sp1.HINT_LEN := by decide
     have h2 : Sp1.COMMIT ≠ Sp1.HINT_READ := by decide
-    simp only [sp1Ecall, ht, hacc, h1, h2, Bool.false_eq_true, if_false, if_true,
+    simp only [sp1Ecall, ht, hacc, h1, h2, Bool.false_eq_true, ite_false, ite_true,
       Option.some.injEq] at hs
     subst hs
     exact ⟨rfl, rfl, fun r _ => by cases r <;> rfl, fun _ => rfl, fun a _ => rfl⟩
@@ -211,7 +211,7 @@ theorem sys_commit {x y : MachineState} (hf : x.code x.pc = some .ECALL)
     have h1 : Sp1.COMMIT_DEFERRED_PROOFS ≠ Sp1.HINT_LEN := by decide
     have h2 : Sp1.COMMIT_DEFERRED_PROOFS ≠ Sp1.HINT_READ := by decide
     have h3 : Sp1.COMMIT_DEFERRED_PROOFS ≠ Sp1.COMMIT := by decide
-    simp only [sp1Ecall, ht, hacc, h1, h2, h3, Bool.false_eq_true, if_false, if_true,
+    simp only [sp1Ecall, ht, hacc, h1, h2, h3, Bool.false_eq_true, ite_false, ite_true,
       Option.some.injEq] at hs
     subst hs
     exact ⟨rfl, by simp, fun r _ => by simp, fun _ => by simp, fun a _ => by simp⟩
@@ -224,8 +224,8 @@ theorem sys_write {x y : MachineState} (hf : x.code x.pc = some .ECALL) (ht : x.
     (hs : stepSp1 x = some y) : SysNext x y true [] := by
   rw [sys_host hf (by rw [ht]; decide)] at hs
   simp only [step, hf, ht] at hs
-  simp only [show ((2 : Word) == 0) = false by decide, Bool.false_eq_true, if_false,
-    show ((2 : Word) == 2) = true by decide, if_true] at hs
+  simp only [show ((2 : Word) == 0) = false by decide, Bool.false_eq_true, ite_false,
+    show ((2 : Word) == 2) = true by decide, ite_true] at hs
   split at hs
   · split at hs
     · simp only [Option.some.injEq] at hs; subst hs
@@ -239,9 +239,9 @@ theorem sys_readInput {x y : MachineState} (hf : x.code x.pc = some .ECALL)
     SysNext x y true [(x.getReg .x10, 8), (x.getReg .x11, 8)] := by
   rw [sys_host hf (by rw [ht]; decide)] at hs
   simp only [step, hf, ht] at hs
-  simp only [show ((0xF2 : Word) == 0) = false by decide, Bool.false_eq_true, if_false,
+  simp only [show ((0xF2 : Word) == 0) = false by decide, Bool.false_eq_true, ite_false,
     show ((0xF2 : Word) == 2) = false by decide, show ((0xF2 : Word) == 0x10) = false by decide,
-    show ((0xF2 : Word) == 0xF2) = true by decide, if_true] at hs
+    show ((0xF2 : Word) == 0xF2) = true by decide, ite_true] at hs
   split at hs
   · simp only [Option.some.injEq] at hs; subst hs
     refine ⟨rfl, by simp, fun r _ => by simp [getReg_setMem], fun _ => by simp [getReg_setMem],
@@ -250,8 +250,8 @@ theorem sys_readInput {x y : MachineState} (hf : x.code x.pc = some .ECALL)
     have h1 := ha _ (List.mem_cons_of_mem _ (List.mem_singleton_self _))
     simp only at h0 h1
     simp only [MachineState.getMem_setPC]
-    rw [getMem_setMem, if_neg (fun he => h1 (by rw [he]; exact Or.inl (by simp))),
-      getMem_setMem, if_neg (fun he => h0 (by rw [he]; exact Or.inl (by simp)))]
+    rw [getMem_setMem, ite_eq_right (fun he => h1 (by rw [he]; exact Or.inl (by simp))),
+      getMem_setMem, ite_eq_right (fun he => h0 (by rw [he]; exact Or.inl (by simp)))]
   · cases hs
 
 theorem sys_halt {x : MachineState} (hf : x.code x.pc = some .ECALL) (ht : x.getReg .x5 = 0)

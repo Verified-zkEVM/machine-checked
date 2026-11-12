@@ -142,7 +142,7 @@ theorem stepRegs_apply (ρ : Reg → Word) (i : Instr) (r : Reg) :
   unfold stepRegs
   by_cases h0 : dst i = .x0
   · simp [h0]
-  · simp only [h0, if_false, upd, ne_eq, not_false_eq_true, and_true]
+  · simp only [h0, ite_false, upd, ne_eq, not_false_eq_true, and_true]
 
 /-- A pure instruction's effect on the registers is `stepRegs`. -/
 theorem getReg_execInstrBr_pure {m : MachineState} {i : Instr} (h : isPure i = true) (r : Reg) :
@@ -182,10 +182,10 @@ macro "regs_run" : tactic => `(tactic| (
     apply foldl_stepRegs_gen
     intro v hv
     simp only [val, execInstrBr, dst, getReg_setReg, getReg_ofRegs, MachineState.getReg_setPC,
-      upd, reduceCtorEq, if_false, if_true, signExtend12, getReg_x0, ne_eq, not_false_eq_true,
+      upd, reduceCtorEq, ite_false, ite_true, signExtend12, getReg_x0, ne_eq, not_false_eq_true,
       rv64_mulhu, rv64_mulh, rv64_mulhsu,
       and_true, and_false] at hv
     dsimp only [dst])
-  simp only [List.foldl_nil, upd, reduceCtorEq, if_false, if_true]))
+  simp only [List.foldl_nil, upd, reduceCtorEq, ite_false, ite_true]))
 
 end MachineChecked.RiscV.Lprog

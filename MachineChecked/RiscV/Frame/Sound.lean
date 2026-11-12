@@ -122,7 +122,7 @@ theorem holds_entry {E} {s : MachineState} (hE : ∀ r, r ≠ .x0 → s.getReg r
   refine ⟨fun r => ?_, fun p hp => by simp [entry] at hp⟩
   by_cases h0 : r = .x0
   · subst h0; simp [get, AVal.Holds, MachineState.getReg]
-  · simp only [get, h0, if_false, entry, getD_map_allRegs, AVal.Holds]
+  · simp only [get, h0, ite_false, entry, getD_map_allRegs, AVal.Holds]
     simp [hE r h0]
 
 end AState
@@ -208,7 +208,7 @@ def storeTarget (s : MachineState) (i : Instr) : Word :=
 theorem frame_keep {E : Ent} {s : MachineState} {w : Width} {k sk v : Word}
     (hm : mayHit w k sk = false) :
     (s.setMem (w.target (E .x2 + k)) v).getMem (E .x2 + sk) = s.getMem (E .x2 + sk) := by
-  rw [getMem_setMem, if_neg]
+  rw [getMem_setMem, ite_eq_right]
   intro heq
   cases w with
   | d =>
@@ -259,37 +259,37 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
       | lin r j =>
         simp only [hr2, List.mem_cons] at hp
         rcases hp with rfl | hp
-        · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+        · rw [getMem_setMem, ite_eq_left (by simp [Width.target]), hv rfl, ← hr2]
           exact h.1 rs2
         · exact keep p hp
       | const c =>
         simp only [hr2, List.mem_cons] at hp
         rcases hp with rfl | hp
-        · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+        · rw [getMem_setMem, ite_eq_left (by simp [Width.target]), hv rfl, ← hr2]
           exact h.1 rs2
         · exact keep p hp
       | oneOf cs =>
         simp only [hr2, List.mem_cons] at hp
         rcases hp with rfl | hp
-        · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+        · rw [getMem_setMem, ite_eq_left (by simp [Width.target]), hv rfl, ← hr2]
           exact h.1 rs2
         · exact keep p hp
       | cell r ks j =>
         simp only [hr2, List.mem_cons] at hp
         rcases hp with rfl | hp
-        · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+        · rw [getMem_setMem, ite_eq_left (by simp [Width.target]), hv rfl, ← hr2]
           exact h.1 rs2
         · exact keep p hp
       | sym i j k =>
         simp only [hr2, List.mem_cons] at hp
         rcases hp with rfl | hp
-        · rw [getMem_setMem, if_pos (by simp [Width.target]), hv rfl, ← hr2]
+        · rw [getMem_setMem, ite_eq_left (by simp [Width.target]), hv rfl, ← hr2]
           exact h.1 rs2
         · exact keep p hp
   | none =>
     simp only [hk] at hreq hres ⊢
     by_cases hnt : b = .top
-    · simp only [hnt, if_true] at hreq hres ⊢
+    · simp only [hnt, ite_true] at hreq hres ⊢
       -- An unknown base: only return-address slots survive, each under the residual premise.
       refine ⟨hregs _, fun p hp => ?_⟩
       simp only [List.mem_filter] at hp
@@ -297,9 +297,9 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
         have : (A.slots.filter protects).isEmpty = false := by
           rw [List.isEmpty_eq_false_iff_exists_mem]; exact ⟨p, List.mem_filter.mpr hp⟩
         simp [this]
-      rw [getMem_setMem, if_neg (Ne.symm (hres hne p hp.1 hp.2))]
+      rw [getMem_setMem, ite_eq_right (Ne.symm (hres hne p hp.1 hp.2))]
       exact h.2 p hp.1
-    · simp only [hnt, if_false] at hreq hres ⊢
+    · simp only [hnt, ite_false] at hreq hres ⊢
       -- A base relative to another entry register, or a constant: the premise `Req`.
       refine ⟨hregs _, fun p hp => ?_⟩
       simp only [List.mem_filter] at hp
@@ -313,7 +313,7 @@ theorem transferStore_sound {E} {A : AState} {s : MachineState} {pc : Word}
         | oneOf cs => simp only [AVal.Holds] at hb; exact hq _ hb
         | cell r ks k => simp only [AVal.Holds] at hb; simpa [Req.Holds, hb] using hq
         | sym i j k => simp only [AVal.Holds] at hb; simpa [Req.Holds, hb] using hq
-      rw [getMem_setMem, if_neg (Ne.symm hneq)]
+      rw [getMem_setMem, ite_eq_right (Ne.symm hneq)]
       exact h.2 p hp.1
 
 theorem transfer_sound {E} {A : AState} {s : MachineState} {pc : Word} {i : Instr} {o : Out}
@@ -640,7 +640,7 @@ theorem afterCall_holds {E} {A : AState} {s s' : MachineState} (h : A.Holds E s)
   refine ⟨fun r => ?_, fun p hp => ?_⟩
   · by_cases h0 : r = .x0
     · subst h0; simp [AState.get, AVal.Holds, MachineState.getReg]
-    · simp only [AState.get, h0, if_false, AState.afterCall, getD_map_allRegs]
+    · simp only [AState.get, h0, ite_false, AState.afterCall, getD_map_allRegs]
       split
       · rename_i hcs; rw [hregs r hcs]; have := h.1 r; simpa [AState.get, h0] using this
       · trivial
@@ -693,8 +693,8 @@ theorem runFrag_sound {E} {fb : Word} :
       rw [hpc]; simpa using hcode 0 i rfl
     by_cases hj : i = .JALR .x0 .x5 0
     · subst hj
-      simp only [runFrag, if_true, Option.some.injEq] at hr; subst hr
-      simp only [fragLen, if_true, Option.some.injEq] at hk; subst hk
+      simp only [runFrag, ite_true, Option.some.injEq] at hr; subst hr
+      simp only [fragLen, ite_true, Option.some.injEq] at hk; subst hk
       obtain ⟨s1, hs1, hrest⟩ := stepsSp1_succ hsteps
       simp only [stepsSp1_zero, Option.some.injEq] at hrest; subst hrest
       have hex := stepSp1_exec hfetch (by simp) (by simp) (by simp) hs1
@@ -702,7 +702,7 @@ theorem runFrag_sound {E} {fb : Word} :
       refine ⟨?_, by simp, ?_⟩
       · simp only [execInstrBr, setReg_x0]; exact AState.holds_setPC h
       · simp [execInstrBr, setReg_x0, signExtend12] <;> rfl
-    · simp only [runFrag, hj, if_false] at hr
+    · simp only [runFrag, hj, ite_false] at hr
       cases ht : transfer (fb + BitVec.ofNat 64 (4 * n)) A i with
       | none => rw [ht] at hr; cases hr
       | some o =>
@@ -710,7 +710,7 @@ theorem runFrag_sound {E} {fb : Word} :
         simp only [Bool.and_eq_true, List.isEmpty_iff] at hr
         split at hr
         · rename_i hemp
-          simp only [fragLen, hj, if_false] at hk
+          simp only [fragLen, hj, ite_false] at hk
           cases hk' : fragLen rest with
           | none => rw [hk'] at hk; cases hk
           | some k' =>
@@ -765,7 +765,7 @@ theorem outlined_sound {f : Fn} {anno} {E} {s s' : MachineState} {i k : Nat} {A 
       | some B =>
         simp only [hB] at hok0
         by_cases hcond : B.get .x5 = .const (s.pc + 4) ∧ (s.pc + 4) &&& ~~~1#64 = s.pc + 4
-        · simp only [hcond, and_self, if_true, List.all_cons, List.all_nil, Bool.and_true,
+        · simp only [hcond, and_self, ite_true, List.all_cons, List.all_nil, Bool.and_true,
             Fn.edgeOk] at hok0
           cases hC : Fn.annoAt anno j with
           | none => rw [hC] at hok0; cases hok0

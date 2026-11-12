@@ -20,7 +20,7 @@ This is where each layer is in the code today.
                     ▲ lift 1: translation
                                         RiscV/Lprog/   the RISC-V lift and its simulation
   layer 0     ISA                       RiscV/         riscv-zkvm's stepSp1, the judgement
-                                        ARM/, X86/     machine models only (trusted)
+                                        ARM/, X86/     semantics only (dependencies)
                     ▲ loading
   layer -1    ELF and context           RiscV/         loader, image, SP1's acceptance and
                                                        syscalls
@@ -34,12 +34,15 @@ This is where each layer is in the code today.
 | [`Lprog/`](Lprog/README.md) | 0.5 | The low logical program: linear Jasmin with labels, registers and flat memory, and operations shared by every ISA (`Op.lean`). | no |
 | [`RiscV/Lprog/`](RiscV/Lprog/README.md) | 0 → 0.5 | The RISC-V lift: each instruction translated to a shared operation, proved against riscv-zkvm, and the simulation that carries every Lprog run down to `stepSp1`. | RISC-V |
 | [`RiscV/`](RiscV/README.md) | 0, -1 | riscv-zkvm's machine, the judgement `SafeN`, the loader and SP1's context, and the layer-0 proof tools (`Check`, `Sym`, `Frame`, `Exec`). | RISC-V |
-| [`ARM/`](ARM/README.md) | 0 | The AArch64 machine model (trusted). | AArch64 |
-| [`X86/`](X86/README.md) | 0 | The x86-64 machine model (trusted). | x86-64 |
+| [`ARM/`](ARM/README.md) | 0 | The AArch64 semantics: DeepMind's arm64-semantics, a dependency. | AArch64 |
+| [`X86/`](X86/README.md) | 0 | The x86-64 semantics: Kraken's x64 model, a dependency. | x86-64 |
 | [`Logical/`](Logical/README.md) | 1 | Placeholder: the structured logical program. | no |
 | [`Refine/`](Refine/README.md) | 2 | Placeholder: specification refinement. | no |
 
-`MachineChecked.lean` imports every module.
+`MachineChecked.lean` imports every module except `X86/Kraken.lean`: Kraken defines
+`List.allSome` at the top level, and so does Batteries, which other modules import, so the two
+cannot share an environment until Kraken renames its definition. The library still builds
+`X86/Kraken.lean`.
 
 ## How a proof goes today
 
@@ -69,9 +72,8 @@ Layers 1 and 2 do not exist yet. Today each case study's specification (for exam
 
 The trusted base is listed in [`docs/ELF.md`](../docs/ELF.md) §4. Within this directory:
 - riscv-zkvm's model (a dependency, tied to Sail) is trusted for RISC-V.
-- `ARM/Model.lean` is trusted until it is verified against its canonical specification
-  ([`docs/ISA.md`](../docs/ISA.md)). `X86/Model.lean` is trusted and stands in until Kraken,
-  x86-64's chosen semantics, is required; it is then removed.
+- Kraken's x64 semantics and arm64-semantics' trusted package (dependencies) are trusted for
+  x86-64 and AArch64 ([`docs/ISA.md`](../docs/ISA.md)).
 - Everything else is proved. No file uses `sorry`, `axiom` or `native_decide`.
 
 Code ported from catcrypt-compiler records its origin in the module header and in the

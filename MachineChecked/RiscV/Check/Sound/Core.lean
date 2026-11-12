@@ -346,14 +346,14 @@ theorem St.prot {C} {A : AState} {x : MachineState} (hF : Facts env σ E s0)
 /-- A store at a key that is not owned keeps the invariant. -/
 theorem Env.Inv_setMem_not_own {x : MachineState} (h : env.Inv x.getMem) {k v : Word}
     (hk : ¬ env.InOwn k) : env.Inv (x.setMem k v).getMem :=
-  Env.Inv_congr (fun a _ ho => by rw [getMem_setMem, if_neg]; rintro rfl; exact hk ho) h
+  Env.Inv_congr (fun a _ ho => by rw [getMem_setMem, ite_eq_right]; rintro rfl; exact hk ho) h
 
 /-- A store the activation may make keeps the invariant. -/
 theorem St.inv_setMem {C} {A : AState} {x : MachineState} (hF : Facts env σ E s0)
     (h : St env σ C E s0 A x) {k v : Word} (hk : Aligned k → Written σ E k) :
     env.Inv (x.setMem k v).getMem :=
   Env.Inv_congr (fun a ha ho => by
-    rw [getMem_setMem, if_neg]
+    rw [getMem_setMem, ite_eq_right]
     rintro rfl
     exact hF.not_own ha (hk ha) ho) h.inv
 
@@ -372,7 +372,7 @@ theorem St.strs_setMem {C} {A : AState} {x : MachineState} (hF : Facts env σ E 
     (h : St env σ C E s0 A x) {k v : Word} (hk : Written σ E k) :
     StrsInv env σ E s0.getMem (x.setMem k v).getMem :=
   StrsInv.congr hF h.strs fun a ha => by
-    rw [getMem_setMem, if_neg]; rintro rfl; exact ha hk
+    rw [getMem_setMem, ite_eq_right]; rintro rfl; exact ha hk
 
 /-- The facts of a state survive a store at a key that is not a heap key. -/
 theorem St.facts_setMem {C} {A : AState} {x : MachineState} (h : St env σ C E s0 A x) {k v : Word}
@@ -386,7 +386,7 @@ theorem St.facts_setMem {C} {A : AState} {x : MachineState} (h : St env σ C E s
   | atom i args =>
     simp only [Fact.Holds, Model.atomIn] at this ⊢
     refine env.model.atom_congr i _ _ _ (fun a ha => ?_) this
-    rw [getMem_setMem, if_neg]; rintro rfl; exact hk ha
+    rw [getMem_setMem, ite_eq_right]; rintro rfl; exact hk ha
 
 /-- The tracked fields survive a store at a key the activation may write, or that is owned. -/
 theorem St.wmem_setMem {C} {A : AState} {x : MachineState} (hF : Facts env σ E s0)
@@ -396,7 +396,7 @@ theorem St.wmem_setMem {C} {A : AState} {x : MachineState} (hF : Facts env σ E 
   intro p hp
   obtain ⟨h1, h2, h3⟩ := h.wmem p hp
   refine ⟨h1, h2, ?_⟩
-  rw [getMem_setMem, if_neg]
+  rw [getMem_setMem, ite_eq_right]
   · exact h3
   · intro he
     obtain ⟨_, hno, hsh⟩ := hF.fieldKey h2
@@ -459,10 +459,10 @@ theorem St.setMem_written {C} {A : AState} {x : MachineState} (hF : Facts env σ
   refine ⟨⟨fun r => by rw [getReg_setMem]; exact h.holds.1 r, hsl⟩, by simp [h.code],
     fun a ha hnw hno hns => ?_, fun hh a hha hnp => ?_, St.inv_setMem hF h (fun _ => hk), h.slots,
     St.facts_setMem h hnh, St.wmem_setMem hF h (Or.inl hk), St.strs_setMem hF h hk⟩
-  · rw [getMem_setMem, if_neg]
+  · rw [getMem_setMem, ite_eq_right]
     · exact h.mem a ha hnw hno hns
     · rintro rfl; exact hnw hk
-  · rw [getMem_setMem, if_neg]
+  · rw [getMem_setMem, ite_eq_right]
     · exact h.heap hh a hha hnp
     · rintro rfl; exact hnh hha
 
@@ -506,11 +506,11 @@ theorem refineVal_sound (hF : Facts env σ E s0) {rf : AVal × Word} (hrf : rf.1
   simp only at hrf heq
   by_cases hveq : v = root
   · subst hveq
-    simp only [refineVal, if_true, Option.some.injEq] at h; subst h
+    simp only [refineVal, ite_true, Option.some.injEq] at h; subst h
     exact (heq rfl).symm
   · unfold refineVal at h
     dsimp only at h
-    rw [if_neg hveq] at h
+    rw [ite_eq_right hveq] at h
     cases root with
     | lin r k0 =>
       simp only at h
@@ -911,7 +911,7 @@ theorem AState.get_not_mentions (A : AState) {i j : Nat} (hm : ¬ A.mentionsSym 
   simp only [AState.mentionsSym, Bool.or_eq_true, List.any_eq_true, not_or] at hm
   by_cases h0 : r = .x0
   · subst h0; simp [AState.get, AVal.mentions]
-  · simp only [AState.get, h0, if_false]
+  · simp only [AState.get, h0, ite_false]
     cases hv : A.regs[regIdx r]? with
     | none => simp [List.getD_eq_getElem?_getD, hv, AVal.mentions]
     | some v =>
@@ -925,7 +925,7 @@ theorem AState.get_kill (A : AState) (i j : Nat) (r : Reg) :
   split
   · by_cases h0 : r = .x0
     · subst h0; simp [AState.get, AVal.mentions]
-    · simp only [AState.get, h0, if_false, List.getD_eq_getElem?_getD, List.getElem?_map]
+    · simp only [AState.get, h0, ite_false, List.getD_eq_getElem?_getD, List.getElem?_map]
       cases A.regs[regIdx r]? with
       | none => simp [AVal.mentions]
       | some v => simp
@@ -1020,8 +1020,8 @@ theorem St.resym {C : Word → Option Instr} {s0 : MachineState} {A : AState} {x
     have := h.holds.1 r
     rw [AState.get_kill] at this
     split at this
-    · rename_i hm; rw [if_pos hm]; trivial
-    · rename_i hm; rw [if_neg hm]; rw [AVal.holds_agree hV (by simpa using hm)]; exact this
+    · rename_i hm; rw [ite_eq_left hm]; trivial
+    · rename_i hm; rw [ite_eq_right hm]; rw [AVal.holds_agree hV (by simpa using hm)]; exact this
   · have hp' := (AState.kill_slots hp).2
     rw [show (E.withSym V') .x2 = E .x2 from rfl, AVal.holds_agree hV hp']
     exact h.holds.2 p hp
@@ -1048,7 +1048,7 @@ theorem AState.get_not_mentionsAt (A : AState) {i : Nat} (hm : ¬ A.mentionsAt i
   simp only [AState.mentionsAt, Bool.or_eq_true, List.any_eq_true, not_or] at hm
   by_cases h0 : r = .x0
   · subst h0; simp [AState.get, AVal.mentionsAt]
-  · simp only [AState.get, h0, if_false]
+  · simp only [AState.get, h0, ite_false]
     cases hv : A.regs[regIdx r]? with
     | none => simp [List.getD_eq_getElem?_getD, hv, AVal.mentionsAt]
     | some v =>
@@ -1062,7 +1062,7 @@ theorem AState.get_killAll (A : AState) (i : Nat) (r : Reg) :
   split
   · by_cases h0 : r = .x0
     · subst h0; simp [AState.get, AVal.mentionsAt]
-    · simp only [AState.get, h0, if_false, List.getD_eq_getElem?_getD, List.getElem?_map]
+    · simp only [AState.get, h0, ite_false, List.getD_eq_getElem?_getD, List.getElem?_map]
       cases A.regs[regIdx r]? with
       | none => simp [AVal.mentionsAt]
       | some v => simp
@@ -1156,8 +1156,8 @@ theorem St.resymAll {C : Word → Option Instr} {s0 : MachineState} {A : AState}
     have := h.holds.1 r
     rw [AState.get_killAll] at this
     split at this
-    · rename_i hm; rw [if_pos hm]; trivial
-    · rename_i hm; rw [if_neg hm]; rw [AVal.holds_agreeAt hV (by simpa using hm)]; exact this
+    · rename_i hm; rw [ite_eq_left hm]; trivial
+    · rename_i hm; rw [ite_eq_right hm]; rw [AVal.holds_agreeAt hV (by simpa using hm)]; exact this
   · have hp' := (AState.killAll_slots hp).2
     rw [show (E.withSym V') .x2 = E .x2 from rfl, AVal.holds_agreeAt hV hp']
     exact h.holds.2 p hp
@@ -1195,7 +1195,7 @@ theorem St.mkSym {C : Word → Option Instr} {s0 : MachineState} {A : AState} {x
     intro i' j'
     by_cases hc : i' = i ∧ j' = j
     · exact Or.inl hc
-    · exact Or.inr (if_neg hc)
+    · exact Or.inr (ite_eq_right hc)
   have h1 := St.resym hsf (h.kill i j) hV
   have h2 : St env σ C (E.withSym fun i' j' => if i' = i ∧ j' = j then w else E.sym i' j') s0
       ((A.kill i j).set r (.sym i j 0)) (x.setReg r w) := by
@@ -1241,7 +1241,7 @@ theorem AVal.eval_substSym {j : Nat} {θ : List (Nat × AVal)} (hθ : ∀ q ∈ 
       cases hl : θ.lookup k with
       | none => simp [AVal.substSym, AVal.eval, phiSym, hl]
       | some u =>
-        simp only [AVal.substSym, if_true, hl]
+        simp only [AVal.substSym, ite_true, hl]
         rw [AVal.eval_addK_ptr (hθ _ (lookup_mem hl))]
         simp [AVal.eval, phiSym, hl]
     · simp [AVal.substSym, AVal.eval, phiSym, hij]
@@ -1258,7 +1258,7 @@ theorem AVal.holds_substSym {j : Nat} {θ : List (Nat × AVal)} (hθ : ∀ q ∈
       | none => simp [AVal.substSym, AVal.Holds, phiSym, hl]
       | some u =>
         have hp := hθ _ (lookup_mem hl)
-        simp only [AVal.substSym, if_true, hl]
+        simp only [AVal.substSym, ite_true, hl]
         rw [holds_iff_eval (AVal.isPtr_addK hp off), AVal.eval_addK_ptr hp]
         simp [AVal.Holds, phiSym, hl]
     · simp [AVal.substSym, AVal.Holds, phiSym, hij]
@@ -1269,7 +1269,7 @@ theorem AState.get_subst (A : AState) (j : Nat) (θ : List (Nat × AVal)) (r : R
     (A.subst j θ).get r = (A.get r).substSym j θ := by
   by_cases h0 : r = .x0
   · subst h0; simp [AState.get, AVal.substSym]
-  · simp only [AState.get, h0, if_false, AState.subst, List.getD_eq_getElem?_getD, List.getElem?_map]
+  · simp only [AState.get, h0, ite_false, AState.subst, List.getD_eq_getElem?_getD, List.getElem?_map]
     cases A.regs[regIdx r]? with
     | none => simp [AVal.substSym]
     | some v => simp
