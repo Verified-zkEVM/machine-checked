@@ -10,7 +10,7 @@ here, or replaced by a model that already is.
 | --- | --- | --- | --- |
 | RISC-V | the Sail RISC-V model | [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm), a dependency | tied to Sail; the only RV64 semantics |
 | x86-64 | [Kraken](https://github.com/AeneasVerif/kraken)'s x64 semantics (decided 2026-11-11, below) | `MachineChecked/X86/Model.lean`, a transcription of Jasmin's x86 semantics, until Kraken is required | trusted |
-| AArch64 | undecided; the natural candidate is sail-arm, generated from Arm's own ASL | `MachineChecked/ARM/Model.lean`, hand-written | trusted |
+| AArch64 | [DeepMind's arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) (decided 2026-11-12, below) | `MachineChecked/ARM/Model.lean`, hand-written, until arm64-semantics is required | trusted |
 
 ## x86-64: Kraken
 
@@ -42,7 +42,40 @@ What it changes, compared with RISC-V:
 Until Kraken is required, `MachineChecked/X86/Model.lean` stays, trusted and unused. It is
 removed when Kraken comes in.
 
-## AArch64
+## AArch64: DeepMind's arm64-semantics
 
-Still undecided. The candidates are sail-arm, generated from Arm's own ASL, and Kraken's
-AArch64 model, which would give x86-64 and AArch64 one framework and one style of proof.
+**Decided 2026-11-12.** The AArch64 semantics is the trusted package `arm64` of
+[arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) (Google DeepMind's code-verification repository; Apache-2.0): its
+`Arm64.Steps` relation, decoder, memory and state (`Arm64/Trusted/ISA/`). It plays the part
+riscv-zkvm plays for RISC-V: a dependency, required at a pinned commit and used unmodified, and
+the only AArch64 semantics here.
+
+Why it rather than sail-arm or Kraken's AArch64 model:
+
+- **Its programs are bytes, as RISC-V's are.** `Step` fetches four bytes from memory, decodes
+  them and executes the instruction, so an AArch64 theorem is stated over the binary, with no
+  assembler or linker in the trusted base. That is the RISC-V shape, not Kraken's.
+- **Its trusted part is small and checked.** It is written by hand from Arm's machine-readable
+  ASL, kept theorem-free, and differentially tested against Sail's Armv9.4-A model, Unicorn,
+  LLVM, `ld.lld` and QEMU. The encoder round trip (`encode (decode bs) = bs`) is proved.
+- **Its coverage fits our targets.** Beyond the integer core, it covers the SIMD loads and
+  stores and the crypto extensions (AES, SHA-1/256/512, `PMULL`, and SHA-3's `EOR3`, `RAX1`,
+  `XAR`, `BCAX`).
+
+Sail-arm, generated from the ASL itself, stays the reference arm64-semantics is tested
+against, not a second semantics here.
+
+What to know about it:
+
+- **Its scope** is one hardware thread at EL0 running Linux user code. A fault is a status that
+  stops execution, not a trap. Anything not modelled, including unmodelled system registers
+  and syscalls, faults rather than guesses. The exclusive monitor is not modelled, and `FPCR`
+  is pinned to zero.
+- **What is required:** only the trusted package (`arm64-semantics/Arm64`, Lake package
+  `arm64`, no dependencies). Its proof library `ProofLib`, case studies and tests are not
+  required.
+- **Toolchain.** It pins Lean v4.34.0 and builds warning-free on v4.36.0-rc2 (checked
+  2026-11-12). It uses the module system, as Kraken does.
+
+Until arm64-semantics is required, `MachineChecked/ARM/Model.lean` stays, trusted and unused.
+It is removed when arm64-semantics comes in.
