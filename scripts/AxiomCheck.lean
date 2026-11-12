@@ -1,8 +1,8 @@
 /-
   The axiom check run by CI (`.github/workflows/ci.yml`).
 
-  `#print axioms` on the main theorems of the framework. CI fails if any of them depends on an
-  axiom other than `propext`, `Classical.choice`, `Quot.sound`, or the certificate axioms
+  `#print axioms` on the main theorems of the framework. CI fails if any of them depends on
+  an axiom other than `propext`, `Classical.choice`, `Quot.sound`, or the certificate axioms
   `bv_decide` adds. Add a theorem here when it becomes a main result. The case studies' main
   theorems are in `AxiomCheckCases.lean`, run by CI's on-demand `full` job.
 -/
