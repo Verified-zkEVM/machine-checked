@@ -61,6 +61,11 @@ On 2026-11-13, with Flapjack at the revision flapjack-flip pins (`95aa081`):
 552 binaries. The reference machine agrees with `fjrun.py` on all of them, step counts
 included.
 
+With Flapjack at its `main` of the same day (`7c04f6f`; set `rev` in `fjc/lakefile.toml`) as
+the compiler of the decompiled text, the same 552 pass. And with it as the compiler of the
+originals too (the 20 programs of flapjack-flip's `tests/` that have names, its generator's
+seed 1, `gen_pancake.py` seed 1 and `hand/`): 252 / 252.
+
 What the tests found on the way: `ld32` at an address that names a local is rejected by
 Flapjack at this revision (32-bit loads now go by bytes); `jalr` with one register for the
 link and the target was not lifted; and one function for the whole program took Flapjack a
@@ -82,5 +87,5 @@ quarter of an hour to compile (the blocks are now dealt out to small functions).
 - **Time.** A run is cut off at 2,000,000 steps and the recompiled binary takes twelve
   times the steps (more where it divides), so only programs of up to about 150,000 steps
   are compared to the end.
-- **One compiler revision.** The Pancake text is compiled with the Flapjack that
-  flapjack-flip pins.
+- **The reference machine is one revision.** The runs are judged on flapjack-flip's machine
+  and its riscv-zkvm, whichever Flapjack compiled the programs.

@@ -150,7 +150,8 @@ needed build on both toolchains). `lake exe decompile --to pancake IMAGE.fjimg` 
 Flapjack image through lift 1 for code without functions (`RiscV/Lprog/Flat.lean`,
 `RiscV/Flapjack/`) and lift 2's baseline (`Logical/Lift.lean`) to Pancake text
 (`Logical/Pancake.lean`). The sanity check is `scripts/decompile-check`: 552 binaries
-decompiled, recompiled by Flapjack and run against the originals, all agreeing; its README
+decompiled, recompiled by Flapjack (at flapjack-flip's pin and at its `main`) and run against
+the originals, all agreeing; its README
 says what that does and does not show. Two things differ from the table: the image's
 meaning as an execution context is not defined yet (it needs an Lprog instance for RISC-V
 without SP1's memory check), and the printer lives here, not upstream.
