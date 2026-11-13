@@ -31,6 +31,15 @@ git = "https://github.com/google-deepmind/code-verification"
 rev = "b0f729accbc21a0413e7ca4e1da43fa45b5f2e1b"
 subDir = "arm64-semantics/Arm64"
 
+# Pancake: Flapjack, the Pancake compiler in Lean. The decompiler's top target: lift 2 builds
+# Flapjack's own Pancake syntax (`Flapjack.Pancake.PanLang`). Only that module and the four
+# under it are built here. Flapjack itself is on Lean v4.33.1; the pin is its branch
+# `lean-v4.36-frontend`, where those five modules build on both releases.
+[[require]]
+name = "Flapjack"
+git = "https://github.com/pirapira/flapjack"
+rev = "af5c59c5ba5d6a9bc52658d429f24a117c9cbaee"
+
 # Mathlib, as a direct require at the tag matching `lean-toolchain`. Only the ZIP 2005
 # specification and its closure (`Cases/Zip2005/Spec`) use it; `MachineChecked` and `Tools` do
 # not import it (the executor takes `List.Subperm` from Batteries, which comes with it). Run
