@@ -239,9 +239,9 @@ section AllSafe
 
 variable {fs : List Fn} {Q : State rvIsa → Prop} {s t : State rvIsa}
 
-theorem AllSafe.next (h : AllSafe fs Q s) (hs : rvIsa.step (liftProg fs) sp1Ctx s (.ok t)) :
+theorem AllSafe.next (h : AllSafe fs Q s) (hs : rvIsa.step (liftProg fs) sp1Ctx s (.ok (t, []))) :
     AllSafe fs Q t :=
-  fun k => Ascent.SafeN.next trivial hs (h (k + 1))
+  fun k => Ascent.SafeN.next trivial ⟨[], hs⟩ (h (k + 1))
 
 theorem AllSafe.not_wrong (h : AllSafe fs Q s) (hs : rvIsa.step (liftProg fs) sp1Ctx s .wrong) : False :=
   Ascent.SafeN.not_wrong trivial hs (h 2)
@@ -281,7 +281,7 @@ theorem body (h : At fs exit fr rest regs m t f k) :
   rw [h.hpc]; exact body_odd fs f h.hk
 
 /-- The step of the lifted instruction. -/
-theorem step_iff (h : At fs exit fr rest regs m t f k) (o : Outcome (State rvIsa)) :
+theorem step_iff (h : At fs exit fr rest regs m t f k) (o : Outcome (State rvIsa × List Unit)) :
     rvIsa.step (liftProg fs) sp1Ctx ⟨fr :: rest, regs, m⟩ o ↔
       rvIsa.stepI (liftProg fs) sp1Ctx (bodyOf fs f) fr rest regs m
         (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (f.prog[k]'h.hk)) o :=
@@ -477,7 +477,7 @@ theorem back_jalr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩
     · next hr =>
       obtain ⟨rfl, rfl⟩ := hr
       by_cases hra : regs .x1 = fr.ret ∧ regs .x2 = fr.top
-      · have hs1 := hL.next ((hstep (.ok ⟨rest, regs, m⟩)).2 (by simp [Isa.stepI, hra]))
+      · have hs1 := hL.next ((hstep (.ok (⟨rest, regs, m⟩, []))).2 (by simp [Isa.stepI, hra]))
         have h1 : t.getReg .x1 = fr.ret := by
           rw [← hag.regs .x1, getReg_ofParts]; exact hra.1
         have hpc : (execInstrBr t (.JALR .x0 .x1 0)).pc = fr.ret &&& ~~~1#64 := by
@@ -596,7 +596,7 @@ theorem back_step (hok : ProgOk fs) {s : State rvIsa} (hs : Sim fs exit s t) (hL
     obtain ⟨k, hk | hk⟩ : ∃ k, fr.pc = 2 * k ∨ fr.pc = 2 * k + 1 := ⟨fr.pc / 2, by omega⟩
     · by_cases hkl : k < f.prog.length
       · have hst : rvIsa.step (liftProg fs) sp1Ctx ⟨fr :: rest, regs, m⟩
-            (.ok ⟨fr.at (fr.pc + 1) :: rest, regs, m⟩) := by
+            (.ok (⟨fr.at (fr.pc + 1) :: rest, regs, m⟩, [])) := by
           rw [MachineChecked.Lprog.SafeN.step_eq (getElem?_liftProg hf) (by rw [hk]; exact body_even fs f hkl)]
           rfl
         have hAt : At fs exit (fr.at (fr.pc + 1)) rest regs m t f k :=

@@ -125,11 +125,11 @@ def liftProg (fs : List Fn) : Lprog (Op Reg) Reg := fs.map (liftFn fs)
 
 /-- **SP1's execution context.** An external call may end in any outcome riscv-zkvm's
     `ecall` gives from a machine state at an `ecall` that agrees with the Lprog state; it
-    accepts at `HALT` (`t0 = 0`) with exit code `0`. -/
-def sp1Ctx : Context rvIsa where
+    accepts at `HALT` (`t0 = 0`) with exit code `0`. It makes no events yet. -/
+def sp1Ctx : Context rvIsa Unit where
   ext regs m o := ∃ u, Agree (ofParts regs m) u ∧ u.code u.pc = some .ECALL ∧
     match sp1Ecall u with
-    | some t => o = .ok (regsOf t, t)
+    | some t => o = .ok ((regsOf t, t), [])
     | none => o = .trap
   accept regs m := (ofParts regs m).getReg .x5 = 0 ∧ (ofParts regs m).getReg .x10 = 0
 
