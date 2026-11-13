@@ -230,6 +230,16 @@ theorem not_accept (hf : p[fr.fn]? = some fd) {i : LinstrR I.Op I.Reg}
   · cases h
   · rw [fetch_eq hf hi] at h; exact hne (Option.some.inj h)
 
+/-- An instruction other than an external call has one result. -/
+theorem stepI_det {body : Lcmd I.Op I.Reg} {i : LinstrR I.Op I.Reg} (hne : i ≠ .Lext)
+    {o₁ o₂ : Outcome (State I × List E)} (h₁ : I.stepI p c body fr rest regs m i o₁)
+    (h₂ : I.stepI p c body fr rest regs m i o₂) : o₁ = o₂ := by
+  cases i <;> first
+    | exact absurd rfl hne
+    | (simp only [Isa.stepI] at h₁ h₂
+       repeat' split at h₁
+       all_goals simp_all)
+
 /-- An instruction with one result, at the same budget. -/
 theorem of_one {i : LinstrR I.Op I.Reg} (hf : p[fr.fn]? = some fd) (hi : fd.body[fr.pc]? = some i)
     (hne : i ≠ .Lext) {t : State I}

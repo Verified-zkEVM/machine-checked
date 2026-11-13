@@ -20,6 +20,8 @@ import MachineChecked.RiscV.Sym
 import MachineChecked.RiscV.Lprog.Instance
 import MachineChecked.RiscV.Lprog.Lift
 import MachineChecked.RiscV.Lprog.Transfer
+import MachineChecked.RiscV.Lprog.Ecall
+import MachineChecked.RiscV.Lprog.Equiv
 import MachineChecked.RiscV.Lprog.Rules
 import MachineChecked.RiscV.Lprog.Block
 import MachineChecked.Ascent.Run

@@ -105,6 +105,18 @@ def liftCtl (fs : List Fn) (len k : Nat) (pc : Word) : Instr → LinstrR (Op Reg
 def liftI (fs : List Fn) (len k : Nat) (pc : Word) (i : Instr) : LinstrR (Op Reg) Reg :=
   if opnOk i then .Lopn (opOf i) else liftCtl fs len k pc i
 
+/-- Only `ecall` lifts to an external call. -/
+theorem liftI_eq_ext {fs : List Fn} {len k : Nat} {pc : Word} {i : Instr}
+    (h : liftI fs len k pc i = .Lext) : i = .ECALL := by
+  unfold liftI at h
+  split at h
+  · cases h
+  · cases i <;> first
+      | rfl
+      | (simp only [liftCtl, liftBr, liftJal, liftJalr] at h
+         repeat' split at h
+         all_goals cases h)
+
 /-- Instructions from index `k` on, lifted. -/
 def liftFrom (fs : List Fn) (base : Word) (len : Nat) : Nat → List Instr → Lcmd (Op Reg) Reg
   | _, [] => []

@@ -15,17 +15,18 @@
   One machine step from a simulated state is matched at Lprog (`back_step`) by at most two
   steps, a label and the instruction, ending in a simulated state, or in a returned program
   with the machine at `exit`; a machine that is stuck accepting is matched by an Lprog state
-  that accepts. An Lprog step to `wrong` matches nothing, and the Lprog judgement rules it
-  out. So, by induction on the machine's budget, `SafeN` at Lprog at every budget gives
+  that accepts, and one stuck otherwise by a trap (`Matched`). An Lprog step to `wrong`
+  matches nothing, and the Lprog judgement rules it out. So, by induction on the machine's budget, `SafeN` at Lprog at every budget gives
   `SafeN` over `stepSp1` (`transfer`), and from a function's entry (`SafeN.of_lift`) the
   machine is safe if it is safe from every state the function may return to `ra` in.
 
   ## Main definitions
 
-  * `Sim`, `ProgOk`
+  * `Sim`, `ProgOk`, `lsys`, `Matched`
 
   ## Main results
 
+  * `Sim.split`: a simulated state is at an instruction, at its label, or goes `wrong`
   * `back_step`: one machine step, matched at Lprog
   * `transfer`, `SafeN.of_lift`: the transfer theorem
 -/
@@ -668,47 +669,58 @@ theorem back_at (hok : ProgOk fs) (h : At fs exit fr rest regs m t f k) :
       · exact absurd hw' hw
       · exact ⟨_, .refl _, htr⟩
 
+/-- A simulated state is at an instruction; or at the label before one, which it steps over;
+    or it has run off the end of its function, and goes `wrong`. -/
+theorem Sim.split (hs : Sim fs exit ⟨fr :: rest, regs, m⟩ t) :
+    (∃ f k, At fs exit fr rest regs m t f k) ∨
+      (∃ f k, At fs exit (fr.at (fr.pc + 1)) rest regs m t f k ∧
+        ¬ (lsys fs).accept ⟨fr :: rest, regs, m⟩ ∧
+        ∀ o, (lsys fs).step ⟨fr :: rest, regs, m⟩ o ↔
+          o = .ok (⟨fr.at (fr.pc + 1) :: rest, regs, m⟩, [])) ∨
+      (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong := by
+  obtain ⟨hag, hcode, hchain, hne⟩ := hs
+  obtain ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩ := hchain
+  obtain ⟨k, hk | hk⟩ : ∃ k, fr.pc = 2 * k ∨ fr.pc = 2 * k + 1 := ⟨fr.pc / 2, by omega⟩
+  · by_cases hkl : k < f.prog.length
+    · have hi : (liftFn fs f).body[fr.pc]? = some (.Llabel .internal k) := by
+        rw [hk]; exact body_even fs f hkl
+      have hst := MachineChecked.Lprog.SafeN.step_eq (c := sp1Ctx) (rest := rest) (regs := regs)
+        (m := m) (getElem?_liftProg hf) hi
+      exact .inr (.inl ⟨f, k,
+        ⟨⟨hag, hcode, ⟨⟨f, hf, by simp; omega, by rw [htpc, hk]; simp; congr 2; omega⟩, hfr, hrest⟩,
+          by simp⟩, hf, hkl, by simp [hk], by rw [htpc, hk]; congr 2; omega⟩,
+        MachineChecked.Lprog.SafeN.not_accept (getElem?_liftProg hf) hi nofun,
+        hst⟩)
+    · refine .inr (.inr ?_)
+      simp only [Isa.step, getElem?_liftProg hf]
+      rw [show (liftFn fs f).body = bodyOf fs f from rfl, body_end fs f (by omega)]
+      trivial
+  · exact .inl ⟨f, k, ⟨hag, hcode, ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩, hne⟩, hf, by omega, hk,
+      by rw [htpc, hk]; congr 2; omega⟩
+
 /-- **One machine step, matched at Lprog**: from a label, the label step and then the
     instruction. The Lprog state goes `wrong` on the way, or matches the machine. -/
 theorem back_step (hok : ProgOk fs) {s : State rvIsa} (hs : Sim fs exit s t) :
     Ascent.GoesWrong (lsys fs) s [] ∨ Matched fs exit s t := by
   obtain ⟨stack, regs, m⟩ := s
-  obtain ⟨hag, hcode, hchain, hne⟩ := hs
   cases stack with
-  | nil => exact absurd rfl hne
+  | nil => exact absurd rfl hs.ne
   | cons fr rest =>
-    obtain ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩ := hchain
-    obtain ⟨k, hk | hk⟩ : ∃ k, fr.pc = 2 * k ∨ fr.pc = 2 * k + 1 := ⟨fr.pc / 2, by omega⟩
-    · by_cases hkl : k < f.prog.length
-      · have hst : (lsys fs).step ⟨fr :: rest, regs, m⟩
-            (.ok (⟨fr.at (fr.pc + 1) :: rest, regs, m⟩, [])) := by
-          have hi : (liftFn fs f).body[fr.pc]? = some (.Llabel .internal k) := by
-            rw [hk]; exact body_even fs f hkl
-          have h := MachineChecked.Lprog.SafeN.step_eq (c := sp1Ctx) (rest := rest) (regs := regs)
-            (m := m) (getElem?_liftProg hf) hi
-          exact (h _).2 rfl
-        have hAt : At fs exit (fr.at (fr.pc + 1)) rest regs m t f k :=
-          ⟨⟨hag, hcode, ⟨⟨f, hf, by simp; omega, by rw [htpc, hk]; simp; congr 2; omega⟩, hfr, hrest⟩,
-            by simp⟩, hf, hkl, by simp [hk], by rw [htpc, hk]; congr 2; omega⟩
-        rcases back_at hok hAt with hw | ⟨h1, h2, h3⟩
-        · exact .inl ⟨[], List.prefix_refl _, Ascent.Behaves.wrong_iff.2 ⟨_, .one hst, hw⟩⟩
-        · refine .inr ⟨fun t' ht' => ?_, fun ha => ?_, fun hn hna => ?_⟩
-          · obtain ⟨s', hs', hsim⟩ := h1 t' ht'
-            exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', hsim⟩
-          · obtain ⟨s', hs', hne', hacc⟩ := h2 ha
-            exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', hne', hacc⟩
-          · obtain ⟨s', hs', htr⟩ := h3 hn hna
-            exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', htr⟩
-      · refine .inl ⟨[], List.prefix_refl _, .wrong ?_⟩
-        simp only [Isa.step, getElem?_liftProg hf]
-        rw [show (liftFn fs f).body = bodyOf fs f from rfl, body_end fs f (by omega)]
-        trivial
-    · have hAt : At fs exit fr rest regs m t f k :=
-        ⟨⟨hag, hcode, ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩, hne⟩, hf, by omega, hk,
-          by rw [htpc, hk]; congr 2; omega⟩
-      rcases back_at hok hAt with hw | hm
+    rcases hs.split with ⟨f, k, hAt⟩ | ⟨f, k, hAt, -, hst⟩ | hw
+    · rcases back_at hok hAt with hw | hm
       · exact .inl ⟨[], List.prefix_refl _, .wrong hw⟩
       · exact .inr hm
+    · have hst := (hst _).2 rfl
+      rcases back_at hok hAt with hw | ⟨h1, h2, h3⟩
+      · exact .inl ⟨[], List.prefix_refl _, Ascent.Behaves.wrong_iff.2 ⟨_, .one hst, hw⟩⟩
+      · refine .inr ⟨fun t' ht' => ?_, fun ha => ?_, fun hn hna => ?_⟩
+        · obtain ⟨s', hs', hsim⟩ := h1 t' ht'
+          exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', hsim⟩
+        · obtain ⟨s', hs', hne', hacc⟩ := h2 ha
+          exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', hne', hacc⟩
+        · obtain ⟨s', hs', htr⟩ := h3 hn hna
+          exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', htr⟩
+    · exact .inl ⟨[], List.prefix_refl _, .wrong hw⟩
 
 end Back
 
