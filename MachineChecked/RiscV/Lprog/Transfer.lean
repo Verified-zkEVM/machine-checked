@@ -231,6 +231,9 @@ theorem aligned_add {base : Word} (hb : base.toNat % 4 = 0) (j : Nat) :
 
 /-! ## The Lprog side -/
 
+/-- The lifted program under SP1, as a system. -/
+abbrev lsys (fs : List Fn) : Ascent.System (State rvIsa) Unit := rvIsa.system (liftProg fs) sp1Ctx
+
 /-- Safe at Lprog along every run, at every budget. -/
 def AllSafe (fs : List Fn) (Q : State rvIsa → Prop) (s : State rvIsa) : Prop :=
   ∀ k, LSafeN fs (fun _ => True) k Q s
@@ -239,9 +242,9 @@ section AllSafe
 
 variable {fs : List Fn} {Q : State rvIsa → Prop} {s t : State rvIsa}
 
-theorem AllSafe.next (h : AllSafe fs Q s) (hs : rvIsa.step (liftProg fs) sp1Ctx s (.ok (t, []))) :
-    AllSafe fs Q t :=
-  fun k => Ascent.SafeN.next trivial ⟨[], hs⟩ (h (k + 1))
+theorem AllSafe.next {es : List Unit} (h : AllSafe fs Q s)
+    (hs : rvIsa.step (liftProg fs) sp1Ctx s (.ok (t, es))) : AllSafe fs Q t :=
+  fun k => Ascent.SafeN.next trivial ⟨es, hs⟩ (h (k + 1))
 
 theorem AllSafe.not_wrong (h : AllSafe fs Q s) (hs : rvIsa.step (liftProg fs) sp1Ctx s .wrong) : False :=
   Ascent.SafeN.not_wrong trivial hs (h 2)
@@ -249,13 +252,28 @@ theorem AllSafe.not_wrong (h : AllSafe fs Q s) (hs : rvIsa.step (liftProg fs) sp
 theorem AllSafe.acc (h : AllSafe fs Q s) (ha : rvIsa.accept (liftProg fs) sp1Ctx s) : Q s :=
   Ascent.SafeN.of_accept trivial ha (h 1)
 
+theorem AllSafe.steps {tr : List Unit} {s' : State rvIsa} (h : AllSafe fs Q s)
+    (hs : Ascent.Steps (lsys fs) s tr s') : AllSafe fs Q s' := by
+  induction hs with
+  | refl => exact h
+  | step h1 _ ih => exact ih (h.next h1)
+
+theorem AllSafe.not_goesWrong {tr : List Unit} (h : AllSafe fs Q s)
+    (hw : Ascent.GoesWrong (lsys fs) s tr) : False := by
+  obtain ⟨tr', -, hb⟩ := hw
+  obtain ⟨u, hs, hw⟩ := Ascent.Behaves.wrong_iff.1 hb
+  exact (h.steps hs).not_wrong hw
+
 end AllSafe
 
-/-- What a machine step to `t'` is at Lprog: a simulated state safe at every budget, or a
-    returned program with the machine at `exit`. -/
-def Next (fs : List Fn) (exit : Word) (Q : State rvIsa → Prop) (t' : MachineState) : Prop :=
-  (∃ s', Sim fs exit s' t' ∧ AllSafe fs Q s') ∨
-    (∃ s', s'.stack = [] ∧ Agree (ofParts s'.regs s'.m) t' ∧ t'.pc = exit &&& ~~~1#64 ∧ Q s')
+/-- A returned Lprog state stands for the machine at `exit`, where `jalr` lands. -/
+def Ret (exit : Word) (s : State rvIsa) (t : MachineState) : Prop :=
+  s.stack = [] ∧ Agree (ofParts s.regs s.m) t ∧ t.pc = exit &&& ~~~1#64
+
+/-- What a machine step to `t'` is at Lprog, from `s`: a step of `s` that makes no events, to
+    a state that stands for `t'` or to a returned program with the machine at `exit`. -/
+def Next (fs : List Fn) (exit : Word) (s : State rvIsa) (t' : MachineState) : Prop :=
+  ∃ s', (Sim fs exit s' t' ∨ Ret exit s' t') ∧ (lsys fs).step s (.ok (s', []))
 
 /-- The innermost activation `fr` of a simulated state is at instruction `k` of function `f`. -/
 structure At (fs : List Fn) (exit : Word) (fr : Frame) (rest : List Frame) (regs : Reg → BitVec 64)
@@ -336,7 +354,7 @@ end At
 
 section Back
 
-variable {fs : List Fn} {exit : Word} {Q : State rvIsa → Prop} {fr : Frame} {rest : List Frame}
+variable {fs : List Fn} {exit : Word} {fr : Frame} {rest : List Frame}
   {regs : Reg → BitVec 64} {m t : MachineState} {f : Fn} {k : Nat} {i : Instr}
 
 /-- The step of the lifted instruction `L` at the innermost activation. -/
@@ -345,14 +363,14 @@ abbrev StepIs (fs : List Fn) (fr : Frame) (rest : List Frame) (regs : Reg → Bi
   ∀ o, rvIsa.step (liftProg fs) sp1Ctx ⟨fr :: rest, regs, m⟩ o ↔
     rvIsa.stepI (liftProg fs) sp1Ctx (bodyOf fs f) fr rest regs m L o
 
-theorem back_abort (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩) (hstep : StepIs fs fr rest regs m f .Labort) :
+theorem back_abort (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong) (hstep : StepIs fs fr rest regs m f .Labort) :
     False :=
-  hL.not_wrong ((hstep _).2 rfl)
+  hL ((hstep _).2 rfl)
 
-theorem back_opn (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩) (h : At fs exit fr rest regs m t f k)
+theorem back_opn (h : At fs exit fr rest regs m t f k)
     (hfetch : t.code t.pc = some i) (hop : opnOk i = true)
     (hstep : StepIs fs fr rest regs m f (.Lopn (opOf i))) :
-    ∀ t', stepSp1 t = some t' → Next fs exit Q t' := by
+    ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   rw [stepSp1_opn_eq hfetch hop] at ht'
   have hag := h.sim.agree
@@ -368,28 +386,29 @@ theorem back_opn (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩) (h : At fs exit f
     | some rm =>
       obtain ⟨r', m'⟩ := rm
       simp only [he] at hspec
-      exact .inl ⟨_, h.next (hspec.2.trans (hag.execInstrBr hop)) (code_execInstrBr_opn hop)
-        (pc_execInstrBr_opn hop), hL.next ((hstep _).2 (by simp [Isa.stepI, he]))⟩
+      exact ⟨_, .inl (h.next (hspec.2.trans (hag.execInstrBr hop)) (code_execInstrBr_opn hop)
+        (pc_execInstrBr_opn hop)), (hstep _).2 (by simp [Isa.stepI, he])⟩
   · cases ht'
 
-theorem back_auipc (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩) (h : At fs exit fr rest regs m t f k)
+theorem back_auipc (h : At fs exit fr rest regs m t f k)
     {rd : Reg} {imm : BitVec 20} (hfetch : t.code t.pc = some (.AUIPC rd imm))
     (hstep : StepIs fs fr rest regs m f
       (.Lopn (.set rd (.imm (f.base + BitVec.ofNat 64 (4 * k) + auipcOff imm))))) :
-    ∀ t', stepSp1 t = some t' → Next fs exit Q t' := by
+    ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   rw [stepSp1_ctl hfetch rfl (by simp) (by simp)] at ht'
   cases ht'
-  exact .inl ⟨_, h.next (agree_set' h.sim.agree rd _ (by rw [h.tpc])) (by simp [execInstrBr])
-    (by simp [execInstrBr, pc_setPC]), hL.next ((hstep _).2 (by simp [Isa.stepI, Op.eval, Expr.eval, auipcOff]))⟩
+  exact ⟨_, .inl (h.next (agree_set' h.sim.agree rd _ (by rw [h.tpc])) (by simp [execInstrBr])
+    (by simp [execInstrBr, pc_setPC])),
+    (hstep _).2 (by simp [Isa.stepI, Op.eval, Expr.eval, auipcOff])⟩
 
-theorem back_branch (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩) (h : At fs exit fr rest regs m t f k)
+theorem back_branch (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong) (h : At fs exit fr rest regs m t f k)
     (hfetch : t.code t.pc = some i) (hm : i.isMemAccess = false) (he : i ≠ .ECALL) (hb : i ≠ .EBREAK)
     {op : String} {a b : Reg} {off : BitVec 13} {c : Bool}
     (hc : cmpEval op (t.getReg a) (t.getReg b) = some c)
     (hexec : execInstrBr t i = if c then t.setPC (t.pc + signExtend13 off) else t.setPC (t.pc + 4))
     (hstep : StepIs fs fr rest regs m f (liftBr k f.prog.length op a b off)) :
-    ∀ t', stepSp1 t = some t' → Next fs exit Q t' := by
+    ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   rw [stepSp1_ctl hfetch hm he hb, hexec] at ht'
   cases ht'
@@ -401,19 +420,19 @@ theorem back_branch (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩) (h : At fs exi
     have hcond : condEval (.cmp op (opnd a) (opnd b)) regs = some c := by
       simp [condEval, opnd_val_of_agree hag, hc]
     cases c
-    · exact .inl ⟨_, h.next (hag.trans (agree_setPC t _)) (by simp) (by simp [pc_setPC]),
-        hL.next ((hstep _).2 (by simp [Isa.stepI, hcond]))⟩
-    · exact .inl ⟨_, h.jump (hag.trans (agree_setPC t _)) (by simp) hlt
-        (by simp only [pc_setPC]; rw [h.tpc, haddr]),
-        hL.next ((hstep _).2 (by simp [Isa.stepI, hcond, labelIdx_body fs f hlt]))⟩
+    · exact ⟨_, .inl (h.next (hag.trans (agree_setPC t _)) (by simp) (by simp [pc_setPC])),
+        (hstep _).2 (by simp [Isa.stepI, hcond])⟩
+    · exact ⟨_, .inl (h.jump (hag.trans (agree_setPC t _)) (by simp) hlt
+        (by simp only [pc_setPC]; rw [h.tpc, haddr])),
+        (hstep _).2 (by simp [Isa.stepI, hcond, labelIdx_body fs f hlt])⟩
   · exact (back_abort hL hstep).elim
 
-theorem back_jal (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
+theorem back_jal (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong)
     (h : At fs exit fr rest regs m t f k) {rd : Reg} {off : BitVec 21}
     (hfetch : t.code t.pc = some (.JAL rd off))
     (hstep : StepIs fs fr rest regs m f
       (liftJal fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) rd off)) :
-    ∀ t', stepSp1 t = some t' → Next fs exit Q t' := by
+    ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   rw [stepSp1_ctl hfetch rfl (by simp) (by simp)] at ht'
   cases ht'
@@ -426,18 +445,18 @@ theorem back_jal (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
     split at hstep
     · next hj =>
       obtain ⟨haddr, hlt⟩ := jump_addr (base := f.base) hj
-      exact .inl ⟨_, h.jump hag' (by simp [execInstrBr]) hlt
-        (by simp only [execInstrBr, pc_setPC]; rw [h.tpc, haddr]),
-        hL.next ((hstep _).2 (by simp [Isa.stepI, labelIdx_body fs f hlt]))⟩
+      exact ⟨_, .inl (h.jump hag' (by simp [execInstrBr]) hlt
+        (by simp only [execInstrBr, pc_setPC]; rw [h.tpc, haddr])),
+        (hstep _).2 (by simp [Isa.stepI, labelIdx_body fs f hlt])⟩
     · split at hstep
       · next g hg =>
         obtain ⟨fn, hfn, hbase⟩ := entryOf_spec hg
         have hglt : g < fs.length := (List.getElem?_eq_some_iff.mp hfn).1
         by_cases hsp : regs .x2 = fr.top
-        · exact .inl ⟨_, h.enter (top := fr.top) hag' (by simp [execInstrBr]) hfn
-            (by simp only [execInstrBr, pc_setPC]; rw [h.tpc, hbase]) h.sim.chain.2.1 h.sim.chain.2.2,
-            hL.next ((hstep _).2 (by simp [Isa.stepI, hsp, callee_direct hglt]))⟩
-        · exact (hL.not_wrong ((hstep _).2 (by simp [Isa.stepI, hsp]))).elim
+        · exact ⟨_, .inl (h.enter (top := fr.top) hag' (by simp [execInstrBr]) hfn
+            (by simp only [execInstrBr, pc_setPC]; rw [h.tpc, hbase]) h.sim.chain.2.1 h.sim.chain.2.2),
+            (hstep _).2 (by simp [Isa.stepI, hsp, callee_direct hglt])⟩
+        · exact (hL ((hstep _).2 (by simp [Isa.stepI, hsp]))).elim
       · exact (back_abort hL hstep).elim
   · rw [ite_eq_right h0] at hstep
     by_cases h1 : rd = .x1
@@ -451,18 +470,18 @@ theorem back_jal (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
         have hbelow := h.below
         rw [h.tpc] at hret hbelow
         replace hret : RetOk (fr.at (fr.pc + 1) :: rest) _ := fun _ => hret
-        exact .inl ⟨_, h.enter (top := regs .x2) (agree_set' hag .x1 _ (by rw [h.tpc])) (by simp) hfn
-          (by simp only [pc_setPC]; rw [h.tpc, hbase]) hret hbelow,
-          hL.next ((hstep _).2 (by simp [Isa.stepI, callee_direct hglt]))⟩
+        exact ⟨_, .inl (h.enter (top := regs .x2) (agree_set' hag .x1 _ (by rw [h.tpc])) (by simp) hfn
+          (by simp only [pc_setPC]; rw [h.tpc, hbase]) hret hbelow),
+          (hstep _).2 (by simp [Isa.stepI, callee_direct hglt])⟩
       · exact (back_abort hL hstep).elim
     · rw [ite_eq_right h1] at hstep
       exact (back_abort hL hstep).elim
 
-theorem back_jalr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
+theorem back_jalr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong)
     (h : At fs exit fr rest regs m t f k) {rd rs : Reg} {off : BitVec 12}
     (hfetch : t.code t.pc = some (.JALR rd rs off))
     (hstep : StepIs fs fr rest regs m f (liftJalr fs (f.base + BitVec.ofNat 64 (4 * k)) rd rs off)) :
-    ∀ t', stepSp1 t = some t' → Next fs exit Q t' := by
+    ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   rw [stepSp1_ctl hfetch rfl (by simp) (by simp)] at ht'
   cases ht'
@@ -477,7 +496,7 @@ theorem back_jalr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩
     · next hr =>
       obtain ⟨rfl, rfl⟩ := hr
       by_cases hra : regs .x1 = fr.ret ∧ regs .x2 = fr.top
-      · have hs1 := hL.next ((hstep (.ok (⟨rest, regs, m⟩, []))).2 (by simp [Isa.stepI, hra]))
+      · have hs1 := (hstep (.ok (⟨rest, regs, m⟩, []))).2 (by simp [Isa.stepI, hra])
         have h1 : t.getReg .x1 = fr.ret := by
           rw [← hag.regs .x1, getReg_ofParts]; exact hra.1
         have hpc : (execInstrBr t (.JALR .x0 .x1 0)).pc = fr.ret &&& ~~~1#64 := by
@@ -486,63 +505,65 @@ theorem back_jalr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩
             show fr.ret + (0 : Word) = fr.ret from by simp]
         have hchain := h.sim.chain.2.2
         cases rest with
-        | nil => exact .inr ⟨_, rfl, hag', by rw [hpc, show fr.ret = exit from hchain],
-            hs1.acc (Or.inl rfl)⟩
+        | nil =>
+          exact ⟨_, .inr ⟨rfl, hag', by rw [hpc, show fr.ret = exit from hchain]⟩, hs1⟩
         | cons fr' rest' =>
-          exact .inl ⟨_, ⟨hag', h.code' (by simp [execInstrBr]),
+          exact ⟨_, .inl ⟨hag', h.code' (by simp [execInstrBr]),
             by rw [hpc, h.sim.chain.2.1 (by simp)]; exact hchain, by simp⟩, hs1⟩
-      · exact (hL.not_wrong ((hstep _).2 (by simp [Isa.stepI, hra]))).elim
+      · exact (hL ((hstep _).2 (by simp [Isa.stepI, hra]))).elim
     · by_cases hsp : regs .x2 = fr.top
       · cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (List.range fs.length)) with
-        | none => exact (hL.not_wrong ((hstep _).2 (by simp only [Isa.stepI, hsp, hc]; simp))).elim
+        | none => exact (hL ((hstep _).2 (by simp only [Isa.stepI, hsp, hc]; simp))).elim
         | some g =>
           obtain ⟨fn, hfn, hbase⟩ := callee_indirect hc
-          exact .inl ⟨_, h.enter (top := fr.top) hag' (by simp [execInstrBr]) hfn
-            (by simp only [execInstrBr, pc_setPC]; rw [hbase, htgt]) h.sim.chain.2.1 h.sim.chain.2.2,
-            hL.next ((hstep _).2 (by simp only [Isa.stepI, hsp, hc]; simp))⟩
-      · exact (hL.not_wrong ((hstep _).2 (by simp [Isa.stepI, hsp]))).elim
+          exact ⟨_, .inl (h.enter (top := fr.top) hag' (by simp [execInstrBr]) hfn
+            (by simp only [execInstrBr, pc_setPC]; rw [hbase, htgt]) h.sim.chain.2.1 h.sim.chain.2.2),
+            (hstep _).2 (by simp only [Isa.stepI, hsp, hc]; simp)⟩
+      · exact (hL ((hstep _).2 (by simp [Isa.stepI, hsp]))).elim
   · rw [ite_eq_right h0] at hstep
     by_cases h1 : rd = .x1
     · subst h1
       rw [ite_eq_left rfl] at hstep
       cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (List.range fs.length)) with
-      | none => exact (hL.not_wrong ((hstep _).2 (by simp only [Isa.stepI, hc]))).elim
+      | none => exact (hL ((hstep _).2 (by simp only [Isa.stepI, hc]))).elim
       | some g =>
         obtain ⟨fn, hfn, hbase⟩ := callee_indirect hc
         have hret := h.ret_aligned hok
         have hbelow := h.below
         rw [h.tpc] at hret hbelow
         replace hret : RetOk (fr.at (fr.pc + 1) :: rest) _ := fun _ => hret
-        exact .inl ⟨_, h.enter (top := regs .x2) (agree_set' hag .x1 _ (by rw [h.tpc])) (by simp) hfn
-          (by simp only [pc_setPC]; rw [hbase, htgt]) hret hbelow,
-          hL.next ((hstep _).2 (by simp only [Isa.stepI, hc]))⟩
+        exact ⟨_, .inl (h.enter (top := regs .x2) (agree_set' hag .x1 _ (by rw [h.tpc])) (by simp) hfn
+          (by simp only [pc_setPC]; rw [hbase, htgt]) hret hbelow),
+          (hstep _).2 (by simp only [Isa.stepI, hc])⟩
     · rw [ite_eq_right h1] at hstep
       exact (back_abort hL hstep).elim
 
 theorem stepSp1_ecall {t : MachineState} (hf : t.code t.pc = some .ECALL) : stepSp1 t = sp1Ecall t := by
   unfold stepSp1; rw [hf]
 
-theorem back_ecall (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩) (h : At fs exit fr rest regs m t f k)
+theorem back_ecall (h : At fs exit fr rest regs m t f k)
     (hfetch : t.code t.pc = some .ECALL) (hstep : StepIs fs fr rest regs m f .Lext) :
-    ∀ t', stepSp1 t = some t' → Next fs exit Q t' := by
+    ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   have hst := ht'
   rw [stepSp1_ecall hfetch] at ht'
-  exact .inl ⟨_, h.next (agree_ofParts_regsOf t') (code_stepSp1 hst) (pc_sp1Ecall hfetch ht'),
-    hL.next ((hstep _).2 ⟨rfl, t, h.sim.agree, hfetch, by simp [ht']⟩)⟩
+  exact ⟨_, .inl (h.next (agree_ofParts_regsOf t') (code_stepSp1 hst) (pc_sp1Ecall hfetch ht')),
+    (hstep _).2 ⟨rfl, t, h.sim.agree, hfetch, by simp [ht']⟩⟩
 
-theorem accept_ecall (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩) (h : At fs exit fr rest regs m t f k)
-    (hbody : (bodyOf fs f)[fr.pc]? = some .Lext) (ha : Accepted t) : Q ⟨fr :: rest, regs, m⟩ := by
+theorem accept_ecall (h : At fs exit fr rest regs m t f k)
+    (hbody : (bodyOf fs f)[fr.pc]? = some .Lext) (ha : Accepted t) :
+    (lsys fs).accept ⟨fr :: rest, regs, m⟩ := by
   have hag := h.sim.agree
-  refine hL.acc (Or.inr ⟨MachineChecked.Lprog.SafeN.fetch_eq (getElem?_liftProg h.hf) hbody, ?_, ?_⟩)
+  refine Or.inr ⟨MachineChecked.Lprog.SafeN.fetch_eq (getElem?_liftProg h.hf) hbody, ?_, ?_⟩
   · rw [hag.regs]; exact ha.2.1
   · rw [hag.regs]; exact ha.2.2
 
 /-- **One instruction**: a machine step from the instruction the innermost activation is at
     is matched at Lprog, and a machine stuck accepting there is an accepting Lprog state. -/
-theorem back_instr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m⟩)
+theorem back_instr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong)
     (h : At fs exit fr rest regs m t f k) :
-    (∀ t', stepSp1 t = some t' → Next fs exit Q t') ∧ (Accepted t → Q ⟨fr :: rest, regs, m⟩) := by
+    (∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t') ∧
+      (Accepted t → (lsys fs).accept ⟨fr :: rest, regs, m⟩) := by
   have hfetch := h.fetch
   have hstep : StepIs fs fr rest regs m f
       (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (f.prog[k]'h.hk)) := h.step_iff
@@ -550,12 +571,12 @@ theorem back_instr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m�
   generalize f.prog[k]'h.hk = i at hfetch hstep hbody
   by_cases hop : opnOk i = true
   · simp only [liftI, hop, ite_true] at hstep
-    refine ⟨back_opn hL h hfetch hop hstep, fun ha => ?_⟩
+    refine ⟨back_opn h hfetch hop hstep, fun ha => ?_⟩
     exact absurd (Option.some.inj (hfetch.symm.trans ha.1)) (not_ecall_of_opnOk hop)
   · simp only [liftI, hop, Bool.false_eq_true, ite_false] at hstep hbody
     refine ⟨?_, fun ha => ?_⟩
     · cases i
-      case AUIPC rd imm => exact back_auipc hL h hfetch hstep
+      case AUIPC rd imm => exact back_auipc h hfetch hstep
       case BEQ a b off =>
         exact back_branch hL h hfetch rfl (by simp) (by simp) (c := t.getReg a == t.getReg b)
           (by simp [cmpEval]) (by simp [execInstrBr]) hstep
@@ -576,17 +597,81 @@ theorem back_instr (hok : ProgOk fs) (hL : AllSafe fs Q ⟨fr :: rest, regs, m�
           (by simp [cmpEval]) (by simp [execInstrBr]) hstep
       case JAL rd off => exact back_jal hok hL h hfetch hstep
       case JALR rd rs off => exact back_jalr hok hL h hfetch hstep
-      case ECALL => exact back_ecall hL h hfetch hstep
+      case ECALL => exact back_ecall h hfetch hstep
       all_goals first
         | exact absurd rfl hop
         | exact (back_abort hL hstep).elim
     · obtain rfl : i = .ECALL := Option.some.inj (hfetch.symm.trans ha.1)
-      exact accept_ecall hL h hbody ha
+      exact accept_ecall h hbody ha
+
+/-- **A machine that is stuck**, and not accepting, at the instruction the innermost
+    activation is at: the Lprog state traps there, and does not accept, or goes `wrong`. -/
+theorem trap_instr (h : At fs exit fr rest regs m t f k) (hnone : stepSp1 t = none)
+    (hna : ¬ Accepted t) :
+    (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong ∨
+      (¬ (lsys fs).accept ⟨fr :: rest, regs, m⟩ ∧ (lsys fs).step ⟨fr :: rest, regs, m⟩ .trap) := by
+  have hfetch := h.fetch
+  have hstep : StepIs fs fr rest regs m f
+      (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (f.prog[k]'h.hk)) := h.step_iff
+  have hbody := h.body.2
+  have hf := getElem?_liftProg h.hf
+  have hag := h.sim.agree
+  generalize f.prog[k]'h.hk = i at hfetch hstep hbody
+  by_cases hop : opnOk i = true
+  · simp only [liftI, hop, ite_true] at hstep hbody
+    rw [stepSp1_opn_eq hfetch hop] at hnone
+    have hspec := opOf_spec hop regs m
+    split at hnone
+    · cases hnone
+    · next hok =>
+      cases he : (opOf i).eval rvMem regs m with
+      | some rm =>
+        simp only [he] at hspec
+        rw [hag.memOkSp1 i] at hspec
+        exact absurd hspec.1 hok
+      | none =>
+        exact .inr ⟨MachineChecked.Lprog.SafeN.not_accept hf hbody nofun,
+          (hstep _).2 (by simp [Isa.stepI, he])⟩
+  · simp only [liftI, hop, Bool.false_eq_true, ite_false] at hstep hbody
+    cases i
+    case ECALL =>
+      rw [stepSp1_ecall hfetch] at hnone
+      refine .inr ⟨?_, (hstep _).2 ⟨t, hag, hfetch, by simp [hnone]⟩⟩
+      rintro (hnil | ⟨-, h5, h10⟩)
+      · cases hnil
+      · exact hna ⟨hfetch, by rw [← hag.regs]; exact h5, by rw [← hag.regs]; exact h10⟩
+    all_goals first
+      | exact absurd rfl hop
+      | exact .inl ((hstep _).2 rfl)
+      | (rw [stepSp1_ctl hfetch rfl (by simp) (by simp)] at hnone; cases hnone)
+
+/-- What the machine at `t` does, at the Lprog state `s` after the steps that make no events:
+    a step is matched, an accepting stop is an accepting state that has not returned, and any
+    other stop is a trap. -/
+def Matched (fs : List Fn) (exit : Word) (s : State rvIsa) (t : MachineState) : Prop :=
+  (∀ t', stepSp1 t = some t' →
+    ∃ s', Ascent.Steps (lsys fs) s [] s' ∧ (Sim fs exit s' t' ∨ Ret exit s' t')) ∧
+  (Accepted t → ∃ s', Ascent.Steps (lsys fs) s [] s' ∧ s'.stack ≠ [] ∧ (lsys fs).accept s') ∧
+  (stepSp1 t = none → ¬ Accepted t →
+    ∃ s', Ascent.Steps (lsys fs) s [] s' ∧ ¬ (lsys fs).accept s' ∧ (lsys fs).step s' .trap)
+
+/-- At an instruction: the Lprog state goes `wrong` there, or matches the machine. -/
+theorem back_at (hok : ProgOk fs) (h : At fs exit fr rest regs m t f k) :
+    (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong ∨ Matched fs exit ⟨fr :: rest, regs, m⟩ t := by
+  by_cases hw : (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong
+  · exact .inl hw
+  · obtain ⟨h1, h2⟩ := back_instr hok hw h
+    refine .inr ⟨fun t' ht' => ?_, fun ha => ⟨_, .refl _, by simp, h2 ha⟩, fun hn hna => ?_⟩
+    · obtain ⟨s', hs', hst⟩ := h1 t' ht'
+      exact ⟨s', .one hst, hs'⟩
+    · rcases trap_instr h hn hna with hw' | htr
+      · exact absurd hw' hw
+      · exact ⟨_, .refl _, htr⟩
 
 /-- **One machine step, matched at Lprog**: from a label, the label step and then the
-    instruction. -/
-theorem back_step (hok : ProgOk fs) {s : State rvIsa} (hs : Sim fs exit s t) (hL : AllSafe fs Q s) :
-    (∀ t', stepSp1 t = some t' → Next fs exit Q t') ∧ (Accepted t → ∃ s', s'.stack ≠ [] ∧ Q s') := by
+    instruction. The Lprog state goes `wrong` on the way, or matches the machine. -/
+theorem back_step (hok : ProgOk fs) {s : State rvIsa} (hs : Sim fs exit s t) :
+    Ascent.GoesWrong (lsys fs) s [] ∨ Matched fs exit s t := by
   obtain ⟨stack, regs, m⟩ := s
   obtain ⟨hag, hcode, hchain, hne⟩ := hs
   cases stack with
@@ -595,22 +680,35 @@ theorem back_step (hok : ProgOk fs) {s : State rvIsa} (hs : Sim fs exit s t) (hL
     obtain ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩ := hchain
     obtain ⟨k, hk | hk⟩ : ∃ k, fr.pc = 2 * k ∨ fr.pc = 2 * k + 1 := ⟨fr.pc / 2, by omega⟩
     · by_cases hkl : k < f.prog.length
-      · have hst : rvIsa.step (liftProg fs) sp1Ctx ⟨fr :: rest, regs, m⟩
+      · have hst : (lsys fs).step ⟨fr :: rest, regs, m⟩
             (.ok (⟨fr.at (fr.pc + 1) :: rest, regs, m⟩, [])) := by
-          rw [MachineChecked.Lprog.SafeN.step_eq (getElem?_liftProg hf) (by rw [hk]; exact body_even fs f hkl)]
-          rfl
+          have hi : (liftFn fs f).body[fr.pc]? = some (.Llabel .internal k) := by
+            rw [hk]; exact body_even fs f hkl
+          have h := MachineChecked.Lprog.SafeN.step_eq (c := sp1Ctx) (rest := rest) (regs := regs)
+            (m := m) (getElem?_liftProg hf) hi
+          exact (h _).2 rfl
         have hAt : At fs exit (fr.at (fr.pc + 1)) rest regs m t f k :=
           ⟨⟨hag, hcode, ⟨⟨f, hf, by simp; omega, by rw [htpc, hk]; simp; congr 2; omega⟩, hfr, hrest⟩,
             by simp⟩, hf, hkl, by simp [hk], by rw [htpc, hk]; congr 2; omega⟩
-        obtain ⟨h1, h2⟩ := back_instr hok (hL.next hst) hAt
-        exact ⟨h1, fun ha => ⟨_, by simp, h2 ha⟩⟩
-      · exfalso
-        refine hL.not_wrong ?_
+        rcases back_at hok hAt with hw | ⟨h1, h2, h3⟩
+        · exact .inl ⟨[], List.prefix_refl _, Ascent.Behaves.wrong_iff.2 ⟨_, .one hst, hw⟩⟩
+        · refine .inr ⟨fun t' ht' => ?_, fun ha => ?_, fun hn hna => ?_⟩
+          · obtain ⟨s', hs', hsim⟩ := h1 t' ht'
+            exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', hsim⟩
+          · obtain ⟨s', hs', hne', hacc⟩ := h2 ha
+            exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', hne', hacc⟩
+          · obtain ⟨s', hs', htr⟩ := h3 hn hna
+            exact ⟨s', by simpa using (Ascent.Steps.one hst).trans hs', htr⟩
+      · refine .inl ⟨[], List.prefix_refl _, .wrong ?_⟩
         simp only [Isa.step, getElem?_liftProg hf]
         rw [show (liftFn fs f).body = bodyOf fs f from rfl, body_end fs f (by omega)]
         trivial
-    · exact back_instr hok hL ⟨⟨hag, hcode, ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩, hne⟩, hf, by omega, hk,
-        by rw [htpc, hk]; congr 2; omega⟩ |>.imp id fun h2 ha => ⟨_, by simp, h2 ha⟩
+    · have hAt : At fs exit fr rest regs m t f k :=
+        ⟨⟨hag, hcode, ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩, hne⟩, hf, by omega, hk,
+          by rw [htpc, hk]; congr 2; omega⟩
+      rcases back_at hok hAt with hw | hm
+      · exact .inl ⟨[], List.prefix_refl _, .wrong hw⟩
+      · exact .inr hm
 
 end Back
 
@@ -629,15 +727,18 @@ theorem transfer {fs : List Fn} (hok : ProgOk fs) {G : MachineState → Prop} {N
   | zero => intros; exact SafeN.zero
   | succ n ih =>
     intro hn s t hs hL
-    obtain ⟨hnext, hacc'⟩ := back_step hok hs hL
+    rcases back_step hok hs with hw | ⟨hnext, hacc', -⟩
+    · exact (hL.not_goesWrong hw).elim
     cases hst : stepSp1 t with
     | none =>
-      exact SafeN.stuck hst fun ha => let ⟨s', hne, hq⟩ := hacc' ha; hacc s' hne hq
+      exact SafeN.stuck hst fun ha =>
+        let ⟨s', hs', hne, ha'⟩ := hacc' ha
+        hacc s' hne ((hL.steps hs').acc ha')
     | some t' =>
       refine SafeN.step (not_accepted_of_step hst) hst ?_
-      rcases hnext t' hst with ⟨s', hs', hL'⟩ | ⟨s', hnil, hag, hpc, hq⟩
-      · exact ih (by omega) s' t' hs' hL'
-      · exact SafeN.mono (by omega) (hret s' t' hnil hag hpc hq)
+      obtain ⟨s', hs', hsim | ⟨hnil, hag, hpc⟩⟩ := hnext t' hst
+      · exact ih (by omega) s' t' hsim (hL.steps hs')
+      · exact SafeN.mono (by omega) (hret s' t' hnil hag hpc ((hL.steps hs').acc (Or.inl hnil)))
 
 /-- **The transfer theorem, from a function's entry.** A machine at the entry of function `g`
     of a lifted program it holds is safe if the call `⟨g, 0, ra, sp⟩` is safe at Lprog at every

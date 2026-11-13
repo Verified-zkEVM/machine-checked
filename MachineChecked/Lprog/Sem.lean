@@ -32,7 +32,7 @@
 
   ## Main definitions
 
-  * `Isa`, `Frame`, `State`, `Context`, `Isa.step`, `Isa.accept`, `Isa.SafeN`
+  * `Isa`, `Frame`, `State`, `Context`, `Isa.step`, `Isa.accept`, `Isa.SafeN`, `Isa.system`
 
   ## Main results
 
@@ -41,7 +41,7 @@
 -/
 
 import MachineChecked.Lprog.Syntax
-import MachineChecked.Ascent.Safe
+import MachineChecked.Ascent.Refine
 
 namespace MachineChecked.Lprog
 
@@ -193,6 +193,9 @@ def accept (s : State I) : Prop :=
     `accept`. -/
 abbrev SafeN (G : State I → Prop) (n : Nat) (Q : State I → Prop) (s : State I) : Prop :=
   Ascent.SafeN (Ascent.erase (I.step p c)) (I.accept p c) G n Q s
+
+/-- The program as a system: its step and its accepting states. -/
+abbrev system : Ascent.System (State I) E := ⟨I.step p c, I.accept p c⟩
 
 end Isa
 
