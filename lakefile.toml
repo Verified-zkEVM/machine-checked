@@ -20,7 +20,7 @@ rev = "d81a91030371d1b66ad1a5ff5d348077d3690d6a"
 [[require]]
 name = "Kraken"
 git = "https://github.com/AeneasVerif/kraken"
-rev = "0fccb2d8fcf9069b345f29b10090a97658819874"
+rev = "ebd10ebd800f61d1c7170e06b1eaea2bd9cdea66"
 
 # AArch64: the trusted package `arm64` of DeepMind's arm64-semantics, which lives in a
 # subdirectory of google-deepmind/code-verification. Only that package is required, not
