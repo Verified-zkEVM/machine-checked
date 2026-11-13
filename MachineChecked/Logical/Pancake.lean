@@ -96,7 +96,8 @@ def prog (ind : String) : Prog W → Option String
   | .seq p q => do some ((← prog ind p) ++ (← prog ind q))
   | .ite c t .skip => do some s!"{ind}if {← exp c} \{\n{← prog (ind ++ "  ") t}{ind}}\n"
   | .ite c t e => do
-    some s!"{ind}if {← exp c} \{\n{← prog (ind ++ "  ") t}{ind}} else \{\n{← prog (ind ++ "  ") e}{ind}}\n"
+    some (s!"{ind}if {← exp c} \{\n{← prog (ind ++ "  ") t}{ind}} else \{\n" ++
+      s!"{← prog (ind ++ "  ") e}{ind}}\n")
   | .while c body => do some s!"{ind}while {← exp c} \{\n{← prog (ind ++ "  ") body}{ind}}\n"
   | .break => some s!"{ind}break;\n"
   | .continue => some s!"{ind}continue;\n"

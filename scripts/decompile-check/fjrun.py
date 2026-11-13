@@ -2,12 +2,16 @@
 """Run a Flapjack image and print what it does.
 
     fjrun.py IMAGE.fjimg
+    fjrun.py --coverage IMAGE.fjimg ...
 
 A plain RV64IM interpreter with the installation and the test world of flapjack-flip
 (`FlapjackFlip/Machine.lean`, `FlapjackFlip/Harness.lean`): the layout of the image, the
 halt, cache-clear and FFI entries, riscv-zkvm's rule for which memory accesses are valid, an
 FFI oracle that answers every call with the next bytes of an input stream, and the five test
 inputs. The output is what `flip-check run IMAGE` prints, byte for byte, step counts included.
+
+With `--coverage` it prints, for the images together, how many of their instructions some
+test input runs.
 
 It exists because riscv-zkvm's machine state holds memory as a function, so a run of a few
 hundred thousand steps takes minutes there and under a second here. It is not trusted on
@@ -65,8 +69,9 @@ class Image:
                 self.code = bytes(int(x, 16) for x in w[1:])
 
 
-def run(img, inp):
-    """The events and the final status of `img` on the input stream `inp`, and the steps."""
+def run(img, inp, seen=None):
+    """The events and the final status of `img` on the input stream `inp`, and the steps.
+    The indices of the instructions run are added to `seen`."""
     code = img.code
     words = [int.from_bytes(code[i:i + 4], "little") for i in range(0, len(code) - len(code) % 4, 4)]
     r = [0] * 32
@@ -117,6 +122,8 @@ def run(img, inp):
         if k < 0 or k >= len(code) or k % 4 or k // 4 >= len(words):
             break
         w = words[k // 4]
+        if seen is not None:
+            seen.add(k // 4)
         op, rd, f3, rs1, rs2, f7 = w & 0x7F, (w >> 7) & 31, (w >> 12) & 7, (w >> 15) & 31, (w >> 20) & 31, w >> 25
         a, b = r[rs1], r[rs2]
         imm_i = sx(w >> 20, 12)
@@ -191,6 +198,18 @@ def run(img, inp):
             elif key == (1, 7): val = a if b == 0 else a % b
             else: break
             val &= M
+        elif op == 0x1B:  # the 32-bit forms riscv-zkvm has: addiw, slliw, srliw
+            sh = (w >> 20) & 31
+            if f3 == 0: val = a + imm_i
+            elif f3 == 1 and f7 == 0: val = a << sh
+            elif f3 == 5 and f7 == 0: val = (a & 0xFFFFFFFF) >> sh
+            else: break
+            val = sx(val, 32) & M
+        elif op == 0x3B:  # subw, srlw
+            if (f7, f3) == (0x20, 0): val = a - b
+            elif (f7, f3) == (0, 5): val = (a & 0xFFFFFFFF) >> (b & 31)
+            else: break
+            val = sx(val, 32) & M
         else:
             break
         if rd and val is not None:
@@ -213,4 +232,13 @@ def describe(img):
 
 
 if __name__ == "__main__":
-    sys.stdout.write(describe(Image(open(sys.argv[1]).read())))
+    if sys.argv[1] == "--coverage":
+        ran = total = 0
+        for path in sys.argv[2:]:
+            img, seen = Image(open(path).read()), set()
+            for inp in INPUTS:
+                run(img, inp, seen)
+            ran, total = ran + len(seen), total + len(img.code) // 4
+        print(f"{ran} of {total} instructions run ({100 * ran // max(1, total)}%)")
+    else:
+        sys.stdout.write(describe(Image(open(sys.argv[1]).read())))

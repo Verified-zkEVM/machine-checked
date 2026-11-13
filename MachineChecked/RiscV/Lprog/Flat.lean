@@ -14,8 +14,9 @@
   * `jal` to an instruction is a goto (after writing the link register, if it has one), and
     `jal` to an entry of the environment (`Code.entry`) is `Lext`, then a jump to `ra`;
   * `jalr` is an indirect jump, `Ligoto`, among the candidates `cands`: the addresses the
-    code itself forms, each an `auipc` and the `addi` after it. A jump to any other address
-    goes `wrong`, as a jump outside its candidates does.
+    code itself forms, by `auipc` (with the `addi` after it) or as the return address of a
+    `jal` or `jalr`. A jump to any other address goes `wrong`, as a jump outside its
+    candidates does.
 
   Nothing is proved of `liftFlat` yet. The simulation of `Transfer.lean` and the equivalence
   of `Equiv.lean` are about `liftProg`; theirs for `liftFlat` is the inverse theorem's part of
@@ -50,22 +51,25 @@ def indexOf (a : Word) : Option Nat :=
   let d := (a - c.base).toNat
   if d % 4 = 0 ∧ d / 4 < c.prog.length then some (d / 4) else none
 
-/-- The address the code forms at instruction `k`, if that is an `auipc`: with the `addi`
-    after it, when there is one into the same register. -/
-def formed (k : Nat) : Option Word :=
+/-- The addresses the code forms at instruction `k`: at an `auipc`, its value, with the `addi`
+    after it when there is one into the same register; at a `jal` or `jalr` that links, the
+    return address. -/
+def formed (k : Nat) : List Word :=
+  let pc := c.base + BitVec.ofNat 64 (4 * k)
   match c.prog[k]? with
   | some (some (.AUIPC rd imm)) =>
-    let v := c.base + BitVec.ofNat 64 (4 * k) + auipcOff imm
+    let v := pc + auipcOff imm
     match c.prog[k + 1]? with
-    | some (some (.ADDI rd' rs off)) => if rd' = rd ∧ rs = rd then some (v + signExtend12 off) else some v
-    | _ => some v
-  | _ => none
+    | some (some (.ADDI rd' rs off)) => if rd' = rd ∧ rs = rd then [v, v + signExtend12 off] else [v]
+    | _ => [v]
+  | some (some (.JAL rd _)) | some (some (.JALR rd _ _)) => if rd = .x0 then [] else [pc + 4]
+  | _ => []
 
 /-- **The candidates of a computed jump**: the instructions whose addresses the code forms,
     each with its address. -/
 def cands : List (Word × LLabel) :=
-  ((List.range c.prog.length).filterMap fun k =>
-    (c.formed k).bind fun a => (c.indexOf a).map fun l => (a, l)).eraseDups
+  ((List.range c.prog.length).flatMap fun k =>
+    (c.formed k).filterMap fun a => (c.indexOf a).map fun l => (a, l)).eraseDups
 
 /-- One instruction, at index `k`. -/
 def liftI (cs : List (Word × LLabel)) (k : Nat) : Option Instr → Lcmd (Op Reg) Reg
@@ -82,7 +86,11 @@ def liftI (cs : List (Word × LLabel)) (k : Nat) : Option Instr → Lcmd (Op Reg
         | some n => link rd ++ [.Lext n, .Ligoto (.reg .x1) cs]
         | none => [.Labort]
     | .JALR rd rs off =>
-      if rd = rs ∧ rd ≠ .x0 then [.Labort] else link rd ++ [.Ligoto (jalrTgt rs off) cs]
+      -- the link is written after the target is read; where they are one register, the
+      -- target waits in `x0`, which no lifted code reads
+      if rd = rs ∧ rd ≠ .x0 then
+        [.Lopn (.set .x0 (jalrTgt rs off)), .Lopn (.set rd (.imm (pc + 4))), .Ligoto (.reg .x0) cs]
+      else link rd ++ [.Ligoto (jalrTgt rs off) cs]
     | .ECALL => [.Labort]
     | i => [liftCtl [] len k pc i]
 

@@ -72,8 +72,10 @@ MachineChecked/        the framework, by layer (see MachineChecked/README.md)
   Lprog/               layer 0.5: the low logical program and its shared operations
   RiscV/               layers -1 and 0 for RISC-V on SP1, and the layer-0 proof tools
     Lprog/             the RISC-V lift into layer 0.5, equivalent to the machine
+    Flapjack/          a Flapjack image, into layer 0.5 and on to Pancake
   ARM/, X86/           layer 0 for AArch64 and x86-64: their semantics (dependencies)
-  Logical/, Refine/    layers 1 and 2: not started
+  Logical/             layer 1: Pancake, and lift 2's baseline (not proved)
+  Refine/              layer 2: not started
 Cases/                 case studies: real binaries, verified (see Cases/README.md)
 Tools/                 build-time tools: ELF to Lean, contract inference, decompile (see Tools/README.md)
 docs/                  design notes and the trust ladder

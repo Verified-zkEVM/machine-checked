@@ -3,19 +3,29 @@
 
   Lift 2, baseline: an Lprog program over the shared operations as a Pancake program.
 
-  The baseline keeps the shape of the Lprog program and recovers no structure. A function
-  becomes a Pancake function whose locals are the registers, with a counter `lpc` and one
-  loop around the function's blocks:
+  The baseline keeps the shape of the Lprog program and recovers no structure. The registers
+  become global variables, with a counter `lpc` that names the block to run next. The blocks
+  are dealt out, a few at a time, to functions, each a loop that runs its own blocks until
+  `lpc` leaves them; `main` is the loop that calls the function `lpc` is in:
 
-      fun 1 main() {
-        var 1 x1 = 0; …                 // the registers
-        …                               // the installation (`Env.init`)
-        var 1 lpc = 0;
+      var 1 x1 = 0; …                   // the registers, `lpc`
+      fun 1 c0() {
         while 1 {
-          if (lpc <+ 7) { … } else { … }   // a search for the block `lpc` names
+          if (lpc >=+ 9) { return 0; }
+          if (lpc <+ 4) { … } else { … }   // a search for the block `lpc` names
         }
-        return 0;
       }
+      fun 1 main() {
+        …                               // the installation (`Env.init`)
+        lpc = 0;
+        while 1 {
+          if (lpc == 211) { return 0; }    // the program has ended
+          if (lpc <+ 9) { c0(); } else { … }
+        }
+      }
+
+  Small functions are for the compiler's sake: Flapjack's time grows much faster than a
+  function does.
 
   * A block starts at a label something jumps to, and runs to the next such label.
   * `Lgoto` and `Lcond` set `lpc` and `continue`. `Ligoto` goes through a block that searches
@@ -25,7 +35,8 @@
     product, division) is a call to a function written here in Pancake (`helpers`). Memory is
     Pancake's memory at the same addresses, so where the program's memory lives is up to the
     installation.
-  * `Lext n` is what the execution environment says (`Env.ext`).
+  * `Lext n` is what the execution environment says (`Env.ext`), given the statement that
+    ends the program.
   * Where the Lprog program goes `wrong` (`Labort`, a jump outside its candidates, running
     off the end), the Pancake program loops for ever. Any behaviour would do, `wrong` being
     undefined; a loop is the one a test cannot mistake for a pass.
@@ -50,10 +61,12 @@ open Pancake (W)
 
 /-- What lift 2 needs of the execution environment of a program. -/
 structure Env where
-  /-- Run once, before the program: the installation. It may name the registers. -/
+  /-- Run once, before the program: the installation. It may name the registers, which are
+      global variables. -/
   init : List (Prog W)
-  /-- Entry `n` of the environment, as a statement; `none` if there is no such entry. -/
-  ext : Nat → Option (Prog W)
+  /-- Entry `n` of the environment, as a statement, given the statement that ends the
+      program; `none` if there is no such entry. -/
+  ext : Nat → Prog W → Option (Prog W)
   /-- Registers `init` and `ext` name. -/
   regs : List String
 
@@ -64,6 +77,9 @@ namespace Lift
 def var (x : String) : Exp W := .var .local x
 def num (n : Nat) : Exp W := .const (BitVec.ofNat 64 n)
 def set (x : String) (e : Exp W) : Prog W := .assign .local x e
+/-- A global: a register, or a variable of the lift's own. -/
+def gvar (x : String) : Exp W := .var .global x
+def gset (x : String) (e : Exp W) : Prog W := .assign .global x e
 def add (a b : Exp W) : Exp W := .op .add [a, b]
 def sub (a b : Exp W) : Exp W := .op .sub [a, b]
 def band (a b : Exp W) : Exp W := .op .and [a, b]
@@ -81,10 +97,6 @@ def seq : List (Prog W) → Prog W
 
 /-- `if c { ps }`. -/
 def when (c : Exp W) (ps : List (Prog W)) : Prog W := .ite c (seq ps) .skip
-
-/-- Declarations of the variables `xs`, zero, around `body`. -/
-def decs (xs : List String) (body : Prog W) : Prog W :=
-  xs.foldr (fun x p => .dec x .one (num 0) p) body
 
 /-- The loop that never ends: where the Lprog program goes `wrong`. -/
 def wrong : Prog W := .while (num 1) .skip
@@ -195,14 +207,14 @@ def fresh : M String := modifyGet fun s =>
 def call2 (f : String) (a b : Exp W) : M (List (Prog W) × Exp W) := do
   let t ← fresh
   modify fun s => { s with called := if s.called.contains f then s.called else f :: s.called }
-  return ([.call (some (some (.local, t), none)) f [a, b]], var t)
+  return ([.call (some (some (.global, t), none)) f [a, b]], gvar t)
 
 variable {Reg : Type} [RegText Reg]
 
 /-- An expression: the statements that compute what Pancake cannot say in one, and the
     expression for the value. -/
 def expr : Expr Reg → M (List (Prog W) × Exp W)
-  | .reg r => pure ([], var (RegText.name r))
+  | .reg r => pure ([], gvar (RegText.name r))
   | .imm v => pure ([], .const v)
   | .un op e => do
     let (ps, x) ← expr e
@@ -251,7 +263,7 @@ def exprVar (e : Expr Reg) : M (List (Prog W) × Exp W) := do
   | .var .. | .const _ => pure (ps, x)
   | _ => do
     let t ← fresh
-    pure (ps ++ [set t x], var t)
+    pure (ps ++ [gset t x], gvar t)
 
 /-- The `n` bytes at `a`, little-endian, as a value. -/
 def loadBytes (a : Exp W) : Nat → Exp W
@@ -266,7 +278,7 @@ def op : Op Reg → M (List (Prog W))
   | .skip => pure []
   | .set d e => do
     let (ps, x) ← expr e
-    pure (ps ++ [set (RegText.name d) x])
+    pure (ps ++ [gset (RegText.name d) x])
   | .load d w signed a => do
     let (ps, x) ← if w = .b2 ∨ w = .b4 then exprVar a else expr a
     let v : Exp W := match w with
@@ -275,7 +287,7 @@ def op : Op Reg → M (List (Prog W))
       | .b2 => loadBytes x 2
       | .b1 => .loadByte x
     let k := 64 - w.bits
-    pure (ps ++ [set (RegText.name d) (if signed ∧ w ≠ .b8 then sar (shl v k) k else v)])
+    pure (ps ++ [gset (RegText.name d) (if signed ∧ w ≠ .b8 then sar (shl v k) k else v)])
   | .store w a e => do
     let wide := w = .b2 ∨ w = .b4
     let (pa, x) ← if wide then exprVar a else expr a
@@ -289,7 +301,7 @@ def op : Op Reg → M (List (Prog W))
 def cond : LOperand Reg → Option (Exp W)
   | .cmp o a b => do
     let val : LOperand Reg → Option (Exp W)
-      | .reg r => some (var (RegText.name r))
+      | .reg r => some (gvar (RegText.name r))
       | .imm v => some (.const (BitVec.ofInt 64 v))
       | _ => none
     let c ← match o with
@@ -305,12 +317,12 @@ def cond : LOperand Reg → Option (Exp W)
 
 /-! ## Blocks -/
 
-/-- The counter of the loop, and the address an indirect jump is looking for. -/
+/-- The block to run next, and the address an indirect jump is looking for. -/
 def lpc : String := "lpc"
 def lia : String := "lia"
 
 /-- `lpc = l; continue;` -/
-def goto (l : Nat) : List (Prog W) := [set lpc (num l), .continue]
+def goto (l : Nat) : List (Prog W) := [gset lpc (num l), .continue]
 
 /-- A search by halves among at most `2 ^ n` sorted keys. -/
 def searchN (x : Exp W) (leaf : Nat × Prog W → Prog W) : Nat → List (Nat × Prog W) → Prog W
@@ -340,7 +352,7 @@ def targets (body : Lcmd (Op Reg) Reg) : List Nat :=
     lists of its indirect jumps: the block that searches list `j` is numbered `top + j`.
     Code after a jump and before the next label something jumps to is never run, and is
     dropped. -/
-def blocks (env : Env) (top : Nat) (leader : Nat → Bool) (body : Lcmd (Op Reg) Reg) :
+def blocks (env : Env) (stop : Prog W) (top : Nat) (leader : Nat → Bool) (body : Lcmd (Op Reg) Reg) :
     ExceptT String M (List (Nat × Prog W) × List (List (BitVec 64 × Nat))) := do
   let mut out : Array (Nat × Prog W) := #[]
   let mut tables : Array (List (BitVec 64 × Nat)) := #[]
@@ -370,9 +382,9 @@ def blocks (env : Env) (top : Nat) (leader : Nat → Bool) (body : Lcmd (Op Reg)
         let (ps, x) ← expr e
         let j := (tables.idxOf? cs).getD tables.size
         if j = tables.size then tables := tables.push cs
-        last := some (ps ++ [set lia x] ++ goto (top + j))
+        last := some (ps ++ [gset lia x] ++ goto (top + j))
       | .Lext n =>
-        match env.ext n with
+        match env.ext n stop with
         | some p => acc := acc.push p
         | none => last := some [wrong]
       | .Labort => last := some [wrong]
@@ -386,8 +398,30 @@ def blocks (env : Env) (top : Nat) (leader : Nat → Bool) (body : Lcmd (Op Reg)
 
 end Lift
 
+namespace Lift
+
+/-- The most blocks a function holds. -/
+def chunk : Nat := 8
+
+/-- `bs` in runs of at most `n`. -/
+def runs {α : Type} (n : Nat) (bs : List α) : List (List α) :=
+  if bs.isEmpty ∨ n = 0 then [] else
+    (List.range ((bs.length + n - 1) / n)).map fun i => (bs.drop (i * n)).take n
+
+/-- The function of the blocks `bs`, sorted, numbered from `lo` to `hi`: it runs them until
+    `lpc` names none of them. -/
+def chunkFn (name : String) (lo hi : Nat) (bs : List (Nat × Prog W)) : Decl W :=
+  fn name [] <| seq
+    [.while (num 1) <| seq
+      [when (.cmp .lower (gvar lpc) (num lo)) [.return (num 0)],
+       when (.cmp .notLower (gvar lpc) (num (hi + 1))) [.return (num 0)],
+       search (gvar lpc) (·.2) bs],
+     .return (num 0)]
+
+end Lift
+
 open Lift in
-/-- **Lift 2, baseline.** A program of one function, as a Pancake program whose `main` is
+/-- **Lift 2, baseline.** A program of one function, as a Pancake program whose `main` runs
     that function in the environment `env`. -/
 def lift {Reg : Type} [RegText Reg] (env : Env) (regs : List Reg) (p : Lprog (Op Reg) Reg) :
     Except String (List (Decl W)) := do
@@ -396,21 +430,36 @@ def lift {Reg : Type} [RegText Reg] (env : Env) (regs : List Reg) (p : Lprog (Op
   let ts := targets fd.body
   let top := (fd.body.foldl (fun m i => match i with | .Llabel _ l => max m (l + 1) | _ => m) 0)
   let leader (l : Nat) : Bool := l == entry || ts.contains l
-  let (r, st) := (blocks env top leader fd.body).run.run {}
+  -- ending the program: `lpc` past every block, and out of the function
+  let stopAt (tables : Nat) := top + tables
+  let stopVar := "lstop"
+  let stop : Prog W := seq [gset lpc (gvar stopVar), .return (num 0)]
+  let (r, st) := (blocks env stop top leader fd.body).run.run {}
   let (bs, tables) ← r
   -- the blocks that search the candidates of the indirect jumps
   let tableBlocks := tables.zipIdx.map fun (cs, j) =>
     let keys := (cs.map fun (a, l) => (a.toNat, seq (goto l))).toArray.qsort (·.1 < ·.1)
-    (top + j, seq [search (var lia)
-      (fun (a, p) => .ite (.cmp .equal (var lia) (num a)) p wrong) keys.toList])
-  let all := (bs ++ tableBlocks).toArray.qsort (·.1 < ·.1)
+    (top + j, search (gvar lia)
+      (fun (a, p) => .ite (.cmp .equal (gvar lia) (num a)) p wrong) keys.toList)
+  let all := ((bs ++ tableBlocks).toArray.qsort (·.1 < ·.1)).toList
+  let chunks := (runs chunk all).zipIdx.filterMap fun (bs, j) =>
+    match bs.head?, bs.getLast? with
+    | some (lo, _), some (hi, _) => some (s!"c{j}", lo, hi, bs)
+    | _, _ => none
   let names := (regs.map RegText.name ++ env.regs).eraseDups
-  let locals := names ++ (List.range st.maxTemps).map temp ++ [lia]
-  let body := decs locals <| seq <|
-    env.init ++ [.dec lpc .one (num entry) <| seq
-      [.while (num 1) (search (var lpc) (·.2) all.toList), .return (num 0)]]
+  let globals := names ++ (List.range st.maxTemps).map temp ++ [lia, lpc]
+  let main := fn "main" [] <| seq <|
+    env.init ++
+    [gset lpc (num entry),
+     .while (num 1) <| seq
+       [when (.cmp .equal (gvar lpc) (gvar stopVar)) [.return (num 0)],
+        search (gvar lpc) (·.2)
+          (chunks.map fun (name, lo, _, _) => (lo, .call (some (none, none)) name []))],
+     .return (num 0)]
   let called := st.called.flatMap fun f => needs f ++ [f]
-  let fns := helpers.filter (called.contains ·.1) |>.map (·.2)
-  return fns ++ [fn "main" [] body]
+  return globals.map (fun x => Decl.decl .one x (num 0)) ++
+    [Decl.decl .one stopVar (num (stopAt tables.length))] ++
+    (helpers.filter (called.contains ·.1) |>.map (·.2)) ++
+    (chunks.map fun (name, lo, hi, bs) => chunkFn name lo hi bs) ++ [main]
 
 end MachineChecked.Logical
