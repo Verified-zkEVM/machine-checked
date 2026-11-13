@@ -39,10 +39,7 @@ This is where each layer is in the code today.
 | [`Logical/`](Logical/README.md) | 1 | Placeholder: the structured logical program. | no |
 | [`Refine/`](Refine/README.md) | 2 | Placeholder: specification refinement. | no |
 
-`MachineChecked.lean` imports every module except `X86/Kraken.lean`: Kraken defines
-`List.allSome` at the top level, and so does Batteries, which other modules import, so the two
-cannot share an environment until Kraken renames its definition. The library still builds
-`X86/Kraken.lean`.
+`MachineChecked.lean` imports every module.
 
 ## How a proof goes today
 
