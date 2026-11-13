@@ -9,6 +9,10 @@
   address, an indirect target off its list). A relation, so that a step may have many
   results (an external call). A deterministic partial step function is one (`detStep`).
 
+  A step may also make events observable: `step : σ → Outcome (σ × List E) → Prop`. The
+  judgement does not look at them, so it is stated over the step with its events forgotten
+  (`erase`). What the events are for is `Ascent/Refine.lean`.
+
   `SafeN step accept G n Q s`: every run from `s` of fewer than `n` steps, every state of
   which satisfies the guard `G`, never ends in `wrong`, and ends only in accepting states that
   satisfy `Q`. Partial correctness: a run that traps or diverges is safe. Contracts are stated
@@ -24,7 +28,7 @@
 
   ## Main definitions
 
-  * `Outcome`, `detStep`, `Run`, `SafeN`, `Good`
+  * `Outcome`, `detStep`, `erase`, `silent`, `Run`, `SafeN`, `Good`
 
   ## Main results
 
@@ -64,6 +68,42 @@ theorem detStep_of_none {f : σ → Option σ} {s : σ} (h : f s = none) {o : Ou
 
 theorem detStep_ne_wrong {f : σ → Option σ} {s : σ} : ¬ detStep f s .wrong := by
   unfold detStep; split <;> simp
+
+/-! ## Events -/
+
+/-- A step with events, its events forgotten. -/
+def erase {E : Type} (R : σ → Outcome (σ × List E) → Prop) (s : σ) : Outcome σ → Prop
+  | .ok t => ∃ es, R s (.ok (t, es))
+  | .trap => R s .trap
+  | .wrong => R s .wrong
+
+/-- A step without events as a step with events: it makes none. -/
+def silent {E : Type} (R : σ → Outcome σ → Prop) (s : σ) : Outcome (σ × List E) → Prop
+  | .ok (t, es) => es = [] ∧ R s (.ok t)
+  | .trap => R s .trap
+  | .wrong => R s .wrong
+
+theorem erase_silent {E : Type} (R : σ → Outcome σ → Prop) (s : σ) (o : Outcome σ) :
+    erase (silent (E := E) R) s o ↔ R s o := by
+  cases o <;> simp [erase, silent]
+
+/-- A step with one result has one result once its events are forgotten. -/
+theorem erase_eq_ok {E : Type} {R : σ → Outcome (σ × List E) → Prop} {s t : σ} {es : List E}
+    (h : ∀ o, R s o → o = .ok (t, es)) : ∀ o, erase R s o → o = .ok t := by
+  intro o ho
+  cases o with
+  | ok t' => obtain ⟨es', h'⟩ := ho; cases h _ h'; rfl
+  | trap => cases h _ ho
+  | wrong => cases h _ ho
+
+/-- A step that only traps only traps once its events are forgotten. -/
+theorem erase_eq_trap {E : Type} {R : σ → Outcome (σ × List E) → Prop} {s : σ}
+    (h : ∀ o, R s o → o = .trap) : ∀ o, erase R s o → o = .trap := by
+  intro o ho
+  cases o with
+  | ok t' => obtain ⟨es', h'⟩ := ho; cases h _ h'
+  | trap => rfl
+  | wrong => cases h _ ho
 
 /-- A run of exactly `m` steps from `s` ending in `o`, every state of which satisfies `G`. -/
 inductive Run (step : σ → Outcome σ → Prop) (G : σ → Prop) : Nat → σ → Outcome σ → Prop

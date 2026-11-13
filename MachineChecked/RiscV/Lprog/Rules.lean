@@ -116,7 +116,7 @@ theorem lsafe_write (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts re
     LSafeN fs G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ := by
   refine SafeN.ext hf hb
     (fun ha => absurd (ha.1.symm.trans ((hag.regs .x5).trans ht0)) (by decide : (0#64 : Word) ≠ 2#64))
-    sp1Ctx_ext_ne_wrong fun r' m' he => ?_
+    sp1Ctx_ext_ne_wrong fun r' m' _ he => ?_
   obtain ⟨w, hagw, hcw, hw⟩ := he
   have h5 : w.getReg .x5 = 2#64 := (hagw.regs .x5).symm.trans ((hag.regs .x5).trans ht0)
   have h10 : w.getReg .x10 ≠ 13#64 := fun e => hfd ((hag.regs .x10).symm.trans ((hagw.regs .x10).trans e))
@@ -131,7 +131,7 @@ theorem lsafe_write (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts re
     simp [h5, h10]
   rw [hstep] at hw
   simp only [Outcome.ok.injEq, Prod.mk.injEq] at hw
-  obtain ⟨rfl, rfl⟩ := hw
+  obtain ⟨⟨rfl, rfl⟩, -⟩ := hw
   exact h _ _ ((agree_ofParts_regsOf _).trans ((agree_setPC w _).symm.trans (hagw.symm.trans hag)))
 
 end Rules

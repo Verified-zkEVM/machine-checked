@@ -105,6 +105,18 @@ def liftCtl (fs : List Fn) (len k : Nat) (pc : Word) : Instr → LinstrR (Op Reg
 def liftI (fs : List Fn) (len k : Nat) (pc : Word) (i : Instr) : LinstrR (Op Reg) Reg :=
   if opnOk i then .Lopn (opOf i) else liftCtl fs len k pc i
 
+/-- Only `ecall` lifts to an external call. -/
+theorem liftI_eq_ext {fs : List Fn} {len k : Nat} {pc : Word} {i : Instr}
+    (h : liftI fs len k pc i = .Lext) : i = .ECALL := by
+  unfold liftI at h
+  split at h
+  · cases h
+  · cases i <;> first
+      | rfl
+      | (simp only [liftCtl, liftBr, liftJal, liftJalr] at h
+         repeat' split at h
+         all_goals cases h)
+
 /-- Instructions from index `k` on, lifted. -/
 def liftFrom (fs : List Fn) (base : Word) (len : Nat) : Nat → List Instr → Lcmd (Op Reg) Reg
   | _, [] => []
@@ -125,11 +137,11 @@ def liftProg (fs : List Fn) : Lprog (Op Reg) Reg := fs.map (liftFn fs)
 
 /-- **SP1's execution context.** An external call may end in any outcome riscv-zkvm's
     `ecall` gives from a machine state at an `ecall` that agrees with the Lprog state; it
-    accepts at `HALT` (`t0 = 0`) with exit code `0`. -/
-def sp1Ctx : Context rvIsa where
+    accepts at `HALT` (`t0 = 0`) with exit code `0`. It makes no events yet. -/
+def sp1Ctx : Context rvIsa Unit where
   ext regs m o := ∃ u, Agree (ofParts regs m) u ∧ u.code u.pc = some .ECALL ∧
     match sp1Ecall u with
-    | some t => o = .ok (regsOf t, t)
+    | some t => o = .ok ((regsOf t, t), [])
     | none => o = .trap
   accept regs m := (ofParts regs m).getReg .x5 = 0 ∧ (ofParts regs m).getReg .x10 = 0
 

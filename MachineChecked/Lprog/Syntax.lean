@@ -93,7 +93,7 @@ structure Lfundef (Op Reg : Type) where
   /-- The most stack the function uses below its entry stack pointer, callees excluded. An
       annotation for contracts: no step reads it. -/
   depth : Nat := 0
-  deriving Repr
+  deriving DecidableEq, Repr
 
 /-- A program (`Linear.lprog`): its functions, named by index. -/
 abbrev Lprog (Op Reg : Type) := List (Lfundef Op Reg)
