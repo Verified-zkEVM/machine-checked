@@ -195,7 +195,8 @@ proofs go through the lift.
    instance of a context.
 4. **The structured logical program (layer 1)** as Pancake, with Flapjack's semantics, and the
    decompiling lift into it, per function and possibly partial. Recompiling its output with
-   Flapjack is the first sanity check.
+   Flapjack is the first sanity check. The plan for the decompiler, from a RISC-V binary up
+   to Pancake with its inverse theorems, is `docs/design/Decompiler.md`.
 5. **Program logics at layer 1, and specification refinement (layer 2),** driven by the
    first targets.
 6. **AArch64 and x86-64.** Both semantics are required (Kraken's x64 and arm64-semantics,

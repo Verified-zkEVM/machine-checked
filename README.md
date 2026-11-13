@@ -103,6 +103,8 @@ To check one file while working, use `lake env lean path/to/File.lean`.
 - [`docs/ELF.md`](docs/ELF.md): what the toolchain can tell us and what is trusted (the trust
   ladder, §4).
 - [`docs/LogicalMachine.md`](docs/LogicalMachine.md): a design sketch of layer 1.
+- [`docs/design/Decompiler.md`](docs/design/Decompiler.md): the plan for the verified
+  decompiler, from a binary up to linear Jasmin and Pancake.
 - [`docs/ISA.md`](docs/ISA.md): the canonical specification for each instruction set.
 - [`docs/notes/`](docs/notes/README.md): working notes, archived.
 
