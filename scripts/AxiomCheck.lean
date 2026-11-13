@@ -10,6 +10,7 @@
 import MachineChecked
 
 -- the lift
+#print axioms MachineChecked.Lprog.parse_print
 #print axioms MachineChecked.RiscV.Lprog.opOf_spec
 #print axioms MachineChecked.RiscV.Lprog.transfer
 #print axioms MachineChecked.RiscV.Lprog.SafeN.of_lift

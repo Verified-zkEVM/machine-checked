@@ -32,5 +32,6 @@ import MachineChecked.Lprog.Expr
 import MachineChecked.Lprog.Syntax
 import MachineChecked.Lprog.Sem
 import MachineChecked.Lprog.Op
+import MachineChecked.Lprog.Text
 import MachineChecked.ARM.Arm64
 import MachineChecked.X86.Kraken
