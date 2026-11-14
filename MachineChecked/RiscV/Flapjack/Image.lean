@@ -75,7 +75,7 @@ def words : List (BitVec 32) :=
 /-- The image as code without functions. -/
 def code' : Code where
   base := codeBase
-  prog := img.words.map RiscvZkvm.Interpreter.decode
+  prog := img.words.map decodeWord
   entry := entryAt
 
 /-- The words `panInstalled` asks for at the start of the heap. -/

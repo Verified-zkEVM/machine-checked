@@ -9,8 +9,8 @@
   function boundaries left, and reaches its execution environment by jumping to fixed
   addresses outside the code. `liftFlat` lifts such code as one body:
 
-  * an operation, `auipc` and a branch as in `liftProg`; a word that is no instruction is
-    `Labort`;
+  * an operation, `auipc` and a branch as in `liftProg`, and the operations riscv-zkvm lacks
+    (`Decode.lean`); a word that is no instruction is `Labort`;
   * `jal` to an instruction is a goto (after writing the link register, if it has one), and
     `jal` to an entry of the environment (`Code.entry`) is `Lext`, then a jump to `ra`;
   * `jalr` is an indirect jump, `Ligoto`, among the candidates `cands`: the addresses the
@@ -28,6 +28,7 @@
 -/
 
 import MachineChecked.RiscV.Lprog.Lift
+import MachineChecked.RiscV.Lprog.Decode
 
 namespace MachineChecked.RiscV.Lprog
 
@@ -37,8 +38,8 @@ open RiscvZkvm.Rv64 MachineChecked.Lprog
     execution environment, by address. -/
 structure Code where
   base : Word
-  /-- The decoded words; `none` is a word that is no instruction. -/
-  prog : List (Option Instr)
+  /-- The decoded words. -/
+  prog : List Decoded
   /-- The entry of the environment at an address outside the code. -/
   entry : Word → Option Nat
 
@@ -57,12 +58,12 @@ def indexOf (a : Word) : Option Nat :=
 def formed (k : Nat) : List Word :=
   let pc := c.base + BitVec.ofNat 64 (4 * k)
   match c.prog[k]? with
-  | some (some (.AUIPC rd imm)) =>
+  | some (.instr (.AUIPC rd imm)) =>
     let v := pc + auipcOff imm
     match c.prog[k + 1]? with
-    | some (some (.ADDI rd' rs off)) => if rd' = rd ∧ rs = rd then [v, v + signExtend12 off] else [v]
+    | some (.instr (.ADDI rd' rs off)) => if rd' = rd ∧ rs = rd then [v, v + signExtend12 off] else [v]
     | _ => [v]
-  | some (some (.JAL rd _)) | some (some (.JALR rd _ _)) => if rd = .x0 then [] else [pc + 4]
+  | some (.instr (.JAL rd _)) | some (.instr (.JALR rd _ _)) => if rd = .x0 then [] else [pc + 4]
   | _ => []
 
 /-- **The candidates of a computed jump**: the instructions whose addresses the code forms,
@@ -72,9 +73,10 @@ def cands : List (Word × LLabel) :=
     (c.formed k).filterMap fun a => (c.indexOf a).map fun l => (a, l)).eraseDups
 
 /-- One instruction, at index `k`. -/
-def liftI (cs : List (Word × LLabel)) (k : Nat) : Option Instr → Lcmd (Op Reg) Reg
-  | none => [.Labort]
-  | some i =>
+def liftI (cs : List (Word × LLabel)) (k : Nat) : Decoded → Lcmd (Op Reg) Reg
+  | .none => [.Labort]
+  | .op o => [.Lopn o]
+  | .instr i =>
     let pc := c.base + BitVec.ofNat 64 (4 * k)
     let len := c.prog.length
     let link (rd : Reg) : Lcmd (Op Reg) Reg := if rd = .x0 then [] else [.Lopn (.set rd (.imm (pc + 4)))]
