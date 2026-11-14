@@ -75,8 +75,8 @@ inductive LinstrR (Op Reg : Type) where
   /-- Call `target` in place of the current function, returning to its caller. -/
   | Ltail (target : Target Reg)
   | Lret
-  /-- A call into the execution environment (a system call). -/
-  | Lext
+  /-- A call into the execution environment (a system call): entry `n` of it. -/
+  | Lext (n : Nat)
   /-- A point the program must not reach: the lift's marker for what it does not cover. -/
   | Labort
   deriving DecidableEq, Repr

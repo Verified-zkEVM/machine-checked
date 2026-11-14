@@ -144,6 +144,18 @@ both need the outermost return address outside the code. SP1's context makes no 
 Phase 1: `Lprog/Text.lean` (`parse_print`, on tokens; the tool checks the step from tokens to
 text on what it writes) and `lake exe decompile --to lprog` (`Tools/README.md`).
 
+**Phases 2 and 3 are built, as a program that runs; nothing in them is proved.** Flapjack is
+required for its Pancake syntax, at its branch `lean-v4.36-frontend` (the five modules
+needed build on both toolchains). `lake exe decompile --to pancake IMAGE.fjimg` takes a
+Flapjack image through lift 1 for code without functions (`RiscV/Lprog/Flat.lean`,
+`RiscV/Flapjack/`) and lift 2's baseline (`Logical/Lift.lean`) to Pancake text
+(`Logical/Pancake.lean`). The sanity check is `scripts/decompile-check`: 552 binaries
+decompiled, recompiled by Flapjack (at flapjack-flip's pin and at its `main`) and run against
+the originals, all agreeing; its README
+says what that does and does not show. Two things differ from the table: the image's
+meaning as an execution context is not defined yet (it needs an Lprog instance for RISC-V
+without SP1's memory check), and the printer lives here, not upstream.
+
 ## 8. Risks
 
 - **Toolchain.** Flapjack on v4.36, and the size of its proof (about 4,000 modules to import
