@@ -1,17 +1,21 @@
 /-
   Tools.Decompile
 
-  `decompile --to lprog ELF NM [OUT]`: a RISC-V binary as an Lprog program, in text
-  (`docs/design/Decompiler.md`).
+  `decompile --to lprog|pancake BINARY [OUT]`: a RISC-V binary as an Lprog program, in text,
+  or as a Pancake program (`docs/design/Decompiler.md`).
 
-  The functions are the sized text symbols of `NM` (`llvm-nm -S --defined-only ELF`) whose
-  words all decode, with riscv-zkvm's decoder. The program is `liftProg` of them, the lift
-  that `RiscV/Lprog/Equiv.lean` proves equivalent to the machine; the text is `toText` of it
-  (`Lprog/Text.lean`), and the tool reads its own text back and fails unless it gets the
-  program it wrote.
+  An ELF goes by the lift of whole programs (`RiscV/Lprog/Whole.lean`) and, to Pancake, by
+  lift 2 in SP1's environment (`RiscV/Sp1/Pancake.lean`). Its functions are its text symbols,
+  read from its own symbol table, and the hints of the lift are the addresses of code it
+  holds as values. A Flapjack image goes by the lift of code without functions. Nothing on
+  these routes is proved: they are checked by running (`scripts/decompile-check`).
 
-  A function that is not word-aligned, lies outside the executable segments or has a word
-  that does not decode is left out and named in a comment: a call to it is an `abort`.
+  `--to lprog --proved` is `liftProg` of the ELF's functions, the lift that
+  `RiscV/Lprog/Equiv.lean` proves equivalent to the machine. A function with a word that
+  riscv-zkvm does not decode is left out there and named in a comment.
+
+  Lprog text is `toText` (`Lprog/Text.lean`); the tool reads its own text back and fails
+  unless it gets the program it wrote.
 
   Untrusted, as every tool here: nothing proved is about this file. What it relies on is
   listed in `Tools/README.md`.

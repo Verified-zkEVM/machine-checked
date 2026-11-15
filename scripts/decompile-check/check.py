@@ -35,7 +35,9 @@ counts included. `expected.txt` was written by flapjack-flip's own machine (risc
 one statement of the Pancake text assigns to a register or stores, compile and run as `run`
 does, and count the changed programs that `run` would have failed. A change in code the
 test never reaches, or to a value nothing reads, goes unnoticed, so the count is a floor on
-what the tests see, not a pass or fail.
+what the tests see, not a pass or fail. For a guest the changed statement is marked
+(`sp1run.py`), so the count is also given among the changes some input reaches: most of a
+guest is its runtime, which one program runs little of.
 
 Exit status 0 only if everything passes.
 """
@@ -229,9 +231,12 @@ def mutants(args):
     work = args.work or tempfile.mkdtemp(prefix="decompile-mutants-")
 
     def one(t):
+        """Whether the change to test `t` is reached (`None` if that is not known) and
+        whether it is caught."""
         d = os.path.join(work, t)
         os.makedirs(d, exist_ok=True)
         src = os.path.join(d, "source.pnk")
+        guest = original(os.path.join(args.tests, t)).endswith(".elf")
         if sh([DECOMPILE, "--to", "pancake", original(os.path.join(args.tests, t)), src]).returncode:
             return None
         lines = open(src).read().split("\n")
@@ -241,19 +246,30 @@ def mutants(args):
             return None
         i = rng.choice(sites)
         lines[i] = ASSIGN.sub(r"\1\2(\3 ^ 1);", lines[i])
+        if guest:
+            lines.insert(i, ASSIGN.match(lines[i]).group(1) + "@mark(0, 0, 0, 0);")
         mut = os.path.join(d, "mutant.pnk")
         open(mut, "w").write("\n".join(lines))
         p = sh([args.fjc, mut])
         if p.returncode:
-            return True
+            return None, True
         img = os.path.join(d, "mutant.fjimg")
         open(img, "w").write(p.stdout)
         expected = open(os.path.join(args.tests, t, "expected.txt")).read()
-        return STEPS.sub("", sh(runner(os.path.join(args.tests, t)) + [img]).stdout) != STEPS.sub("", expected)
+        got = sh(runner(os.path.join(args.tests, t)) + [img]).stdout
+        plain = got.replace("\n(marked)", "")
+        return ("(marked)" in got) if guest else None, STEPS.sub("", plain) != STEPS.sub("", expected)
 
     with ThreadPoolExecutor(args.j) as ex:
         res = [r for r in ex.map(one, tests(args.tests)) if r is not None]
-    print(f"mutants: {sum(res)}/{len(res)} one-bit changes are caught")
+    caught = sum(c for _, c in res)
+    print(f"mutants: {caught}/{len(res)} one-bit changes are caught")
+    known = [(r, c) for r, c in res if r is not None]
+    if known:
+        reached = [c for r, c in known if r]
+        print(f"mutants: {len(reached)}/{len(known)} of the changes are reached by some input, "
+              f"and {sum(reached)}/{len(reached)} of those are caught; "
+              f"{sum(c for r, c in known if not r)} unreached ones are caught")
     return True
 
 

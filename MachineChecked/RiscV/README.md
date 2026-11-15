@@ -26,8 +26,14 @@ semantics in the repository. The execution context is SP1.
 
 [`Lprog/`](Lprog/README.md): `rvIsa`, the translation of each instruction into a shared
 operation (proved against riscv-zkvm), `lift`, and the simulation that carries Lprog runs down
-to `stepSp1`. This is the intended route for new proofs. `Lprog/Flat.lean` lifts code that
-has no functions, as one body with computed jumps; nothing is proved of it yet.
+to `stepSp1`. This is the intended route for new proofs. `Lprog/Whole.lean` lifts a whole program as
+rustc and its linker emit it, and `Lprog/Flat.lean` code that has no functions; nothing is
+proved of these two yet.
+
+## SP1 guests, to Pancake
+
+[`Sp1/`](Sp1/README.md): an SP1 guest ELF as a Pancake program, through `Lprog/Whole.lean`
+and lift 2, with its memory at its own addresses and `ecall` as an FFI call.
 
 ## Flapjack images
 

@@ -17,6 +17,8 @@ a stream of two hint vectors.
   whole address space (`RiscV/Sp1/Pancake.lean`): it reads and writes the guest's addresses.
   Its FFI function `ecall` is the same system call, on the four values it is passed; the new
   `t0` and `a0` are left at `SCRATCH`. Its FFI function `trap` says the program gave up.
+  An FFI function `mark` does nothing but have the run say `(marked)`: `check.py mutants`
+  puts a call of it where it changes a program, to know whether the change was reached.
 
 The output has one line for each system call (its number, its arguments, the bytes it read
 from memory or wrote to it), the final status and the steps. For an image that is the
@@ -152,11 +154,18 @@ def run_image(img, inp, seen=None):
             return "fault"
         return said[0] if said else "returned without halting"
 
+    marked = []
+
+    def mark(r):
+        marked.append(True)
+        return r[1]
+
     stops = {(CODE - 16) & M: halt, (CODE - 32) & M: lambda r: "fault"}
     for i, name in enumerate(img.ffi):
-        stops[(CODE - 16 * (i + 3)) & M] = {"ecall": ecall, "trap": lambda r: f"gave up (trap {r[10]})"}.get(name, lambda r: "fault")
+        stops[(CODE - 16 * (i + 3)) & M] = {"ecall": ecall, "mark": mark,
+                                            "trap": lambda r: f"gave up (trap {r[10]})"}.get(name, lambda r: "fault")
     reason, steps = rv64.run(words, CODE, r, mem, CODE, IMAGE_FUEL, stops, None, None, seen)
-    return world.events, status_of(reason), steps
+    return world.events, status_of(reason) + ("\n(marked)" if marked else ""), steps
 
 
 def load(path):
