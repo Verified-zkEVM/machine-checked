@@ -147,6 +147,8 @@ structure St where
   /-- The candidate lists of the indirect calls: list `j` is searched by the function
       `l_call{j}`. -/
   tables : Array (List Nat) := #[]
+  /-- Where the program may go `wrong`, each place described. -/
+  traps : Array String := #[]
 
 abbrev M := StateM St
 

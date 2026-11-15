@@ -14,8 +14,8 @@
     arguments. The environment does what SP1 does, to the same memory, and leaves the new
     values of `t0` and `a0` in two words at `scratch`, which the program reads back. After
     `HALT` (`t0 = 0`) the program ends.
-  * **`wrong`** is the FFI call `@trap(0, 0, 0, 0)`, then a loop: the environment sees that
-    the program gave up, and nothing follows.
+  * **`wrong`** is `l_trap(n)`: the FFI call `@trap(n, 0, 0, 0)`, then a loop. The
+    environment sees that the program gave up, and at which place, and nothing follows.
   * The registers start as zero.
 
   Nothing is proved here. It is checked by running (`scripts/decompile-check`).
@@ -49,9 +49,14 @@ def perInit : Nat := 256
 
 private def reg (r : Reg) : String := RegText.name r
 
-/-- Where the guest goes `wrong`. -/
-def trap : _root_.Flapjack.Prog Pancake.W :=
-  seq [.extCall "trap" (num 0) (num 0) (num 0) (num 0), .while (num 1) .skip]
+/-- Where the guest goes `wrong`: a call of `l_trap`, which does not come back. -/
+def trap (place : Nat) : _root_.Flapjack.Prog Pancake.W :=
+  .call (some (none, none)) "l_trap" [num place]
+
+/-- `l_trap(n)`: tell the environment the program gave up at place `n`, and go no further. -/
+def trapFn : _root_.Flapjack.Decl Pancake.W :=
+  fn "l_trap" ["n"] <| seq
+    [.extCall "trap" (Lift.var "n") (num 0) (num 0) (num 0), .while (num 1) .skip, .return (num 0)]
 
 namespace Guest
 
@@ -66,7 +71,7 @@ def inits : List (_root_.Flapjack.Decl Pancake.W) :=
 def env : Env where
   regs := [reg .x5, reg .x10, reg .x11, reg .x12]
   init := (List.range g.inits.length).map fun k => .call (some (none, none)) s!"l_init{k}" []
-  decls := g.inits
+  decls := trapFn :: g.inits
   wrong := trap
   ext n stop :=
     if n = 0 then
@@ -81,7 +86,7 @@ def env : Env where
 def lift : Lprog (Op Reg) Reg := g.whole.liftWhole
 
 /-- **The guest as a Pancake program.** -/
-def toPancake : Except String (List (_root_.Flapjack.Decl Pancake.W)) := do
+def toPancake : Except String (List (_root_.Flapjack.Decl Pancake.W) × List String) := do
   let some entry := g.whole.entryOf g.entry | throw "the entry of the ELF is no function of it"
   Logical.lift g.env allRegs .x1 .x2 entry g.lift
 

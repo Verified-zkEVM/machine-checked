@@ -21,15 +21,16 @@
   * The body is **structured** where the control flow of the function is reducible
     (`Logical/Structure.lean`): `if`, `while`, `break` and `continue`. Pancake leaves only the
     innermost loop, so a jump out of several sets `lbr` and each loop on the way passes it on.
-  * Otherwise, and for a function too long for the compiler (`big`), the body is a **loop over
-    its blocks**: a counter `lpc` names the block to run next, and the blocks are dealt out to
+  * Otherwise, and for a function too long or too deeply nested for the compiler (`big`,
+    `deep`), the body is a **loop over its blocks**: a counter `lpc` names the block to run next, and the blocks are dealt out to
     functions of a few each (`f_c0(top)`, …), which is what keeps a long function compilable.
   * Within a run of code the values of registers that are constants are known, so that
     `auipc` and the `jalr` after it are a call of a named function.
   * `Lext n` is what the execution environment says (`Env.ext`), given the statement that
     ends the program: `throw l_halt 0`, which `main` catches.
   * Where the Lprog program goes `wrong` (`Labort`, a jump or call outside its candidates,
-    running off the end), the Pancake program does what the environment says (`Env.wrong`).
+    running off the end), the Pancake program does what the environment says (`Env.wrong`),
+    which is told the number of the place; `lift` gives a description of each place.
 
   `main` installs the program (`Env.init`) and calls its entry.
 
@@ -57,9 +58,10 @@ structure Env where
   /-- Entry `n` of the environment, as a statement, given the statement that ends the
       program; `none` if there is no such entry. -/
   ext : Nat → Prog W → Option (Prog W)
-  /-- What to do where the Lprog program goes `wrong`. Any behaviour would do, `wrong` being
-      undefined; it should be one that cannot be mistaken for the program's. -/
-  wrong : Prog W
+  /-- What to do where the Lprog program goes `wrong`, given the number of the place. Any
+      behaviour would do, `wrong` being undefined; it should be one that cannot be mistaken
+      for the program's. -/
+  wrong : Nat → Prog W
   /-- Registers `init` and `ext` name. -/
   regs : List String
   /-- Functions `init` calls. -/
@@ -157,6 +159,10 @@ structure Cx (Reg : Type) where
   names : Array String
   addrs : Array (BitVec 64)
 
+/-- The statement for a place where the program goes `wrong`, described by `what`. -/
+def trap (env : Env) (what : String) : M (Prog W) :=
+  modifyGet fun s => (env.wrong s.traps.size, { s with traps := s.traps.push what })
+
 /-- The labels something jumps to. -/
 def targets (body : Lcmd (Op Reg) Reg) : List Nat :=
   body.flatMap fun
@@ -185,15 +191,14 @@ def callee (cx : Cx Reg) (known : List (String × BitVec 64)) :
 
 /-- The body of a function as blocks, the entry first. Code after a jump and before the next
     label something jumps to is never run, and is dropped. -/
-def blocks (cx : Cx Reg) (body : Lcmd (Op Reg) Reg) : ExceptT String M (List Block) := do
+def blocks (cx : Cx Reg) (name : String) (body : Lcmd (Op Reg) Reg) : ExceptT String M (List Block) := do
   let .Llabel _ entry :: _ := body | throw "a function does not start at a label"
   let ts := targets body
   let isLeader : Std.HashSet Nat := (Std.HashSet.ofList ts).insert entry
   let link := RegText.name cx.link
   let sp := RegText.name cx.sp
   let stop : Prog W := .raise halt (num 0)
-  let wrong := cx.env.wrong
-  let backAt : List (Prog W) := [when (.cmp .notEqual (gvar sp) (var top)) [wrong]]
+  let backAt (wrong : Prog W) : List (Prog W) := [when (.cmp .notEqual (gvar sp) (var top)) [wrong]]
   let mut out : Array Block := #[]
   -- numbers for the blocks that start at no label
   let mut next := body.foldl (fun m i => match i with | .Llabel _ l => max m (l + 1) | _ => m) 0
@@ -201,10 +206,15 @@ def blocks (cx : Cx Reg) (body : Lcmd (Op Reg) Reg) : ExceptT String M (List Blo
   let mut cur : Option Nat := none
   let mut acc : Array (Prog W) := #[]
   let mut known : List (String × BitVec 64) := []
+  -- the label the instructions are after
+  let mut at_ := entry
   for i in body do
     modify fun s => { s with temps := 0 }
+    let wrongFor (what : String) : ExceptT String M (Prog W) :=
+      liftM (m := M) (trap cx.env s!"{name}, after label {at_}: {what}")
     match i, cur with
     | .Llabel _ l, _ =>
+      at_ := l
       if isLeader.contains l then
         if let some c := cur then out := out.push ⟨c, acc.toList, [], .goto l⟩
         cur := some l
@@ -227,12 +237,12 @@ def blocks (cx : Cx Reg) (body : Lcmd (Op Reg) Reg) : ExceptT String M (List Blo
           cur := some next
           acc := #[]
           next := next + 1
-        | none => last := some ([wrong], .exit)
+        | none => last := some ([← wrongFor "a condition Pancake cannot state"], .exit)
       | .Ligoto e cs =>
         match fold known e with
         | .imm v => match cs.find? (·.1 == v) with
           | some (_, l) => last := some ([], .goto l)
-          | none => last := some ([wrong], .exit)
+          | none => last := some ([← wrongFor "a jump to an address that is none of its candidates"], .exit)
         | e' =>
           let (ps, x) ← expr e'
           last := some (ps ++ [gset lia x], .switch (gvar lia) cs)
@@ -240,26 +250,32 @@ def blocks (cx : Cx Reg) (body : Lcmd (Op Reg) Reg) : ExceptT String M (List Blo
         match ← callee cx known tgt with
         | some (ps, f, args) =>
           acc := acc ++ ps ++ [gset link (.const ret), .call (some (none, none)) f args,
-            when (.cmp .notEqual (gvar link) (.const ret)) [wrong]]
-        | none => last := some ([wrong], .exit)
+            when (.cmp .notEqual (gvar link) (.const ret))
+              [← wrongFor "the call came back with another return address"]]
+        | none => last := some ([← wrongFor "a call of no function of the program"], .exit)
         known := []
       | .Ltail tgt =>
         match ← callee cx known tgt with
-        | some (ps, f, args) => last := some (backAt ++ ps ++ [.call none f args], .exit)
-        | none => last := some ([wrong], .exit)
-      | .Lret => last := some (backAt ++ [.return (num 0)], .exit)
+        | some (ps, f, args) =>
+          last := some (backAt (← wrongFor "a tail call with the stack pointer not back") ++ ps ++
+            [.call none f args], .exit)
+        | none => last := some ([← wrongFor "a tail call of no function of the program"], .exit)
+      | .Lret =>
+        last := some (backAt (← wrongFor "a return with the stack pointer not back") ++
+          [.return (num 0)], .exit)
       | .Lext n =>
         match cx.env.ext n stop with
         | some p => acc := acc.push p
-        | none => last := some ([wrong], .exit)
+        | none => last := some ([← wrongFor "an entry the environment does not have"], .exit)
         known := []
-      | .Labort => last := some ([wrong], .exit)
+      | .Labort => last := some ([← wrongFor "an instruction the lift does not cover"], .exit)
       | .Llabel .. => pure ()
       if let some (ps, t) := last then
         out := out.push ⟨c, acc.toList, ps, t⟩
         cur := none
   -- running off the end
-  if let some c := cur then out := out.push ⟨c, acc.toList, [wrong], .exit⟩
+  if let some c := cur then
+    out := out.push ⟨c, acc.toList, [← liftM (m := M) (trap cx.env s!"{name}: running off its end")], .exit⟩
   return out.toList
 
 /-! ## A structured body -/
@@ -460,6 +476,14 @@ def big : Nat := 3000
 /-- The most candidates of an indirect jump in a structured body. -/
 def wide : Nat := 16
 
+/-- The most statements of a way out of a function that is copied to where it is taken
+    (`Structure.copied`). -/
+def short : Nat := 24
+
+/-- The deepest nesting of loops in a structured body: Flapjack's time grows fast with
+    it. -/
+def deep : Nat := 10
+
 /-- The most statements in a row: a longer run is dealt out to functions of its own, for the
     same reason. -/
 def long : Nat := 64
@@ -484,8 +508,8 @@ def outline (name : String) (bs : List Block) : List Block × List (Decl W) := I
 /-- A function, lifted: structured if it can be. -/
 def function (cx : Cx Reg) (name : String) (fd : Lfundef (Op Reg) Reg) :
     ExceptT String M (List (Decl W)) := do
-  let (bs, runFns) := outline name (← blocks cx fd.body)
-  let wrong := cx.env.wrong
+  let (bs, runFns) := outline name (← blocks cx name fd.body)
+  let wrong ← liftM (m := M) (trap cx.env s!"{name}: a jump to an address that is none of its candidates")
   let sp := RegText.name cx.sp
   let index : Std.HashMap Nat Nat := Std.HashMap.ofList (bs.zipIdx.map fun (b, k) => (b.id, k))
   let arr := bs.toArray
@@ -493,12 +517,17 @@ def function (cx : Cx Reg) (name : String) (fd : Lfundef (Op Reg) Reg) :
   let small := fd.body.length ≤ 2 * big && bs.all fun b => match b.term with
     | .switch _ cs => cs.length ≤ wide
     | _ => true
-  match (if small then Structure.«structure» succs else none) with
+  let cost := arr.map fun b => b.code.length + b.last.length
+  match (if small then (Structure.«structure» succs cost short).filter (·.depth ≤ deep) else none) with
   | some s =>
     let (ps, pending) := emit wrong (fun k => arr[k]?) s []
     if !pending.isEmpty then throw s!"{name}: a jump out of a loop goes nowhere"
     let usesLbr := ps.any (assigns lbr)
-    let body := seq (ps ++ [.return (num 0)])
+    -- Flapjack wants a return it can see on every path
+    let returns := match ps.getLast? with
+      | some (.return _) | some (.call none _ _) => true
+      | _ => false
+    let body := seq (ps ++ if returns then [] else [.return (num 0)])
     return runFns ++ [fn name [] <| .dec top .one (gvar sp) <|
       if usesLbr then .dec lbr .one (num 0) body else body]
   | none => return runFns ++ looped wrong sp name bs
@@ -519,7 +548,7 @@ open Lift in
     `env` and calls its function `entry`. `regs` are its registers, `link` and `sp` the link
     register and the stack pointer of its instruction set. -/
 def lift {Reg : Type} [RegText Reg] (env : Env) (regs : List Reg) (link sp : Reg) (entry : Nat)
-    (p : Lprog (Op Reg) Reg) : Except String (List (Decl W)) := do
+    (p : Lprog (Op Reg) Reg) : Except String (List (Decl W) × List String) := do
   let fnames := names p
   let cx : Cx Reg := { env, link, sp, names := fnames, addrs := (p.map (·.addr)).toArray }
   let some start := fnames[entry]? | throw "the program has no such entry"
@@ -528,9 +557,11 @@ def lift {Reg : Type} [RegText Reg] (env : Env) (regs : List Reg) (link sp : Reg
   let (r, st) := all.run.run {}
   let fns ← r
   -- the functions that search the candidates of the indirect calls
+  let noCallee := env.wrong st.traps.size
+  let traps := st.traps.toList ++ ["an indirect call of an address that is none of its candidates"]
   let calls := st.tables.toList.zipIdx.map fun (cands, j) =>
     fn s!"l_call{j}" ["a"] <| seq
-      [find env.wrong (var "a") (cands.filterMap fun f => do
+      [find noCallee (var "a") (cands.filterMap fun f => do
           some ((← cx.addrs[f]?).toNat, .call none (← fnames[f]?) [])),
        .return (num 0)]
   let globals := (regs.map RegText.name ++ env.regs).eraseDups ++
@@ -542,7 +573,8 @@ def lift {Reg : Type} [RegText Reg] (env : Env) (regs : List Reg) (link sp : Reg
       [.call (some (some (.local, r), some (halt, r, .return (num 0)))) start [],
        .return (num 0)]]
   let called := st.called.flatMap fun f => needs f ++ [f]
-  return [Decl.exnDecl halt .one] ++ globals.map (fun x => Decl.decl .one x (num 0)) ++
-    (helpers.filter (called.contains ·.1) |>.map (·.2)) ++ env.decls ++ calls ++ fns.flatten ++ [main]
+  return ([Decl.exnDecl halt .one] ++ globals.map (fun x => Decl.decl .one x (num 0)) ++
+    (helpers.filter (called.contains ·.1) |>.map (·.2)) ++ env.decls ++ calls ++ fns.flatten ++ [main],
+    traps)
 
 end MachineChecked.Logical

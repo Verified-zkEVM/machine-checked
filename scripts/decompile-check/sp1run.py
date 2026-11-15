@@ -154,7 +154,7 @@ def run_image(img, inp, seen=None):
 
     stops = {(CODE - 16) & M: halt, (CODE - 32) & M: lambda r: "fault"}
     for i, name in enumerate(img.ffi):
-        stops[(CODE - 16 * (i + 3)) & M] = {"ecall": ecall, "trap": lambda r: "gave up"}.get(name, lambda r: "fault")
+        stops[(CODE - 16 * (i + 3)) & M] = {"ecall": ecall, "trap": lambda r: f"gave up (trap {r[10]})"}.get(name, lambda r: "fault")
     reason, steps = rv64.run(words, CODE, r, mem, CODE, IMAGE_FUEL, stops, None, None, seen)
     return world.events, status_of(reason), steps
 

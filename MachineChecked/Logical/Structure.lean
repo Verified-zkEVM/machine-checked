@@ -12,6 +12,11 @@
   loop again. It works exactly on the reducible graphs (every backward edge goes to a node
   that dominates its source); for any other, `structure` gives `none`.
 
+  One thing is added. A node from which the function only ends, in a few statements (a
+  return, a call that does not come back), is copied to each place that jumps to it
+  (`copied`). A compiler shares such code among the paths that reach it, and each shared
+  node would otherwise be a merge node with a block of its own around the function.
+
   Nothing here knows what a node does. A node is a number, the graph gives each node's
   successors in order, and the result says where each node goes (`S`). Nothing is proved of
   it yet.
@@ -19,7 +24,7 @@
   ## Main definitions
 
   * `S`, `structure`
-  * `S.fallsThrough`, `S.simp`
+  * `S.fallsThrough`, `S.simp`, `S.depth`
 -/
 
 namespace MachineChecked.Logical.Structure
@@ -154,6 +159,8 @@ structure Info where
   kids : Array (List Nat)
   isMerge : Array Bool
   isLoop : Array Bool
+  /-- The nodes that are copied to where they are jumped from (`copied`). -/
+  dup : Array Bool
 
 /-- The nodes in postorder, from node 0. -/
 def postorder (succs : Array (List Nat)) : Array Nat := Id.run do
@@ -178,8 +185,32 @@ def postorder (succs : Array (List Nat)) : Array Nat := Id.run do
         stack := stack.push (y, succs[y]!)
   return out
 
+/-- The nodes to copy to where they are jumped from: those from which the function ends
+    after at most `limit` statements with no choice on the way. `cost` is the number of
+    statements of each node. A shared way out (a return, a call that does not come back) is
+    then no merge node, as it was none in the source. -/
+def copied (succs : Array (List Nat)) (cost : Array Nat) (limit : Nat) : Array Bool := Id.run do
+  let n := succs.size
+  -- the statements from a node to the end, if within the limit
+  let mut toEnd : Array (Option Nat) := Array.replicate n none
+  for _ in [0 : n + 1] do
+    let mut changed := false
+    for x in [0 : n] do
+      if toEnd[x]!.isSome then continue
+      let c := cost[x]!
+      let new : Option Nat := match succs[x]! with
+        | [] => some c
+        | [y] => if y < n then (toEnd[y]!).map (· + c) else none
+        | _ => none
+      if let some t := new then
+        if t ≤ limit then
+          toEnd := toEnd.set! x (some t)
+          changed := true
+    if !changed then break
+  return toEnd.map (·.isSome)
+
 /-- The analysis of a graph, or `none` if it is not reducible. -/
-def analyse (succs : Array (List Nat)) : Option Info := Id.run do
+def analyse (succs : Array (List Nat)) (dup : Array Bool) : Option Info := Id.run do
   let n := succs.size
   let post := postorder succs
   let m := post.size
@@ -235,14 +266,14 @@ def analyse (succs : Array (List Nat)) : Option Info := Id.run do
         isLoop := isLoop.set! y true
       else forwardIn := forwardIn.set! y (forwardIn[y]! + 1)
   for x in order do
-    if forwardIn[x]! ≥ 2 then isMerge := isMerge.set! x true
+    if forwardIn[x]! ≥ 2 && !(x ≠ 0 && dup[x]!) then isMerge := isMerge.set! x true
   let mut kids : Array (List Nat) := Array.replicate n []
   -- in reverse postorder, so that each list ends up latest first
   for x in order do
     if x ≠ 0 && isMerge[x]! then
       let d := (idom[x]!).getD 0
       kids := kids.set! d (x :: kids[d]!)
-  return some { succs, rpo, kids, isMerge, isLoop }
+  return some { succs, rpo, kids, isMerge, isLoop, dup }
 
 namespace Info
 
@@ -280,18 +311,35 @@ def arms : Nat → Nat → Nat → List Nat → Option S
 def branch : Nat → Nat → Nat → Option S
   | 0, _, _ => none
   | fuel + 1, x, y =>
-    if (g.rpo[y]!).getD 0 ≤ (g.rpo[x]!).getD 0 then some (.again y)
+    if y ≠ 0 && g.dup[y]! then copy fuel y
+    else if (g.rpo[y]!).getD 0 ≤ (g.rpo[x]!).getD 0 then some (.again y)
     else if g.isMerge[y]! then some (.exit y)
     else tree fuel y
+
+/-- A copy of node `y` and what follows it to the end. -/
+def copy : Nat → Nat → Option S
+  | 0, _ => none
+  | fuel + 1, y => do
+    match g.succs[y]! with
+    | [] => some (.seq (.node y) .stop)
+    | [z] => some (.seq (.node y) (← copy fuel z))
+    | _ => none
 
 end
 
 end Info
 
+/-- How deep the blocks and loops are nested. -/
+def S.depth : S → Nat
+  | .seq a b | .ite _ a b | .arm _ _ a b => max a.depth b.depth
+  | .block _ b | .loop _ b => b.depth + 1
+  | _ => 0
+
 /-- **The structure of a graph**: node 0 is the entry, and `succs` gives each node's
-    successors in order. `none` if the graph is not reducible. -/
-def «structure» (succs : Array (List Nat)) : Option S := do
-  let g ← analyse succs
+    successors in order. A way out of at most `limit` statements (`cost` each node's) is
+    copied to where it is taken. `none` if the graph is not reducible. -/
+def «structure» (succs : Array (List Nat)) (cost : Array Nat) (limit : Nat) : Option S := do
+  let g ← analyse succs (copied succs cost limit)
   let edges := succs.foldl (fun k l => k + l.length) 0
   (← g.tree (4 * (succs.size + edges) + 8) 0).simp
 

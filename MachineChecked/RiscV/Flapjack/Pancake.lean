@@ -55,7 +55,7 @@ variable (img : Image)
 /-- **The environment of an image, for lift 2.** -/
 def env : Env where
   regs := [reg .x1, reg .x10, reg .x11, reg .x12, reg .x13]
-  wrong := loop
+  wrong _ := loop
   init :=
     (img.bitmaps.zipIdx.map fun (w, k) =>
       .store (.const (bitmapBase + BitVec.ofNat 64 (8 * k))) (.const w)) ++
@@ -74,7 +74,7 @@ def env : Env where
 
 /-- **The image as a Pancake program.** -/
 def toPancake : Except String (List (_root_.Flapjack.Decl Pancake.W)) :=
-  Logical.lift img.env allRegs .x1 .x2 0 img.lift
+  (Logical.lift img.env allRegs .x1 .x2 0 img.lift).map (·.1)
 
 end Image
 

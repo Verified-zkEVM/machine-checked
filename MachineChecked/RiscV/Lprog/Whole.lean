@@ -12,10 +12,8 @@
     is of that one function (an indirect call with one candidate: arriving at the `jalr` any
     other way, with another value in `r`, goes `wrong`);
   * **a jump table**, `jalr x0` to an address loaded from data: a comparison with each address
-    in the function that the program's data holds (`Fun.targets`), then, for a pointer to a
-    function, an indirect tail call;
-  * **an indirect call**: among the functions whose address the program holds as a value
-    (`Whole.taken`), not all of them;
+    in the function that the program holds as a value (`Fun.targets`), then, for a pointer
+    to a function, an indirect tail call among all the functions;
   * **a call that links through another register than `ra`** (`jal t0`, as the compiler's
     outlined code is called): Lprog's calls link through one register, so this is a jump, and
     the code it reaches is lifted as a further part of the calling function, with the `jalr`
@@ -26,9 +24,9 @@
   A `jalr` whose target and link are one register reads its target into `x0` first, which no
   lifted code reads otherwise.
 
-  `Fun.targets` and `Whole.taken` are hints, from whoever builds the `Whole` (`Tools/`). They
-  only narrow the candidates of a computed jump: one that reaches an address they miss goes
-  `wrong`, so a wrong hint makes the lifted program refuse, not misbehave.
+  `Fun.targets` is a hint, from whoever builds the `Whole` (`Tools/`). It only narrows the
+  candidates of a computed jump: one that reaches an address it misses goes `wrong`, so a
+  wrong hint makes the lifted program refuse, not misbehave.
 
   Nothing is proved of `liftWhole` yet, as of `liftFlat` (`Flat.lean`).
 
@@ -94,11 +92,9 @@ structure Fun where
       lead. A hint. -/
   targets : List Word := []
 
-/-- A whole program: its functions, and the indices of those whose address the program holds
-    as a value (a hint). -/
+/-- A whole program: its functions. -/
 structure Whole where
   fns : List Fun
-  taken : List Nat
 
 namespace Whole
 
@@ -174,10 +170,10 @@ def liftI (ps : List Part) (cs : List (Word × LLabel)) (p : Part) (k : Nat) :
     | .JALR rd rs off =>
       let e := jalrTgt rs off
       let known := p.paired k rs off
-      -- the functions it may reach: the one at a known target, or those whose address is taken
+      -- the functions it may reach: the one at a known target, or any
       let fns := match known with
         | some t => (w.entryOf t).toList
-        | none => w.taken
+        | none => List.range w.fns.length
       if rd = .x0 ∧ rs = .x1 ∧ off = 0 then [.Lret]
       else if rd = .x1 then [if fns = [] then .Labort else .Lcall (pc + 4) (.indirect e fns)]
       else

@@ -100,9 +100,13 @@ def memoryOf (img : Elf64Image) : List (Word × Word) := Id.run do
         words := words.insert (a / 8 * 8) ((words.getD (a / 8 * 8) 0) ||| (b <<< (8 * (a % 8))))
   return (words.toArray.qsort (·.1 < ·.1)).toList.map fun (a, w) => (BitVec.ofNat 64 a, BitVec.ofNat 64 w)
 
+/-- How far after an `auipc` or `lui` the `addi` that completes an address is looked for. -/
+def window : Nat := 24
+
 /-- The addresses of code that the image holds as values: in its data, as a word of four
     or eight bytes where one would be aligned, and in its code, as the constant `auipc` or
-    `lui` forms with the `addi` after it. -/
+    `lui` forms, alone or with an `addi` to its register soon after. More than there are:
+    the lift only narrows its candidates with them. -/
 def codeAddrs (img : Elf64Image) (parts : Array Part) (isCode : Nat → Bool) : Std.HashSet Nat := Id.run do
   let mut out : Std.HashSet Nat := {}
   for seg in img.segments do
@@ -116,23 +120,38 @@ def codeAddrs (img : Elf64Image) (parts : Array Part) (isCode : Nat → Bool) : 
   for p in parts do
     let prog := p.prog.toArray
     for k in [0 : prog.size] do
-      let v? : Option Word := match prog[k]!, prog[k + 1]? with
-        | .instr (.AUIPC rd imm), some (.instr (.ADDI rd' rs off)) =>
-          if rd' = rd ∧ rs = rd then some (p.addrOf k + auipcOff imm + signExtend12 off) else none
-        | .instr (.LUI rd imm), some (.instr (.ADDI rd' rs off))
-        | .instr (.LUI rd imm), some (.instr (.ADDIW rd' rs off)) =>
-          if rd' = rd ∧ rs = rd then
-            some ((imm.zeroExtend 32 <<< 12 : BitVec 32).signExtend 64 + signExtend12 off)
-          else none
-        | _, _ => none
-      if let some v := v? then
-        if isCode v.toNat then out := out.insert v.toNat
+      -- the `addi` need not come right after: any within `window` that adds to the register
+      let (rd, base) : Reg × Option Word := match prog[k]! with
+        | .instr (.AUIPC rd imm) => (rd, some (p.addrOf k + auipcOff imm))
+        | .instr (.LUI rd imm) => (rd, some ((imm.zeroExtend 32 <<< 12 : BitVec 32).signExtend 64))
+        | _ => (.x0, none)
+      let some base := base | continue
+      if isCode base.toNat then out := out.insert base.toNat
+      for j in [k + 1 : min prog.size (k + 1 + window)] do
+        match prog[j]! with
+        | .instr (.ADDI _ rs off) | .instr (.ADDIW _ rs off) =>
+          let v := (base + signExtend12 off).toNat
+          if rs = rd && isCode v then out := out.insert v
+        | _ => pure ()
   return out
+
+/-- Is this a file the lift of whole programs takes? A statically linked RV64 executable,
+    little-endian, without compressed instructions. -/
+def supported (bytes : ByteArray) : Except String Unit := do
+  let u (o n : Nat) := Elf.readUIntLE bytes o n
+  if bytes.size < 0x40 || (← u 0 4) != 0x464c457f then throw "not an ELF file"
+  if (← u 4 1) != 2 then throw "not a 64-bit ELF (RV32 is not supported)"
+  if (← u 5 1) != 1 then throw "not a little-endian ELF"
+  if (← u 0x12 2) != 243 then throw "not a RISC-V ELF"
+  if (← u 0x10 2) != 2 then
+    throw "not a statically linked executable (a relocatable or position-independent file is not supported)"
+  if (← u 0x30 4) &&& 1 != 0 then throw "the ELF uses compressed instructions (RVC), which are not supported"
 
 /-- An ELF as a guest: its functions are its sized text symbols, word-aligned and inside
     an executable segment, and the hints of the lift are the addresses of code it holds as
     values. The functions left out, each with the reason. -/
 def guestOf (bytes : ByteArray) : Except String (MachineChecked.RiscV.Sp1.Guest × Array String) := do
+  supported bytes
   let img ← parseElf64 bytes
   let mut parts : Array (String × Part) := #[]
   let mut skipped : Array String := #[]
@@ -145,6 +164,7 @@ def guestOf (bytes : ByteArray) : Except String (MachineChecked.RiscV.Sp1.Guest 
     else match wordsAt img sym.addr (sym.size / 4) with
       | .error e => skipped := skipped.push s!"{sym.name}: {e}"
       | .ok ws => parts := parts.push (sym.name, { base := BitVec.ofNat 64 sym.addr, prog := ws.map decodeWord })
+  if parts.isEmpty then throw "the ELF has no function symbols (a stripped binary is not supported)"
   -- every instruction's address, with its function
   let mut owner : Std.HashMap Nat Nat := {}
   for h : f in [0 : parts.size] do
@@ -153,14 +173,12 @@ def guestOf (bytes : ByteArray) : Except String (MachineChecked.RiscV.Sp1.Guest 
       owner := owner.insert (p.base.toNat + 4 * k) f
   let held := codeAddrs img (parts.map (·.2)) owner.contains
   let mut targets : Array (Array Nat) := Array.replicate parts.size #[]
-  let mut taken : Array Nat := #[]
   for a in held.toArray.qsort (· < ·) do
     let some f := owner[a]? | continue
-    if parts[f]!.2.base.toNat == a then taken := taken.push f
-    else targets := targets.set! f (targets[f]!.push a)
+    if parts[f]!.2.base.toNat != a then targets := targets.set! f (targets[f]!.push a)
   let fns := parts.toList.zipIdx.map fun ((name, part), f) =>
     ({ name, part, targets := targets[f]!.toList.map (BitVec.ofNat 64) } : Fun)
-  return ({ whole := { fns, taken := taken.toList }, entry := BitVec.ofNat 64 img.entry,
+  return ({ whole := { fns }, entry := BitVec.ofNat 64 img.entry,
             memory := memoryOf img }, skipped)
 
 /-- Lines that say what a Pancake program is of: which function is which. -/
@@ -175,10 +193,12 @@ def elfTo (target elfPath : String) (out? : Option String) : IO UInt32 := do
     let (g, skipped) ← guestOf bytes
     let p := g.lift
     if target == "lprog" then lprogText p skipped else
-      let ds ← g.toPancake
+      let (ds, traps) ← g.toPancake
       let some text := MachineChecked.Logical.Pancake.print ds
         | throw "the Pancake program has a construct the printer does not print"
-      let (instrs, aborts) := coverage p
+      let (instrs, all) := coverage p
+      -- without the `abort` that ends each part of each function
+      let aborts := all - (g.whole.fns.map fun f => (g.whole.parts f).length).sum
       let looped := (ds.filter fun d => match d with
         | .function fd => fd.name.endsWith "_c0"
         | _ => false).length
@@ -186,7 +206,8 @@ def elfTo (target elfPath : String) (out? : Option String) : IO UInt32 := do
         s!"{instrs} instructions, {aborts} of them `abort` (not covered by the lift), " ++
         s!"{skipped.size} functions left out"
       return (summary, s!"// decompile --to pancake: {summary}\n" ++
-        String.join (skipped.toList.map fun s => s!"// left out: {s}\n") ++ legend p ++ "\n" ++ text)
+        String.join (skipped.toList.map fun s => s!"// left out: {s}\n") ++ legend p ++
+        String.join (traps.zipIdx.map fun (t, k) => s!"// trap {k}: {t}\n") ++ "\n" ++ text)
   match r with
   | .ok (summary, text) => emit out? summary text; return 0
   | .error e => IO.eprintln s!"decompile: {e}"; return 1
