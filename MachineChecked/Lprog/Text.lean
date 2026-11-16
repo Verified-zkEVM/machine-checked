@@ -166,6 +166,13 @@ def parseNat : List Tok → Option (Nat × List Tok)
 
 theorem parseNat_print (n : Nat) (ts : List Tok) : parseNat (printNat n ++ ts) = some (n, ts) := rfl
 
+/-- A number as a word of 64 bits, if it fits: a larger one is refused, not read modulo 2^64. -/
+def word? (v : Nat) : Option (BitVec 64) :=
+  if v < 2 ^ 64 then some (BitVec.ofNat 64 v) else none
+
+@[simp] theorem word?_toNat (v : BitVec 64) : word? v.toNat = some v := by
+  simp [word?, v.isLt]
+
 variable {Reg : Type} [RegText Reg]
 
 /-! ## Expressions -/
@@ -184,7 +191,7 @@ def parseExprN : Nat → List Tok → Option (Expr Reg × List Tok)
   | _ + 1, .reg s :: ts => match RegText.ofName s with
     | some r => some (.reg r, ts)
     | none => none
-  | _ + 1, .num v :: ts => some (.imm (BitVec.ofNat 64 v), ts)
+  | _ + 1, .num v :: ts => (word? v).map fun v => (.imm v, ts)
   | n + 1, .sym s :: ts => match unOpOf s with
     | some op => match parseExprN n ts with
       | some (e, ts) => some (.un op e, ts)
@@ -290,7 +297,7 @@ theorem parseTarget_print (t : Target Reg) (n : Nat) (ts : List Tok)
 def printCand (c : BitVec 64 × LLabel) : List Tok := [.num c.1.toNat, .num c.2]
 
 def parseCand : List Tok → Option ((BitVec 64 × LLabel) × List Tok)
-  | .num v :: .num l :: ts => some ((BitVec.ofNat 64 v, l), ts)
+  | .num v :: .num l :: ts => (word? v).map fun v => ((v, l), ts)
   | _ => none
 
 theorem parseCand_print (c : BitVec 64 × LLabel) (ts : List Tok) :
@@ -367,9 +374,9 @@ def parseInstr (n : Nat) : List Tok → Option (LinstrR (Op Reg) Reg × List Tok
         | none => none
       | none => none
     else if s = "call" then match ts with
-      | .num ret :: ts => match parseTarget n ts with
-        | some (t, ts) => some (.Lcall (BitVec.ofNat 64 ret) t, ts)
-        | none => none
+      | .num ret :: ts => match word? ret, parseTarget n ts with
+        | some ret, some (t, ts) => some (.Lcall ret t, ts)
+        | _, _ => none
       | _ => none
     else if s = "tail" then match parseTarget n ts with
       | some (t, ts) => some (.Ltail t, ts)
@@ -429,9 +436,9 @@ def printFn (fd : Lfundef (Op Reg) Reg) : List Tok :=
 /-- A function of at most `n` tokens. -/
 def parseFn (n : Nat) : List Tok → Option (Lfundef (Op Reg) Reg × List Tok)
   | .sym s :: .sym name :: .num addr :: .num depth :: ts =>
-    if s = "fn" then match parseList (parseInstr n) ts with
-      | some (body, ts) => some (⟨name, BitVec.ofNat 64 addr, body, depth⟩, ts)
-      | none => none
+    if s = "fn" then match word? addr, parseList (parseInstr n) ts with
+      | some addr, some (body, ts) => some (⟨name, addr, body, depth⟩, ts)
+      | _, _ => none
     else none
   | _ => none
 
