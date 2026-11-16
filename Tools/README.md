@@ -13,6 +13,7 @@ checked by the Lean kernel, and nothing in `MachineChecked/` or `Cases/` imports
 | `Decompile.lean` | `lake exe decompile --to lprog\|pancake BINARY [OUT]` | A binary as an Lprog program, in text, or as a Pancake program. `BINARY` is an RV64 ELF or a Flapjack image. See below. |
 | `Fjimg.lean` | (library) | The text form of a Flapjack image. |
 | `Elf.lean` | (library) | ELF and symbol-table helpers shared by the tools. |
+| `StructureTest.lean` | (built) | Checks of `Logical/Structure.lean` on small graphs, run when it is built: a switch is never a two-way choice or a way out. |
 
 `NM` is the output of `llvm-nm -S --defined-only ELF`. It is used only for function boundaries,
 which are hints: the kernel re-checks what the tools derive from them. Words are read with

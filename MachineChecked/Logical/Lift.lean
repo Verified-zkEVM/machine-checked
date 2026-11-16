@@ -517,8 +517,11 @@ def function (cx : Cx Reg) (name : String) (fd : Lfundef (Op Reg) Reg) :
   let small := fd.body.length ≤ 2 * big && bs.all fun b => match b.term with
     | .switch _ cs => cs.length ≤ wide
     | _ => true
+  let switch := arr.map fun b => match b.term with
+    | .switch .. => true
+    | _ => false
   let cost := arr.map fun b => b.code.length + b.last.length
-  match (if small then (Structure.«structure» succs cost short).filter (·.depth ≤ deep) else none) with
+  match (if small then (Structure.«structure» succs switch cost short).filter (·.depth ≤ deep) else none) with
   | some s =>
     let (ps, pending) := emit wrong (fun k => arr[k]?) s []
     if !pending.isEmpty then throw s!"{name}: a jump out of a loop goes nowhere"

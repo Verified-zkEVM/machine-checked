@@ -18,8 +18,10 @@
   node would otherwise be a merge node with a block of its own around the function.
 
   Nothing here knows what a node does. A node is a number, the graph gives each node's
-  successors in order, and the result says where each node goes (`S`). Nothing is proved of
-  it yet.
+  successors in order and which nodes end in a switch, and the result says where each node
+  goes (`S`). A switch is never a two-way choice or a way out, whatever its number of
+  successors: its end checks its value against each, and goes nowhere if none is equal.
+  Nothing is proved of it yet.
 
   ## Main definitions
 
@@ -161,6 +163,8 @@ structure Info where
   isLoop : Array Bool
   /-- The nodes that are copied to where they are jumped from (`copied`). -/
   dup : Array Bool
+  /-- The nodes that end in a switch over their successors. -/
+  switch : Array Bool
 
 /-- The nodes in postorder, from node 0. -/
 def postorder (succs : Array (List Nat)) : Array Nat := Id.run do
@@ -188,15 +192,16 @@ def postorder (succs : Array (List Nat)) : Array Nat := Id.run do
 /-- The nodes to copy to where they are jumped from: those from which the function ends
     after at most `limit` statements with no choice on the way. `cost` is the number of
     statements of each node. A shared way out (a return, a call that does not come back) is
-    then no merge node, as it was none in the source. -/
-def copied (succs : Array (List Nat)) (cost : Array Nat) (limit : Nat) : Array Bool := Id.run do
+    then no merge node, as it was none in the source. A switch is a choice, so no way out. -/
+def copied (succs : Array (List Nat)) (switch : Array Bool) (cost : Array Nat) (limit : Nat) :
+    Array Bool := Id.run do
   let n := succs.size
   -- the statements from a node to the end, if within the limit
   let mut toEnd : Array (Option Nat) := Array.replicate n none
   for _ in [0 : n + 1] do
     let mut changed := false
     for x in [0 : n] do
-      if toEnd[x]!.isSome then continue
+      if toEnd[x]!.isSome || switch[x]! then continue
       let c := cost[x]!
       let new : Option Nat := match succs[x]! with
         | [] => some c
@@ -210,7 +215,7 @@ def copied (succs : Array (List Nat)) (cost : Array Nat) (limit : Nat) : Array B
   return toEnd.map (·.isSome)
 
 /-- The analysis of a graph, or `none` if it is not reducible. -/
-def analyse (succs : Array (List Nat)) (dup : Array Bool) : Option Info := Id.run do
+def analyse (succs : Array (List Nat)) (switch dup : Array Bool) : Option Info := Id.run do
   let n := succs.size
   let post := postorder succs
   let m := post.size
@@ -273,7 +278,7 @@ def analyse (succs : Array (List Nat)) (dup : Array Bool) : Option Info := Id.ru
     if x ≠ 0 && isMerge[x]! then
       let d := (idom[x]!).getD 0
       kids := kids.set! d (x :: kids[d]!)
-  return some { succs, rpo, kids, isMerge, isLoop, dup }
+  return some { succs, rpo, kids, isMerge, isLoop, dup, switch }
 
 namespace Info
 
@@ -294,6 +299,7 @@ def within : Nat → Nat → List Nat → Option S
   | fuel + 1, x, y :: ys => do
     some (.seq (.block y (← within fuel x ys)) (← tree fuel y))
   | fuel + 1, x, [] => do
+    if g.switch[x]! then return .seq (.node x) (← arms fuel x 0 g.succs[x]!)
     match g.succs[x]! with
     | [] => some (.seq (.node x) .stop)
     | [a] => some (.seq (.node x) (← branch fuel x a))
@@ -320,6 +326,7 @@ def branch : Nat → Nat → Nat → Option S
 def copy : Nat → Nat → Option S
   | 0, _ => none
   | fuel + 1, y => do
+    if g.switch[y]! then none
     match g.succs[y]! with
     | [] => some (.seq (.node y) .stop)
     | [z] => some (.seq (.node y) (← copy fuel z))
@@ -335,11 +342,13 @@ def S.depth : S → Nat
   | .block _ b | .loop _ b => b.depth + 1
   | _ => 0
 
-/-- **The structure of a graph**: node 0 is the entry, and `succs` gives each node's
-    successors in order. A way out of at most `limit` statements (`cost` each node's) is
-    copied to where it is taken. `none` if the graph is not reducible. -/
-def «structure» (succs : Array (List Nat)) (cost : Array Nat) (limit : Nat) : Option S := do
-  let g ← analyse succs (copied succs cost limit)
+/-- **The structure of a graph**: node 0 is the entry, `succs` gives each node's successors
+    in order, and `switch` the nodes that end in a switch over them. A way out of at most
+    `limit` statements (`cost` each node's) is copied to where it is taken. `none` if the
+    graph is not reducible. -/
+def «structure» (succs : Array (List Nat)) (switch : Array Bool) (cost : Array Nat)
+    (limit : Nat) : Option S := do
+  let g ← analyse succs switch (copied succs switch cost limit)
   let edges := succs.foldl (fun k l => k + l.length) 0
   (← g.tree (4 * (succs.size + edges) + 8) 0).simp
 
