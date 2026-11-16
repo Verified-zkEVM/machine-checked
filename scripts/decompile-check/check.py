@@ -35,7 +35,8 @@ counts included. `expected.txt` was written by flapjack-flip's own machine (risc
 one statement of the Pancake text assigns to a register or stores, compile and run as `run`
 does, and count the changed programs that `run` would have failed. A change in code the
 test never reaches, or to a value nothing reads, goes unnoticed, so the count is a floor on
-what the tests see, not a pass or fail. For a guest the changed statement is marked
+what the tests see, not a pass or fail. For a guest the statement is one of the program's,
+not of the functions that write its memory image, and it is marked
 (`sp1run.py`), so the count is also given among the changes some input reaches: most of a
 guest is its runtime, which one program runs little of.
 
@@ -241,7 +242,13 @@ def mutants(args):
             return None
         lines = open(src).read().split("\n")
         rng = random.Random(t)
-        sites = [i for i, l in enumerate(lines) if ASSIGN.match(l)]
+        # not in the functions that install a guest's memory: they are data, not translation
+        fn, sites = "", []
+        for i, l in enumerate(lines):
+            if l.startswith("fun "):
+                fn = l.split()[2]
+            elif ASSIGN.match(l) and not fn.startswith("l_init"):
+                sites.append(i)
         if not sites:
             return None
         i = rng.choice(sites)
@@ -256,7 +263,9 @@ def mutants(args):
         img = os.path.join(d, "mutant.fjimg")
         open(img, "w").write(p.stdout)
         expected = open(os.path.join(args.tests, t, "expected.txt")).read()
-        got = sh(runner(os.path.join(args.tests, t)) + [img]).stdout
+        # a changed program that no longer ends is cut off at fifty times the longest run
+        fuel = [str(50 * max(map(int, STEPS.findall(expected))) + 1_000_000)] if guest else []
+        got = sh(runner(os.path.join(args.tests, t)) + [img] + fuel).stdout
         plain = got.replace("\n(marked)", "")
         return ("(marked)" in got) if guest else None, STEPS.sub("", plain) != STEPS.sub("", expected)
 

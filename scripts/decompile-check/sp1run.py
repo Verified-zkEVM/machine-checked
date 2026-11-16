@@ -3,7 +3,7 @@
 print what it does.
 
     sp1run.py GUEST.elf
-    sp1run.py IMAGE.fjimg
+    sp1run.py IMAGE.fjimg [FUEL]
     sp1run.py --coverage FILE ...
 
 Both run on the RV64IM interpreter of `rv64.py`, in one world: SP1's system calls (`World`),
@@ -23,6 +23,8 @@ a stream of two hint vectors.
 The output has one line for each system call (its number, its arguments, the bytes it read
 from memory or wrote to it), the final status and the steps. For an image that is the
 decompiled guest, everything but the steps is the same as for the guest.
+
+A run of an image is cut off after FUEL steps (400,000,000 if not given).
 
 With `--coverage` it prints, for the files together, how many of their instructions some
 input runs.
@@ -175,7 +177,10 @@ def load(path):
     return Image(data.decode()), run_image
 
 
-def describe(path):
+def describe(path, fuel=None):
+    global IMAGE_FUEL
+    if fuel:
+        IMAGE_FUEL = fuel
     thing, run = load(path)
     out = []
     for inp in INPUTS:
@@ -196,4 +201,4 @@ if __name__ == "__main__":
             ran, total = ran + len(seen), total + n
         print(f"{ran} of {total} instructions run ({100 * ran // max(1, total)}%)")
     else:
-        sys.stdout.write(describe(sys.argv[1]))
+        sys.stdout.write(describe(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else None))
