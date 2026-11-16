@@ -26,6 +26,8 @@ import MachineChecked.RiscV.Check.Sound
 
 namespace MachineChecked.RiscV.Exec
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
 /-! ## The cut-point principle -/
@@ -160,7 +162,7 @@ theorem memOk_addr {s : MachineState} {i : Instr} {a : Word} {w : Nat} {st : Boo
 
 /-! ## Reading a state after a step
 
-The lemmas are in `MachineChecked.RiscV.State`; here some of them are `simp` lemmas. -/
+The lemmas are in `LprogRiscV.Machine`; here some of them are `simp` lemmas. -/
 
 attribute [simp] pc_setPC getReg_x0 getReg_setByte getReg_setWord32 getReg_setHalfword
 

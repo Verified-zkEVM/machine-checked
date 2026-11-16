@@ -18,6 +18,8 @@ import Batteries.Data.List.Perm
 
 namespace MachineChecked.RiscV.Sym
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64
 
 /-- An open address: inside a fixed range, or inside a live buffer. -/

@@ -4,16 +4,16 @@ import Tools.Decompile
     per function that the emitted term is `liftFn` of the decoded words. Run with
     `lake env lean Gen.lean` and the environment variables ELF, OUT and NS. -/
 
-open RiscvZkvm.Rv64 RiscvZkvm.Interpreter MachineChecked.Lprog MachineChecked.RiscV.Lprog
+open RiscvZkvm.Rv64 RiscvZkvm.Interpreter Lprog MachineChecked.RiscV.Lift Lprog.RiscV
 open Tools.Elf Tools.Decompile
 
 def strip (s : String) : String :=
   -- shorter names; `open` in the emitted file brings them back
-  ((s.replace "MachineChecked.Lprog.LinstrR." "LinstrR.").replace "MachineChecked.Lprog.Op." "Op.")
-    |>.replace "MachineChecked.Lprog.Expr." "Expr." |>.replace "MachineChecked.Lprog.BinOp." "BinOp."
-    |>.replace "MachineChecked.Lprog.UnOp." "UnOp." |>.replace "MachineChecked.Lprog.LOperand." "LOperand."
-    |>.replace "MachineChecked.Lprog.Target." "Target." |>.replace "MachineChecked.Lprog.Width." "Width."
-    |>.replace "MachineChecked.Lprog.LabelKind." "LabelKind." |>.replace "RiscvZkvm.Rv64.Reg." "Reg."
+  ((s.replace "Lprog.LinstrR." "LinstrR.").replace "Lprog.Op." "Op.")
+    |>.replace "Lprog.Expr." "Expr." |>.replace "Lprog.BinOp." "BinOp."
+    |>.replace "Lprog.UnOp." "UnOp." |>.replace "Lprog.LOperand." "LOperand."
+    |>.replace "Lprog.Target." "Target." |>.replace "Lprog.Width." "Width."
+    |>.replace "Lprog.LabelKind." "LabelKind." |>.replace "RiscvZkvm.Rv64.Reg." "Reg."
 
 /-- `xs` in groups of 128. -/
 def groups (xs : List String) : List (List String) :=
@@ -56,7 +56,7 @@ def gen : IO Unit := do
   let (fs, _) := functions img syms
   IO.FS.createDirAll (out ++ "/" ++ ns)
   -- the words of each function
-  let mut w := s!"import RiscvZkvm.Interpreter\nimport MachineChecked.RiscV.Lprog.Lift\n\nnamespace {ns}\nopen RiscvZkvm.Rv64 RiscvZkvm.Interpreter MachineChecked.RiscV.Lprog\n\n-- data for the kernel, not code to run: the code generator does not take terms this large\nnoncomputable section\n\n"
+  let mut w := s!"import RiscvZkvm.Interpreter\nimport MachineChecked.RiscV.Lift.Lift\n\nnamespace {ns}\nopen RiscvZkvm.Rv64 RiscvZkvm.Interpreter MachineChecked.RiscV.Lift\n\n-- data for the kernel, not code to run: the code generator does not take terms this large\nnoncomputable section\n\n"
   let mut entries : Array String := #[]
   for h : k in [0 : fs.size] do
     let f := fs[k]
@@ -71,7 +71,7 @@ def gen : IO Unit := do
   let p := liftProg fs.toList
   for h : i in [0 : p.length] do
     let fd := p[i]
-    let mut t := s!"import {ns}.Words\n\nnamespace {ns}\nopen RiscvZkvm.Rv64 MachineChecked.Lprog MachineChecked.RiscV.Lprog\n\nnoncomputable section\n\n"
+    let mut t := s!"import {ns}.Words\n\nnamespace {ns}\nopen RiscvZkvm.Rv64 Lprog MachineChecked.RiscV.Lift\n\nnoncomputable section\n\n"
     t := t ++ s!"def f{i} : Lfundef (Op Reg) Reg :=\n  \{ name := {repr fd.name}, addr := {fd.addr.toNat}, depth := {fd.depth},\n    body := {chunked (fd.body.map fun i => ranges fs.size (strip (reprStr i)))} }\n\n"
     t := t ++ s!"theorem f{i}_eq : (liftProg fns)[{i}]? = some f{i} := by decide +kernel\n\nend\n\nend {ns}\n"
     IO.FS.writeFile s!"{out}/{ns}/F{i}.lean" t

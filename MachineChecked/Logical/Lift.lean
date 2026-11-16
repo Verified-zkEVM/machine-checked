@@ -46,7 +46,7 @@ import MachineChecked.Logical.Structure
 
 namespace MachineChecked.Logical
 
-open MachineChecked.Lprog
+open Lprog
 open Flapjack (Exp Prog Decl Shape Shift)
 open Pancake (W)
 

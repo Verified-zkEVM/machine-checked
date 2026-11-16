@@ -47,9 +47,10 @@
 -/
 
 import MachineChecked.RiscV.Check.Fact
-import MachineChecked.RiscV.State
-
+import LprogRiscV.Machine
 namespace MachineChecked.RiscV.Frame
+
+open Lprog.RiscV.Machine
 
 open RiscvZkvm.Rv64
 

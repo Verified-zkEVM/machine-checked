@@ -22,6 +22,8 @@ import MachineChecked.RiscV.Exec.Arith
 
 namespace MachineChecked.RiscV.Exec
 
+open Lprog.RiscV.Machine
+
 open Lean Meta Elab Tactic
 open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
 
@@ -124,9 +126,9 @@ def runStep (code : Term) (one : Bool) (havoc : Bool := false) : TacticM Unit :=
   let simpStep ← `(tactic| (
     simp only [pc_setPC, setPC_setPC, setReg_setPC, setMem_setPC, setByte_setPC,
       setHalfword_setPC, setWord32_setPC, setReg_setReg_same,
-      MachineChecked.RiscV.setReg_x0, getReg_setReg,
+      Lprog.RiscV.Machine.setReg_x0, getReg_setReg,
       MachineState.getReg_setPC, getReg_setByte, getReg_setWord32, getReg_setHalfword,
-      MachineChecked.RiscV.getReg_setMem, getReg_x0,
+      Lprog.RiscV.Machine.getReg_setMem, getReg_x0,
       reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false,
       false_and, true_and, if_true, if_false]
     try simp only [signExtend12, signExtend13, BitVec.reduceSignExtend]
@@ -134,9 +136,9 @@ def runStep (code : Term) (one : Bool) (havoc : Bool := false) : TacticM Unit :=
   let simpHb ← `(tactic|
     simp only [pc_setPC, setPC_setPC, setReg_setPC, setMem_setPC, setByte_setPC,
       setHalfword_setPC, setWord32_setPC, setReg_setReg_same,
-      MachineChecked.RiscV.setReg_x0, getReg_setReg,
+      Lprog.RiscV.Machine.setReg_x0, getReg_setReg,
       MachineState.getReg_setPC, getReg_setByte, getReg_setWord32, getReg_setHalfword,
-      MachineChecked.RiscV.getReg_setMem, getReg_x0,
+      Lprog.RiscV.Machine.getReg_setMem, getReg_x0,
       reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false,
       false_and, true_and, if_true, if_false]
       at $(mkIdent `hb):ident)
@@ -213,7 +215,7 @@ macro "xframe" : tactic => `(tactic|
 /-- Resolve register reads through a state's writes. -/
 macro "xregs" : tactic => `(tactic|
   simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setByte, getReg_setWord32,
-    getReg_setHalfword, MachineChecked.RiscV.getReg_setMem, MachineChecked.RiscV.setReg_x0,
+    getReg_setHalfword, Lprog.RiscV.Machine.getReg_setMem, Lprog.RiscV.Machine.setReg_x0,
     reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false, false_and,
     true_and, if_true, if_false])
 

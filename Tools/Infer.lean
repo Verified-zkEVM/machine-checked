@@ -38,7 +38,7 @@ namespace Tools.Infer
 open RiscvZkvm.Rv64 RiscvZkvm.Interpreter MachineChecked.RiscV.Check Tools.Elf
 open MachineChecked.RiscV.Frame (AVal AState Fn aluResult loadOf storeOf Width mayHit branchOff? joinAt
   regIdx)
-open MachineChecked.RiscV (allRegs)
+open Lprog.RiscV.Machine (allRegs)
 
 /-! ## What a function's interface must allow -/
 
@@ -737,7 +737,7 @@ namespace Tools.Infer
 open RiscvZkvm.Rv64 RiscvZkvm.Interpreter MachineChecked.RiscV.Check Tools.Elf
 open MachineChecked.RiscV.Frame (AVal AState Fn aluResult loadOf storeOf Width mayHit branchOff? joinAt
   regIdx)
-open MachineChecked.RiscV (allRegs)
+open Lprog.RiscV.Machine (allRegs)
 
 /-- The doubleword at `a`, little-endian, from the segment holding it (zero elsewhere). -/
 def memAt (img : Elf64Image) (a : Nat) : Word :=

@@ -1,0 +1,24 @@
+# RISC-V at Lprog: the facts about riscv-zkvm's machine it rests on, RISC-V as an instruction
+# set of Lprog, and SP1's execution context. What a proof about a decompiled SP1 guest needs
+# beside `lprog`; see `docs/design/Packages.md`.
+name = "lprog-riscv"
+version = "0.1.0"
+defaultTargets = ["LprogRiscV"]
+moreLeanArgs = ["--tstack=400000"]
+
+[[require]]
+name = "lprog"
+path = "../lprog"
+
+# The same commit as the root's (`../lakefile.toml`).
+[[require]]
+name = "riscv-zkvm"
+git = "https://github.com/Verified-zkEVM/riscv-zkvm"
+rev = "d81a91030371d1b66ad1a5ff5d348077d3690d6a"
+
+# The modules are `LprogRiscV.*`, the declarations in `Lprog.RiscV`: Lean finds a module through
+# the first directory on its search path that has the module's root, so two packages cannot
+# share the root `Lprog`.
+[[lean_lib]]
+name = "LprogRiscV"
+globs = ["LprogRiscV", "LprogRiscV.+"]

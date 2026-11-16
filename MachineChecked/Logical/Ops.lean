@@ -13,12 +13,12 @@
   * `expr`, `op`, `cond`, `helpers`
 -/
 
-import MachineChecked.Lprog.Text
+import Lprog.Text
 import MachineChecked.Logical.Pancake
 
 namespace MachineChecked.Logical
 
-open MachineChecked.Lprog
+open Lprog
 open Flapjack (Exp Prog Decl Shape Shift)
 open Pancake (W)
 

@@ -556,7 +556,7 @@ def St.refresh (st : St) : MetaM St := do
   let mut regs := st.regs
   for i in [0:32] do
     if let some f := st.regs[i]! then
-      let pf ← if i == 0 then pure (mkApp (mkConst ``MachineChecked.RiscV.getReg_x0) s) else do
+      let pf ← if i == 0 then pure (mkApp (mkConst ``Lprog.RiscV.Machine.getReg_x0) s) else do
         let hi ← natLt i 32
         let raw := mkAppN (mkConst ``MachineChecked.RiscV.Sym.Regs.get) #[s, st.regList, st.hregs, mkNatLit i, hi]
         mkExpectedTypeHint raw (mkEqW (mkGetReg s i) f.val)
@@ -2352,7 +2352,7 @@ def mkMpr (pred : Name) (ha pf : Expr) : MetaM Expr := do
 
 def memStepProof (f : Fetched) (hok : Expr) : MetaM Expr := do
   let hmemT ← rflOf (mkApp3 (mkConst ``Eq [1]) (mkConst ``Bool) (mkApp (mkConst ``Instr.isMemAccess) f.ins) (mkConst ``Bool.true)) (mkConst ``Bool.true)
-  let hcsrs ← rflOf (mkApp3 (mkConst ``Eq [1]) (mkConst ``Bool) (mkApp (mkConst ``MachineChecked.RiscV.Sym.isCSRS) f.ins) (mkConst ``Bool.false)) (mkConst ``Bool.false)
+  let hcsrs ← rflOf (mkApp3 (mkConst ``Eq [1]) (mkConst ``Bool) (mkApp (mkConst ``Lprog.RiscV.Machine.isCSRS) f.ins) (mkConst ``Bool.false)) (mkConst ``Bool.false)
   mkAppM ``MachineChecked.RiscV.Sym.stepSp1_mem #[f.hfetch, hmemT, hcsrs, hok]
 
 def modZero (k m : Nat) : MetaM Expr := do
@@ -3415,7 +3415,7 @@ def readPost (old : St) (t : Expr) (hyps : Array Expr) : SymM Unit := do
   let mut consumed : Array FVarId := #[]
   let mut purePost : Array Expr := #[]
   let mut postCarry : Option Expr := none
-  regs := regs.set! 0 (some ⟨mkWordLit 0, Lin.lit 0, mkApp (mkConst ``MachineChecked.RiscV.getReg_x0) t⟩)
+  regs := regs.set! 0 (some ⟨mkWordLit 0, Lin.lit 0, mkApp (mkConst ``Lprog.RiscV.Machine.getReg_x0) t⟩)
   for h in hyps do
     let ty ← withMainContext do instantiateMVars (← inferType h)
     if let some (_, _, _, t') ← withMainContext (carryParts? ty) then

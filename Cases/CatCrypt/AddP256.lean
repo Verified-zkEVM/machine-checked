@@ -14,7 +14,7 @@ that its result `r` satisfies `x + y = r + c·p256` with `r < p256` and `c ∈ {
 
 namespace Cases.CatCrypt.AddP256
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lprog Cases.CatCrypt.Image.AddP256
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lift Cases.CatCrypt.Image.AddP256 Lprog.RiscV Lprog.RiscV.Machine
 
 /-- The NIST P-256 prime. -/
 def p256 : Nat := 2 ^ 256 - 2 ^ 224 + 2 ^ 192 + 2 ^ 96 - 1
