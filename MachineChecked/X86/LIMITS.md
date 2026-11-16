@@ -27,10 +27,11 @@ not the generated table. A kind is lifted if the lift of one instruction of it h
 
 An instruction is of the same kind at every operand size, unless the table says otherwise.
 What the decoder does not read is one kind, the last: the prefixes `lock`, `F2`, `67`, `fs`
-and `gs`; VEX and EVEX; x87, MMX and SSE; `cmpxchg`, `xadd`, `cmps`, `scas`, `lods`, `rcl`,
+and `gs`; a REX prefix that is not the last prefix (the processor ignores it); VEX and EVEX; x87, MMX and SSE; `cmpxchg`, `xadd`, `cmps`, `scas`, `lods`, `rcl`,
 `rcr`, `enter`, `ret` with a count, `pushf`, `popf`, `lahf`, `sahf`, `xlat`, `cpuid`,
 `rdtsc`, `xchg` of one byte, `movsxd` to 32 bits, `push` and `pop` of 16 bits, the bit
-instructions on memory with a register for the index, and the instructions for the
+instructions on memory with a register for the index, `endbr64` (so code built for CET, with
+one at the start of each function, is not lifted at all), and the instructions for the
 system. A function is read from its start, so after bytes the decoder does not read, the
 rest of the function is not lifted either.
 
@@ -183,7 +184,11 @@ reports `gave up (trap 12)`. The places are:
   and anything else that leaves a function other than by returning give up;
 - **control that leaves a function other than by a call, a tail call or a return**: a
   branch into the middle of another function, or running off the end;
-- **a division that faults on the processor**: by zero, or with a quotient that does not fit.
+- **a division that faults on the processor**: by zero, or with a quotient that does not fit;
+- **a 64-bit `idiv` whose dividend does not fit in `rax`**: one where `rdx` is not the sign
+  of `rax`. After `cqo`, as compilers emit it, it always is. The table says `idiv` is lifted
+  because its lift has no `Labort`; this case gives up as it runs. The unsigned `div` takes
+  all 128 bits of `rdx:rax`.
 
 ## What it assumes and does not check
 

@@ -11,7 +11,9 @@
   these routes is proved: they are checked by running (`scripts/decompile-check`).
 
   `--to lprog --proved` is `liftProg` of the ELF's functions, the lift that
-  `RiscV/Lprog/Equiv.lean` proves equivalent to the machine. A function with a word that
+  `RiscV/Lprog/Equiv.lean` proves equivalent to the machine: under its conditions (the
+  outermost return outside the code, a program that never goes `wrong`), which the tool does
+  not check, and as to how a run ends, not the state it ends in. A function with a word that
   riscv-zkvm does not decode is left out there and named in a comment.
 
   Lprog text is `toText` (`Lprog/Text.lean`); the tool reads its own text back and fails
