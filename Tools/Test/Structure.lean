@@ -1,5 +1,5 @@
 /-
-  Tools.StructureTest
+  Tools.Test.Structure
 
   Checks of `Logical.Structure` on small graphs, run when the module is built. A node that ends
   in a switch is never a two-way choice or a way out, whatever its number of successors: with
@@ -9,7 +9,7 @@
 
 import MachineChecked.Logical.Structure
 
-namespace Tools.StructureTest
+namespace Tools.Test.Structure
 
 open MachineChecked.Logical.Structure
 
@@ -42,4 +42,4 @@ def run (succs : Array (List Nat)) (sw : List Nat) : Option S :=
 #guard !(copied #[[1, 2], [3], [3], []] #[false, false, false, true] #[1, 1, 1, 1] 24)[3]!
 #guard (copied #[[1, 2], [3], [3], []] #[false, false, false, false] #[1, 1, 1, 1] 24)[3]!
 
-end Tools.StructureTest
+end Tools.Test.Structure
