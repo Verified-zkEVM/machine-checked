@@ -35,7 +35,10 @@ counts included. `expected.txt` was written by flapjack-flip's own machine (risc
 one statement of the Pancake text assigns to a register or stores, compile and run as `run`
 does, and count the changed programs that `run` would have failed. A change in code the
 test never reaches, or to a value nothing reads, goes unnoticed, so the count is a floor on
-what the tests see, not a pass or fail.
+what the tests see, not a pass or fail. For a guest the statement is one of the program's,
+not of the functions that write its memory image, and it is marked
+(`sp1run.py`), so the count is also given among the changes some input reaches: most of a
+guest is its runtime, which one program runs little of.
 
 Exit status 0 only if everything passes.
 """
@@ -46,13 +49,26 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 DECOMPILE = os.path.join(ROOT, ".lake", "build", "bin", "decompile")
 FJRUN = [sys.executable, os.path.join(HERE, "fjrun.py")]
+SP1RUN = [sys.executable, os.path.join(HERE, "sp1run.py")]
 STEPS = re.compile(r"^\((\d+) steps\)$", re.M)
 
 
+def original(d):
+    """The binary of a test: a Flapjack image, or an SP1 guest."""
+    for f in ("image.fjimg", "guest.elf"):
+        if os.path.isfile(os.path.join(d, f)):
+            return os.path.join(d, f)
+
+
+def runner(d):
+    """The runner for a test's binary, and for what it decompiles and recompiles to."""
+    return SP1RUN if original(d).endswith(".elf") else FJRUN
+
+
 def tests(d):
-    """The tests of a directory: those with an image and what it is expected to do."""
+    """The tests of a directory: those with a binary and what it is expected to do."""
     return sorted(t for t in os.listdir(d)
-                  if all(os.path.isfile(os.path.join(d, t, f)) for f in ("image.fjimg", "expected.txt")))
+                  if original(os.path.join(d, t)) and os.path.isfile(os.path.join(d, t, "expected.txt")))
 
 
 def sh(cmd, **kw):
@@ -61,7 +77,8 @@ def sh(cmd, **kw):
 
 def self_test(args):
     def one(t):
-        got = sh(FJRUN + [os.path.join(args.tests, t, "image.fjimg")]).stdout
+        d = os.path.join(args.tests, t)
+        got = sh(runner(d) + [original(d)]).stdout
         return t, got == open(os.path.join(args.tests, t, "expected.txt")).read()
     with ThreadPoolExecutor(args.j) as ex:
         res = list(ex.map(one, tests(args.tests)))
@@ -84,19 +101,48 @@ def build(args):
             if p.returncode:
                 return t, "Flapjack rejects it: " + p.stderr.strip()[:200]
             open(img, "w").write(p.stdout)
-        got = sh(FJRUN + [img]).stdout
-        if not all("halted: success" in r and "\n@" in r for r in got.split("\n\n")):
-            return t, "does not end normally with FFI calls on every input"
+        if os.path.isfile(os.path.join(d, "guest.elf")):
+            got = sh(SP1RUN + [os.path.join(d, "guest.elf")]).stdout
+            if not all("halted: exit" in r for r in got.split("\n\n")):
+                return t, "does not halt on every input"
+        else:
+            got = sh(FJRUN + [img]).stdout
+            if not all("halted: success" in r and "\n@" in r for r in got.split("\n\n")):
+                return t, "does not end normally with FFI calls on every input"
         open(exp, "w").write(got)
         return t, None
     names = sorted(t for t in os.listdir(args.tests)
-                   if any(os.path.isfile(os.path.join(args.tests, t, f)) for f in ("source.pnk", "image.fjimg")))
+                   if any(os.path.isfile(os.path.join(args.tests, t, f)) for f in ("source.pnk", "image.fjimg", "guest.elf")))
     with ThreadPoolExecutor(args.j) as ex:
         res = list(ex.map(one, names))
     for t, err in res:
         if err:
             print(f"NOT A TEST {t}: {err}")
     print(f"build: {sum(e is None for _, e in res)}/{len(res)} programs are tests")
+    return True
+
+
+def rust(args):
+    """Build the guests of `rust/` in WORK, with COUNT generated ones, into TESTS."""
+    import shutil
+    src = os.path.join(args.work, "rust")
+    shutil.copytree(os.path.join(HERE, "rust"), src, dirs_exist_ok=True)
+    if args.count:
+        p = sh([sys.executable, os.path.join(HERE, "gen_rust.py"), str(args.seed), str(args.count),
+                os.path.join(src, "src", "bin")])
+        if p.returncode:
+            print(p.stderr)
+            return False
+    p = sh([os.path.expanduser("~/.sp1/bin/cargo-prove"), "prove", "build"], cwd=src)
+    out = os.path.join(src, "target", "elf-compilation", "riscv64im-succinct-zkvm-elf", "release")
+    if p.returncode or not os.path.isdir(out):
+        print((p.stdout + p.stderr)[-3000:])
+        return False
+    names = sorted(f[:-3] for f in os.listdir(os.path.join(src, "src", "bin")) if f.endswith(".rs"))
+    for n in names:
+        os.makedirs(os.path.join(args.tests, n), exist_ok=True)
+        shutil.copy(os.path.join(out, n), os.path.join(args.tests, n, "guest.elf"))
+    print(f"rust: {len(names)} guests built into {args.tests}")
     return True
 
 
@@ -114,6 +160,37 @@ def reference(args):
     return good == len(res)
 
 
+def sp1_reference(args):
+    """Compare `expected.txt` of each guest with SP1's own executor (`sp1ref`): the public
+    values (the bytes written to file 13), the exit code and the number of instructions."""
+    names = [t for t in tests(args.tests) if original(os.path.join(args.tests, t)).endswith(".elf")]
+
+    def ours(t):
+        out = []
+        for r in open(os.path.join(args.tests, t, "expected.txt")).read().strip().split("\n\n"):
+            public = "".join(l.split()[4] for l in r.split("\n") if l.startswith("write d ") and len(l.split()) > 4)
+            out.append(f"public={public} exit={re.search(r'halted: exit (\d+)', r).group(1)} "
+                       f"instructions={STEPS.search(r).group(1)}")
+        return out
+
+    def theirs(batch):
+        p = sh([args.sp1ref] + [os.path.join(args.tests, t, "guest.elf") for t in batch])
+        runs = [l for l in p.stdout.split("\n") if l.startswith(("public=", "error:"))]
+        return [runs[5 * k:5 * k + 5] for k in range(len(batch))]
+
+    batches = [names[k:k + 8] for k in range(0, len(names), 8)]
+    with ThreadPoolExecutor(max(1, args.j // 8)) as ex:
+        got = [g for gs in ex.map(theirs, batches) for g in gs]
+    good = 0
+    for t, g in zip(names, got):
+        if g == ours(t):
+            good += 1
+        else:
+            print(f"DIFFERS {t}")
+    print(f"sp1-reference: SP1's executor agrees with expected.txt on {good}/{len(names)} guests")
+    return good == len(names)
+
+
 def run(args):
     work = args.work or tempfile.mkdtemp(prefix="decompile-check-")
 
@@ -122,14 +199,14 @@ def run(args):
         os.makedirs(d, exist_ok=True)
         src, img = os.path.join(d, "source.pnk"), os.path.join(d, "image.fjimg")
         expected = open(os.path.join(args.tests, t, "expected.txt")).read()
-        p = sh([DECOMPILE, "--to", "pancake", os.path.join(args.tests, t, "image.fjimg"), src])
+        p = sh([DECOMPILE, "--to", "pancake", original(os.path.join(args.tests, t)), src])
         if p.returncode:
             return t, "decompiler gave up: " + p.stderr.strip()[:200], 0, 0
         p = sh([args.fjc, src])
         if p.returncode:
             return t, "Flapjack rejects the text: " + p.stderr.strip()[:200], 0, 0
         open(img, "w").write(p.stdout)
-        got = sh(FJRUN + [img]).stdout
+        got = sh(runner(os.path.join(args.tests, t)) + [img]).stdout
         open(os.path.join(d, "got.txt"), "w").write(got)
         a, b = sum(map(int, STEPS.findall(expected))), sum(map(int, STEPS.findall(got)))
         if STEPS.sub("", got) != STEPS.sub("", expected):
@@ -147,7 +224,7 @@ def run(args):
     return len(good) == len(res)
 
 
-ASSIGN = re.compile(r"^(\s+)(x\d+ = |st8? .*?, )(.*);$")
+ASSIGN = re.compile(r"^(\s+)(x\d+ = |st(?:8|32)? .*?, )(.*);$")
 
 
 def mutants(args):
@@ -155,31 +232,53 @@ def mutants(args):
     work = args.work or tempfile.mkdtemp(prefix="decompile-mutants-")
 
     def one(t):
+        """Whether the change to test `t` is reached (`None` if that is not known) and
+        whether it is caught."""
         d = os.path.join(work, t)
         os.makedirs(d, exist_ok=True)
         src = os.path.join(d, "source.pnk")
-        if sh([DECOMPILE, "--to", "pancake", os.path.join(args.tests, t, "image.fjimg"), src]).returncode:
+        guest = original(os.path.join(args.tests, t)).endswith(".elf")
+        if sh([DECOMPILE, "--to", "pancake", original(os.path.join(args.tests, t)), src]).returncode:
             return None
         lines = open(src).read().split("\n")
         rng = random.Random(t)
-        sites = [i for i, l in enumerate(lines) if ASSIGN.match(l)]
+        # not in the functions that install a guest's memory: they are data, not translation
+        fn, sites = "", []
+        for i, l in enumerate(lines):
+            if l.startswith("fun "):
+                fn = l.split()[2]
+            elif ASSIGN.match(l) and not fn.startswith("l_init"):
+                sites.append(i)
         if not sites:
             return None
         i = rng.choice(sites)
         lines[i] = ASSIGN.sub(r"\1\2(\3 ^ 1);", lines[i])
+        if guest:
+            lines.insert(i, ASSIGN.match(lines[i]).group(1) + "@mark(0, 0, 0, 0);")
         mut = os.path.join(d, "mutant.pnk")
         open(mut, "w").write("\n".join(lines))
         p = sh([args.fjc, mut])
         if p.returncode:
-            return True
+            return None, True
         img = os.path.join(d, "mutant.fjimg")
         open(img, "w").write(p.stdout)
         expected = open(os.path.join(args.tests, t, "expected.txt")).read()
-        return STEPS.sub("", sh(FJRUN + [img]).stdout) != STEPS.sub("", expected)
+        # a changed program that no longer ends is cut off at fifty times the longest run
+        fuel = [str(50 * max(map(int, STEPS.findall(expected))) + 1_000_000)] if guest else []
+        got = sh(runner(os.path.join(args.tests, t)) + [img] + fuel).stdout
+        plain = got.replace("\n(marked)", "")
+        return ("(marked)" in got) if guest else None, STEPS.sub("", plain) != STEPS.sub("", expected)
 
     with ThreadPoolExecutor(args.j) as ex:
         res = [r for r in ex.map(one, tests(args.tests)) if r is not None]
-    print(f"mutants: {sum(res)}/{len(res)} one-bit changes are caught")
+    caught = sum(c for _, c in res)
+    print(f"mutants: {caught}/{len(res)} one-bit changes are caught")
+    known = [(r, c) for r, c in res if r is not None]
+    if known:
+        reached = [c for r, c in known if r]
+        print(f"mutants: {len(reached)}/{len(known)} of the changes are reached by some input, "
+              f"and {sum(reached)}/{len(reached)} of those are caught; "
+              f"{sum(c for r, c in known if not r)} unreached ones are caught")
     return True
 
 
@@ -191,7 +290,10 @@ if __name__ == "__main__":
     r.add_argument("--work"); r.add_argument("-j", type=int, default=os.cpu_count())
     b = sub.add_parser("build"); b.add_argument("fjc"); b.add_argument("tests"); b.add_argument("-j", type=int, default=os.cpu_count())
     f = sub.add_parser("reference"); f.add_argument("flip_check"); f.add_argument("tests"); f.add_argument("-j", type=int, default=os.cpu_count())
+    q = sub.add_parser("sp1-reference"); q.add_argument("sp1ref"); q.add_argument("tests"); q.add_argument("-j", type=int, default=os.cpu_count())
+    g = sub.add_parser("rust"); g.add_argument("work"); g.add_argument("tests")
+    g.add_argument("--seed", type=int, default=1); g.add_argument("--count", type=int, default=0)
     m = sub.add_parser("mutants"); m.add_argument("fjc"); m.add_argument("tests")
     m.add_argument("--work"); m.add_argument("-j", type=int, default=os.cpu_count())
     a = ap.parse_args()
-    sys.exit(0 if {"self-test": self_test, "run": run, "build": build, "reference": reference, "mutants": mutants}[a.cmd](a) else 1)
+    sys.exit(0 if {"self-test": self_test, "run": run, "build": build, "reference": reference, "mutants": mutants, "rust": rust, "sp1-reference": sp1_reference}[a.cmd](a) else 1)

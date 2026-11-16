@@ -156,6 +156,35 @@ says what that does and does not show. Two things differ from the table: the ima
 meaning as an execution context is not defined yet (it needs an Lprog instance for RISC-V
 without SP1's memory check), and the printer lives here, not upstream.
 
+**The tool takes whole programs (2026-11-15); still nothing above lift 1 is proved.**
+`lake exe decompile --to pancake GUEST.elf` takes an SP1 guest that rustc built to Pancake
+that Flapjack compiles. This is phase 6's first half and the start of phase 5, done ahead of
+phase 4, to have a tool that runs before the proofs:
+
+- **Lift 1 for a linked program** (`RiscV/Lprog/Whole.lean`): what `liftProg` covers, and far
+  calls, jump tables, indirect calls and tail calls, calls that link through `t0`, and the
+  nine instructions of RV64IM that riscv-zkvm's `Instr` lacks (`RiscV/Lprog/Decode.lean`).
+  Not proved, unlike `liftProg`; it is to become the lift the theorems are about.
+- **Lift 2 for many functions** (`Logical/Lift.lean`): a Pancake function for each, a call
+  for each call, with the two checks Lprog makes of a return, so the Pancake program gives
+  up where the Lprog program goes `wrong`.
+- **Structure** (`Logical/Structure.lean`): `if` and `while` from the dominator tree, for
+  every function whose control flow is reducible and that Flapjack compiles in reasonable
+  time as one piece; a loop over the blocks for the rest. No variables, frames or types yet.
+- **SP1's environment** (`RiscV/Sp1/`): the guest's memory at its own addresses, `ecall` as
+  one FFI call.
+- **The check** (`scripts/decompile-check`): 265 guests in Rust, 39 written for one thing
+  each and the rest generated, with SP1's own executor as the reference for what a guest
+  does; and the 552 images as before. All agree after decompiling and recompiling. Its
+  README has the numbers and what they do not show.
+
+What this leaves of the table: phase 4 whole (now for two lifts 1 and one lift 2, and with
+SP1's context beside Flapjack's), the rest of phase 5 (variables, frames, types), and of
+phase 6 the other instruction sets. Two things the proofs will have to settle that the tool
+only works around: Lprog's calls link through one register, so a call through `t0` is
+lifted as a jump into a copy of its target; and the execution context of a recompiled guest
+(a Flapjack image whose heap is the guest's address space) is stated only by the runner.
+
 ## 8. Risks
 
 - **Toolchain.** Flapjack on v4.36, and the size of its proof (about 4,000 modules to import

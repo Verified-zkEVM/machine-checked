@@ -104,6 +104,10 @@ def prog (ind : String) : Prog W → Option String
   | .call none f as => do some s!"{ind}return {f}({← args as});\n"
   | .call (some (none, none)) f as => do some s!"{ind}{f}({← args as});\n"
   | .call (some (some (_, x), none)) f as => do some s!"{ind}{x} = {f}({← args as});\n"
+  | .call (some (some (_, x), some (e, v, h))) f as => do
+    some (s!"{ind}try {x} = {f}({← args as})\n{ind}catch {e} => {v} \{\n" ++
+      s!"{← prog (ind ++ "  ") h}{ind}}\n")
+  | .raise e v => do some s!"{ind}throw {e} {← exp v};\n"
   | .decCall x s f as body => do
     some (s!"{ind}var {← shape s} {x} = {f}({← args as});\n" ++ (← prog ind body))
   | .extCall f a b c d => do some s!"{ind}@{f}({← exp a}, {← exp b}, {← exp c}, {← exp d});\n"
@@ -117,6 +121,7 @@ def decl : Decl W → Option String
     some (s!"{if fd.inline then "inline " else ""}{if fd.exported then "export " else ""}" ++
       s!"fun {← shape fd.returnShape} {fd.name}({", ".intercalate ps}) \{\n{← prog "  " fd.body}}\n")
   | .decl s x e => do some s!"var {← shape s} {x} = {← exp e};\n"
+  | .exnDecl e s => do some s!"exception {e} : {← shape s};\n"
   | _ => none
 
 /-- **A Pancake program as source text**, or `none` if it uses what is not printed. -/

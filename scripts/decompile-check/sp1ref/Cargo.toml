@@ -1,0 +1,10 @@
+# SP1's own executor on the guests of the check: the machine `sp1run.py` is compared with
+# (`../README.md`).
+[package]
+name = "sp1ref"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sp1-sdk = { version = "=6.10.0", features = ["blocking"] }
+hex = "0.4"

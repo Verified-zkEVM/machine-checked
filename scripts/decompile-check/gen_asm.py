@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write test images of hand-assembled RISC-V code: every instruction the lift covers.
 
-    gen_asm.py SEED COUNT OUTDIR
+    gen_asm.py SEED COUNT OUTDIR [w32]
 
 Flapjack's own code uses a small part of RV64IM in a few fixed shapes. These images are not
 from Flapjack: each is a random straight run of instructions, with the control flow a
@@ -22,6 +22,11 @@ so that the same tools run it. A program
 So the output shows the effect of every instruction. `image.fjimg` is the image and
 `source.s` a listing. `expected.txt` is not written here: it comes from the reference
 machine (`flip-check run`, see README.md).
+
+With `w32`, in place of most `addiw` it emits the other thirteen 32-bit instructions of
+RV64IM. flapjack-flip's machine decodes none but `addiw` of these (its riscv-zkvm is an older
+one), so for these images `expected.txt` is `fjrun.py`'s word (`check.py build`), whose
+32-bit instructions are compared with SP1's executor on the Rust guest `k_asm_w`.
 """
 import os, random, sys
 
@@ -44,6 +49,8 @@ def J(off, rd):
 RTYPE = {"add": (0, 0), "sub": (0x20, 0), "sll": (0, 1), "slt": (0, 2), "sltu": (0, 3), "xor": (0, 4),
          "srl": (0, 5), "sra": (0x20, 5), "or": (0, 6), "and": (0, 7), "mul": (1, 0), "mulh": (1, 1),
          "mulhsu": (1, 2), "mulhu": (1, 3), "div": (1, 4), "divu": (1, 5), "rem": (1, 6), "remu": (1, 7)}
+WTYPE = {"addw": (0, 0), "subw": (0x20, 0), "sllw": (0, 1), "srlw": (0, 5), "sraw": (0x20, 5), "mulw": (1, 0),
+         "divw": (1, 4), "divuw": (1, 5), "remw": (1, 6), "remuw": (1, 7)}
 ITYPE = {"addi": 0, "slti": 2, "sltiu": 3, "xori": 4, "ori": 6, "andi": 7}
 LOAD = {"lb": (0, 1), "lh": (1, 2), "lw": (2, 4), "ld": (3, 8), "lbu": (4, 1), "lhu": (5, 2), "lwu": (6, 4)}
 STORE = {"sb": (0, 1), "sh": (1, 2), "sw": (2, 4), "sd": (3, 8)}
@@ -75,7 +82,7 @@ class Asm:
         self.jump(CODE - 16 * (index + 3))
 
 
-def program(rng):
+def program(rng, w32=False):
     a = Asm()
     reg = lambda zero=0.1: 0 if rng.random() < zero else rng.choice(WORK)
     a.emit(I(0, 11, 0, BASE, 0x13), "addi x8, x11, 0")
@@ -111,8 +118,16 @@ def program(rng):
             n, f3, hi = rng.choice([("slli", 1, 0), ("srli", 5, 0), ("srai", 5, 0x10)]); rd, r1 = reg(0.03), reg()
             sh = rng.choice([0, 1, 31, 32, 63, rng.randint(0, 63)])
             a.emit(I((hi << 6) | sh, r1, f3, rd, 0x13), f"{n} x{rd}, x{r1}, {sh}")
+        elif k < 0.66 and w32 and rng.random() < 0.9:
+            rd, r1, r2 = reg(0.03), reg(), reg()
+            if rng.random() < 0.7:
+                n = rng.choice(list(WTYPE)); f7, f3 = WTYPE[n]
+                a.emit(R(f7, r2, r1, f3, rd, 0x3B), f"{n} x{rd}, x{r1}, x{r2}")
+            else:
+                n, f3, f7 = rng.choice([("slliw", 1, 0), ("srliw", 5, 0), ("sraiw", 5, 0x20)])
+                sh = rng.choice([0, 1, 31, rng.randint(0, 31)])
+                a.emit(I((f7 << 5) | sh, r1, f3, rd, 0x1B), f"{n} x{rd}, x{r1}, {sh}")
         elif k < 0.66:
-            # `addiw` only: the reference machine does not decode `slliw`, `srliw`, `srlw`, `subw`
             rd, r1 = reg(0.03), reg(); imm = rng.choice(IMMS) if rng.random() < 0.5 else rng.randint(-2048, 2047)
             a.emit(I(imm, r1, 0, rd, 0x1B), f"addiw x{rd}, x{r1}, {imm}")
         elif k < 0.74:
@@ -154,9 +169,10 @@ def program(rng):
 
 if __name__ == "__main__":
     seed, count, out = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3]
+    w32 = sys.argv[4:] == ["w32"]
     for n in range(count):
-        a = program(random.Random(seed * 100003 + n))
-        d = os.path.join(out, f"asm_{seed}_{n:03d}")
+        a = program(random.Random(seed * 100003 + n), w32)
+        d = os.path.join(out, f"asm{'w' if w32 else ''}_{seed}_{n:03d}")
         os.makedirs(d, exist_ok=True)
         code = b"".join(w.to_bytes(4, "little") for w in a.words)
         with open(os.path.join(d, "image.fjimg"), "w") as f:

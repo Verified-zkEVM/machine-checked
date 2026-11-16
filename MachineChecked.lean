@@ -22,7 +22,10 @@ import MachineChecked.RiscV.Lprog.Lift
 import MachineChecked.RiscV.Lprog.Transfer
 import MachineChecked.RiscV.Lprog.Ecall
 import MachineChecked.RiscV.Lprog.Equiv
+import MachineChecked.RiscV.Lprog.Decode
 import MachineChecked.RiscV.Lprog.Flat
+import MachineChecked.RiscV.Lprog.Whole
+import MachineChecked.RiscV.Sp1.Pancake
 import MachineChecked.RiscV.Lprog.Rules
 import MachineChecked.RiscV.Lprog.Block
 import MachineChecked.Ascent.Run
@@ -36,6 +39,8 @@ import MachineChecked.Lprog.Op
 import MachineChecked.Lprog.Text
 import MachineChecked.Logical.Pancake
 import MachineChecked.Logical.Lift
+import MachineChecked.Logical.Ops
+import MachineChecked.Logical.Structure
 import MachineChecked.RiscV.Flapjack.Image
 import MachineChecked.RiscV.Flapjack.Pancake
 import MachineChecked.ARM.Arm64
