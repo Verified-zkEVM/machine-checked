@@ -1,7 +1,8 @@
 # Ascent
 
-**Shared by every layer of the [roadmap](../../ROADMAP.md).** Runs, correspondence and the
+**Shared by every layer of the [roadmap](../../../ROADMAP.md).** Runs, correspondence and the
 safety judgement for any machine, given only its step. Nothing here mentions an instruction set.
+In the package [`lprog`](../../README.md); namespace `Lprog.Ascent`.
 
 | file | contents |
 | --- | --- |
@@ -12,11 +13,11 @@ safety judgement for any machine, given only its step. Nothing here mentions an 
 
 These are the one notion of a run, and the one judgement, in the repository. `RiscV.SafeN` is
 `Ascent.SafeN` at `detStep stepSp1` with `Accepted` as the accepting states
-(`RiscV/Safe.lean`), and the low logical program's is `Ascent.SafeN` at its step relation and
-its context's accepting states (`Lprog/Sem.lean`: `Isa.SafeN`). A lift's transfer theorem
-carries the judgement at one level to the other (`RiscV/Lprog/Transfer.lean`, `transfer`), so
-contracts proved high up hold of the machine. Its equivalence theorem
-(`RiscV/Lprog/Equiv.lean`) says the two levels show an observer the same, which is what a
+(`MachineChecked/RiscV/Safe.lean`), and the low logical program's is `Ascent.SafeN` at its step
+relation and its context's accepting states (`Lprog/Sem.lean`: `Isa.SafeN`). A lift's transfer
+theorem carries the judgement at one level to the other
+(`MachineChecked/RiscV/Lift/Transfer.lean`, `transfer`), so contracts proved high up hold of the
+machine. Its equivalence theorem (`MachineChecked/RiscV/Lift/Equiv.lean`) says the two levels show an observer the same, which is what a
 decompiler and a compiler are judged by (`docs/design/Decompiler.md`).
 
 Ported from catcrypt-compiler's ascent, which follows Sebastian Graf's

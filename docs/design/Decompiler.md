@@ -27,7 +27,7 @@ binary ──lift 1──▶ Lprog ──lift 2──▶ Pancake ──▶ Flapj
                           ──▶ catcrypt-compiler recompiles                 refuses the rest)
 ```
 
-- **Lift 1** takes an ISA's code into Lprog (`MachineChecked/Lprog`, layer 0.5). RISC-V's
+- **Lift 1** takes an ISA's code into Lprog (`lprog/Lprog`, layer 0.5). RISC-V's
   exists (`RiscV/Lprog`, `liftProg`), as a verified function.
 - **Lift 2** takes Lprog into Pancake (layer 1). It is written and proved once, over Lprog, so
   another ISA needs only its own lift 1 and execution context.
@@ -127,7 +127,7 @@ ISA.
 
 | phase | what | where |
 | --- | --- | --- |
-| 0 | Events in the step (#18); `Refines` and `Equivalent`; lift 1's theorem strengthened to equivalence | `Ascent/`, `Lprog/`, `RiscV/Lprog/` |
+| 0 | Events in the step (#18); `Refines` and `Equivalent`; lift 1's theorem strengthened to equivalence | `Ascent/`, `Lprog/`, `RiscV/Lift/` |
 | 1 | `decompile --to lprog`: the executable, and a text format for Lprog with a printer and a parser that round-trip | `Tools/`, `Lprog/` |
 | 2 | Flapjack required; its images as an execution context; the Pancake printer, upstream | `lakefile.toml`, `RiscV/` |
 | 3 | Lift 2, baseline; recompile and run flapjack-flip's tests as the sanity check | `Logical/` |
@@ -137,7 +137,7 @@ ISA.
 
 The catcrypt-compiler exporter and its theorem run beside phases 1 to 3.
 
-**Phases 0 and 1 are built.** Phase 0: `Ascent/Refine.lean`, and `RiscV/Lprog/Equiv.lean`
+**Phases 0 and 1 are built.** Phase 0: `Ascent/Refine.lean`, and `RiscV/Lift/Equiv.lean`
 (`refines_lift`, `lift_refines`, `equivalent_of_entry`). The machine refines the lifted
 program outright; the other direction is for a lifted program that never goes `wrong`, and
 both need the outermost return address outside the code. SP1's context makes no events yet.
@@ -147,7 +147,7 @@ text on what it writes) and `lake exe decompile --to lprog` (`Tools/README.md`).
 **Phases 2 and 3 are built, as a program that runs; nothing in them is proved.** Flapjack is
 required for its Pancake syntax, at its branch `lean-v4.36-frontend` (the five modules
 needed build on both toolchains). `lake exe decompile --to pancake IMAGE.fjimg` takes a
-Flapjack image through lift 1 for code without functions (`RiscV/Lprog/Flat.lean`,
+Flapjack image through lift 1 for code without functions (`RiscV/Lift/Flat.lean`,
 `RiscV/Flapjack/`) and lift 2's baseline (`Logical/Lift.lean`) to Pancake text
 (`Logical/Pancake.lean`). The sanity check is `scripts/decompile-check`: 552 binaries
 decompiled, recompiled by Flapjack (at flapjack-flip's pin and at its `main`) and run against
@@ -161,9 +161,9 @@ without SP1's memory check), and the printer lives here, not upstream.
 that Flapjack compiles. This is phase 6's first half and the start of phase 5, done ahead of
 phase 4, to have a tool that runs before the proofs:
 
-- **Lift 1 for a linked program** (`RiscV/Lprog/Whole.lean`): what `liftProg` covers, and far
+- **Lift 1 for a linked program** (`RiscV/Lift/Whole.lean`): what `liftProg` covers, and far
   calls, jump tables, indirect calls and tail calls, calls that link through `t0`, and the
-  nine instructions of RV64IM that riscv-zkvm's `Instr` lacks (`RiscV/Lprog/Decode.lean`).
+  nine instructions of RV64IM that riscv-zkvm's `Instr` lacks (`RiscV/Lift/Decode.lean`).
   Not proved, unlike `liftProg`; it is to become the lift the theorems are about.
 - **Lift 2 for many functions** (`Logical/Lift.lean`): a Pancake function for each, a call
   for each call, with the two checks Lprog makes of a return, so the Pancake program gives
@@ -194,9 +194,9 @@ phase 6's first half, again ahead of the proofs.
   (`Lprog/Linked.lean`: functions, labels, calls, tail calls, computed jumps among
   candidates), the environment of a whole program (`Logical/Guest.lean`), and lift 2. An
   instruction set gives its registers and the lift of one instruction.
-- **AArch64** (`ARM/Lprog/`): arm64-semantics' decoder, and the integer instructions lifted
+- **AArch64** (`ARM/Lift/`): arm64-semantics' decoder, and the integer instructions lifted
   with the four flags as registers.
-- **x86-64** (`X86/Lprog/`): a decoder of this repository's for the integer instructions,
+- **x86-64** (`X86/Lift/`): a decoder of this repository's for the integer instructions,
   since Kraken has none; five flags; registers written in part; a return address on the
   stack, which Lprog's link register is made to carry by a register of the lift's own.
 - **Flags** cost a write each wherever an instruction sets them, and most are never read:

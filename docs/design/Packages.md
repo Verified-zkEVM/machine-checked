@@ -19,32 +19,48 @@ and prove what you need about it.
 Being a light dependency is a goal, not a requirement yet. Building the decompiler may stay
 heavy. The layout below makes the libraries light later without moving anything twice.
 
-## 1. Layout: three Lake packages in this repository
+## 1. Layout: Lake packages in this repository
 
 Lake fetches every package a dependency requires, whichever of its modules one imports. A
 light library must therefore be a package of its own. It can still live here: Lake requires a
 package in a subdirectory of a repository (`subDir`), as this repository already does for
 arm64-semantics, and Flapjack for ZirenDet.
 
-| package | holds | requires |
-| --- | --- | --- |
-| `lprog/` | `Ascent` (runs, `SafeN`, `Refines`, `Equivalent`, `Corres`), Lprog (syntax, semantics, the rules of `SafeN`, the text format), each instruction set's registers and external calls at Lprog | nothing (Lean's `Std`) |
-| `pancake/` | the environments the decompiler's Pancake assumes (SP1's, bare guests'), and lemmas for reasoning about programs in them | Flapjack's semantics |
-| the root | `decompile` and the other tools, the machine models and the lifts, the theorems that relate them (`Equiv.lean`), `Tools/Test`, the case studies | `lprog/`, `pancake/` by path; riscv-zkvm, Kraken, arm64-semantics, Flapjack, Mathlib |
+| package | modules | namespaces | holds | requires |
+| --- | --- | --- | --- | --- |
+| [`lprog/`](../../lprog/README.md) | `Lprog.*` | `Lprog`, `Lprog.Ascent`, `Lprog.ARM`, `Lprog.X86` | `Ascent` (runs, `SafeN`, `Refines`, `Equivalent`, `Corres`), Lprog (syntax, semantics, the rules of `SafeN`, the text format, what lifts are built from), AArch64's and x86-64's registers at Lprog | nothing (Lean's `Std`) |
+| [`lprog-riscv/`](../../lprog-riscv/README.md) | `LprogRiscV.*` | `Lprog.RiscV`, `Lprog.RiscV.Machine` | RISC-V at Lprog: the facts about riscv-zkvm's machine it rests on, RISC-V's instance of Lprog (`rvIsa`, `opOf_spec`, `Agree`), SP1's execution context (`sp1Ctx`) and `sp1Ecall_agree` | `lprog/`, riscv-zkvm |
+| `pancake/` (not yet) | | | the environments the decompiler's Pancake assumes (SP1's, bare guests'), and lemmas for reasoning about programs in them | Flapjack's semantics |
+| the root | `MachineChecked.*`, `Tools.*`, `Cases.*` | `MachineChecked`, … | `decompile` and the other tools, the machine models and the lifts (`MachineChecked/<ISA>/Lift`), the theorems that relate them (`Equiv.lean`), the layer-0 proof tools, `Tools/Test`, the case studies | `lprog/`, `lprog-riscv/` by path; riscv-zkvm, Kraken, arm64-semantics, Flapjack, Mathlib |
 
-Two libraries, not one: their requirements differ (none, and Flapjack), and so do their users.
-A proof about Lprog never needs Flapjack.
+The proof libraries are three, not one: their requirements differ (nothing; riscv-zkvm;
+Flapjack), and so do their users. A proof about Lprog never needs Flapjack, and one about an
+AArch64 program never needs riscv-zkvm.
 
-**What is light already.** `Ascent/` imports nothing; `Lprog/` imports only `Ascent` and
-`Std`; the registers of AArch64 and x86-64 at Lprog import only `Lprog/Text`. Moving them is
-moving files.
+**RISC-V is moved, not restated.** RISC-V's registers are riscv-zkvm's and SP1's system calls
+are riscv-zkvm's `sp1Ecall`, so `lprog-riscv` requires riscv-zkvm rather than restating them
+(which would be a second model of SP1 to keep in step). The machine-level modules of the root
+(`MachineChecked/RiscV`: `Safe`, `Sym`, the checker) stay there; of them, the instance needs
+only the lemmas about reading a state after an update and `isCSRS`, which moved with it
+(`Lprog.RiscV.Machine`).
 
-**What is not.** RISC-V's registers at Lprog and SP1's system calls (`sp1Ctx`) import riscv-zkvm
-(through `RiscV/Sym`). A proof about a decompiled SP1 guest needs both, so they must be stated
-without riscv-zkvm's machine state, with the root proving that they agree with it. Flapjack's
-Pancake semantics imports no Mathlib, but the Flapjack package requires Mathlib and ZirenDet;
-until its semantics is a package of its own (a request upstream), `pancake/` is as heavy as
-Flapjack.
+**Two rules of Lean and Lake shape the names.**
+
+- *A module belongs to the library one of whose roots is a prefix of its name, or one of whose
+  globs matches it.* The root's library has the root `MachineChecked`, so no other package can
+  have modules under `MachineChecked`: Lprog's modules are `Lprog.*`.
+- *Lean finds a module through the first directory on its search path that has the module's
+  root.* So two packages cannot share a root either: `lprog-riscv`'s modules are
+  `LprogRiscV.*`, while its declarations are in `Lprog.RiscV`, as Lean libraries often name
+  modules after the package and namespaces after the concept.
+
+**The root's per-instruction-set lifts are `MachineChecked.<ISA>.Lift`**, not `.Lprog` as
+before: inside a namespace ending in `Lprog`, `Lprog` would mean that namespace and not the
+package.
+
+Flapjack's Pancake semantics imports no Mathlib, but the Flapjack package requires Mathlib and
+ZirenDet; until its semantics is a package of its own (a request upstream), `pancake/` is as
+heavy as Flapjack.
 
 ## 2. From the decompiler to Lean, with nothing new to trust
 
@@ -78,7 +94,7 @@ built with `lean` module by module, eight at a time, on an Apple M3 Max:
 
 | binary | functions | instructions | Lean written | checked | build, all modules | slowest module |
 | --- | --- | --- | --- | --- | --- | --- |
-| `experiments/leanvm/out/blake2s.elf` | 6 | 702 | 156 KB | 6 | 5 s | 2.7 s |
+| `experiments/leanvm/out/blake2s.elf` | 5 | 702 | 156 KB | 6 | 5 s | 2.7 s |
 | `experiments/zip-2005/out/baseline.elf` | 304 | 41,631 | 11 MB | 304 (one with a raised limit, below) | 53 s (331 s of CPU) | 15 s |
 
 A term changed by one immediate fails: the kernel says the theorem is false.
@@ -141,13 +157,12 @@ together, is the arrangement #16 settled on.
 
 | step | what | done when |
 | --- | --- | --- |
-| 1 | `lprog/` as a package: `Ascent`, Lprog, AArch64's and x86-64's registers; the root requires it by path | the root builds as before; a project outside this repository that requires `lprog/` alone builds and fetches nothing else |
+| 1 | `lprog/` as a package: `Ascent`, Lprog, AArch64's and x86-64's registers; `lprog-riscv/`: RISC-V's instance and SP1's context, moved; the root requires both by path | done: the root builds as before, no theorem changes its statement, and a project outside this repository that requires `lprog/` alone builds and fetches nothing else |
 | 2 | `decompile --to lean` (RISC-V, `--proved` route first), with the check against the ELF | the zip-2005 modules build in CI's time, and a changed term fails |
-| 3 | RISC-V's registers and SP1's system calls at Lprog without riscv-zkvm, into `lprog/`; the root proves they agree with riscv-zkvm's | `Equiv.lean` unchanged in statement |
-| 4 | `--to lean` for the other routes, and for Pancake as Flapjack's syntax | each route's terms checked against its lift |
-| 5 | `pancake/`, on Flapjack's semantics; ask Flapjack for a semantics package and a syntax entry point | a proof about a decompiled guest's Pancake imports `pancake/` only |
-| 6 | Ascent's port into `lprog/` with catcrypt-compiler (#16), and the pins kept up by CI | catcrypt-compiler requires `lprog/` |
-| 7 | an installer: release binaries of `decompile` from CI | |
+| 3 | `--to lean` for the other routes, and for Pancake as Flapjack's syntax | each route's terms checked against its lift |
+| 4 | `pancake/`, on Flapjack's semantics; ask Flapjack for a semantics package and a syntax entry point | a proof about a decompiled guest's Pancake imports `pancake/` only |
+| 5 | Ascent's port into `lprog/` with catcrypt-compiler (#16), and the pins kept up by CI | catcrypt-compiler requires `lprog/` |
+| 6 | an installer: release binaries of `decompile` from CI | |
 
 ## 6. Open questions
 

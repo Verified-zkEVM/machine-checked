@@ -7,7 +7,7 @@ run does not satisfy, and no contract quantified over states the run never reach
 
 Phases A to D built the RISC-V layer-0 toolkit (`MachineChecked/RiscV/{Check,Sym,Frame,Exec}`)
 against this binary; phase F is its program logic. The proofs here predate the lift
-(`MachineChecked/RiscV/Lprog`); moving them onto it is a step of the roadmap
+(`MachineChecked/RiscV/Lift`); moving them onto it is a step of the roadmap
 ([`ROADMAP.md`](../../ROADMAP.md)). `black_box`, `memcmp` and `write_vectored` are already
 proved through the lift (`Runtime/BlackBox.lean`, `Runtime/MemcmpLprog.lean`,
 `Runtime/WriteVectored.lean`).

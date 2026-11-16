@@ -1,20 +1,23 @@
-# RiscV/Lprog
+# RiscV/Lift
 
 **The lift from layer 0 to layer 0.5 for RISC-V** (lift 1 of the
 [roadmap](../../../ROADMAP.md)): riscv-zkvm's decoded instructions into the low logical
 program, with the theorems that anything proved of the lifted program holds of the machine,
 and that the two are equivalent to an observer.
 
+What a proof at Lprog needs of RISC-V is in the package
+[`lprog-riscv`](../../../lprog-riscv/README.md), not here: RISC-V as an instruction set of Lprog
+(`rvIsa`, `opOf` and `opOf_spec`, `Agree`), SP1's execution context (`sp1Ctx`) and
+`sp1Ecall_agree`.
+
 | file | contents |
 | --- | --- |
-| `Instance.lean` | `rvIsa`, RISC-V on SP1 as `Isa.ofOps`: riscv-zkvm's own `Reg`, `ra` as the link register, `sp` as the stack register, and memory `rvMem` (riscv-zkvm's, behind SP1's check). `opOf` translates each instruction that does not transfer control into a shared operation; `opOf_spec` proves the translation agrees with riscv-zkvm's `execInstrBr`, and fails exactly when `memOkSp1` does. `Agree` says when two machine states look the same to an instruction. The registers' names in Lprog text are `x0` to `x31`. |
-| `Lift.lean` | `Fn` (a function: name, base address, decoded instructions, stack bound) and `liftProg`: every function becomes an Lprog body. Branches and `jal x0` become gotos, `jal ra` and `jalr ra` calls, `jalr x0` to a function a tail call, `jalr x0, 0(ra)` a return, `ecall` an external call, and anything else `Labort`. `sp1Ctx` is SP1's execution context: an external call steps as riscv-zkvm's `sp1Ecall`, and `HALT` with exit code 0 accepts. `LSafeN fs` is the judgement for the lifted program. |
+| `Lift.lean` | `Fn` (a function: name, base address, decoded instructions, stack bound) and `liftProg`: every function becomes an Lprog body. Branches and `jal x0` become gotos, `jal ra` and `jalr ra` calls, `jalr x0` to a function a tail call, `jalr x0, 0(ra)` a return, `ecall` an external call, and anything else `Labort`. `LSafeN fs` is the judgement for the lifted program, under SP1's execution context (`sp1Ctx`, in `lprog-riscv`). |
 | `Transfer.lean` | The simulation (`Sim`, `back_step`) and the transfer theorem: `SafeN` at Lprog for every budget gives `SafeN` over `stepSp1` (`transfer`). For a call of one function: `SafeN.of_lift`, and `SafeN.of_contract`, which turns a contract at Lprog into the machine-level continuation form callers use. |
-| `Ecall.lean` | SP1's `ecall` cannot tell agreeing machine states apart (`sp1Ecall_agree`): every reader it uses sees only what `Agree` fixes, and every writer keeps `Agree`. |
 | `Equiv.lean` | The lift as an equivalence (`Ascent.Equivalent`). The machine, as a system that stops where the outermost function returns (`msys`), refines the lifted program, with `wrong` at Lprog as undefined behaviour (`refines_lift`); a lifted program that never goes `wrong` refines the machine (`lift_refines`). From a function's entry: `equivalent_of_entry`. |
 | `Flat.lean` | The lift of code without functions (`Code.liftFlat`): one body, `jal` as a goto or an external call, `jalr` as an indirect jump among the addresses the code forms. For code that does not follow the calling convention, such as Flapjack's. Nothing is proved of it yet. |
 | `Decode.lean` | A word of code, decoded for the two lifts of whole binaries (`decodeWord`): riscv-zkvm's instruction, or one of the nine 32-bit operations of RV64IM its `Instr` lacks (`addw`, `sllw`, `sraw`, `sraiw`, `mulw`, `divw`, `divuw`, `remw`, `remuw`), as a shared operation. |
-| `Whole.lean` | The lift of a program as a compiler links it (`Whole.liftWhole`), by the lift of linked programs that every instruction set shares (`../../Lprog/Linked.lean`): what `liftProg` does, and far calls (`auipc` then `jalr`), jump tables, indirect calls and tail calls among all functions, calls that link through another register than `ra`, and words that are no instruction. For what rustc emits. Nothing is proved of it yet. |
+| `Whole.lean` | The lift of a program as a compiler links it (`Whole.liftWhole`), by the lift of linked programs that every instruction set shares (`Lprog/Linked.lean` in the package `lprog`): what `liftProg` does, and far calls (`auipc` then `jalr`), jump tables, indirect calls and tail calls among all functions, calls that link through another register than `ra`, and words that are no instruction. For what rustc emits. Nothing is proved of it yet. |
 | `Table.lean` | The instructions of RV64IM by kind, each with whether the lift of whole programs takes it, said by the lift itself: the table of [`../LIMITS.md`](../LIMITS.md). |
 | `Rules.lean` | One rule per lifted instruction, stated on the machine state the Lprog state stands for: `lsafe_opn`, `lsafe_auipc`, `lsafe_cond`, `lsafe_ret`, `lsafe_call`, `lsafe_tail`, and SP1's `WRITE` (`lsafe_write`). |
 | `Block.lean` | Straight-line code: a pure block reaches the fold of `execInstrBr` over the machine (`reaches_block`), and as a correspondence, `corres_block`. The registers of a block as one named value per instruction (`stepRegs`, `regs_run`), for `bv_decide`. |

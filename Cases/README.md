@@ -23,7 +23,7 @@ case depends on the framework, and nothing in the framework depends on a case.
 - `Loaded.lean`: facts about the loaded image (layout, code, entry state), proved from the
   image rather than assumed.
 - Function specifications, one module per function or family. New proofs go through the
-  lift to the low logical program (`MachineChecked/RiscV/Lprog`); the zip-2005 proofs mostly
+  lift to the low logical program (`MachineChecked/RiscV/Lift`); the zip-2005 proofs mostly
   use the layer-0 tools (the checker, the symbolic executor).
 - The specification itself (for example `Zip2005/Spec`). In the roadmap's terms this is layer
   2 material; until that layer exists, each case connects its specification to its proofs
