@@ -25,21 +25,13 @@ namespace MachineChecked.RiscV.Sp1
 
 open RiscvZkvm.Rv64 MachineChecked.Lprog MachineChecked.RiscV.Lprog MachineChecked.Logical
 
-/-- A guest: its functions, where it starts, and the words it loads, each at an address
-    that is a multiple of eight. -/
-structure Guest where
-  fns : List Fun
-  entry : Word
-  memory : List (Word × Word)
+/-- A guest: its functions, where it starts, and the words it loads. -/
+abbrev Guest := Logical.Guest.Program Decoded
 
 private def reg (r : Reg) : String := RegText.name r
 
-namespace Guest
-
-variable (g : Guest)
-
 /-- **The environment of a guest, for lift 2.** -/
-def env : Env where
+def Guest.env (g : Guest) : Env where
   regs := [reg .x5, reg .x10, reg .x11, reg .x12]
   init := Guest.install g.memory
   decls := Guest.trapFn :: Guest.inits g.memory
@@ -50,13 +42,10 @@ def env : Env where
     else none
 
 /-- The guest as an Lprog program. -/
-def lift : Lprog (Op Reg) Reg := liftWhole g.fns
+def Guest.lift (g : Guest) : Lprog (Op Reg) Reg := liftWhole g.fns
 
 /-- **The guest as a Pancake program.** -/
-def toPancake : Except String (List (_root_.Flapjack.Decl Pancake.W) × List String) := do
-  let some entry := g.fns.findIdx? (·.addr == g.entry) | throw "the entry of the ELF is no function of it"
-  Logical.lift g.env allRegs .x1 .x2 entry g.lift
-
-end Guest
+def Guest.toPancake (g : Guest) : Except String (List (_root_.Flapjack.Decl Pancake.W) × List String) :=
+  Logical.Guest.Program.toPancake g g.env allRegs .x1 .x2 g.lift
 
 end MachineChecked.RiscV.Sp1

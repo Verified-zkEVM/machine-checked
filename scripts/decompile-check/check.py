@@ -1,14 +1,26 @@
 #!/usr/bin/env python3
-"""Check `decompile --to pancake` on Flapjack images, by running.
+"""Check `decompile --to pancake` on Flapjack images and on guests, by running.
 
     check.py build FJC TESTS
+    check.py rust WORK TESTS [--seed N] [--count N] [--target sp1|aarch64|x86-64]
     check.py reference FLIP_CHECK TESTS
+    check.py sp1-reference SP1REF TESTS
     check.py self-test TESTS
     check.py run FJC TESTS [--work DIR] [-j N]
     check.py mutants FJC TESTS [--work DIR] [-j N]
+    check.py limits [--write]
 
-TESTS holds one directory per test, each with `image.fjimg` (a Flapjack image) and
-`expected.txt` (what the image does on each test input), as flapjack-flip's `tests/` does.
+TESTS holds one directory per test, each with `image.fjimg` (a Flapjack image) or
+`guest.elf` (a guest: an SP1 guest, or a program without an operating system for AArch64
+or x86-64), and `expected.txt` (what it does on each test input), as flapjack-flip's
+`tests/` does. For a guest read "guest" for "image" below: its `expected.txt` is written by
+`build` from `sp1run.py`, or from `barerun.py` (Unicorn) for a bare one.
+
+`rust`: build the guests of `rust/`, with COUNT generated ones, for a target, into TESTS.
+`sp1-reference`: compare the `expected.txt` of SP1 guests with SP1's own executor.
+`limits`: compare the instruction table of each `LIMITS.md` with the generated one.
+
+The decompiler is `.lake/build/bin/decompile`, or the file the variable `DECOMPILE` names.
 
 `run`: for each test, decompile the image (`lake exe decompile --to pancake`), compile the
 Pancake text with Flapjack (FJC SOURCE.pnk prints the image; see README.md), run the new
@@ -284,6 +296,7 @@ def mutants(args):
             return None
         i = rng.choice(sites)
         lines[i] = ASSIGN.sub(r"\1\2(\3 ^ 1);", lines[i])
+        changed = lines[i].strip()
         if guest:
             lines.insert(i, ASSIGN.match(lines[i]).group(1) + "@mark(0, 0, 0, 0);")
         mut = os.path.join(d, "mutant.pnk")
@@ -298,7 +311,10 @@ def mutants(args):
         fuel = [str(50 * max(map(int, STEPS.findall(expected))) + 1_000_000)] if guest else []
         got = sh(runner(os.path.join(args.tests, t)) + [img] + fuel).stdout
         plain = got.replace("\n(marked)", "")
-        return ("(marked)" in got) if guest else None, STEPS.sub("", plain) != STEPS.sub("", expected)
+        reached, caught = ("(marked)" in got) if guest else None, STEPS.sub("", plain) != STEPS.sub("", expected)
+        # for whoever traces a change that was not caught
+        open(os.path.join(d, "result.txt"), "w").write(f"reached: {reached}\ncaught: {caught}\nchanged: {changed}\n")
+        return reached, caught
 
     with ThreadPoolExecutor(args.j) as ex:
         res = [r for r in ex.map(one, tests(args.tests)) if r is not None]
@@ -311,6 +327,38 @@ def mutants(args):
               f"and {sum(reached)}/{len(reached)} of those are caught; "
               f"{sum(c for r, c in known if not r)} unreached ones are caught")
     return True
+
+
+LIMITS = {"riscv": "RiscV", "aarch64": "ARM", "x86-64": "X86"}
+TABLE = re.compile(r"(<!-- table: generated, do not edit -->\n).*?(<!-- end of table -->)", re.S)
+
+
+def limits(args):
+    """Compare the instruction table of each `LIMITS.md` with the one `decompile --table`
+    makes from `run/ISA.txt`, the kinds of instruction the check runs; `--write` puts the
+    generated table in."""
+    ok = True
+    for isa, d in LIMITS.items():
+        path = os.path.join(ROOT, "MachineChecked", d, "LIMITS.md")
+        p = sh([DECOMPILE, "--table", isa, os.path.join(HERE, "run", isa + ".txt")])
+        if p.returncode:
+            print(f"limits: {isa}: {p.stderr.strip()}")
+            ok = False
+            continue
+        text = open(path).read()
+        new = TABLE.sub(lambda m: m.group(1) + p.stdout + m.group(2), text)
+        if TABLE.search(text) is None:
+            print(f"limits: {path} has no table")
+            ok = False
+        elif new != text and args.write:
+            open(path, "w").write(new)
+            print(f"limits: wrote the table of {path}")
+        elif new != text:
+            print(f"limits: the table of {path} is not the generated one")
+            ok = False
+    if ok:
+        print("limits: the tables are the generated ones")
+    return ok
 
 
 if __name__ == "__main__":
@@ -327,5 +375,6 @@ if __name__ == "__main__":
     g.add_argument("--target", choices=["sp1", *BARE], default="sp1")
     m = sub.add_parser("mutants"); m.add_argument("fjc"); m.add_argument("tests")
     m.add_argument("--work"); m.add_argument("-j", type=int, default=os.cpu_count())
+    l = sub.add_parser("limits"); l.add_argument("--write", action="store_true")
     a = ap.parse_args()
-    sys.exit(0 if {"self-test": self_test, "run": run, "build": build, "reference": reference, "mutants": mutants, "rust": rust, "sp1-reference": sp1_reference}[a.cmd](a) else 1)
+    sys.exit(0 if {"self-test": self_test, "run": run, "build": build, "reference": reference, "mutants": mutants, "rust": rust, "sp1-reference": sp1_reference, "limits": limits}[a.cmd](a) else 1)

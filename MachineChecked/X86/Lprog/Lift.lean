@@ -9,11 +9,12 @@
     read is zero-extended.
   * **Memory.** An operand in memory is loaded into `t4` (the destination) or `t5` (the
     source), and its address is a sum. An access need not be aligned.
-  * **Flags** are `cf`, `zf`, `sf` and `ovf`, each 0 or 1. An instruction that sets them
-    computes its result into `t0`, then the flags from the operands and `t0`, then writes
-    its destination. The parity and auxiliary flags are not kept, and a condition on parity
-    is not lifted. Where the processor leaves a flag undefined, the lift leaves it as it
-    was or gives it the value the usual processors do; no compiled program reads it.
+  * **Flags** are `cf`, `zf`, `sf` and `ovf`, each 0 or 1, and `pf`. An instruction that sets
+    them computes its result into `t0`, then the flags from the operands and `t0`, then
+    writes its destination. The parity flag is seldom read, so `pf` is the result itself,
+    and its parity is worked out where a condition reads it. The auxiliary flag is not kept. Where the processor leaves a
+    flag undefined, the lift leaves it as it was or gives it the value the usual processors
+    do; no compiled program reads it.
   * **A shift by `cl`** changes the flags only if the count is not zero: each flag is the
     choice between its new and its old value.
   * **Multiplication and division** use `rdx:rax` as the processor does. A division of 128
@@ -29,7 +30,8 @@
     pointer into `ra` and is `Lret`, without popping. So a function returns with the stack
     pointer as it was called with, as `Lret` asks, and to the address its caller pushed, or
     the caller gives up. A `jmp` to a function is a tail call.
-  * **Control.** A jump to an instruction of the function is a jump; `jmp` through a
+  * **Control.** A jump to an instruction of the function is a jump, and a conditional
+    jump to another function is a tail call on the condition; `jmp` through a
     register or memory is a computed jump (`Linked.jump`, with `t2`); `syscall` is the
     external call. `int3`, `ud2`, and bytes that are no instruction are `Labort`.
 
@@ -114,26 +116,37 @@ def wr (sz : Size) (l : Loc) (v : E) : List O :=
 
 /-! ## Flags -/
 
-/-- The zero and sign flags of the result in `t0`. -/
-def setZS (sz : Size) : List O := [.set .zf (isZero (r .t0)), .set .sf (msb sz (r .t0))]
+/-- Whether the low byte of `e` has an even number of bits set: the low four bits of
+    `e ^ (e >> 4)` have its parity, and index a table of the parities of sixteen numbers. -/
+def parity (e : E) : E := flip (bit (.bin .lshr (num 0x6996) (band (bxor e (lshr e 4)) (num 15))) 0)
 
-/-- **A condition**: 0 or 1; `none` for a condition on parity. -/
-def cond : Cc → Option E
-  | .o => some (r .ovf)
-  | .no => some (flip (r .ovf))
-  | .b => some (r .cf)
-  | .ae => some (flip (r .cf))
-  | .e => some (r .zf)
-  | .ne => some (flip (r .zf))
-  | .be => some (bor (r .cf) (r .zf))
-  | .a => some (flip (bor (r .cf) (r .zf)))
-  | .s => some (r .sf)
-  | .ns => some (flip (r .sf))
-  | .l => some (bxor (r .sf) (r .ovf))
-  | .ge => some (flip (bxor (r .sf) (r .ovf)))
-  | .le => some (bor (r .zf) (bxor (r .sf) (r .ovf)))
-  | .g => some (flip (bor (r .zf) (bxor (r .sf) (r .ovf))))
-  | .p | .np => none
+/-- The zero and sign flags of the result in `t0`, and the result for its parity. -/
+def setZS (sz : Size) : List O :=
+  [.set .zf (isZero (r .t0)), .set .sf (msb sz (r .t0)), .set .pf (r .t0)]
+
+/-- **A condition**: 0 or 1. -/
+def cond : Cc → E
+  | .o => r .ovf
+  | .no => flip (r .ovf)
+  | .b => r .cf
+  | .ae => flip (r .cf)
+  | .e => r .zf
+  | .ne => flip (r .zf)
+  | .be => bor (r .cf) (r .zf)
+  | .a => flip (bor (r .cf) (r .zf))
+  | .s => r .sf
+  | .ns => flip (r .sf)
+  | .p => parity (r .pf)
+  | .np => flip (parity (r .pf))
+  | .l => bxor (r .sf) (r .ovf)
+  | .ge => flip (bxor (r .sf) (r .ovf))
+  | .le => bor (r .zf) (bxor (r .sf) (r .ovf))
+  | .g => flip (bor (r .zf) (bxor (r .sf) (r .ovf)))
+
+/-- The condition that holds when `c` does not. -/
+def Cc.not : Cc → Cc
+  | .o => .no | .no => .o | .b => .ae | .ae => .b | .e => .ne | .ne => .e | .be => .a | .a => .be
+  | .s => .ns | .ns => .s | .p => .np | .np => .p | .l => .ge | .ge => .l | .le => .g | .g => .le
 
 /-- A branch to `l` on a condition. -/
 def branch (c : Cc) (l : LLabel) : Lcmd O Reg :=
@@ -143,9 +156,7 @@ def branch (c : Cc) (l : LLabel) : Lcmd O Reg :=
   | .b => on .cf "ne" | .ae => on .cf "eq"
   | .e => on .zf "ne" | .ne => on .zf "eq"
   | .s => on .sf "ne" | .ns => on .sf "eq"
-  | _ => match cond c with
-    | some e => [.Lopn (.set .t0 e), .Lcond (.cmp "ne" (.reg .t0) (.imm 0)) l]
-    | none => [.Labort]
+  | _ => [.Lopn (.set .t0 (cond c)), .Lcond (.cmp "ne" (.reg .t0) (.imm 0)) l]
 
 /-! ## Arithmetic -/
 
@@ -259,6 +270,10 @@ def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : L
     o (ld ++ wr dsz (.reg dst) (if signed then low dsz (.un (.sext (width ssz)) v) else v))
   | .lea sz dst a => o (wr sz (.reg dst) (low sz (addr a)))
   | .alu op sz dst src =>
+    -- a register with itself is how a compiler writes zero
+    if op = .xor ∧ src = .loc dst ∧ (dst matches .reg _) then
+      o ([.set .t0 (num 0), .set .cf (num 0), .set .ovf (num 0), .set .zf (num 1), .set .sf (num 0),
+        .set .pf (num 0)] ++ wr sz dst (num 0)) else
     let (la, a) := rdLoc sz .t4 dst
     let (lb, b) := rdSrc sz .t5 src
     o (la ++ lb ++ aluOps op sz a b ++ (if op = .cmp then [] else wr sz dst (r .t0)))
@@ -281,7 +296,7 @@ def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : L
     if known = false ∧ lc = [] then o (la ++ wr sz dst a) else
     o (la ++ lc ++ ops ++ [setIf known .cf cf, setIf known .ovf ovf] ++
       (if op = .rol ∨ op = .ror then []
-       else [setIf known .zf (isZero (r .t0)), setIf known .sf (msb sz (r .t0))]) ++
+       else [setIf known .zf (isZero (r .t0)), setIf known .sf (msb sz (r .t0)), setIf known .pf (r .t0)]) ++
       wr sz dst (r .t0))
   | .shiftd left sz dst src n =>
     if sz = .b ∨ sz = .w then [.Labort] else
@@ -295,7 +310,8 @@ def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : L
       else bor (.bin .lshr a n) (.bin .shl (shl b 1) rest)
     let cf : E := if left then bit (.bin .lshr a (band (sub (num sz.bits) n) (num 63))) 0 else bit (.bin .lshr a n1) 0
     o (la ++ lc ++ [.set .t0 (low sz res), setIf known .cf cf, setIf known .ovf (msb sz (bxor a (r .t0))),
-      setIf known .zf (isZero (r .t0)), setIf known .sf (msb sz (r .t0))] ++ wr sz dst (r .t0))
+      setIf known .zf (isZero (r .t0)), setIf known .sf (msb sz (r .t0)), setIf known .pf (r .t0)] ++
+      wr sz dst (r .t0))
   | .mul signed sz src =>
     let (ld, v) := rdLoc sz .t5 src
     let a := low sz (r .rax)
@@ -351,9 +367,11 @@ def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : L
     let (la, v) := rdLoc sz .t4 a
     o (la ++ [.set .t0 v, .set .t1 (low sz (g b))] ++ wr sz a (r .t1) ++ wr sz (.reg b) (r .t0))
   | .jcc c t =>
-    (match cx.label t with
-    | some l => branch c l
-    | none => [.Labort])
+    -- to another function it is a tail call if the condition holds: a branch past one, if not
+    (match cx.label t, cx.entry t, cx.label i.next with
+    | some l, _, _ => branch c l
+    | none, some f, some after => branch c.not after ++ [.Ltail (.direct f)]
+    | _, _, _ => [.Labort])
   | .jmp t =>
     (match cx.label t, cx.entry t with
     | some l, _ => [.Lgoto l]
@@ -371,16 +389,10 @@ def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : L
     o (ld ++ [.set .t2 v] ++ push (.imm i.next)) ++ [.Lcall i.next (.indirect (r .t2) cx.all)] ++
       o [.set .rsp (add rsp (num 8))]
   | .ret => [.Lopn (.load .ra .b8 false rsp), .Lret]
-  | .setcc c dst =>
-    (match cond c with
-    | some e => o (wr .b dst e)
-    | none => [.Labort])
+  | .setcc c dst => o (wr .b dst (cond c))
   | .cmov c sz dst src =>
-    (match cond c with
-    | some e =>
-      let (ld, v) := rdLoc sz .t5 src
-      o (ld ++ wr sz (.reg dst) (choose e v (low sz (g dst))))
-    | none => [.Labort])
+    let (ld, v) := rdLoc sz .t5 src
+    o (ld ++ wr sz (.reg dst) (choose (cond c) v (low sz (g dst))))
   | .widenA sz =>
     (match sz with
     | .w => o (wr .w (.reg 0) (low .w (.un (.sext .b1) (r .rax))))

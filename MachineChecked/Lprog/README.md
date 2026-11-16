@@ -20,12 +20,17 @@ context makes), and a lift from its machine code.
 | `Sem.lean` | `Isa`: the operation and register types, the link and stack registers, the state beside the registers, and the meaning of operations and conditions. A state is a stack of frames (function, pc, return value, sp at the call), the registers and the rest. `step` is a relation whose outcomes are a state with the events the step made observable, `trap` or `wrong`; a return goes `wrong` unless the link register and sp are as the call left them. The execution `Context` gives external calls, the only steps that make events, and accepting. `Isa.system` is the program as an `Ascent.System`, for refinement and equivalence. `Isa.SafeN` is `Ascent.SafeN` at this step with its events forgotten, with one rule per instruction (`SafeN.opn`, `cond`, `call`, `tail`, `ret`, `ext`, …). |
 | `Text.lean` | A text format for programs over the shared operations. `print` gives a program's tokens and `parse` reads them back (`parse_print`); `toText` and `ofText` are the same through text, with the round trip checked by the tool that writes it (`lake exe decompile`). An instruction set names its registers (`RegText`). |
 | `Op.lean` | The shared operations: `Op` (`set`, `load`, `store`, `skip`), an ISA's memory `Mem`, conditions (`condEval`), and `Isa.ofOps`, the instruction set over these operations and a memory. |
+| `Build.lean` | Expressions and operations as the lifts write them: short names, values that are 0 or 1 and the choice by one, and what the shared operations lack written out in them (a reversal of bytes or bits, a count of leading zeros). |
+| `Linked.lean` | The lift of a program as a compiler links it, for any instruction set (`liftProgram`): functions as runs of instructions at addresses, labels, calls and tail calls among them, computed jumps among the candidates the program holds as values, and a label to give up at. An instruction set gives the lift of one instruction. Nothing is proved of it yet. |
+| `Dead.lean` | `dropDead`: a body without the writes, to registers an instruction set names (its flags), that nothing reads. It assumes nothing of what is outside the function. Nothing is proved of it yet. |
 
 ## Using it
 
 An instruction set joins by giving `Isa.ofOps Reg link sp M mem` (its registers, state and memory), a lift from its
 decoded code to Lprog bodies, and a simulation that carries every Lprog run down to its
-machine. RISC-V's is [`../RiscV/Lprog`](../RiscV/Lprog/README.md). A function is then proved
+machine. RISC-V's is [`../RiscV/Lprog`](../RiscV/Lprog/README.md). AArch64
+([`../ARM/Lprog`](../ARM/README.md)) and x86-64 ([`../X86/Lprog`](../X86/README.md)) have their
+registers and their lift, for `decompile`, and no simulation yet. A function is then proved
 by running its lifted body at Lprog, and the result transfers to the machine.
 
 Worked examples, all RISC-V:

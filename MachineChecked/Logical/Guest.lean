@@ -22,10 +22,11 @@
 
   ## Main definitions
 
-  * `inits`, `trap`, `trapFn`, `syscall`, `bare`
+  * `inits`, `trap`, `trapFn`, `syscall`, `bare`, `Program`, `Program.toPancake`
 -/
 
 import MachineChecked.Logical.Lift
+import MachineChecked.Lprog.Linked
 
 namespace MachineChecked.Logical.Guest
 
@@ -73,5 +74,20 @@ def bare (memory : List (W × W)) (number a b c result : String) : Env where
   decls := trapFn :: inits memory
   wrong := trap
   ext n stop := if n = 0 then some (syscall "syscall" number a b c [result] stop) else none
+
+/-- **A linked program as it is loaded**: its functions, where it starts, and the words it
+    loads, each at an address that is a multiple of eight. `I` is its instructions. -/
+structure Program (I : Type) where
+  fns : List (MachineChecked.Lprog.Linked.Fun I)
+  entry : W
+  memory : List (W × W)
+
+/-- **A loaded program as a Pancake program**, and the places where it may give up: lift 2
+    of its lift `p`, from the function at its entry. -/
+def Program.toPancake {I Reg : Type} [MachineChecked.Lprog.RegText Reg] (g : Program I) (env : Env)
+    (regs : List Reg) (link sp : Reg) (p : MachineChecked.Lprog.Lprog (MachineChecked.Lprog.Op Reg) Reg) :
+    Except String (List (Decl W) × List String) := do
+  let some entry := g.fns.findIdx? (·.addr == g.entry) | throw "the entry of the ELF is no function of it"
+  lift env regs link sp entry p
 
 end MachineChecked.Logical.Guest

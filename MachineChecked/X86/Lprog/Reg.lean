@@ -6,11 +6,12 @@
   They are the sixteen general registers, in the order of their numbers in an instruction;
   the flags an instruction of a compiled program reads, each a register that holds 0 or 1
   (carry, zero, sign, overflow, and the direction of the string instructions), so that what
-  an instruction does to the flags is an operation like any other; `ra`, where a return
+  an instruction does to the flags is an operation like any other, and `pf`, which holds
+  the last result, the parity of whose low byte is the parity flag; `ra`, where a return
   address is while a call or a return passes it, x86-64 having no register for it
   (`Lift.lean`); and six registers of the lift's own, for values an instruction computes
-  once and uses twice. The parity and auxiliary-carry flags are no registers: an instruction
-  that reads either is not lifted.
+  once and uses twice. The auxiliary-carry flag is no register: no instruction that reads it
+  is decoded.
 
   ## Main definitions
 
@@ -45,6 +46,7 @@ inductive Reg where
   | zf
   | sf
   | ovf
+  | pf
   | df
   | ra
   | t0
@@ -99,6 +101,7 @@ def name : Reg → String
   | .zf => "zf"
   | .sf => "sf"
   | .ovf => "ovf"
+  | .pf => "pf"
   | .df => "df"
   | .ra => "ra"
   | .t0 => "t0"
@@ -112,7 +115,7 @@ end Reg
 
 /-- Every register. -/
 def allRegs : List Reg :=
-  [.rax, .rcx, .rdx, .rbx, .rsp, .rbp, .rsi, .rdi, .r8, .r9, .r10, .r11, .r12, .r13, .r14, .r15, .cf, .zf, .sf, .ovf, .df, .ra, .t0, .t1, .t2, .t3, .t4, .t5]
+  [.rax, .rcx, .rdx, .rbx, .rsp, .rbp, .rsi, .rdi, .r8, .r9, .r10, .r11, .r12, .r13, .r14, .r15, .cf, .zf, .sf, .ovf, .pf, .df, .ra, .t0, .t1, .t2, .t3, .t4, .t5]
 
 instance : RegText Reg where
   name := Reg.name
