@@ -10,7 +10,9 @@ checked by the Lean kernel, and nothing in `MachineChecked/` or `Cases/` imports
 | `GenImage.lean` | `lake exe gen-image ELF NM OUTDIR MODPREFIX [STACKTOP]` | The ELF as Lean data: one module per function (its words and their decoding), the data chunks and the layout. |
 | `Infer.lean` | `lake exe infer-contracts ELF NM OUT.tsv STACKTOP PROTLO PROTHI` | For every function, bottom-up over the call graph: an interface (`Check.Iface`) and a certificate, emitted as Lean for the checker to re-check. |
 | `FrameSweep.lean` | `lake exe frame-sweep ELF NM OUT.tsv` | Runs the frame analysis over every function and reports which annotations check, and why not. |
-| `Decompile.lean` | `lake exe decompile --to lprog\|pancake BINARY [OUT]` | A binary as an Lprog program, in text, or as a Pancake program. `BINARY` is an RV64 ELF or a Flapjack image. See below. |
+| `Decompile.lean` | `lake exe decompile --to lprog\|pancake\|lean BINARY …` | A binary as an Lprog program, in text or as Lean, or as a Pancake program. `BINARY` is an ELF or a Flapjack image. See below. |
+| `ToLean.lean` | (library, and the command `check_elf_words`) | `decompile --to lean`: the modules it writes, the lemmas their theorems rest on, and the check of their words against the ELF. |
+| `Test/ToLean.lean` | (built) | Checks of `ToLean.lean`, run when it is built: a body in parts, a function's theorem from its parts, and a changed term refuted by the kernel. |
 | `Fjimg.lean` | (library) | The text form of a Flapjack image. |
 | `Elf.lean` | (library) | ELF and symbol-table helpers shared by the tools. |
 | `StructureTest.lean` | (built) | Checks of `Logical/Structure.lean` on small graphs, run when it is built: a switch is never a two-way choice or a way out. |
@@ -29,6 +31,7 @@ for RISC-V, AArch64 or x86-64 to layer 0.5 (`--to lprog`) and on to layer 1
 lake exe decompile --to pancake GUEST.elf OUT.pnk     # an ELF for RV64IM, AArch64 or x86-64
 lake exe decompile --to lprog   GUEST.elf OUT.lprog
 lake exe decompile --to lprog --proved GUEST.elf      # RISC-V, by the lift the theorems are about
+lake exe decompile --to lean --proved GUEST.elf OUTDIR NAMESPACE   # the same as Lean, checked by the kernel
 lake exe decompile --to pancake IMAGE.fjimg OUT.pnk   # a binary from Flapjack
 lake exe decompile --table riscv|aarch64|x86-64 [KINDS]   # the instruction table of a LIMITS.md
 lake exe decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS
@@ -86,6 +89,34 @@ equivalent to an observer). It covers less: what it does not is an `abort`, and 
 with a word riscv-zkvm does not decode is left out. In both forms the Lprog text is read
 back and compared with the program before it is written (`Lprog.parse_print` proves the
 step from tokens; the step from text is this check).
+
+### As Lean
+
+`decompile --to lean --proved GUEST.elf OUTDIR NS` writes the `--proved` lift as Lean modules
+(`ToLean.lean`), for proofs about the program to start from, with nothing new to trust:
+
+- `OUTDIR/NS/Words.lean`: each function's words, and `check_elf_words words "GUEST.elf"`,
+  which reads the ELF when the module is built and adds `words_eq_elf`, the words equal to the
+  ELF's, for the kernel to check. The path is as given on the command line, read from where the
+  module is built. `fns` is the functions the words decode to.
+- `OUTDIR/NS/F<i>.lean`: the `i`th function's lift as a term `f<i>`, and
+  `f<i>_eq : (liftProg fns)[i]? = some f<i>`. The kernel decides its name, address and stack
+  bound (`f<i>_head`) and its body in parts of 128 instructions (`f<i>_parts`), and
+  `getElem?_eq_of_chunks` gives the whole; in parts, no limit of the kernel needs raising.
+- `OUTDIR/NS.lean` imports them all.
+
+So a term is the lift of the ELF's words, checked by the kernel; the tool that wrote it is not
+trusted. What that says about the binary is what `liftProg`'s theorems say (`Equiv.lean`).
+The modules are `noncomputable` (data for the kernel; the code generator does not take terms
+this large), and require this repository's root package, for `liftProg` and `Tools.ToLean`.
+
+| binary | functions | instructions | Lean written | build of all modules, 8 at a time |
+| --- | --- | --- | --- | --- |
+| `experiments/leanvm/out/blake2s.elf` | 6 | 702 | 148 KB | 8 s of CPU |
+| `experiments/zip-2005/out/baseline.elf` | 304 | 41,631 | 8.3 MB | 74 s (495 s of CPU) on an Apple M3 Max; the longest function 12 s |
+
+A word or a term changed by one bit fails: the words module does not build, or `decide` finds
+the function's statement false. `Test/ToLean.lean` checks the second on a small program.
 
 ### A Flapjack image
 

@@ -88,8 +88,8 @@ computes: nothing worse than today, and no guarantee about the binary. Phase 4 o
 
 ### The experiment
 
-Done on the `--proved` route with a script that writes the modules above
-([`scripts/lean-emit`](../../scripts/lean-emit/README.md); not yet in the tool),
+First done on the `--proved` route with a prototype, before the tool had the mode
+(now `decompile --to lean`, [`Tools/ToLean.lean`](../../Tools/ToLean.lean)),
 built with `lean` module by module, eight at a time, on an Apple M3 Max:
 
 | binary | functions | instructions | Lean written | checked | build, all modules | slowest module |
@@ -112,10 +112,12 @@ elaborator, not the check. What the emitter must do, learnt on zip-2005:
   candidates are every function, `[0, 1, …, 303]`; `List.range 304` is the same term in a few
   characters. The `--proved` lift gives every indirect call every function (a limit noted in
   #32).
-- **Even so, that function's check goes deeper than the kernel allows by default**: it
-  compares 218 lists of 304. With `maxRecDepth` raised it checks, in 10 s. The tool should not
-  need the option: either the lift names an indirect call's candidates more narrowly, or the
-  theorem is split, one per part of a function's body.
+- **Even so, that function's check went deeper than the kernel allows by default**: it
+  compares 218 lists of 304, and checked only with `maxRecDepth` raised. The tool splits each
+  function's theorem instead: the kernel decides its header and its body in parts of 128
+  instructions apart, and a lemma (`getElem?_eq_of_chunks`) gives the whole. With that, every
+  function of zip-2005 checks with no limit raised, the longest in 12 s; all of them in 74 s on
+  8 cores ([`Tools/README.md`](../../Tools/README.md)).
 
 ## 3. Flapjack can take the term, not the text
 
@@ -158,7 +160,7 @@ together, is the arrangement #16 settled on.
 | step | what | done when |
 | --- | --- | --- |
 | 1 | `lprog/` as a package: `Ascent`, Lprog, AArch64's and x86-64's registers; `lprog-riscv/`: RISC-V's instance and SP1's context, moved; the root requires both by path | done: the root builds as before, no theorem changes its statement, and a project outside this repository that requires `lprog/` alone builds and fetches nothing else |
-| 2 | `decompile --to lean` (RISC-V, `--proved` route first), with the check against the ELF | the zip-2005 modules build in CI's time, and a changed term fails |
+| 2 | `decompile --to lean` (RISC-V, `--proved` route first), with the check against the ELF | done: blake2s and zip-2005 build completely, and a changed word or term fails |
 | 3 | `--to lean` for the other routes, and for Pancake as Flapjack's syntax | each route's terms checked against its lift |
 | 4 | `pancake/`, on Flapjack's semantics; ask Flapjack for a semantics package and a syntax entry point | a proof about a decompiled guest's Pancake imports `pancake/` only |
 | 5 | Ascent's port into `lprog/` with catcrypt-compiler (#16), and the pins kept up by CI | catcrypt-compiler requires `lprog/` |

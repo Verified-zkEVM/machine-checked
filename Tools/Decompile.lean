@@ -31,6 +31,7 @@ import MachineChecked.X86.Lift.Table
 import MachineChecked.ARM.Lift.Table
 import MachineChecked.RiscV.Lift.Table
 import Tools.Elf
+import Tools.ToLean
 import Tools.Fjimg
 
 namespace Tools.Decompile
@@ -38,25 +39,9 @@ namespace Tools.Decompile
 open RiscvZkvm.Rv64 RiscvZkvm.Interpreter
 open Lprog MachineChecked.RiscV.Lift MachineChecked.RiscV.Flapjack Lprog.RiscV
 open Tools.Elf
+open Tools.ToLean (functions)
 open Lprog.Linked (At)
 
-/-- The functions of an image the lift takes, and the names of those it does not, each with
-    the reason. -/
-def functions (img : Elf64Image) (syms : List Sym) : Array Fn × Array String := Id.run do
-  let mut fs : Array Fn := #[]
-  let mut skipped : Array String := #[]
-  for sym in syms do
-    if sym.addr % 4 != 0 || sym.size % 4 != 0 then
-      skipped := skipped.push s!"{sym.name}: not word-aligned"
-    else if !img.segments.any (fun s => s.executable && s.vaddr ≤ sym.addr &&
-        sym.addr + sym.size ≤ s.vaddr + s.data.size) then
-      skipped := skipped.push s!"{sym.name}: not in an executable segment"
-    else match wordsAt img sym.addr (sym.size / 4) with
-      | .error e => skipped := skipped.push s!"{sym.name}: {e}"
-      | .ok ws => match ws.mapM decode with
-        | some prog => fs := fs.push { name := sym.name, base := BitVec.ofNat 64 sym.addr, prog }
-        | none => skipped := skipped.push s!"{sym.name}: a word does not decode"
-  return (fs, skipped)
 
 section
 variable {Reg : Type} [RegText Reg] [DecidableEq Reg]
@@ -109,6 +94,7 @@ end
 def usage : String :=
   "usage: decompile --to lprog|pancake ELF [OUT]\n" ++
   "       decompile --to lprog --proved ELF [OUT]\n" ++
+  "       decompile --to lean --proved ELF OUTDIR NAMESPACE\n" ++
   "       decompile --to lprog|pancake IMAGE.fjimg [OUT]\n" ++
   "       decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS\n" ++
   "       decompile --table riscv|aarch64|x86-64 [KINDS]\n" ++
@@ -130,6 +116,16 @@ def elfProved (elfPath : String) (out? : Option String) : IO UInt32 := do
   match r with
   | .ok (summary, text) => emit out? summary text; return 0
   | .error e => IO.eprintln s!"decompile: {e}"; return 1
+
+/-- `--to lean`: the `--proved` lift of the ELF at `elfPath` as Lean modules under `outDir`, in
+    namespace `ns` (`Tools/ToLean.lean`). -/
+def toLean (elfPath outDir ns : String) : IO UInt32 := do
+  try
+    let (n, k, skipped) ← Tools.ToLean.emit elfPath outDir ns
+    IO.println s!"decompile: {n} functions, {k} instructions, {skipped.size} functions left out, as {outDir}/{ns}.lean and {outDir}/{ns}/"
+    for r in skipped do IO.println s!"  left out: {r}"
+    return 0
+  catch e => IO.eprintln s!"decompile: {e}"; return 1
 
 /-- The words of an image that every loaded segment's file bytes make, at the addresses
     that are multiples of eight; the words that are zero are left out. -/
@@ -422,6 +418,7 @@ def main (args : List String) : IO UInt32 := do
   | ["--table", isa, run] => table isa (some run)
   | ["--to", "lprog", "--proved", path] => elfProved path none
   | ["--to", "lprog", "--proved", path, o] => elfProved path (some o)
+  | ["--to", "lean", "--proved", path, out, ns] => toLean path out ns
   | "--to" :: target :: path :: rest =>
     if target != "lprog" && target != "pancake" || rest.length > 1 then
       IO.eprintln usage; return 2
