@@ -128,10 +128,10 @@ with every 32-bit instruction have no reference machine of their own (below).
   one value the decompiled program assigns or stores, and see whether the test fails.
   For a guest the change is marked, so it is known whether a run reached it: of 265
   changes, one to a guest, 124 are reached by some input, and 102 of those 124 are caught.
-  None of the 141 unreached ones is, as it should be. The 22 reached and not caught change
-  a value whose low bit nothing shows: a register saved and restored that its caller no
-  longer reads, a constant on the way to another, the value of a comparison that goes the
-  same way. (The changes are to the statements of the program, not to the functions that
+  None of the 141 unreached ones is, as it should be. The 22 reached and not caught were not
+  traced one by one. A change can be reached and show nothing where the low bit of the
+  value does not matter afterwards: a saved register its caller no longer reads, a constant
+  on the way to another, a comparison that goes the same way. (The changes are to the statements of the program, not to the functions that
   write its memory image, which are a third of the assignments and whose words, most of
   them code, are seldom read: with those included, 52 of 171 reached changes were caught.)
   So a wrong translation of an instruction that the tests run and whose result they show is
