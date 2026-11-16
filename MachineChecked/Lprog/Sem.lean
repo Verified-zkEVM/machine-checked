@@ -7,14 +7,16 @@
   the flags `zf`/`cf`/`of`. Here an instruction set `Isa` chooses its operation type `Op`, its
   registers `Reg` (with a link register and a stack register) and the state `M` beside the
   registers (memory, flags, anything else), and gives the meaning of an operation and of a
-  condition. An execution context (`Context`) gives the meaning of `Lext` and says which
-  states accept. Control flow is shared by every instruction set.
+  condition. An execution context (`Context`) gives the meaning of `Lext`, with the events an
+  external call makes observable, and says which states accept. Control flow is shared by
+  every instruction set.
 
   A state is a stack of activations (`Frame`: the function, the counter in its body, the
   return value the call put in the link register and the stack pointer at the call), the
   register file, which is global as on a machine, and the rest. A step is a relation, since an
-  external call may have many results, and ends in a state, in a `trap` (the machine is stuck
-  too: a fault; safe) or in `wrong` (an assumption of the program is violated; unsafe):
+  external call may have many results, and ends in a state with the events it made observable
+  (only an external call makes any), in a `trap` (the machine is stuck too: a fault; safe) or
+  in `wrong` (an assumption of the program is violated; unsafe):
 
   * `Lcall` pushes a frame and writes its return value to the link register; `Lret` pops it,
     and is defined only if the link register holds that value again and the stack pointer is
@@ -23,13 +25,14 @@
   * an indirect call or jump whose target is none of its candidates, a jump to a missing
     label, running off the end of a body and `Labort` go `wrong`.
 
-  The judgement is the generic one (`Ascent.SafeN`) at this step relation. A state accepts when
+  The judgement is the generic one (`Ascent.SafeN`) at this step relation with its events
+  forgotten. A state accepts when
   the program has returned (the stack is empty: `Q` then says what the outermost function
   leaves behind) or when it is at an `Lext` the context accepts.
 
   ## Main definitions
 
-  * `Isa`, `Frame`, `State`, `Context`, `Isa.step`, `Isa.accept`, `Isa.SafeN`
+  * `Isa`, `Frame`, `State`, `Context`, `Isa.step`, `Isa.accept`, `Isa.SafeN`, `Isa.system`
 
   ## Main results
 
@@ -38,7 +41,7 @@
 -/
 
 import MachineChecked.Lprog.Syntax
-import MachineChecked.Ascent.Safe
+import MachineChecked.Ascent.Refine
 
 namespace MachineChecked.Lprog
 
@@ -97,10 +100,11 @@ structure State (I : Isa) where
   regs : I.Reg → BitVec 64
   m : I.M
 
-/-- An execution context: the meaning of `Lext`, a relation from the registers and state
-    before to the outcomes after, and the states that accept. -/
-structure Context (I : Isa) where
-  ext : (I.Reg → BitVec 64) → I.M → Outcome ((I.Reg → BitVec 64) × I.M) → Prop
+/-- An execution context with events of type `E`: the meaning of `Lext`, a relation from the
+    registers and state before to the outcomes after, each with the events the call makes
+    observable, and the states that accept. -/
+structure Context (I : Isa) (E : Type) where
+  ext : (I.Reg → BitVec 64) → I.M → Outcome (((I.Reg → BitVec 64) × I.M) × List E) → Prop
   accept : (I.Reg → BitVec 64) → I.M → Prop
 
 /-- Is this the label `l`? -/
@@ -114,7 +118,7 @@ def labelIdx {Op Reg : Type} (body : Lcmd Op Reg) (l : LLabel) : Option Nat :=
 
 namespace Isa
 
-variable (I : Isa) (p : Lprog I.Op I.Reg) (c : Context I)
+variable (I : Isa) (p : Lprog I.Op I.Reg) {E : Type} (c : Context I E)
 
 /-- The address of function `f`. -/
 def addrAt (f : Nat) : Option (BitVec 64) := (p[f]?).map (·.addr)
@@ -130,46 +134,48 @@ def fetch (s : State I) : Option (LinstrR I.Op I.Reg) :=
   | [] => none
   | fr :: _ => (p[fr.fn]?).bind fun fd => fd.body[fr.pc]?
 
-/-- One instruction, from activation `fr` over `rest`, in function body `body`. -/
+/-- One instruction, from activation `fr` over `rest`, in function body `body`. Only an
+    external call makes events. -/
 def stepI (body : Lcmd I.Op I.Reg) (fr : Frame) (rest : List Frame) (regs : I.Reg → BitVec 64)
-    (m : I.M) : LinstrR I.Op I.Reg → Outcome (State I) → Prop
+    (m : I.M) : LinstrR I.Op I.Reg → Outcome (State I × List E) → Prop
   | .Lopn op, o => match I.opn op regs m with
-    | some (r', m') => o = .ok ⟨fr.at (fr.pc + 1) :: rest, r', m'⟩
+    | some (r', m') => o = .ok (⟨fr.at (fr.pc + 1) :: rest, r', m'⟩, [])
     | none => o = .trap
-  | .Llabel .., o => o = .ok ⟨fr.at (fr.pc + 1) :: rest, regs, m⟩
+  | .Llabel .., o => o = .ok (⟨fr.at (fr.pc + 1) :: rest, regs, m⟩, [])
   | .Lgoto l, o => match labelIdx body l with
-    | some j => o = .ok ⟨fr.at j :: rest, regs, m⟩
+    | some j => o = .ok (⟨fr.at j :: rest, regs, m⟩, [])
     | none => o = .wrong
   | .Lcond cnd l, o => match I.cond cnd regs m with
     | some true => match labelIdx body l with
-      | some j => o = .ok ⟨fr.at j :: rest, regs, m⟩
+      | some j => o = .ok (⟨fr.at j :: rest, regs, m⟩, [])
       | none => o = .wrong
-    | some false => o = .ok ⟨fr.at (fr.pc + 1) :: rest, regs, m⟩
+    | some false => o = .ok (⟨fr.at (fr.pc + 1) :: rest, regs, m⟩, [])
     | none => o = .wrong
   | .Ligoto e cands, o => match cands.find? (fun x => x.1 == e.eval regs) with
     | some (_, l) => match labelIdx body l with
-      | some j => o = .ok ⟨fr.at j :: rest, regs, m⟩
+      | some j => o = .ok (⟨fr.at j :: rest, regs, m⟩, [])
       | none => o = .wrong
     | none => o = .wrong
   | .Lcall ret tgt, o => match I.callee p regs tgt with
-    | some f => o = .ok ⟨⟨f, 0, ret, regs I.sp⟩ :: fr.at (fr.pc + 1) :: rest, updReg regs I.link ret, m⟩
+    | some f =>
+      o = .ok (⟨⟨f, 0, ret, regs I.sp⟩ :: fr.at (fr.pc + 1) :: rest, updReg regs I.link ret, m⟩, [])
     | none => o = .wrong
   | .Ltail tgt, o =>
     if regs I.sp = fr.top then match I.callee p regs tgt with
-      | some f => o = .ok ⟨⟨f, 0, fr.ret, fr.top⟩ :: rest, regs, m⟩
+      | some f => o = .ok (⟨⟨f, 0, fr.ret, fr.top⟩ :: rest, regs, m⟩, [])
       | none => o = .wrong
     else o = .wrong
   | .Lret, o =>
-    if regs I.link = fr.ret ∧ regs I.sp = fr.top then o = .ok ⟨rest, regs, m⟩ else o = .wrong
+    if regs I.link = fr.ret ∧ regs I.sp = fr.top then o = .ok (⟨rest, regs, m⟩, []) else o = .wrong
   | .Lext, o => match o with
-    | .ok t => t.stack = fr.at (fr.pc + 1) :: rest ∧ c.ext regs m (.ok (t.regs, t.m))
+    | .ok (t, es) => t.stack = fr.at (fr.pc + 1) :: rest ∧ c.ext regs m (.ok ((t.regs, t.m), es))
     | .trap => c.ext regs m .trap
     | .wrong => c.ext regs m .wrong
   | .Labort, o => o = .wrong
 
 /-- **One step** of a program. A returned program has none; an activation with no instruction
     goes `wrong`. -/
-def step (s : State I) (o : Outcome (State I)) : Prop :=
+def step (s : State I) (o : Outcome (State I × List E)) : Prop :=
   match s.stack with
   | [] => False
   | fr :: rest => match p[fr.fn]? with
@@ -183,9 +189,13 @@ def step (s : State I) (o : Outcome (State I)) : Prop :=
 def accept (s : State I) : Prop :=
   s.stack = [] ∨ (I.fetch p s = some .Lext ∧ c.accept s.regs s.m)
 
-/-- **The judgement** at Lprog: the generic one at `step` and `accept`. -/
+/-- **The judgement** at Lprog: the generic one at `step`, its events forgotten, and
+    `accept`. -/
 abbrev SafeN (G : State I → Prop) (n : Nat) (Q : State I → Prop) (s : State I) : Prop :=
-  Ascent.SafeN (I.step p c) (I.accept p c) G n Q s
+  Ascent.SafeN (Ascent.erase (I.step p c)) (I.accept p c) G n Q s
+
+/-- The program as a system: its step and its accepting states. -/
+abbrev system : Ascent.System (State I) E := ⟨I.step p c, I.accept p c⟩
 
 end Isa
 
@@ -199,13 +209,13 @@ namespace SafeN
 
 open Isa
 
-variable {I : Isa} {p : Lprog I.Op I.Reg} {c : Context I} {G : State I → Prop} {n : Nat}
+variable {I : Isa} {p : Lprog I.Op I.Reg} {E : Type} {c : Context I E} {G : State I → Prop} {n : Nat}
   {Q : State I → Prop} {fr : Frame} {rest : List Frame} {regs : I.Reg → BitVec 64} {m : I.M}
   {fd : Lfundef I.Op I.Reg} {fn pc : Nat} {rv top : BitVec 64}
 
 /-- The step at an instruction, through the program's lookups. -/
 theorem step_eq (hf : p[fr.fn]? = some fd) {i : LinstrR I.Op I.Reg} (hi : fd.body[fr.pc]? = some i)
-    (o : Outcome (State I)) :
+    (o : Outcome (State I × List E)) :
     I.step p c ⟨fr :: rest, regs, m⟩ o ↔ I.stepI p c fd.body fr rest regs m i o := by
   simp only [Isa.step, hf, hi]
 
@@ -220,11 +230,23 @@ theorem not_accept (hf : p[fr.fn]? = some fd) {i : LinstrR I.Op I.Reg}
   · cases h
   · rw [fetch_eq hf hi] at h; exact hne (Option.some.inj h)
 
+/-- An instruction other than an external call has one result. -/
+theorem stepI_det {body : Lcmd I.Op I.Reg} {i : LinstrR I.Op I.Reg} (hne : i ≠ .Lext)
+    {o₁ o₂ : Outcome (State I × List E)} (h₁ : I.stepI p c body fr rest regs m i o₁)
+    (h₂ : I.stepI p c body fr rest regs m i o₂) : o₁ = o₂ := by
+  cases i <;> first
+    | exact absurd rfl hne
+    | (simp only [Isa.stepI] at h₁ h₂
+       repeat' split at h₁
+       all_goals simp_all)
+
 /-- An instruction with one result, at the same budget. -/
 theorem of_one {i : LinstrR I.Op I.Reg} (hf : p[fr.fn]? = some fd) (hi : fd.body[fr.pc]? = some i)
-    (hne : i ≠ .Lext) {t : State I} (hs : ∀ o, I.stepI p c fd.body fr rest regs m i o → o = .ok t)
+    (hne : i ≠ .Lext) {t : State I}
+    (hs : ∀ o, I.stepI p c fd.body fr rest regs m i o → o = .ok (t, []))
     (h : I.SafeN p c G n Q t) : I.SafeN p c G n Q ⟨fr :: rest, regs, m⟩ :=
-  Ascent.SafeN.of_step (not_accept hf hi hne) (fun o ho => hs o ((step_eq hf hi o).1 ho)) h
+  Ascent.SafeN.of_step (not_accept hf hi hne)
+    (Ascent.erase_eq_ok fun o ho => hs o ((step_eq hf hi o).1 ho)) h
 
 theorem label {kd : LabelKind} {l : LLabel} (hf : p[fn]? = some fd)
     (hi : fd.body[pc]? = some (.Llabel kd l))
@@ -241,7 +263,9 @@ theorem opn {op : I.Op} (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Lopn
 /-- A faulting operation: the run stops, safely. -/
 theorem fault {op : I.Op} (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Lopn op))
     (he : I.opn op regs m = none) : I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ :=
-  Ascent.SafeN.stuck (fun o ho => by simpa [Frame.at, Isa.stepI, he] using (step_eq hf hi o).1 ho)
+  Ascent.SafeN.stuck
+    (Ascent.erase_eq_trap fun o ho => by
+      simpa [Frame.at, Isa.stepI, he] using (step_eq hf hi o).1 ho)
     (fun ha => absurd ha (not_accept hf hi nofun))
 
 theorem goto {l : LLabel} (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Lgoto l))
@@ -281,21 +305,28 @@ theorem ret (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some .Lret)
     state it may continue in is safe. -/
 theorem ext (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some .Lext)
     (hacc : c.accept regs m → Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩) (hw : ¬ c.ext regs m .wrong)
-    (h : ∀ r' m', c.ext regs m (.ok (r', m')) → I.SafeN p c G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩) :
+    (h : ∀ r' m' es, c.ext regs m (.ok ((r', m'), es)) →
+      I.SafeN p c G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩) :
     I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ := by
   refine Ascent.SafeN.mono (Nat.le_succ n) (Ascent.SafeN.intro ?_ fun o ho => ?_)
   · rintro (h | ⟨-, ha⟩)
     · cases h
     · exact hacc ha
-  · have ho := (step_eq hf hi o).1 ho
-    match o, ho with
-    | .ok ⟨_, r', m'⟩, ⟨rfl, he⟩ => exact h r' m' he
-    | .trap, _ => trivial
-    | .wrong, he => exact hw he
+  · cases o with
+    | ok t =>
+      obtain ⟨es, ho⟩ := ho
+      obtain ⟨hst, he⟩ := (step_eq hf hi _).1 ho
+      obtain ⟨st, r', m'⟩ := t
+      cases hst
+      exact h r' m' es he
+    | trap => trivial
+    | wrong =>
+      have ho : I.stepI p c fd.body _ rest regs m .Lext .wrong := (step_eq hf hi _).1 ho
+      exact hw ho
 
 /-- A returned program: `Q` must hold. -/
 theorem returned (hq : Q ⟨[], regs, m⟩) : I.SafeN p c G n Q ⟨[], regs, m⟩ :=
-  Ascent.SafeN.stuck (fun _ h => h.elim) fun _ => hq
+  Ascent.SafeN.stuck (Ascent.erase_eq_trap fun _ h => h.elim) fun _ => hq
 
 end SafeN
 

@@ -19,7 +19,7 @@
   apart (`Agree.memOkSp1`).
 -/
 
-import MachineChecked.Lprog.Op
+import MachineChecked.Lprog.Text
 import MachineChecked.RiscV.Sym.Core
 import Std.Tactic.BVDecide
 
@@ -304,5 +304,53 @@ theorem opOf_spec {i : Instr} (hi : opnOk i = true) (regs : Reg → BitVec 64) (
       have hc := ite_some_eq_none.mp (Option.map_eq_none_iff.mp heq)
       · simp only [memOkSp1, memAccess]
         simpa using hc
+
+/-! ## Names -/
+
+/-- A register's name in Lprog text. -/
+def regName : Reg → String
+  | .x0 => "x0"
+  | .x1 => "x1"
+  | .x2 => "x2"
+  | .x3 => "x3"
+  | .x4 => "x4"
+  | .x5 => "x5"
+  | .x6 => "x6"
+  | .x7 => "x7"
+  | .x8 => "x8"
+  | .x9 => "x9"
+  | .x10 => "x10"
+  | .x11 => "x11"
+  | .x12 => "x12"
+  | .x13 => "x13"
+  | .x14 => "x14"
+  | .x15 => "x15"
+  | .x16 => "x16"
+  | .x17 => "x17"
+  | .x18 => "x18"
+  | .x19 => "x19"
+  | .x20 => "x20"
+  | .x21 => "x21"
+  | .x22 => "x22"
+  | .x23 => "x23"
+  | .x24 => "x24"
+  | .x25 => "x25"
+  | .x26 => "x26"
+  | .x27 => "x27"
+  | .x28 => "x28"
+  | .x29 => "x29"
+  | .x30 => "x30"
+  | .x31 => "x31"
+
+/-- Every register. -/
+def allRegs : List Reg :=
+  [.x0, .x1, .x2, .x3, .x4, .x5, .x6, .x7, .x8, .x9, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17,
+    .x18, .x19, .x20, .x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28, .x29, .x30, .x31]
+
+/-- The registers by name, for Lprog text (`Lprog/Text.lean`). -/
+instance : RegText Reg where
+  name := regName
+  ofName s := allRegs.find? (regName · == s)
+  ofName_name r := by cases r <;> simp [allRegs, regName]
 
 end MachineChecked.RiscV.Lprog

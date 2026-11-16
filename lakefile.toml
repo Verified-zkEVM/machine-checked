@@ -69,3 +69,7 @@ supportInterpreter = true
 name = "infer-contracts"
 root = "Tools.Infer"
 
+
+[[lean_exe]]
+name = "decompile"
+root = "Tools.Decompile"

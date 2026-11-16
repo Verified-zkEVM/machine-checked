@@ -137,6 +137,13 @@ ISA.
 
 The catcrypt-compiler exporter and its theorem run beside phases 1 to 3.
 
+**Phases 0 and 1 are built.** Phase 0: `Ascent/Refine.lean`, and `RiscV/Lprog/Equiv.lean`
+(`refines_lift`, `lift_refines`, `equivalent_of_entry`). The machine refines the lifted
+program outright; the other direction is for a lifted program that never goes `wrong`, and
+both need the outermost return address outside the code. SP1's context makes no events yet.
+Phase 1: `Lprog/Text.lean` (`parse_print`, on tokens; the tool checks the step from tokens to
+text on what it writes) and `lake exe decompile --to lprog` (`Tools/README.md`).
+
 ## 8. Risks
 
 - **Toolchain.** Flapjack on v4.36, and the size of its proof (about 4,000 modules to import
