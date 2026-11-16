@@ -50,6 +50,9 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 DECOMPILE = os.path.join(ROOT, ".lake", "build", "bin", "decompile")
 FJRUN = [sys.executable, os.path.join(HERE, "fjrun.py")]
 SP1RUN = [sys.executable, os.path.join(HERE, "sp1run.py")]
+BARERUN = [sys.executable, os.path.join(HERE, "barerun.py")]
+# the bare targets of the Rust guests, by the name `rust --target` takes
+BARE = {"aarch64": "aarch64-unknown-none-softfloat", "x86-64": "x86_64-unknown-none"}
 STEPS = re.compile(r"^\((\d+) steps\)$", re.M)
 
 
@@ -58,6 +61,11 @@ def original(d):
     for f in ("image.fjimg", "guest.elf"):
         if os.path.isfile(os.path.join(d, f)):
             return os.path.join(d, f)
+
+
+def guest_runner(elf):
+    """The runner for a guest: ours for an SP1 guest (RISC-V), Unicorn for a bare one."""
+    return SP1RUN if open(elf, "rb").read(0x14)[0x12:] == bytes([243, 0]) else BARERUN
 
 
 def runner(d):
@@ -102,7 +110,7 @@ def build(args):
                 return t, "Flapjack rejects it: " + p.stderr.strip()[:200]
             open(img, "w").write(p.stdout)
         if os.path.isfile(os.path.join(d, "guest.elf")):
-            got = sh(SP1RUN + [os.path.join(d, "guest.elf")]).stdout
+            got = sh(guest_runner(os.path.join(d, "guest.elf")) + [os.path.join(d, "guest.elf")]).stdout
             if not all("halted: exit" in r for r in got.split("\n\n")):
                 return t, "does not halt on every input"
         else:
@@ -133,12 +141,21 @@ def rust(args):
         if p.returncode:
             print(p.stderr)
             return False
-    p = sh([os.path.expanduser("~/.sp1/bin/cargo-prove"), "prove", "build"], cwd=src)
-    out = os.path.join(src, "target", "elf-compilation", "riscv64im-succinct-zkvm-elf", "release")
+    names = sorted(f[:-3] for f in os.listdir(os.path.join(src, "src", "bin")) if f.endswith(".rs"))
+    if args.target == "sp1":
+        p = sh([os.path.expanduser("~/.sp1/bin/cargo-prove"), "prove", "build"], cwd=src)
+        out = os.path.join(src, "target", "elf-compilation", "riscv64im-succinct-zkvm-elf", "release")
+    else:
+        # a bare program: not the guests that say they are for SP1 only
+        names = [n for n in names
+                 if not open(os.path.join(src, "src", "bin", n + ".rs")).readline().startswith("// SP1 only")]
+        triple = BARE[args.target]
+        p = sh(["cargo", "build", "--release", "--target", triple] + [a for n in names for a in ("--bin", n)],
+               cwd=src, env=dict(os.environ, RUSTFLAGS="-C relocation-model=static"))
+        out = os.path.join(src, "target", triple, "release")
     if p.returncode or not os.path.isdir(out):
         print((p.stdout + p.stderr)[-3000:])
         return False
-    names = sorted(f[:-3] for f in os.listdir(os.path.join(src, "src", "bin")) if f.endswith(".rs"))
     for n in names:
         os.makedirs(os.path.join(args.tests, n), exist_ok=True)
         shutil.copy(os.path.join(out, n), os.path.join(args.tests, n, "guest.elf"))
@@ -293,6 +310,7 @@ if __name__ == "__main__":
     q = sub.add_parser("sp1-reference"); q.add_argument("sp1ref"); q.add_argument("tests"); q.add_argument("-j", type=int, default=os.cpu_count())
     g = sub.add_parser("rust"); g.add_argument("work"); g.add_argument("tests")
     g.add_argument("--seed", type=int, default=1); g.add_argument("--count", type=int, default=0)
+    g.add_argument("--target", choices=["sp1", *BARE], default="sp1")
     m = sub.add_parser("mutants"); m.add_argument("fjc"); m.add_argument("tests")
     m.add_argument("--work"); m.add_argument("-j", type=int, default=os.cpu_count())
     a = ap.parse_args()

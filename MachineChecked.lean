@@ -25,6 +25,7 @@ import MachineChecked.RiscV.Lprog.Equiv
 import MachineChecked.RiscV.Lprog.Decode
 import MachineChecked.RiscV.Lprog.Flat
 import MachineChecked.RiscV.Lprog.Whole
+import MachineChecked.RiscV.Lprog.Table
 import MachineChecked.RiscV.Sp1.Pancake
 import MachineChecked.RiscV.Lprog.Rules
 import MachineChecked.RiscV.Lprog.Block
@@ -36,12 +37,19 @@ import MachineChecked.Lprog.Expr
 import MachineChecked.Lprog.Syntax
 import MachineChecked.Lprog.Sem
 import MachineChecked.Lprog.Op
+import MachineChecked.Lprog.Linked
+import MachineChecked.Lprog.Dead
 import MachineChecked.Lprog.Text
 import MachineChecked.Logical.Pancake
 import MachineChecked.Logical.Lift
 import MachineChecked.Logical.Ops
 import MachineChecked.Logical.Structure
+import MachineChecked.Logical.Guest
 import MachineChecked.RiscV.Flapjack.Image
 import MachineChecked.RiscV.Flapjack.Pancake
 import MachineChecked.ARM.Arm64
+import MachineChecked.ARM.Lprog.Reg
+import MachineChecked.ARM.Lprog.Lift
+import MachineChecked.ARM.Lprog.Table
+import MachineChecked.ARM.Bare
 import MachineChecked.X86.Kraken

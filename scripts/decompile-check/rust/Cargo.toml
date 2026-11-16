@@ -1,11 +1,14 @@
-# The SP1 guests of the decompiler's check (`../README.md`): one binary per file of `src/bin`.
+# The guests of the decompiler's check (`../README.md`): one binary per file of `src/bin`.
+# One source for three machines: an SP1 guest (RISC-V), and a bare program for AArch64 and
+# for x86-64 (`src/lib.rs`).
 [package]
 name = "guests"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[target.'cfg(target_os = "zkvm")'.dependencies]
 sp1-zkvm = "=6.10.0"
 
 [profile.release]
 opt-level = 3
+panic = "abort"
