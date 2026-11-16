@@ -39,6 +39,7 @@ import MachineChecked.Lprog.Sem
 import MachineChecked.Lprog.Op
 import MachineChecked.Lprog.Linked
 import MachineChecked.Lprog.Dead
+import MachineChecked.Lprog.Build
 import MachineChecked.Lprog.Text
 import MachineChecked.Logical.Pancake
 import MachineChecked.Logical.Lift
@@ -53,3 +54,8 @@ import MachineChecked.ARM.Lprog.Lift
 import MachineChecked.ARM.Lprog.Table
 import MachineChecked.ARM.Bare
 import MachineChecked.X86.Kraken
+import MachineChecked.X86.Lprog.Reg
+import MachineChecked.X86.Lprog.Instr
+import MachineChecked.X86.Lprog.Lift
+import MachineChecked.X86.Lprog.Table
+import MachineChecked.X86.Bare

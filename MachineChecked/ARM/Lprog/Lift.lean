@@ -39,52 +39,30 @@
 import MachineChecked.ARM.Arm64
 import MachineChecked.ARM.Lprog.Reg
 import MachineChecked.Lprog.Linked
+import MachineChecked.Lprog.Build
 
 namespace MachineChecked.ARM.Lprog
 
 open MachineChecked.Lprog
+open MachineChecked.Lprog.Build
 open MachineChecked.Lprog.Linked (At Cx)
 open Arm64 (Instr RegWidth MemWidth CondCode ShiftType ExtendType AddrMode)
 
 abbrev E := Expr Reg
 abbrev O := Op Reg
 
-/-! ## Expressions -/
+/-- Reversals and counts in `t0`, with `t1` beside it. -/
+def reverseBytes := Build.reverseBytes Reg.t0
+def reverseBits := Build.reverseBits Reg.t0
+def countLeadingZeros := Build.countLeadingZeros Reg.t0 Reg.t1
 
-def num (n : Nat) : E := .imm (BitVec.ofNat 64 n)
-def add (a b : E) : E := .bin .add a b
-def sub (a b : E) : E := .bin .sub a b
-def band (a b : E) : E := .bin .and a b
-def bor (a b : E) : E := .bin .or a b
-def bxor (a b : E) : E := .bin .xor a b
-def shl (a : E) (n : Nat) : E := if n = 0 then a else .bin .shl a (num n)
-def lshr (a : E) (n : Nat) : E := if n = 0 then a else .bin .lshr a (num n)
-def ashr (a : E) (n : Nat) : E := if n = 0 then a else .bin .ashr a (num n)
-def bnot (a : E) : E := .un .not a
-def z32 (a : E) : E := .un (.zext .b4) a
-def s32 (a : E) : E := .un (.sext .b4) a
+/-! ## Widths -/
 
 /-- The low `w` bits, zero-extended. -/
 def trunc (w : RegWidth) (a : E) : E := if w = .W32 then z32 a else a
 
 /-- The low `w` bits, sign-extended. -/
 def signed (w : RegWidth) (a : E) : E := if w = .W32 then s32 a else a
-
-/-- Bit `k` of `a`: 0 or 1. -/
-def bit (a : E) (k : Nat) : E := band (lshr a k) (num 1)
-
-/-- 1 if `a` is zero, 0 if not; and the other way round. -/
-def isZero (a : E) : E := .bin .ult a (num 1)
-def nonZero (a : E) : E := .bin .ult (num 0) a
-
-/-- The other of 0 and 1. -/
-def flip (c : E) : E := bxor c (num 1)
-
-/-- `a` if `c` is 1, `b` if it is 0. -/
-def choose (c a b : E) : E := bxor b (band (bxor a b) (.un .neg c))
-
-/-- A mask of the low `n` bits. -/
-def ones (n : Nat) : E := .imm (BitVec.ofNat 64 (2 ^ n - 1))
 
 /-! ## Registers -/
 
@@ -209,32 +187,6 @@ def address : AddrMode → List O × E × List O
   | .PreIndex b off => (wr b (add (rd b) (.imm off)), rd b, [])
   | .PostIndex b off => ([], rd b, wr b (add (rd b) (.imm off)))
   | .RegOffset b i ext n => ([], add (rd b) (extended ext n i), [])
-
-/-! ## What the shared operations lack -/
-
-/-- `t0`, with each run of `k` bits swapped with the next: `m` masks the lower of each pair. -/
-def swap (k : Nat) (m : Nat) : O :=
-  .set .t0 (bor (shl (band (.reg .t0) (num m)) k) (band (lshr (.reg .t0) k) (num m)))
-
-/-- The bytes of `t0` reversed within each run of `2 ^ depth` bytes (1, 2 or 3). -/
-def reverseBytes (depth : Nat) : List O :=
-  ([(8, 0x00ff00ff00ff00ff), (16, 0x0000ffff0000ffff), (32, 0x00000000ffffffff)].take depth).map
-    fun (k, m) => swap k m
-
-/-- The bits of `t0` reversed. -/
-def reverseBits : List O :=
-  [swap 1 0x5555555555555555, swap 2 0x3333333333333333, swap 4 0x0f0f0f0f0f0f0f0f] ++ reverseBytes 3
-
-/-- The number of leading zeros of `t0`, into `t0`; it uses `t1`. Each step moves `t0` up
-    by `k` if its top `k` bits are zero, and counts `k`. -/
-def countLeadingZeros : List O :=
-  [.set .t1 (num 0)] ++
-  ([32, 16, 8, 4, 2, 1].flatMap fun k =>
-    -- 1 if the top `k` bits are zero
-    let free := isZero (lshr (.reg .t0) (64 - k))
-    [.set .t1 (add (.reg .t1) (.bin .mul free (num k))),
-     .set .t0 (.bin .mul (.reg .t0) (add (.bin .mul free (num (2 ^ k - 1))) (num 1)))]) ++
-  [.set .t0 (add (.reg .t1) (isZero (lshr (.reg .t0) 63)))]
 
 /-! ## Instructions -/
 

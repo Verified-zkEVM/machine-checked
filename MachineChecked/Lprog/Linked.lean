@@ -16,6 +16,9 @@
     (`parts`: RISC-V's calls that link through another register reach code that is lifted
     as a further part of the caller).
   * After each part comes `Labort`: running off its end is not lifted.
+  * An instruction that is lifted but for some of its runs (a division that faults) jumps
+    to `Cx.abort` on those: a label after everything else, with `Labort`, there only if some
+    instruction asks for it.
   * **A computed jump** (`jump`) compares its target with each candidate in the function, then
     is a tail call among the functions. The candidates are the addresses inside the function
     that the program holds as values (`Fun.targets`, a hint from whoever builds the program)
@@ -66,6 +69,9 @@ structure Cx where
   cands : List (BitVec 64 × LLabel)
   /-- Every function: where an indirect call may go. -/
   all : List Nat
+  /-- A label at which the function gives up (`Labort`): where an instruction goes when it
+      finds, as it runs, that it is not lifted (a division that faults). -/
+  abort : LLabel
 
 variable {Reg : Type}
 
@@ -97,6 +103,7 @@ def liftProgram (liftI : Cx → Option (At I) → At I → Lcmd (Op Reg) Reg)
       Std.HashMap.ofList (ps.flatten.zipIdx.reverse.map fun (a, k) => (a.addr, k))
     let cx : Cx :=
       { label := (labels[·]?), entry := (entries[·]?), all := List.range fns.length
+        abort := ps.flatten.length
         cands := (f.targets ++ ps.flatMap extra).eraseDups.filterMap fun a => labels[a]?.map (a, ·) }
     let rec go (off : Nat) : List (List (At I)) → Lcmd (Op Reg) Reg
       | [] => []
@@ -105,6 +112,12 @@ def liftProgram (liftI : Cx → Option (At I) → At I → Lcmd (Op Reg) Reg)
         ((p.zip prevs).zipIdx.map fun ((i, prev), k) =>
             .Llabel .internal (off + k) :: liftI cx prev i).flatten ++
           .Labort :: go (off + p.length) rest
-    { name := f.name, addr := f.addr, body := go 0 ps }
+    let body := go 0 ps
+    -- the label to give up at, if an instruction asks for it
+    let asked := body.any fun
+      | .Lgoto l | .Lcond _ l => l == cx.abort
+      | _ => false
+    { name := f.name, addr := f.addr
+      body := body ++ if asked then [.Llabel .internal cx.abort, .Labort] else [] }
 
 end MachineChecked.Lprog.Linked

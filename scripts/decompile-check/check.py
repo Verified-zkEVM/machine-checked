@@ -47,7 +47,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-DECOMPILE = os.path.join(ROOT, ".lake", "build", "bin", "decompile")
+DECOMPILE = os.environ.get("DECOMPILE") or os.path.join(ROOT, ".lake", "build", "bin", "decompile")
 FJRUN = [sys.executable, os.path.join(HERE, "fjrun.py")]
 SP1RUN = [sys.executable, os.path.join(HERE, "sp1run.py")]
 BARERUN = [sys.executable, os.path.join(HERE, "barerun.py")]
@@ -241,7 +241,20 @@ def run(args):
     return len(good) == len(res)
 
 
-ASSIGN = re.compile(r"^(\s+)(x\d+ = |st(?:8|32)? .*?, )(.*);$")
+GLOBAL = re.compile(r"^var 1 (\w+) = 0;$")
+
+
+def assign(text):
+    """What matches a statement of a decompiled program that writes a register or stores:
+    the registers are its global variables, up to the lift's own (`lt0` and after)."""
+    regs = []
+    for l in text.split("\n"):
+        m = GLOBAL.match(l)
+        if m and m.group(1) == "lt0":
+            break
+        if m:
+            regs.append(m.group(1))
+    return re.compile(r"^(\s+)((?:%s) = |st(?:8|32)? .*?, )(.*);$" % "|".join(regs))
 
 
 def mutants(args):
@@ -258,6 +271,7 @@ def mutants(args):
         if sh([DECOMPILE, "--to", "pancake", original(os.path.join(args.tests, t)), src]).returncode:
             return None
         lines = open(src).read().split("\n")
+        ASSIGN = assign("\n".join(lines))
         rng = random.Random(t)
         # not in the functions that install a guest's memory: they are data, not translation
         fn, sites = "", []

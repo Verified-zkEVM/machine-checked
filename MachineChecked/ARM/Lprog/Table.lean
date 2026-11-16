@@ -124,7 +124,7 @@ def samples : List (Option Instr) :=
 /-- **The kinds, each with whether the lift takes it**: lifted at an address from which every
     branch has somewhere to go. -/
 def rows : List (String × Bool) :=
-  let cx : Linked.Cx := { label := fun _ => some 0, entry := fun _ => some 0, cands := [], all := [0] }
+  let cx : Linked.Cx := { label := fun _ => some 0, entry := fun _ => some 0, cands := [], all := [0], abort := 1 }
   samples.map fun i =>
     (kind i, !(liftI cx none { addr := 0x1000, size := 4, instr := i }).any (· matches .Labort))
 
