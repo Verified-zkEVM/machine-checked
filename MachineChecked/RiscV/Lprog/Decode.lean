@@ -26,11 +26,12 @@ open RiscvZkvm.Rv64 RiscvZkvm.Interpreter MachineChecked.Lprog
 private def s32 (e : Expr Reg) : Expr Reg := .un (.sext .b4) e
 private def z32 (e : Expr Reg) : Expr Reg := .un (.zext .b4) e
 
-/-- **The 32-bit operations of RV64IM that `Instr` lacks**, as shared operations. A shift
+/-- **The 32-bit operations of RV64IM that `Instr` lacks**, each with its name, as shared
+    operations. A shift
     takes the low five bits of its amount. Division by zero gives all ones and the dividend
     as remainder, and the one overflow (the least number by -1) gives the dividend, as the
     64-bit operations do on the extended operands before the result is cut to 32 bits. -/
-def wordOp (w : BitVec 32) : Option (Op Reg) :=
+def wordOps (w : BitVec 32) : Option (String × Op Reg) :=
   let rd := regOfBits (w.extractLsb' 7 5)
   let a := rv (regOfBits (w.extractLsb' 15 5))
   let b := rv (regOfBits (w.extractLsb' 20 5))
@@ -38,16 +39,19 @@ def wordOp (w : BitVec 32) : Option (Op Reg) :=
   let f7 := (w.extractLsb' 25 7).toNat
   let amount : Expr Reg := .bin .and b (.imm 31)
   match (w.extractLsb' 0 7).toNat, f7, f3 with
-  | 0x3B, 0, 0 => some (.set rd (s32 (.bin .add a b)))
-  | 0x3B, 0, 1 => some (.set rd (s32 (.bin .shl a amount)))
-  | 0x3B, 0x20, 5 => some (.set rd (.bin .ashr (s32 a) amount))
-  | 0x3B, 1, 0 => some (.set rd (s32 (.bin .mul a b)))
-  | 0x3B, 1, 4 => some (.set rd (s32 (.bin .div (s32 a) (s32 b))))
-  | 0x3B, 1, 5 => some (.set rd (s32 (.bin .divu (z32 a) (z32 b))))
-  | 0x3B, 1, 6 => some (.set rd (s32 (.bin .rem (s32 a) (s32 b))))
-  | 0x3B, 1, 7 => some (.set rd (s32 (.bin .remu (z32 a) (z32 b))))
-  | 0x1B, 0x20, 5 => some (.set rd (.bin .ashr (s32 a) (.imm (BitVec.ofNat 64 (w.extractLsb' 20 5).toNat))))
+  | 0x3B, 0, 0 => some ("ADDW", .set rd (s32 (.bin .add a b)))
+  | 0x3B, 0, 1 => some ("SLLW", .set rd (s32 (.bin .shl a amount)))
+  | 0x3B, 0x20, 5 => some ("SRAW", .set rd (.bin .ashr (s32 a) amount))
+  | 0x3B, 1, 0 => some ("MULW", .set rd (s32 (.bin .mul a b)))
+  | 0x3B, 1, 4 => some ("DIVW", .set rd (s32 (.bin .div (s32 a) (s32 b))))
+  | 0x3B, 1, 5 => some ("DIVUW", .set rd (s32 (.bin .divu (z32 a) (z32 b))))
+  | 0x3B, 1, 6 => some ("REMW", .set rd (s32 (.bin .rem (s32 a) (s32 b))))
+  | 0x3B, 1, 7 => some ("REMUW", .set rd (s32 (.bin .remu (z32 a) (z32 b))))
+  | 0x1B, 0x20, 5 => some ("SRAIW", .set rd (.bin .ashr (s32 a) (.imm (BitVec.ofNat 64 (w.extractLsb' 20 5).toNat))))
   | _, _, _ => none
+
+/-- The operation alone. -/
+def wordOp (w : BitVec 32) : Option (Op Reg) := (wordOps w).map (·.2)
 
 /-- A word of code, decoded. -/
 inductive Decoded where

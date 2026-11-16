@@ -1,8 +1,8 @@
 /-
   MachineChecked.RiscV.Lprog.Whole
 
-  The lift of a whole program as a compiler links it: functions, with what `liftProg` does not
-  cover.
+  The lift of a whole RISC-V program as a compiler links it: RISC-V's instructions in the
+  lift of linked programs (`Lprog/Linked.lean`).
 
   `liftProg` (`Lift.lean`) lifts `jal ra` calls, `jalr x0, 0(ra)` returns and jumps inside a
   function, and it is the lift the theorems are about. What rustc and its linker emit needs
@@ -11,195 +11,131 @@
   * **a far call or jump**, `auipc r` then `jalr _, off(r)`: the target is known, so the call
     is of that one function (an indirect call with one candidate: arriving at the `jalr` any
     other way, with another value in `r`, goes `wrong`);
-  * **a jump table**, `jalr x0` to an address loaded from data: a comparison with each address
-    in the function that the program holds as a value (`Fun.targets`), then, for a pointer
-    to a function, an indirect tail call among all the functions;
+  * **a jump table**, `jalr x0` to an address loaded from data, and **an indirect call**: a
+    computed jump (`Linked.jump`), and a call among all the functions;
   * **a call that links through another register than `ra`** (`jal t0`, as the compiler's
     outlined code is called): Lprog's calls link through one register, so this is a jump, and
-    the code it reaches is lifted as a further part of the calling function, with the `jalr`
-    that returns from it a comparison with each such call's return address;
+    the code it reaches is lifted as a further part of the calling function (`parts`), with
+    the `jalr` that returns from it a comparison with each such call's return address;
   * **the operations riscv-zkvm lacks** (`Decode.lean`);
-  * **a word that is no instruction** is `Labort`, and so is running off the end of a part.
+  * **a word that is no instruction** is `Labort`.
 
   A `jalr` whose target and link are one register reads its target into `x0` first, which no
   lifted code reads otherwise.
-
-  `Fun.targets` is a hint, from whoever builds the `Whole` (`Tools/`). It only narrows the
-  candidates of a computed jump: one that reaches an address it misses goes `wrong`, so a
-  wrong hint makes the lifted program refuse, not misbehave.
 
   Nothing is proved of `liftWhole` yet, as of `liftFlat` (`Flat.lean`).
 
   ## Main definitions
 
-  * `Part`, `Fun`, `Whole`, `liftWhole`
+  * `Fun`, `liftWhole`
 -/
 
+import MachineChecked.Lprog.Linked
 import MachineChecked.RiscV.Lprog.Lift
 import MachineChecked.RiscV.Lprog.Decode
 
 namespace MachineChecked.RiscV.Lprog
 
 open RiscvZkvm.Rv64 MachineChecked.Lprog
-
-/-- A run of code: where it is, and its decoded words. -/
-structure Part where
-  base : Word
-  prog : List Decoded
-  deriving Inhabited
-
-namespace Part
-
-/-- The index of the instruction at address `a`. -/
-def indexOf (p : Part) (a : Word) : Option Nat :=
-  let d := (a - p.base).toNat
-  if d % 4 = 0 ∧ d / 4 < p.prog.length then some (d / 4) else none
-
-/-- The address of instruction `k`. -/
-def addrOf (p : Part) (k : Nat) : Word := p.base + BitVec.ofNat 64 (4 * k)
-
-/-- The address a `jalr _, off(rs)` at `k` jumps to, when the instruction before it is the
-    `auipc` that sets `rs`. -/
-def paired (p : Part) (k : Nat) (rs : Reg) (off : BitVec 12) : Option Word :=
-  match k, rs with
-  | _, .x0 | 0, _ => none
-  | k + 1, rs => match p.prog[k]? with
-    | some (.instr (.AUIPC rd imm)) =>
-      if rd = rs then some ((p.addrOf k + auipcOff imm + signExtend12 off) &&& ~~~1#64) else none
-    | _ => none
-
-/-- The addresses the part jumps to with a link register other than `ra`. -/
-def altCalls (p : Part) : List Word :=
-  p.prog.zipIdx.filterMap fun (i, k) => match i with
-    | .instr (.JAL rd off) => if rd = .x0 ∨ rd = .x1 then none else some (p.addrOf k + signExtend21 off)
-    | .instr (.JALR rd rs off) => if rd = .x0 ∨ rd = .x1 then none else p.paired k rs off
-    | _ => none
-
-/-- The return addresses of those jumps. -/
-def altRets (p : Part) : List Word :=
-  p.prog.zipIdx.filterMap fun (i, k) => match i with
-    | .instr (.JAL rd _) | .instr (.JALR rd _ _) =>
-      if rd = .x0 ∨ rd = .x1 then none else some (p.addrOf k + 4)
-    | _ => none
-
-end Part
+open MachineChecked.Lprog.Linked (At Cx)
 
 /-- A function of a whole program. -/
-structure Fun where
-  name : String
-  part : Part
-  /-- Addresses inside the function that the program holds as values: where its jump tables
-      lead. A hint. -/
-  targets : List Word := []
-
-/-- A whole program: its functions. -/
-structure Whole where
-  fns : List Fun
+abbrev Fun := Linked.Fun Decoded
 
 namespace Whole
 
-variable (w : Whole)
+/-- The address a `jalr _, off(rs)` jumps to, when the instruction before it is the `auipc`
+    that sets `rs`. -/
+def paired (prev : Option (At Decoded)) (rs : Reg) (off : BitVec 12) : Option Word :=
+  match prev with
+  | some ⟨a, _, .instr (.AUIPC rd imm)⟩ =>
+    if rd = rs ∧ rs ≠ .x0 then some ((a + auipcOff imm + signExtend12 off) &&& ~~~1#64) else none
+  | _ => none
 
-/-- The index of the function whose entry is `a`. -/
-def entryOf (a : Word) : Option Nat := w.fns.findIdx? (·.part.base == a)
+/-- Each instruction of a part with the one before it. -/
+def withPrev (p : List (At Decoded)) : List (At Decoded × Option (At Decoded)) :=
+  p.zip (none :: p.map some)
 
-/-- The parts of a function: its own, then the code its jumps with another link register
-    reach, and theirs. -/
-def parts (f : Fun) : List Part :=
-  let rec go (fuel : Nat) (done todo : List Part) : List Part :=
+/-- The addresses a part jumps to with a link register other than `ra`. -/
+def altCalls (p : List (At Decoded)) : List Word :=
+  (withPrev p).filterMap fun (i, prev) => match i.instr with
+    | .instr (.JAL rd off) => if rd = .x0 ∨ rd = .x1 then none else some (i.addr + signExtend21 off)
+    | .instr (.JALR rd rs off) => if rd = .x0 ∨ rd = .x1 then none else paired prev rs off
+    | _ => none
+
+/-- The return addresses of those jumps. -/
+def altRets (p : List (At Decoded)) : List Word :=
+  p.filterMap fun i => match i.instr with
+    | .instr (.JAL rd _) | .instr (.JALR rd _ _) => if rd = .x0 ∨ rd = .x1 then none else some i.next
+    | _ => none
+
+/-- The parts of a function: its own code, then the code its jumps with another link
+    register reach, and theirs. -/
+def parts (fns : List Fun) (f : Fun) : List (List (At Decoded)) :=
+  let rec go (fuel : Nat) (done todo : List (List (At Decoded))) : List (List (At Decoded)) :=
     match fuel, todo with
     | 0, _ | _, [] => done
     | fuel + 1, p :: todo =>
-      let new := p.altCalls.eraseDups.filterMap fun a =>
-        if (done ++ p :: todo).any (·.base == a) then none
-        else (w.entryOf a).bind fun g => w.fns[g]?.map (·.part)
+      let have_ := (done ++ p :: todo).filterMap fun q => q.head?.map (·.addr)
+      let new := (altCalls p).eraseDups.filterMap fun a =>
+        if have_.contains a then none else (fns.find? (·.addr == a)).map (·.code)
       go fuel (done ++ [p]) (todo ++ new)
-  go 8 [] [f.part]
-
-/-- The label of the instruction at `a` among `ps`: its index, counting through the parts. -/
-def labelOf (ps : List Part) (a : Word) : Option LLabel :=
-  let rec go (off : Nat) : List Part → Option LLabel
-    | [] => none
-    | p :: ps => match p.indexOf a with
-      | some k => some (off + k)
-      | none => go (off + p.prog.length) ps
-  go 0 ps
+  go 8 [] [f.code]
 
 /-- A branch to the address `t`. -/
-def liftBr (ps : List Part) (op : String) (a b : Reg) (t : Word) : LinstrR (Op Reg) Reg :=
-  match labelOf ps t with
+def liftBr (cx : Cx) (op : String) (a b : Reg) (t : Word) : LinstrR (Op Reg) Reg :=
+  match cx.label t with
   | some l => .Lcond (.cmp op (opnd a) (opnd b)) l
   | none => .Labort
 
-/-- A computed jump: `x0` holds the target, `rd` gets the link. A comparison with each
-    address of `locals`, then a tail call among `fns` if there are any. -/
-def liftJump (pc : Word) (rd : Reg) (e : Expr Reg) (locals : List (Word × LLabel)) (fns : List Nat) :
-    Lcmd (Op Reg) Reg :=
-  if rd = .x0 ∧ locals = [] then [if fns = [] then .Labort else .Ltail (.indirect e fns)] else
-  [.Lopn (.set .x0 e)] ++
-  (if rd = .x0 then [] else [.Lopn (.set rd (.imm (pc + 4)))]) ++
-  locals.map (fun (a, l) => .Lcond (.cmp "eq" (.reg .x0) (.imm (a.toNat : Int))) l) ++
-  [if fns = [] then .Labort else .Ltail (.indirect (.reg .x0) fns)]
-
-/-- One instruction, at index `k` of part `p` of a function with parts `ps` and computed-jump
-    candidates `cs`. -/
-def liftI (ps : List Part) (cs : List (Word × LLabel)) (p : Part) (k : Nat) :
-    Decoded → Lcmd (Op Reg) Reg
+/-- One instruction, after `prev` in its part. -/
+def liftI (cx : Cx) (prev : Option (At Decoded)) (i : At Decoded) : Lcmd (Op Reg) Reg :=
+  match i.instr with
   | .none => [.Labort]
   | .op o => [.Lopn o]
-  | .instr i =>
-    let pc := p.addrOf k
-    if opnOk i then [.Lopn (opOf i)] else
-    match i with
+  | .instr ins =>
+    let pc := i.addr
+    let link (rd : Reg) : Lcmd (Op Reg) Reg := if rd = .x0 then [] else [.Lopn (.set rd (.imm i.next))]
+    if opnOk ins then [.Lopn (opOf ins)] else
+    match ins with
     | .AUIPC rd imm => [.Lopn (.set rd (.imm (pc + auipcOff imm)))]
-    | .BEQ a b off => [liftBr ps "eq" a b (pc + signExtend13 off)]
-    | .BNE a b off => [liftBr ps "ne" a b (pc + signExtend13 off)]
-    | .BLT a b off => [liftBr ps "lt" a b (pc + signExtend13 off)]
-    | .BGE a b off => [liftBr ps "ge" a b (pc + signExtend13 off)]
-    | .BLTU a b off => [liftBr ps "ltu" a b (pc + signExtend13 off)]
-    | .BGEU a b off => [liftBr ps "geu" a b (pc + signExtend13 off)]
+    | .BEQ a b off => [liftBr cx "eq" a b (pc + signExtend13 off)]
+    | .BNE a b off => [liftBr cx "ne" a b (pc + signExtend13 off)]
+    | .BLT a b off => [liftBr cx "lt" a b (pc + signExtend13 off)]
+    | .BGE a b off => [liftBr cx "ge" a b (pc + signExtend13 off)]
+    | .BLTU a b off => [liftBr cx "ltu" a b (pc + signExtend13 off)]
+    | .BGEU a b off => [liftBr cx "geu" a b (pc + signExtend13 off)]
     | .JAL rd off =>
       let t := pc + signExtend21 off
-      if rd = .x1 then match w.entryOf t with
-        | some f => [.Lcall (pc + 4) (.direct f)]
+      if rd = .x1 then match cx.entry t with
+        | some f => [.Lcall i.next (.direct f)]
         | none => [.Labort]
-      else match labelOf ps t, w.entryOf t with
-        | some l, _ => (if rd = .x0 then [] else [.Lopn (.set rd (.imm (pc + 4)))]) ++ [.Lgoto l]
+      else match cx.label t, cx.entry t with
+        | some l, _ => link rd ++ [.Lgoto l]
         | none, some f => [if rd = .x0 then .Ltail (.direct f) else .Labort]
         | none, none => [.Labort]
     | .JALR rd rs off =>
       let e := jalrTgt rs off
-      let known := p.paired k rs off
+      let known := paired prev rs off
       -- the functions it may reach: the one at a known target, or any
       let fns := match known with
-        | some t => (w.entryOf t).toList
-        | none => List.range w.fns.length
+        | some t => (cx.entry t).toList
+        | none => cx.all
       if rd = .x0 ∧ rs = .x1 ∧ off = 0 then [.Lret]
-      else if rd = .x1 then [if fns = [] then .Labort else .Lcall (pc + 4) (.indirect e fns)]
+      else if rd = .x1 then [if fns = [] then .Labort else .Lcall i.next (.indirect e fns)]
       else
         let locals := match known with
-          | some t => ((labelOf ps t).map (t, ·)).toList
-          | none => cs
-        liftJump pc rd e locals (if rd = .x0 ∧ locals.isEmpty ∨ rd = .x0 ∧ known.isNone then fns else [])
+          | some t => ((cx.label t).map (t, ·)).toList
+          | none => cx.cands
+        Linked.jump .x0 e (link rd) locals
+          (if rd = .x0 ∧ (locals.isEmpty ∨ known.isNone) then fns else [])
     | .ECALL => [.Lext 0]
     | _ => [.Labort]
 
-/-- A function, lifted: a label before each instruction of each part, and `Labort` where a
-    part ends. -/
-def liftFun (f : Fun) : Lfundef (Op Reg) Reg :=
-  let ps := w.parts f
-  let cs := ((f.targets ++ ps.flatMap (·.altRets)).eraseDups.filterMap fun a =>
-    (labelOf ps a).map (a, ·))
-  let rec go (off : Nat) : List Part → Lcmd (Op Reg) Reg
-    | [] => []
-    | p :: rest =>
-      (p.prog.zipIdx.map fun (i, k) => .Llabel .internal (off + k) :: w.liftI ps cs p k i).flatten ++
-        .Labort :: go (off + p.prog.length) rest
-  { name := f.name, addr := f.part.base, body := go 0 ps }
+end Whole
 
 /-- **A whole program, lifted.** -/
-def liftWhole : Lprog (Op Reg) Reg := w.fns.map w.liftFun
-
-end Whole
+def liftWhole (fns : List Fun) : Lprog (Op Reg) Reg :=
+  Linked.liftProgram Whole.liftI fns Whole.parts Whole.altRets
 
 end MachineChecked.RiscV.Lprog

@@ -10,10 +10,13 @@ decompiled to this layer can be compiled again.
 | `Ops.lean` | The shared operations of Lprog as Pancake statements. A register is a global variable. What Pancake lacks (shifts by a register, the high halves of a product, division) is a function written in Pancake. |
 | `Structure.lean` | From a control-flow graph to structured control flow (`structure`), by Ramsey's method over the dominator tree: sequences, choices, blocks and loops. It works on the reducible graphs and says so of the others. It knows nothing of Pancake. |
 | `Lift.lean` | **Lift 2** (`lift`): an Lprog program as a Pancake program. Each function is a Pancake function; a call is a call, checked as Lprog checks it; the body is `if` and `while` where the function's control flow has a structure, and a loop over its blocks otherwise. The execution environment is a parameter (`Env`): the installation, each external call, and what to do where the program goes `wrong`. |
+| `Guest.lean` | What the environments of whole programs share: the functions that write a program's memory at its own addresses, `l_trap`, a system call as an FFI call with its results read back, and `bare`, the environment of a program without an operating system. |
 
 **Where this stands.** Lift 2 takes whole programs: its users are a Flapjack image
-([`../RiscV/Flapjack`](../RiscV/Flapjack/README.md)) and an SP1 guest
-([`../RiscV/Sp1`](../RiscV/Sp1/README.md)). Nothing is proved of it; it is checked by running
+([`../RiscV/Flapjack`](../RiscV/Flapjack/README.md)), an SP1 guest
+([`../RiscV/Sp1`](../RiscV/Sp1/README.md)), and a program without an operating system for
+AArch64 ([`../ARM/Bare.lean`](../ARM/README.md)) or x86-64
+([`../X86/Bare.lean`](../X86/README.md)). Nothing is proved of it; it is checked by running
 ([`scripts/decompile-check`](../../scripts/decompile-check/README.md)).
 
 What it recovers is functions and control flow. Registers stay registers (global

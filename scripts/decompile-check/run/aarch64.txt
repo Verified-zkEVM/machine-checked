@@ -1,0 +1,91 @@
+ADC
+ADCS
+ADD (extended register)
+ADD (immediate)
+ADD (shifted register)
+ADDS (extended register)
+ADDS (immediate)
+ADDS (shifted register)
+ADR
+ADRP
+AND (immediate)
+AND (shifted register)
+ANDS (immediate)
+ANDS (shifted register)
+ASRV
+B
+B.cond
+BFM
+BIC (shifted register)
+BICS (shifted register)
+BL
+BLR
+BR
+CBNZ
+CBZ
+CCMN (immediate)
+CCMN (register)
+CCMP (immediate)
+CCMP (register)
+CLS
+CLZ
+CSEL
+CSINC
+CSINV
+CSNEG
+EON (shifted register)
+EOR (immediate)
+EOR (shifted register)
+EXTR
+LDP
+LDPSW
+LDR
+LDR (literal)
+LDRB
+LDRH
+LDRSB
+LDRSH
+LDRSW
+LDRSW (literal)
+LSLV
+LSRV
+MADD
+MOVK
+MOVN
+MOVZ
+MSUB
+NOP
+ORN (shifted register)
+ORR (immediate)
+ORR (shifted register)
+RBIT
+RET
+REV
+REV16
+REV32
+RORV
+SBC
+SBCS
+SBFM
+SDIV
+SMADDL
+SMSUBL
+SMULH
+STP
+STR
+STRB
+STRH
+SUB (extended register)
+SUB (immediate)
+SUB (shifted register)
+SUBS (extended register)
+SUBS (immediate)
+SUBS (shifted register)
+SVC
+TBNZ
+TBZ
+UBFM
+UDIV
+UMADDL
+UMSUBL
+UMULH

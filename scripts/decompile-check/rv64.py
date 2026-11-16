@@ -3,7 +3,8 @@
 `run` steps a machine until something ends the run. What is outside the instruction set is
 the caller's: `stops` maps an address to what happens when the pc reaches it (the entries
 of an environment), `ecall` is what `ecall` does, and `valid` says which addresses a load
-or store may touch. A load or store must be aligned to its width, as in riscv-zkvm.
+or store may touch. A load or store must be aligned to its width, as in riscv-zkvm, unless
+the caller says otherwise (`aligned`).
 
 Memory is a dictionary from addresses that are multiples of eight to 64-bit words; a word
 that is absent is zero.
@@ -52,7 +53,8 @@ def rem(sa, sb):
     return -m if sa < 0 else m
 
 
-def run(words, base, r, mem, pc, fuel, stops=None, ecall=None, valid=None, seen=None, w32=True):
+def run(words, base, r, mem, pc, fuel, stops=None, ecall=None, valid=None, seen=None, w32=True,
+        aligned=True):
     """Run from `pc`. `words` are the instructions at `base`. Returns the reason the run
     ended and the number of steps: `None` when the fuel ran out, "fault" for what the
     machine cannot do (no instruction at the pc, a bad or misaligned access, an `ecall`
@@ -61,7 +63,8 @@ def run(words, base, r, mem, pc, fuel, stops=None, ecall=None, valid=None, seen=
     A stop is called with the registers and returns the next pc (an int) or a reason to
     end; reaching it counts as a step. `ecall` is called likewise and returns `None` to
     carry on. With `w32` false the nine 32-bit operations riscv-zkvm lacks are no
-    instructions. The indices of the instructions run are added to `seen`."""
+    instructions. With `aligned` false a load or store may be at any address. The indices of
+    the instructions run are added to `seen`."""
     stops = stops or {}
     n_words = len(words)
     steps = 0
@@ -100,7 +103,7 @@ def run(words, base, r, mem, pc, fuel, stops=None, ecall=None, valid=None, seen=
         elif op == 0x03:
             n = (1, 2, 4, 8, 1, 2, 4, 0)[f3]
             ad = (a + imm_i) & M
-            if not n or ad % n or (valid and not valid(ad)):
+            if not n or (aligned and ad % n) or (valid and not valid(ad)):
                 return "fault", steps
             val = get(mem, ad, n)
             if f3 < 3:
@@ -108,7 +111,7 @@ def run(words, base, r, mem, pc, fuel, stops=None, ecall=None, valid=None, seen=
         elif op == 0x23:
             n = (1, 2, 4, 8, 0, 0, 0, 0)[f3]
             ad = (a + sx((f7 << 5) | rd, 12)) & M
-            if not n or ad % n or (valid and not valid(ad)):
+            if not n or (aligned and ad % n) or (valid and not valid(ad)):
                 return "fault", steps
             put(mem, ad, n, b)
             rd = 0

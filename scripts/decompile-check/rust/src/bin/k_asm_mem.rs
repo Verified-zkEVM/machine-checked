@@ -1,5 +1,7 @@
+// SP1 only: RISC-V assembly
 #![no_main]
-sp1_zkvm::entrypoint!(main);
+#![cfg_attr(not(target_os = "zkvm"), no_std)]
+guests::entry!(main);
 #[allow(unused_imports)]
 use guests::*;
 

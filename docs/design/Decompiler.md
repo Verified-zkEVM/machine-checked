@@ -185,6 +185,34 @@ only works around: Lprog's calls link through one register, so a call through `t
 lifted as a jump into a copy of its target; and the execution context of a recompiled guest
 (a Flapjack image whose heap is the guest's address space) is stated only by the runner.
 
+**AArch64 and x86-64 (2026-11-16): the same tool, tested, with nothing proved.**
+`decompile --to pancake` takes an ELF for either, built without an operating system and
+without floating-point registers, to Pancake that Flapjack compiles. This is the rest of
+phase 6's first half, again ahead of the proofs.
+
+- **What the three share** is now one definition each: the lift of a linked program
+  (`Lprog/Linked.lean`: functions, labels, calls, tail calls, computed jumps among
+  candidates), the environment of a whole program (`Logical/Guest.lean`), and lift 2. An
+  instruction set gives its registers and the lift of one instruction.
+- **AArch64** (`ARM/Lprog/`): arm64-semantics' decoder, and the integer instructions lifted
+  with the four flags as registers.
+- **x86-64** (`X86/Lprog/`): a decoder of this repository's for the integer instructions,
+  since Kraken has none; five flags; registers written in part; a return address on the
+  stack, which Lprog's link register is made to carry by a register of the lift's own.
+- **Flags** cost a write each wherever an instruction sets them, and most are never read:
+  `Lprog/Dead.lean` drops those, within a function and assuming nothing outside it.
+- **The check**: the same Rust sources built for each target, 263 guests each, with Unicorn
+  as the reference for what a guest does. All agree after decompiling and recompiling, as
+  do the 267 SP1 guests.
+- **What it does not do** is written per instruction set under one set of headings
+  (`MachineChecked/{RiscV,ARM,X86}/LIMITS.md`), each with a table of the instructions that
+  the tool generates from the lift.
+
+What the proofs will have to settle for these two, beside what RISC-V's need: a simulation
+from each lift down to its machine model (for x86-64, first the lift stated over Kraken's
+instructions, and a decoder Kraken does not have); and the meaning of an access that is
+not aligned, which Pancake does not give.
+
 ## 8. Risks
 
 - **Toolchain.** Flapjack on v4.36, and the size of its proof (about 4,000 modules to import

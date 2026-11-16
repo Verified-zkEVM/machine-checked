@@ -1,5 +1,7 @@
+// SP1 only: `HashMap` needs the standard library
 #![no_main]
-sp1_zkvm::entrypoint!(main);
+#![cfg_attr(not(target_os = "zkvm"), no_std)]
+guests::entry!(main);
 #[allow(unused_imports)]
 use guests::*;
 

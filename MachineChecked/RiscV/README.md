@@ -29,6 +29,7 @@ operation (proved against riscv-zkvm), `lift`, and the simulation that carries L
 to `stepSp1`. This is the intended route for new proofs. `Lprog/Whole.lean` lifts a whole program as
 rustc and its linker emit it, and `Lprog/Flat.lean` code that has no functions; nothing is
 proved of these two yet.
+What the decompiler does not do on RISC-V is in [`LIMITS.md`](LIMITS.md).
 
 ## SP1 guests, to Pancake
 

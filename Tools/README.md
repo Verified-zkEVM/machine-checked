@@ -21,15 +21,25 @@ riscv-zkvm's own ELF parser.
 
 ## `decompile`
 
-The decompiler of [`docs/design/Decompiler.md`](../docs/design/Decompiler.md): from a RISC-V
-binary to layer 0.5 (`--to lprog`) and on to layer 1 (`--to pancake`).
+The decompiler of [`docs/design/Decompiler.md`](../docs/design/Decompiler.md): from a binary
+for RISC-V, AArch64 or x86-64 to layer 0.5 (`--to lprog`) and on to layer 1
+(`--to pancake`). The instruction set is the ELF's own.
 
 ```
-lake exe decompile --to pancake GUEST.elf OUT.pnk     # an RV64 ELF, as SP1 guests are
+lake exe decompile --to pancake GUEST.elf OUT.pnk     # an ELF for RV64IM, AArch64 or x86-64
 lake exe decompile --to lprog   GUEST.elf OUT.lprog
-lake exe decompile --to lprog --proved GUEST.elf      # by the lift the theorems are about
+lake exe decompile --to lprog --proved GUEST.elf      # RISC-V, by the lift the theorems are about
 lake exe decompile --to pancake IMAGE.fjimg OUT.pnk   # a binary from Flapjack
+lake exe decompile --table riscv|aarch64|x86-64 [KINDS]   # the instruction table of a LIMITS.md
+lake exe decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS
+lake exe decompile --listing GUEST.elf                # x86-64: what the decoder reads
 ```
+
+**What it does not do is written for each instruction set, under the same headings:**
+[`RiscV/LIMITS.md`](../MachineChecked/RiscV/LIMITS.md),
+[`ARM/LIMITS.md`](../MachineChecked/ARM/LIMITS.md),
+[`X86/LIMITS.md`](../MachineChecked/X86/LIMITS.md). Each has a table of the instructions,
+lifted or not and run by the tests or not, that `--table` generates from the lift.
 
 **Nothing on the way to Pancake is proved yet.** It is checked by running:
 [`scripts/decompile-check`](../scripts/decompile-check/README.md) recompiles the output with
@@ -39,21 +49,28 @@ Flapjack and compares what the two binaries do.
 
 The functions are the ELF's own text symbols (it must not be stripped). The route is
 
-- the lift of whole programs (`RiscV/Lprog/Whole.lean`), which takes what rustc and its
-  linker emit: every instruction of RV64IM, far calls, jump tables, indirect calls, calls
-  that link through `t0`;
+- the lift of linked programs (`Lprog/Linked.lean`), with the lift of one instruction that
+  each instruction set gives: `RiscV/Lprog/Whole.lean` (every instruction of RV64IM, far
+  calls, calls that link through `t0`), `ARM/Lprog/Lift.lean` (the integer instructions,
+  with the flags as registers), `X86/Lprog/Lift.lean` (the integer instructions, read from
+  bytes by `X86/Lprog/Instr.lean`; a return address on the stack). Jump tables, indirect
+  calls and tail calls are shared;
+- for AArch64 and x86-64, dropping the writes of flags that nothing reads (`Lprog/Dead.lean`);
 - lift 2 (`Logical/Lift.lean`): a Pancake function for each function, with `if` and `while`
   where the function's control flow has a structure;
-- SP1's environment (`RiscV/Sp1/`): the guest's memory at its own addresses, and `ecall` as
-  the FFI call `@ecall(t0, a0, a1, a2)`;
+- the environment (`Logical/Guest.lean`): the program's memory at its own addresses, and a
+  system call as an FFI call. An RV64 ELF is taken as an SP1 guest (`RiscV/Sp1/`,
+  `@ecall(t0, a0, a1, a2)`); an AArch64 or x86-64 ELF as a program without an operating
+  system (`ARM/Bare.lean`, `X86/Bare.lean`, `@syscall(number, a, b, c)`);
 - the printer (`Logical/Pancake.lean`).
 
 The Pancake text starts with comments that say what it is of: how many functions, and how
 many of them are not structured but a loop over their blocks; which Pancake function is
 which symbol; and the places where the program may give up (`l_trap(n)`), each described.
 
-**What it refuses, and how.** A file it does not take is an error: no ELF, RV32, compressed
-instructions, a relocatable or position-independent file, a stripped one. Inside a file it
+**What it refuses, and how.** A file it does not take is an error: no ELF, 32 bits,
+another instruction set, compressed RISC-V instructions, a relocatable or
+position-independent file, a stripped one. Inside a file it
 takes, what the lift does not cover becomes a place where the Pancake program gives up when
 it gets there, by `l_trap(n)`, and does nothing further: a word that is no instruction, a
 jump out of a function that is no call, a computed jump to an address the tool did not find
@@ -78,6 +95,7 @@ Flapjack image (`RiscV/Flapjack/`), then lift 2. Flapjack's code has no function
 left and returns through computed jumps, so the whole image is one function and a loop over
 its blocks. The image gets half the heap and half the stack it had.
 
-The tools are RISC-V only for now. Generalising `gen-image` and the ELF reader to x86-64 and
-AArch64 is part of bringing those instruction sets up to RISC-V's level
-([`ROADMAP.md`](../ROADMAP.md)).
+The other tools are RISC-V only for now. Generalising `gen-image` and the ELF reader to
+x86-64 and AArch64 is part of bringing those instruction sets up to RISC-V's level
+([`ROADMAP.md`](../ROADMAP.md)): `decompile` reads their ELFs through riscv-zkvm's reader,
+which reads nothing that depends on the machine.

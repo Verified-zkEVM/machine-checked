@@ -56,6 +56,13 @@ jobs:
             echo "::error::the build has warnings"; exit 1
           fi
 
+      # Each instruction set's LIMITS.md has a table of its instructions, lifted or not, that
+      # the tool generates from the lift.
+      - name: The instruction tables of the LIMITS.md are the generated ones
+        run: |
+          lake build decompile
+          python3 scripts/decompile-check/check.py limits
+
       - name: Axiom check
         run: |
           lake env lean scripts/AxiomCheck.lean 2>&1 | tee axioms.log

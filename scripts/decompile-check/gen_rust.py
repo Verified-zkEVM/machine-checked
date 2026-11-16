@@ -182,7 +182,7 @@ class Gen:
 
     def program(self):
         r = self.rng
-        lines = ["#![no_main]", "#![allow(unused, arithmetic_overflow, unconditional_panic)]", "sp1_zkvm::entrypoint!(main);", "use guests::*;", "",
+        lines = ["#![no_main]", "#![cfg_attr(not(target_os = \"zkvm\"), no_std)]", "#![allow(unused, arithmetic_overflow, unconditional_panic)]", "guests::entry!(main);", "use guests::*;", "",
                  "trait Go { fn go(&self, x: u64) -> u64; }"]
         kinds = []
         for k in range(r.randrange(2, 6)):

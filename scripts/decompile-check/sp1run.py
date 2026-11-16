@@ -4,7 +4,7 @@ print what it does.
 
     sp1run.py GUEST.elf
     sp1run.py IMAGE.fjimg [FUEL]
-    sp1run.py --coverage FILE ...
+    sp1run.py --coverage [--instructions OUT] FILE ...
 
 Both run on the RV64IM interpreter of `rv64.py`, in one world: SP1's system calls (`World`),
 as riscv-zkvm models them (`RiscvZkvm/Rv64/StepOn.lean`, `sp1Ecall`), and five inputs, each
@@ -17,6 +17,9 @@ a stream of two hint vectors.
   whole address space (`RiscV/Sp1/Pancake.lean`): it reads and writes the guest's addresses.
   Its FFI function `ecall` is the same system call, on the four values it is passed; the new
   `t0` and `a0` are left at `SCRATCH`. Its FFI function `trap` says the program gave up.
+  The image of a bare guest (`barerun.py`) has the FFI function `syscall` instead: the
+  same call with the one result its guest reads left at `SCRATCH`. Such an image may load
+  and store at addresses that are not aligned, as its guest's processor does.
   An FFI function `mark` does nothing but have the run say `(marked)`: `check.py mutants`
   puts a call of it where it changes a program, to know whether the change was reached.
 
@@ -27,7 +30,8 @@ decompiled guest, everything but the steps is the same as for the guest.
 A run of an image is cut off after FUEL steps (400,000,000 if not given).
 
 With `--coverage` it prints, for the files together, how many of their instructions some
-input runs.
+input runs, and with `--instructions` writes the distinct ones to OUT, each as its bytes in
+hexadecimal (for `decompile --kinds`).
 """
 import os, sys
 
@@ -151,6 +155,16 @@ def run_image(img, inp, seen=None):
             said.append(reason)
         return r[1]
 
+    def syscall(r):
+        number = r[10]
+        t0, a0, reason = world.call(number, r[11], r[12], r[13])
+        mem[SCRATCH] = t0 if number == HINT_LEN else a0
+        if reason == "fault":
+            return "fault"
+        if reason is not None:
+            said.append(reason)
+        return r[1]
+
     def halt(r):
         if r[10] != 0:
             return "fault"
@@ -164,9 +178,11 @@ def run_image(img, inp, seen=None):
 
     stops = {(CODE - 16) & M: halt, (CODE - 32) & M: lambda r: "fault"}
     for i, name in enumerate(img.ffi):
-        stops[(CODE - 16 * (i + 3)) & M] = {"ecall": ecall, "mark": mark,
+        stops[(CODE - 16 * (i + 3)) & M] = {"ecall": ecall, "syscall": syscall, "mark": mark,
                                             "trap": lambda r: f"gave up (trap {r[10]})"}.get(name, lambda r: "fault")
-    reason, steps = rv64.run(words, CODE, r, mem, CODE, IMAGE_FUEL, stops, None, None, seen)
+    # a bare guest's processor loads and stores at any address, and so does its image
+    reason, steps = rv64.run(words, CODE, r, mem, CODE, IMAGE_FUEL, stops, None, None, seen,
+                             aligned="syscall" not in img.ffi)
     return world.events, status_of(reason) + ("\n(marked)" if marked else ""), steps
 
 
@@ -191,14 +207,18 @@ def describe(path, fuel=None):
 
 if __name__ == "__main__":
     if sys.argv[1] == "--coverage":
-        ran = total = 0
-        for path in sys.argv[2:]:
+        paths, ran, total, distinct = sys.argv[2:], 0, 0, set()
+        out = paths[1] if paths[0] == "--instructions" else None
+        for path in paths[2:] if out else paths:
             thing, run = load(path)
             seen = set()
             for inp in INPUTS:
                 run(thing, inp, seen)
-            n = sum(len(d) for _, d, x in thing.segments if x) // 4 if isinstance(thing, Elf) else len(thing.code) // 4
-            ran, total = ran + len(seen), total + n
+            code = [d for _, d, x in thing.segments if x][0] if isinstance(thing, Elf) else thing.code
+            distinct |= {bytes(code[4 * k:4 * k + 4]).hex() for k in seen}
+            ran, total = ran + len(seen), total + len(code) // 4
+        if out:
+            open(out, "w").write("".join(w + "\n" for w in sorted(distinct)))
         print(f"{ran} of {total} instructions run ({100 * ran // max(1, total)}%)")
     else:
         sys.stdout.write(describe(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else None))
