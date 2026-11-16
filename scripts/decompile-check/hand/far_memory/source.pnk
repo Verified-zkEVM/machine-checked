@@ -1,0 +1,8 @@
+// A store and a load 1.9 MiB into memory: inside half the heap.
+fun 1 main() {
+  @in(0, 0, @base, 8);
+  st @base + 1992296, lds 1 @base;
+  st @base, (lds 1 (@base + 1992296)) + 1;
+  @out(0, 0, @base, 8);
+  return 0;
+}

@@ -7,7 +7,7 @@
   the flags `zf`/`cf`/`of`. Here an instruction set `Isa` chooses its operation type `Op`, its
   registers `Reg` (with a link register and a stack register) and the state `M` beside the
   registers (memory, flags, anything else), and gives the meaning of an operation and of a
-  condition. An execution context (`Context`) gives the meaning of `Lext`, with the events an
+  condition. An execution context (`Context`) gives the meaning of `Lext n`, with the events an
   external call makes observable, and says which states accept. Control flow is shared by
   every instruction set.
 
@@ -100,12 +100,12 @@ structure State (I : Isa) where
   regs : I.Reg → BitVec 64
   m : I.M
 
-/-- An execution context with events of type `E`: the meaning of `Lext`, a relation from the
-    registers and state before to the outcomes after, each with the events the call makes
-    observable, and the states that accept. -/
+/-- An execution context with events of type `E`: the meaning of `Lext n`, for each entry `n`
+    a relation from the registers and state before to the outcomes after, each with the
+    events the call makes observable, and the states that accept at it. -/
 structure Context (I : Isa) (E : Type) where
-  ext : (I.Reg → BitVec 64) → I.M → Outcome (((I.Reg → BitVec 64) × I.M) × List E) → Prop
-  accept : (I.Reg → BitVec 64) → I.M → Prop
+  ext : Nat → (I.Reg → BitVec 64) → I.M → Outcome (((I.Reg → BitVec 64) × I.M) × List E) → Prop
+  accept : Nat → (I.Reg → BitVec 64) → I.M → Prop
 
 /-- Is this the label `l`? -/
 def isLabel {Op Reg : Type} (l : LLabel) : LinstrR Op Reg → Bool
@@ -167,10 +167,10 @@ def stepI (body : Lcmd I.Op I.Reg) (fr : Frame) (rest : List Frame) (regs : I.Re
     else o = .wrong
   | .Lret, o =>
     if regs I.link = fr.ret ∧ regs I.sp = fr.top then o = .ok (⟨rest, regs, m⟩, []) else o = .wrong
-  | .Lext, o => match o with
-    | .ok (t, es) => t.stack = fr.at (fr.pc + 1) :: rest ∧ c.ext regs m (.ok ((t.regs, t.m), es))
-    | .trap => c.ext regs m .trap
-    | .wrong => c.ext regs m .wrong
+  | .Lext n, o => match o with
+    | .ok (t, es) => t.stack = fr.at (fr.pc + 1) :: rest ∧ c.ext n regs m (.ok ((t.regs, t.m), es))
+    | .trap => c.ext n regs m .trap
+    | .wrong => c.ext n regs m .wrong
   | .Labort, o => o = .wrong
 
 /-- **One step** of a program. A returned program has none; an activation with no instruction
@@ -187,7 +187,7 @@ def step (s : State I) (o : Outcome (State I × List E)) : Prop :=
 /-- The accepting states: the program has returned, or it is at an `Lext` the context
     accepts. -/
 def accept (s : State I) : Prop :=
-  s.stack = [] ∨ (I.fetch p s = some .Lext ∧ c.accept s.regs s.m)
+  s.stack = [] ∨ ∃ n, I.fetch p s = some (.Lext n) ∧ c.accept n s.regs s.m
 
 /-- **The judgement** at Lprog: the generic one at `step`, its events forgotten, and
     `accept`. -/
@@ -223,26 +223,27 @@ theorem fetch_eq (hf : p[fr.fn]? = some fd) {i : LinstrR I.Op I.Reg}
     (hi : fd.body[fr.pc]? = some i) : I.fetch p ⟨fr :: rest, regs, m⟩ = some i := by
   simp [Isa.fetch, hf, hi]
 
-/-- A state at an instruction other than `Lext` does not accept. -/
+/-- A state at an instruction other than an external call does not accept. -/
 theorem not_accept (hf : p[fr.fn]? = some fd) {i : LinstrR I.Op I.Reg}
-    (hi : fd.body[fr.pc]? = some i) (hne : i ≠ .Lext) : ¬ I.accept p c ⟨fr :: rest, regs, m⟩ := by
-  rintro (h | ⟨h, -⟩)
+    (hi : fd.body[fr.pc]? = some i) (hne : ∀ n, i ≠ .Lext n) :
+    ¬ I.accept p c ⟨fr :: rest, regs, m⟩ := by
+  rintro (h | ⟨n, h, -⟩)
   · cases h
-  · rw [fetch_eq hf hi] at h; exact hne (Option.some.inj h)
+  · rw [fetch_eq hf hi] at h; exact hne n (Option.some.inj h)
 
 /-- An instruction other than an external call has one result. -/
-theorem stepI_det {body : Lcmd I.Op I.Reg} {i : LinstrR I.Op I.Reg} (hne : i ≠ .Lext)
+theorem stepI_det {body : Lcmd I.Op I.Reg} {i : LinstrR I.Op I.Reg} (hne : ∀ n, i ≠ .Lext n)
     {o₁ o₂ : Outcome (State I × List E)} (h₁ : I.stepI p c body fr rest regs m i o₁)
     (h₂ : I.stepI p c body fr rest regs m i o₂) : o₁ = o₂ := by
   cases i <;> first
-    | exact absurd rfl hne
+    | exact absurd rfl (hne _)
     | (simp only [Isa.stepI] at h₁ h₂
        repeat' split at h₁
        all_goals simp_all)
 
 /-- An instruction with one result, at the same budget. -/
 theorem of_one {i : LinstrR I.Op I.Reg} (hf : p[fr.fn]? = some fd) (hi : fd.body[fr.pc]? = some i)
-    (hne : i ≠ .Lext) {t : State I}
+    (hne : ∀ n, i ≠ .Lext n) {t : State I}
     (hs : ∀ o, I.stepI p c fd.body fr rest regs m i o → o = .ok (t, []))
     (h : I.SafeN p c G n Q t) : I.SafeN p c G n Q ⟨fr :: rest, regs, m⟩ :=
   Ascent.SafeN.of_step (not_accept hf hi hne)
@@ -303,15 +304,18 @@ theorem ret (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some .Lret)
 
 /-- An external call: safe if it accepts only where `Q` holds, never goes `wrong`, and every
     state it may continue in is safe. -/
-theorem ext (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some .Lext)
-    (hacc : c.accept regs m → Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩) (hw : ¬ c.ext regs m .wrong)
-    (h : ∀ r' m' es, c.ext regs m (.ok ((r', m'), es)) →
+theorem ext {k : Nat} (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Lext k))
+    (hacc : c.accept k regs m → Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩)
+    (hw : ¬ c.ext k regs m .wrong)
+    (h : ∀ r' m' es, c.ext k regs m (.ok ((r', m'), es)) →
       I.SafeN p c G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩) :
     I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ := by
   refine Ascent.SafeN.mono (Nat.le_succ n) (Ascent.SafeN.intro ?_ fun o ho => ?_)
-  · rintro (h | ⟨-, ha⟩)
+  · rintro (h | ⟨k', hk', ha⟩)
     · cases h
-    · exact hacc ha
+    · rw [fetch_eq hf hi] at hk'
+      cases hk'
+      exact hacc ha
   · cases o with
     | ok t =>
       obtain ⟨es, ho⟩ := ho
@@ -321,7 +325,7 @@ theorem ext (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some .Lext)
       exact h r' m' es he
     | trap => trivial
     | wrong =>
-      have ho : I.stepI p c fd.body _ rest regs m .Lext .wrong := (step_eq hf hi _).1 ho
+      have ho : I.stepI p c fd.body _ rest regs m (.Lext k) .wrong := (step_eq hf hi _).1 ho
       exact hw ho
 
 /-- A returned program: `Q` must hold. -/

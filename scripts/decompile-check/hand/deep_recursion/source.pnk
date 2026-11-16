@@ -1,0 +1,13 @@
+// Recursion 1000 frames deep: well inside half the stack.
+fun 1 down(1 n, 1 a) {
+  if n == 0 { return a; }
+  var 1 r = down(n - 1, a + n);
+  return r + 1;
+}
+fun 1 main() {
+  @in(0, 0, @base, 8);
+  var 1 r = down(1000, lds 1 @base);
+  st @base, r;
+  @out(0, 0, @base, 8);
+  return 0;
+}

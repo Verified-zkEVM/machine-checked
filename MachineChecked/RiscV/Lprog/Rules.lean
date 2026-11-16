@@ -111,7 +111,7 @@ theorem lsafe_call (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts reg
 
 /-- SP1's `WRITE` to a descriptor other than 13: the pc advances, nothing else changes. -/
 theorem lsafe_write (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts regs m) u)
-    (hb : fd.body[pc]? = some .Lext) (ht0 : u.getReg .x5 = 2#64) (hfd : u.getReg .x10 ≠ 13#64)
+    (hb : fd.body[pc]? = some (.Lext 0)) (ht0 : u.getReg .x5 = 2#64) (hfd : u.getReg .x10 ≠ 13#64)
     (h : ∀ r' m', Agree (ofParts r' m') u → LSafeN fs G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩) :
     LSafeN fs G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ := by
   refine SafeN.ext hf hb

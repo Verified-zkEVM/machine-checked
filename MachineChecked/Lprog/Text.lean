@@ -315,7 +315,7 @@ def printInstr : LinstrR (Op Reg) Reg → List Tok
   | .Lcall ret t => .sym "call" :: .num ret.toNat :: printTarget t
   | .Ltail t => .sym "tail" :: printTarget t
   | .Lret => [.sym "ret"]
-  | .Lext => [.sym "ext"]
+  | .Lext k => [.sym "ext", .num k]
   | .Labort => [.sym "abort"]
 
 def parseSet (n : Nat) : List Tok → Option (LinstrR (Op Reg) Reg × List Tok)
@@ -375,7 +375,9 @@ def parseInstr (n : Nat) : List Tok → Option (LinstrR (Op Reg) Reg × List Tok
       | some (t, ts) => some (.Ltail t, ts)
       | none => none
     else if s = "ret" then some (.Lret, ts)
-    else if s = "ext" then some (.Lext, ts)
+    else if s = "ext" then match ts with
+      | .num k :: ts => some (.Lext k, ts)
+      | _ => none
     else if s = "abort" then some (.Labort, ts)
     else none
   | _ => none
@@ -416,7 +418,7 @@ theorem parseInstr_print (i : LinstrR (Op Reg) Reg) (n : Nat) (ts : List Tok)
     simp only [printInstr, List.length_cons] at h
     simp [printInstr, parseInstr, fun ts => parseTarget_print t n ts (by omega)]
   | Lret => simp [printInstr, parseInstr]
-  | Lext => simp [printInstr, parseInstr]
+  | Lext k => simp [printInstr, parseInstr]
   | Labort => simp [printInstr, parseInstr]
 
 /-! ## Functions and programs -/

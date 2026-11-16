@@ -1,0 +1,15 @@
+# `fjc`: Flapjack's RISC-V compiler as a command, for `../check.py`. A project of its own,
+# on Flapjack's toolchain, not part of machine-checked's build.
+name = "fjc"
+defaultTargets = ["fjc"]
+
+# The revision flapjack-flip pins, so that `fjc` compiles as its `flip-check` does. Change
+# `rev` to test against another Flapjack.
+[[require]]
+name = "Flapjack"
+git = "https://github.com/pirapira/flapjack"
+rev = "95aa081de997752ac3806cd1c3f3ba5f42df2c49"
+
+[[lean_exe]]
+name = "fjc"
+root = "Fjc"

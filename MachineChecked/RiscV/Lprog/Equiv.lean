@@ -142,8 +142,8 @@ theorem At.fwd (hok : ProgOk fs) (h : At fs exit fr rest regs m t f k)
   obtain ⟨hnext, hacc⟩ := back_instr hok hnw h
   generalize hL : liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (f.prog[k]'h.hk) = L
     at hstep hbody
-  by_cases hext : L = .Lext
-  · subst hext
+  by_cases hext : ∃ n, L = .Lext n
+  · obtain ⟨n, rfl⟩ := hext
     rw [liftI_eq_ext hL] at hfetch
     refine ⟨fun s' es hs => ?_, ?_, fun hna htr => ?_⟩
     · obtain ⟨hstack, u, hu, huf, hm⟩ := (hstep _).1 hs
@@ -158,7 +158,7 @@ theorem At.fwd (hok : ProgOk fs) (h : At fs exit fr rest regs m t f k)
         cases hstack
         exact ⟨rfl, t', hst, .inl (h.next ((agree_ofParts_regsOf _).trans hwt) (code_stepSp1 hst)
           (pc_sp1Ecall hfetch ht'))⟩
-    · rintro (hnil | ⟨-, h5, h10⟩)
+    · rintro (hnil | ⟨-, -, h5, h10⟩)
       · cases hnil
       · exact ⟨hfetch, by rw [← hag.regs]; exact h5, by rw [← hag.regs]; exact h10⟩
     · obtain ⟨u, hu, huf, hm⟩ := (hstep _).1 htr
@@ -167,7 +167,8 @@ theorem At.fwd (hok : ProgOk fs) (h : At fs exit fr rest regs m t f k)
       | none =>
         refine ⟨by rw [stepSp1_ecall hfetch]; exact (sp1Ecall_agree (hu.symm.trans hag) huf hfetch).1 hw,
           fun ha => hna (hacc ha)⟩
-  · have hdet : ∀ {o₁ o₂}, (lsys fs).step ⟨fr :: rest, regs, m⟩ o₁ →
+  · have hext : ∀ n, L ≠ .Lext n := fun n h => hext ⟨n, h⟩
+    have hdet : ∀ {o₁ o₂}, (lsys fs).step ⟨fr :: rest, regs, m⟩ o₁ →
         (lsys fs).step ⟨fr :: rest, regs, m⟩ o₂ → o₁ = o₂ := fun h₁ h₂ =>
       MachineChecked.Lprog.SafeN.stepI_det hext ((hstep _).1 h₁) ((hstep _).1 h₂)
     have hna : ¬ (lsys fs).accept ⟨fr :: rest, regs, m⟩ :=

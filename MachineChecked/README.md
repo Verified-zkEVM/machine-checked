@@ -13,12 +13,13 @@ This is where each layer is in the code today.
 ```
   layer 2     spec refinement           Refine/        not started (README only)
                     ▲ refinement
-  layer 1     structured logical prog.  Logical/       not started (README only)
+  layer 1     structured logical prog.  Logical/       Pancake; lift 2's baseline, not proved
                     ▲ lift 2: decompilation
   layer 0.5   low logical program       Lprog/         ISA-independent: syntax, semantics,
                                                        shared operations
                     ▲ lift 1: translation
                                         RiscV/Lprog/   the RISC-V lift and its simulation
+                                        RiscV/Flapjack/  a Flapjack image and its layout
   layer 0     ISA                       RiscV/         riscv-zkvm's stepSp1, the judgement
                                         ARM/, X86/     semantics only (dependencies)
                     ▲ loading
@@ -36,7 +37,7 @@ This is where each layer is in the code today.
 | [`RiscV/`](RiscV/README.md) | 0, -1 | riscv-zkvm's machine, the judgement `SafeN`, the loader and SP1's context, and the layer-0 proof tools (`Check`, `Sym`, `Frame`, `Exec`). | RISC-V |
 | [`ARM/`](ARM/README.md) | 0 | The AArch64 semantics: DeepMind's arm64-semantics, a dependency. | AArch64 |
 | [`X86/`](X86/README.md) | 0 | The x86-64 semantics: Kraken's x64 model, a dependency. | x86-64 |
-| [`Logical/`](Logical/README.md) | 1 | Placeholder: the structured logical program. | no |
+| [`Logical/`](Logical/README.md) | 0.5 → 1 | Pancake as text, and lift 2's baseline: an Lprog program as a Pancake program. Not proved; checked by running. | no |
 | [`Refine/`](Refine/README.md) | 2 | Placeholder: specification refinement. | no |
 
 `MachineChecked.lean` imports every module.

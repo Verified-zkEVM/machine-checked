@@ -543,7 +543,7 @@ theorem stepSp1_ecall {t : MachineState} (hf : t.code t.pc = some .ECALL) : step
   unfold stepSp1; rw [hf]
 
 theorem back_ecall (h : At fs exit fr rest regs m t f k)
-    (hfetch : t.code t.pc = some .ECALL) (hstep : StepIs fs fr rest regs m f .Lext) :
+    (hfetch : t.code t.pc = some .ECALL) (hstep : StepIs fs fr rest regs m f (.Lext 0)) :
     ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   have hst := ht'
@@ -552,10 +552,10 @@ theorem back_ecall (h : At fs exit fr rest regs m t f k)
     (hstep _).2 ⟨rfl, t, h.sim.agree, hfetch, by simp [ht']⟩⟩
 
 theorem accept_ecall (h : At fs exit fr rest regs m t f k)
-    (hbody : (bodyOf fs f)[fr.pc]? = some .Lext) (ha : Accepted t) :
+    (hbody : (bodyOf fs f)[fr.pc]? = some (.Lext 0)) (ha : Accepted t) :
     (lsys fs).accept ⟨fr :: rest, regs, m⟩ := by
   have hag := h.sim.agree
-  refine Or.inr ⟨MachineChecked.Lprog.SafeN.fetch_eq (getElem?_liftProg h.hf) hbody, ?_, ?_⟩
+  refine Or.inr ⟨0, MachineChecked.Lprog.SafeN.fetch_eq (getElem?_liftProg h.hf) hbody, ?_, ?_⟩
   · rw [hag.regs]; exact ha.2.1
   · rw [hag.regs]; exact ha.2.2
 
@@ -638,7 +638,7 @@ theorem trap_instr (h : At fs exit fr rest regs m t f k) (hnone : stepSp1 t = no
     case ECALL =>
       rw [stepSp1_ecall hfetch] at hnone
       refine .inr ⟨?_, (hstep _).2 ⟨t, hag, hfetch, by simp [hnone]⟩⟩
-      rintro (hnil | ⟨-, h5, h10⟩)
+      rintro (hnil | ⟨-, -, h5, h10⟩)
       · cases hnil
       · exact hna ⟨hfetch, by rw [← hag.regs]; exact h5, by rw [← hag.regs]; exact h10⟩
     all_goals first

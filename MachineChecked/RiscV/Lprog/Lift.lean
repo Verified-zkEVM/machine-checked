@@ -98,7 +98,7 @@ def liftCtl (fs : List Fn) (len k : Nat) (pc : Word) : Instr → LinstrR (Op Reg
   | .BGEU a b off => liftBr k len "geu" a b off
   | .JAL rd off => liftJal fs len k pc rd off
   | .JALR rd rs off => liftJalr fs pc rd rs off
-  | .ECALL => .Lext
+  | .ECALL => .Lext 0
   | _ => .Labort
 
 /-- One instruction, at index `k` of a function of `len` instructions at address `pc`. -/
@@ -106,8 +106,8 @@ def liftI (fs : List Fn) (len k : Nat) (pc : Word) (i : Instr) : LinstrR (Op Reg
   if opnOk i then .Lopn (opOf i) else liftCtl fs len k pc i
 
 /-- Only `ecall` lifts to an external call. -/
-theorem liftI_eq_ext {fs : List Fn} {len k : Nat} {pc : Word} {i : Instr}
-    (h : liftI fs len k pc i = .Lext) : i = .ECALL := by
+theorem liftI_eq_ext {fs : List Fn} {len k n : Nat} {pc : Word} {i : Instr}
+    (h : liftI fs len k pc i = .Lext n) : i = .ECALL := by
   unfold liftI at h
   split at h
   · cases h
@@ -139,14 +139,14 @@ def liftProg (fs : List Fn) : Lprog (Op Reg) Reg := fs.map (liftFn fs)
     `ecall` gives from a machine state at an `ecall` that agrees with the Lprog state; it
     accepts at `HALT` (`t0 = 0`) with exit code `0`. It makes no events yet. -/
 def sp1Ctx : Context rvIsa Unit where
-  ext regs m o := ∃ u, Agree (ofParts regs m) u ∧ u.code u.pc = some .ECALL ∧
+  ext _ regs m o := ∃ u, Agree (ofParts regs m) u ∧ u.code u.pc = some .ECALL ∧
     match sp1Ecall u with
     | some t => o = .ok ((regsOf t, t), [])
     | none => o = .trap
-  accept regs m := (ofParts regs m).getReg .x5 = 0 ∧ (ofParts regs m).getReg .x10 = 0
+  accept _ regs m := (ofParts regs m).getReg .x5 = 0 ∧ (ofParts regs m).getReg .x10 = 0
 
-theorem sp1Ctx_ext_ne_wrong {regs : Reg → BitVec 64} {m : MachineState} :
-    ¬ sp1Ctx.ext regs m .wrong := by
+theorem sp1Ctx_ext_ne_wrong {n : Nat} {regs : Reg → BitVec 64} {m : MachineState} :
+    ¬ sp1Ctx.ext n regs m .wrong := by
   rintro ⟨u, -, -, h⟩
   split at h <;> cases h
 

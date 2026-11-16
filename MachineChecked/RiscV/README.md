@@ -26,7 +26,13 @@ semantics in the repository. The execution context is SP1.
 
 [`Lprog/`](Lprog/README.md): `rvIsa`, the translation of each instruction into a shared
 operation (proved against riscv-zkvm), `lift`, and the simulation that carries Lprog runs down
-to `stepSp1`. This is the intended route for new proofs.
+to `stepSp1`. This is the intended route for new proofs. `Lprog/Flat.lean` lifts code that
+has no functions, as one body with computed jumps; nothing is proved of it yet.
+
+## Flapjack images
+
+[`Flapjack/`](Flapjack/README.md): a binary from Flapjack, the Pancake compiler, with the
+layout it runs in, as an Lprog program and, through lift 2, as a Pancake program again.
 
 ## Layer-0 proof tools
 
