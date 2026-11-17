@@ -16,8 +16,9 @@ one() {
 }
 export -f one
 export OUT NS
-one Words
-ls "$OUT/$NS" | grep '^F' | sed 's/\.lean$//' | xargs -P "$JOBS" -I{} bash -c 'one {}' > "$OUT/log/summary.txt"
+# the data module first (`Words` for `--proved`, `Code` otherwise), then the rest
+for m in Words Code; do [ -f "$OUT/$NS/$m.lean" ] && one $m; done
+ls "$OUT/$NS" | grep -E '^(F[0-9]+|Pancake)\.lean$' | sed 's/\.lean$//' | xargs -P "$JOBS" -I{} bash -c 'one {}' > "$OUT/log/summary.txt"
 sort -t= -k3 -n -r "$OUT/log/summary.txt" | head -5
 echo "failed: $(grep -vc 'rc=0' "$OUT/log/summary.txt")  of $(wc -l < "$OUT/log/summary.txt")"
 awk '{split($3,a,"="); s+=a[2]} END {print "sum of times: " s " s"}' "$OUT/log/summary.txt"
