@@ -80,17 +80,10 @@ def liftJal (fs : List Fn) (len k : Nat) (pc : Word) (rd : Reg) (off : BitVec 21
     | none => .Labort
   else .Labort
 
-/-- The instruction before index `k` of the function whose entry is `pc - 4 k`: the function
-    of the instruction at index `k` and address `pc`. -/
-def prevInstr (fs : List Fn) (k : Nat) (pc : Word) : Option Instr :=
-  match k, entryOf fs (pc - BitVec.ofNat 64 (4 * k)) with
-  | k + 1, some g => fs[g]?.bind fun f => f.prog[k]?
-  | _, _ => none
-
-/-- The function a `jalr` at index `k` and address `pc` reaches when the instruction before it
-    is an `auipc` of its register, as the `call` and `tail` pseudo-instructions are. -/
-def jalrStatic (fs : List Fn) (k : Nat) (pc : Word) (rs : Reg) (off : BitVec 12) : Option Nat :=
-  match prevInstr fs k pc with
+/-- The function a `jalr` at `pc` reaches when the instruction before it, `prev`, is an
+    `auipc` of its register, as the `call` and `tail` pseudo-instructions are. -/
+def jalrStatic (fs : List Fn) (pc : Word) (prev : Option Instr) (rs : Reg) (off : BitVec 12) : Option Nat :=
+  match prev with
   | some (.AUIPC rd imm) =>
     if rd = rs ∧ rs ≠ .x0 then entryOf fs ((pc - 4 + auipcOff imm + signExtend12 off) &&& ~~~1#64)
     else none
@@ -101,22 +94,22 @@ def jalrStatic (fs : List Fn) (k : Nat) (pc : Word) (rs : Reg) (off : BitVec 12)
     which a proof of safety rules out. A short list makes fewer cases to prove; it can only
     lose a jump into the `jalr` from elsewhere with another target, which compilers do not
     emit. -/
-def jalrCands (fs : List Fn) (k : Nat) (pc : Word) (rs : Reg) (off : BitVec 12) : List Nat :=
-  match jalrStatic fs k pc rs off with
+def jalrCands (fs : List Fn) (pc : Word) (prev : Option Instr) (rs : Reg) (off : BitVec 12) : List Nat :=
+  match jalrStatic fs pc prev rs off with
   | some g => [g]
   | none => List.range fs.length
 
-/-- `jalr` at index `k`, lifted: a return, an indirect tail call or an indirect call. -/
-def liftJalr (fs : List Fn) (k : Nat) (pc : Word) (rd rs : Reg) (off : BitVec 12) :
+/-- `jalr` after `prev`, lifted: a return, an indirect tail call or an indirect call. -/
+def liftJalr (fs : List Fn) (pc : Word) (prev : Option Instr) (rd rs : Reg) (off : BitVec 12) :
     LinstrR (Op Reg) Reg :=
   if rd = .x0 then
     if rs = .x1 ∧ off = 0 then .Lret
-    else .Ltail (.indirect (jalrTgt rs off) (jalrCands fs k pc rs off))
-  else if rd = .x1 then .Lcall (pc + 4) (.indirect (jalrTgt rs off) (jalrCands fs k pc rs off))
+    else .Ltail (.indirect (jalrTgt rs off) (jalrCands fs pc prev rs off))
+  else if rd = .x1 then .Lcall (pc + 4) (.indirect (jalrTgt rs off) (jalrCands fs pc prev rs off))
   else .Labort
 
-/-- An instruction that is not an operation, lifted. -/
-def liftCtl (fs : List Fn) (len k : Nat) (pc : Word) : Instr → LinstrR (Op Reg) Reg
+/-- An instruction that is not an operation, after `prev`, lifted. -/
+def liftCtl (fs : List Fn) (len k : Nat) (pc : Word) (prev : Option Instr) : Instr → LinstrR (Op Reg) Reg
   | .AUIPC rd imm => .Lopn (.set rd (.imm (pc + auipcOff imm)))
   | .BEQ a b off => liftBr k len "eq" a b off
   | .BNE a b off => liftBr k len "ne" a b off
@@ -125,17 +118,19 @@ def liftCtl (fs : List Fn) (len k : Nat) (pc : Word) : Instr → LinstrR (Op Reg
   | .BLTU a b off => liftBr k len "ltu" a b off
   | .BGEU a b off => liftBr k len "geu" a b off
   | .JAL rd off => liftJal fs len k pc rd off
-  | .JALR rd rs off => liftJalr fs k pc rd rs off
+  | .JALR rd rs off => liftJalr fs pc prev rd rs off
   | .ECALL => .Lext 0
   | _ => .Labort
 
-/-- One instruction, at index `k` of a function of `len` instructions at address `pc`. -/
-def liftI (fs : List Fn) (len k : Nat) (pc : Word) (i : Instr) : LinstrR (Op Reg) Reg :=
-  if opnOk i then .Lopn (opOf i) else liftCtl fs len k pc i
+/-- One instruction, at index `k` of a function of `len` instructions at address `pc`, after
+    the instruction `prev`. An instruction's lift depends on these, and on `fs` only through
+    `entryOf`. -/
+def liftI (fs : List Fn) (len k : Nat) (pc : Word) (prev : Option Instr) (i : Instr) : LinstrR (Op Reg) Reg :=
+  if opnOk i then .Lopn (opOf i) else liftCtl fs len k pc prev i
 
 /-- Only `ecall` lifts to an external call. -/
-theorem liftI_eq_ext {fs : List Fn} {len k n : Nat} {pc : Word} {i : Instr}
-    (h : liftI fs len k pc i = .Lext n) : i = .ECALL := by
+theorem liftI_eq_ext {fs : List Fn} {len k n : Nat} {pc : Word} {prev : Option Instr} {i : Instr}
+    (h : liftI fs len k pc prev i = .Lext n) : i = .ECALL := by
   unfold liftI at h
   split at h
   · cases h
@@ -145,17 +140,23 @@ theorem liftI_eq_ext {fs : List Fn} {len k n : Nat} {pc : Word} {i : Instr}
          repeat' split at h
          all_goals cases h)
 
-/-- Instructions from index `k` on, lifted. -/
-def liftFrom (fs : List Fn) (base : Word) (len : Nat) : Nat → List Instr → Lcmd (Op Reg) Reg
-  | _, [] => []
-  | k, i :: is =>
-    .Llabel .internal k :: liftI fs len k (base + BitVec.ofNat 64 (4 * k)) i :: liftFrom fs base len (k + 1) is
+/-- Instructions from index `k` on, after the instruction `prev`, lifted. -/
+def liftFrom (fs : List Fn) (base : Word) (len : Nat) : Nat → Option Instr → List Instr → Lcmd (Op Reg) Reg
+  | _, _, [] => []
+  | k, prev, i :: is =>
+    .Llabel .internal k :: liftI fs len k (base + BitVec.ofNat 64 (4 * k)) prev i ::
+      liftFrom fs base len (k + 1) (some i) is
+
+/-- The instruction before index `j` of `is`, the first having `prev` before it. -/
+def prevAt (prev : Option Instr) (is : List Instr) : Nat → Option Instr
+  | 0 => prev
+  | j + 1 => is[j]?
 
 /-- A function, lifted. -/
 def liftFn (fs : List Fn) (f : Fn) : Lfundef (Op Reg) Reg where
   name := f.name
   addr := f.base
-  body := liftFrom fs f.base f.prog.length 0 f.prog
+  body := liftFrom fs f.base f.prog.length 0 none f.prog
   depth := f.depth
 
 /-- **A program, lifted.** -/
@@ -171,40 +172,42 @@ abbrev LSafeN (fs : List Fn) (G : State rvIsa → Prop) (n : Nat) (Q : State rvI
 /-! ## The lifted code -/
 
 theorem length_liftFrom (fs : List Fn) (base : Word) (len : Nat) :
-    ∀ (k : Nat) (is : List Instr), (liftFrom fs base len k is).length = 2 * is.length
-  | _, [] => rfl
-  | k, _ :: is => by
-    simp only [liftFrom, List.length_cons, length_liftFrom fs base len (k + 1) is]; omega
+    ∀ (k : Nat) (prev : Option Instr) (is : List Instr), (liftFrom fs base len k prev is).length = 2 * is.length
+  | _, _, [] => rfl
+  | k, _, i :: is => by
+    simp only [liftFrom, List.length_cons, length_liftFrom fs base len (k + 1) (some i) is]; omega
 
 theorem getElem?_liftFrom_even (fs : List Fn) (base : Word) (len : Nat) :
-    ∀ (k : Nat) (is : List Instr) (j : Nat), j < is.length →
-      (liftFrom fs base len k is)[2 * j]? = some (.Llabel .internal (k + j))
-  | _, [], _, h => absurd h (by simp)
-  | k, i :: is, 0, _ => by simp [liftFrom]
-  | k, i :: is, j + 1, h => by
+    ∀ (k : Nat) (prev : Option Instr) (is : List Instr) (j : Nat), j < is.length →
+      (liftFrom fs base len k prev is)[2 * j]? = some (.Llabel .internal (k + j))
+  | _, _, [], _, h => absurd h (by simp)
+  | k, _, i :: is, 0, _ => by simp [liftFrom]
+  | k, _, i :: is, j + 1, h => by
     rw [show 2 * (j + 1) = (2 * j) + 1 + 1 by omega]
     simp only [liftFrom, List.getElem?_cons_succ]
-    rw [getElem?_liftFrom_even fs base len (k + 1) is j (by simp only [List.length_cons] at h; omega),
+    rw [getElem?_liftFrom_even fs base len (k + 1) (some i) is j (by simp only [List.length_cons] at h; omega),
       show k + 1 + j = k + (j + 1) by omega]
 
 theorem getElem?_liftFrom_odd (fs : List Fn) (base : Word) (len : Nat) :
-    ∀ (k : Nat) (is : List Instr) (j : Nat) (h : j < is.length),
-      (liftFrom fs base len k is)[2 * j + 1]? =
-        some (liftI fs len (k + j) (base + BitVec.ofNat 64 (4 * (k + j))) is[j])
-  | _, [], _, h => absurd h (by simp)
-  | k, i :: is, 0, _ => by simp [liftFrom]
-  | k, i :: is, j + 1, h => by
+    ∀ (k : Nat) (prev : Option Instr) (is : List Instr) (j : Nat) (h : j < is.length),
+      (liftFrom fs base len k prev is)[2 * j + 1]? =
+        some (liftI fs len (k + j) (base + BitVec.ofNat 64 (4 * (k + j))) (prevAt prev is j) is[j])
+  | _, _, [], _, h => absurd h (by simp)
+  | k, _, i :: is, 0, _ => by simp [liftFrom, prevAt]
+  | k, _, i :: is, j + 1, h => by
     rw [show 2 * (j + 1) + 1 = (2 * j + 1) + 1 + 1 by omega]
     simp only [liftFrom, List.getElem?_cons_succ]
-    rw [getElem?_liftFrom_odd fs base len (k + 1) is j (by simp only [List.length_cons] at h; omega)]
+    rw [getElem?_liftFrom_odd fs base len (k + 1) (some i) is j (by simp only [List.length_cons] at h; omega)]
     simp only [List.getElem_cons_succ]
     rw [show k + 1 + j = k + (j + 1) by omega]
+    congr 2
+    cases j <;> simp [prevAt]
 
 theorem isLabel_label {Op Reg : Type} (k l : LLabel) :
     isLabel (Op := Op) (Reg := Reg) l (.Llabel .internal k) = (k == l) := rfl
 
-theorem liftI_not_label (fs : List Fn) (len k : Nat) (pc : Word) (i : Instr) (l : LLabel) :
-    isLabel l (liftI fs len k pc i) = false := by
+theorem liftI_not_label (fs : List Fn) (len k : Nat) (pc : Word) (prev : Option Instr) (i : Instr)
+    (l : LLabel) : isLabel l (liftI fs len k pc prev i) = false := by
   unfold liftI
   split
   · rfl
@@ -213,38 +216,38 @@ theorem liftI_not_label (fs : List Fn) (len k : Nat) (pc : Word) (i : Instr) (l 
 
 /-- Label `l` sits at index `2 (l - k)` of the instructions lifted from index `k`. -/
 theorem labelIdx_liftFrom (fs : List Fn) (base : Word) (len : Nat) :
-    ∀ (k : Nat) (is : List Instr) (l : Nat), k ≤ l → l < k + is.length →
-      labelIdx (liftFrom fs base len k is) l = some (2 * (l - k))
-  | _, [], _, h1, h2 => absurd h2 (by simp; omega)
-  | k, i :: is, l, h1, h2 => by
+    ∀ (k : Nat) (prev : Option Instr) (is : List Instr) (l : Nat), k ≤ l → l < k + is.length →
+      labelIdx (liftFrom fs base len k prev is) l = some (2 * (l - k))
+  | _, _, [], _, h1, h2 => absurd h2 (by simp; omega)
+  | k, _, i :: is, l, h1, h2 => by
     unfold labelIdx
     simp only [liftFrom, List.findIdx?_cons, isLabel_label, liftI_not_label]
     by_cases hkl : k = l
     · subst hkl; simp
-    · have := labelIdx_liftFrom fs base len (k + 1) is l (by omega)
+    · have := labelIdx_liftFrom fs base len (k + 1) (some i) is l (by omega)
         (by simp only [List.length_cons] at h2; omega)
       unfold labelIdx at this
       simp only [beq_iff_eq, hkl, ite_false, this, Option.map_some, Bool.false_eq_true]
       congr 1; omega
 
 /-- The body of a lifted function. -/
-abbrev bodyOf (fs : List Fn) (f : Fn) : Lcmd (Op Reg) Reg := liftFrom fs f.base f.prog.length 0 f.prog
+abbrev bodyOf (fs : List Fn) (f : Fn) : Lcmd (Op Reg) Reg := liftFrom fs f.base f.prog.length 0 none f.prog
 
 theorem labelIdx_body (fs : List Fn) (f : Fn) {l : Nat} (h : l < f.prog.length) :
     labelIdx (bodyOf fs f) l = some (2 * l) := by
-  simpa using labelIdx_liftFrom fs f.base f.prog.length 0 f.prog l (Nat.zero_le _) (by omega)
+  simpa using labelIdx_liftFrom fs f.base f.prog.length 0 none f.prog l (Nat.zero_le _) (by omega)
 
 theorem length_body (fs : List Fn) (f : Fn) : (bodyOf fs f).length = 2 * f.prog.length :=
-  length_liftFrom fs f.base f.prog.length 0 f.prog
+  length_liftFrom fs f.base f.prog.length 0 none f.prog
 
 theorem body_even (fs : List Fn) (f : Fn) {k : Nat} (hk : k < f.prog.length) :
     (bodyOf fs f)[2 * k]? = some (.Llabel .internal k) := by
-  simpa using getElem?_liftFrom_even fs f.base f.prog.length 0 f.prog k hk
+  simpa using getElem?_liftFrom_even fs f.base f.prog.length 0 none f.prog k hk
 
 theorem body_odd (fs : List Fn) (f : Fn) {k : Nat} (hk : k < f.prog.length) :
     (bodyOf fs f)[2 * k + 1]? =
-      some (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) f.prog[k]) := by
-  simpa using getElem?_liftFrom_odd fs f.base f.prog.length 0 f.prog k hk
+      some (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) f.prog[k]) := by
+  simpa using getElem?_liftFrom_odd fs f.base f.prog.length 0 none f.prog k hk
 
 theorem body_end (fs : List Fn) (f : Fn) {p : Nat} (hp : 2 * f.prog.length ≤ p) :
     (bodyOf fs f)[p]? = none :=
@@ -288,8 +291,9 @@ theorem callee_indirect_of {fs : List Fn} {regs : Reg → BitVec 64} {e : Expr R
     simp [Isa.addrAt, getElem?_liftProg hf, liftFn, ha] at this
 
 /-- Every function is a candidate of a computed jump that `jalrStatic` does not resolve. -/
-theorem mem_jalrCands {fs : List Fn} {k : Nat} {pc : Word} {rs : Reg} {off : BitVec 12} {f : Nat}
-    (h : jalrStatic fs k pc rs off = none) (hf : f < fs.length) : f ∈ jalrCands fs k pc rs off := by
+theorem mem_jalrCands {fs : List Fn} {pc : Word} {prev : Option Instr} {rs : Reg} {off : BitVec 12}
+    {f : Nat} (h : jalrStatic fs pc prev rs off = none) (hf : f < fs.length) :
+    f ∈ jalrCands fs pc prev rs off := by
   simp [jalrCands, h, hf]
 
 theorem callee_direct {fs : List Fn} {regs : Reg → BitVec 64} {f : Nat} (h : f < fs.length) :

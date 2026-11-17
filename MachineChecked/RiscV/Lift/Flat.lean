@@ -96,7 +96,7 @@ def liftI (cs : List (Word × LLabel)) (k : Nat) : Decoded → Lcmd (Op Reg) Reg
         [.Lopn (.set .x0 (jalrTgt rs off)), .Lopn (.set rd (.imm (pc + 4))), .Ligoto (.reg .x0) cs]
       else link rd ++ [.Ligoto (jalrTgt rs off) cs]
     | .ECALL => [.Labort]
-    | i => [liftCtl [] len k pc i]
+    | i => [liftCtl [] len k pc none i]
 
 /-- **Code without functions, lifted**: one function, a label before each instruction. -/
 def liftFlat (name : String) : Lprog (Op Reg) Reg :=

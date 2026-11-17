@@ -148,7 +148,7 @@ theorem At.fwd (hok : ProgOk fs) (h : At fs exit fr rest regs m t f k)
   have hf := getElem?_liftProg h.hf
   have hag := h.sim.agree
   obtain ⟨hnext, hacc⟩ := back_instr hok hnw h
-  generalize hL : liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (f.prog[k]'h.hk) = L
+  generalize hL : liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk) = L
     at hstep hbody
   by_cases hext : ∃ n, L = .Lext n
   · obtain ⟨n, rfl⟩ := hext

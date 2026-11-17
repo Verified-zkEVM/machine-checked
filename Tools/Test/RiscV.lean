@@ -647,12 +647,12 @@ def fnsC : List Fn :=
    { name := "g", base := 0x2000, prog := [.JALR .x0 .x1 0] }]
 
 -- `auipc ra` then `jalr ra`: the one function at the address
-#guard jalrCands fnsC 1 0x1004 .x1 0 == [1]
+#guard jalrCands fnsC 0x1004 (some (.AUIPC .x1 1)) .x1 0 == [1]
 -- the offset of `jalr` counts: 0x2000 + 4 is no function's entry, so every function
-#guard jalrCands fnsC 1 0x1004 .x1 4 == [0, 1]
+#guard jalrCands fnsC 0x1004 (some (.AUIPC .x1 1)) .x1 4 == [0, 1]
 -- a register `auipc` did not set: every function
-#guard jalrCands fnsC 2 0x1008 .x5 0 == [0, 1]
--- the first instruction of a function has none before it
-#guard jalrCands fnsC 0 0x2000 .x1 0 == [0, 1]
+#guard jalrCands fnsC 0x1008 (some (.JALR .x1 .x1 0)) .x5 0 == [0, 1]
+-- nothing before it (the first instruction of a function): every function
+#guard jalrCands fnsC 0x2000 none .x1 0 == [0, 1]
 
 end Tools.Test.RiscV

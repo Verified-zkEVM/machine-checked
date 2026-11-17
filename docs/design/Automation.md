@@ -123,6 +123,18 @@ text (the default lift in brackets where it differs):
   whose contracts are stated over a machine state; `using` wants contracts over the register
   file.
 
+- **Item 6, first step.** The lift of an instruction is now local: `liftFrom` hands each
+  instruction the one before it, so its lift depends on the instruction, its predecessor, its
+  index and `entryOf`, not on decoding the function again (finding the predecessor through
+  the program had made `--to lean` quadratic in a function's size). And `--to lean --proved`
+  checks a function's parts by `kernel_eq` (`Eq.refl`, evaluated by the kernel) instead of
+  `decide +kernel`, which compares every field through `DecidableEq`: on zip-2005's three
+  largest functions the check is about 2.5 times faster and the module 30 to 35% faster
+  (16 s to 11 s for the largest). What is left is elaborating the term itself, about two
+  thirds of the time now. The other routes keep `decide`: there the kernel's unfolding of
+  `program.lift` to compare it with a term is far slower than evaluating the decision.
+
 Next: contracts over the register file, so that `using` takes them; a normal form for
 addresses (base plus one constant), so that facts about them are stated once; `SafeN.block`
-for long blocks, with atoms; then item 6, certificates for `--to lean`.
+for long blocks, with atoms; then the rest of item 6: a shorter written term (elaborating it now costs more than
+checking it), and per-instruction checks.
