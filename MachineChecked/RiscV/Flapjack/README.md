@@ -7,7 +7,7 @@ to can be compiled by the compiler it came from.
 
 | file | contents |
 | --- | --- |
-| `Image.lean` | `Image`: the code, the bitmaps and the FFI names. The layout it is installed in (CakeML's convention, fixed as flapjack-flip's machine fixes it): where the code, heap and stack are, the registers at entry, and the entries of the environment (halt, then the FFI functions) below the code. `Image.lift` is the image as an Lprog program, by the lift of code without functions (`../Lprog/Flat.lean`). |
+| `Image.lean` | `Image`: the code, the bitmaps and the FFI names. The layout it is installed in (CakeML's convention, fixed as flapjack-flip's machine fixes it): where the code, heap and stack are, the registers at entry, and the entries of the environment (halt, then the FFI functions) below the code. `Image.lift` is the image as an Lprog program, by the lift of code without functions (`../Lift/Flat.lean`). |
 | `Pancake.lean` | `Image.env`, the image's environment for lift 2 (`../../Logical/Lift.lean`), and `Image.toPancake`. The Pancake program is itself installed as an image, so the environment puts the old image back inside the new one: its heap and stack in the two halves of the new heap, its bitmaps and heap header in place, and the FFI functions as Pancake's FFI calls. |
 
 Nothing is proved here yet. The meaning of an image as an execution context

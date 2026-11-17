@@ -19,6 +19,13 @@
   `exit` must lie outside the code (`ExitOut`), or the machine would stop where the lifted
   program runs on.
 
+  What the observer sees is little yet. SP1's context makes no events, so every trace is
+  empty, and the equivalence says that the two accept, trap, go on running or (at Lprog) go
+  `wrong` together. It does not compare the registers, the memory or the public values where
+  they end: that is in `Sim`, which the proofs carry along every step, and not in the
+  statements here. A context whose external calls make events (the public values, at
+  `COMMIT`) would make it say more.
+
   ## Main definitions
 
   * `msys`, `ExitOut`, `NoWrong`

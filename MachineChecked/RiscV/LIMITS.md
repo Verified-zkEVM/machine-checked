@@ -13,7 +13,7 @@ The tool is tested, not proved. What the tests show is under "How far it is test
   position-independent executable are refused.
 - **RV64IM**, without compressed instructions: an ELF that says it uses them is refused.
 - **An SP1 guest** (SP1 6.10.0): its system calls are `ecall` with the number in `t0`. A
-  Flapjack image (`.fjimg`) is also taken, by another lift (`Lprog/Flat.lean`), as one
+  Flapjack image (`.fjimg`) is also taken, by another lift (`Lift/Flat.lean`), as one
   function.
 
 ## Instructions
@@ -25,7 +25,7 @@ not the generated table. A kind is lifted if the lift of one instruction of it h
 
 `JALR` is one kind and several things: a return, an indirect call, a computed jump, and a
 call that links through another register than `ra`, which is lifted with the code it
-returns to as a further part of the caller (`Lprog/Whole.lean`).
+returns to as a further part of the caller (`Lift/Whole.lean`).
 
 <!-- table: generated, do not edit -->
 | instruction | lifted | run by the check |
@@ -186,6 +186,6 @@ target and link.
 
 Of this route, nothing. `decompile --to lprog --proved` is another lift (`liftProg`), of the
 functions that follow the calling convention, and that one is proved equivalent to the
-machine (`Lprog/Equiv.lean`). The lift of whole programs (`Lprog/Whole.lean`) and lift 2
+machine (`Lift/Equiv.lean`). The lift of whole programs (`Lift/Whole.lean`) and lift 2
 (`../Logical/Lift.lean`) are not. The 32-bit operations riscv-zkvm's instruction type lacks
-are stated here (`Lprog/Decode.lean`) and tested against SP1's executor.
+are stated here (`Lift/Decode.lean`) and tested against SP1's executor.

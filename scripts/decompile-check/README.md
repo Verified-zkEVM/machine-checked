@@ -118,7 +118,8 @@ One set of Rust sources, built for three machines: SP1 6.10.0 (`cargo prove buil
 - **SP1's executor agrees with `sp1run.py` on all 267**: the public values, the exit code and
   the number of instructions, on each of the five inputs.
 - **The x86-64 decoder agrees with `llvm-objdump`** on all 1,062,210 instructions of the 263
-  guests: where each starts, and its name (`x86dis.py`).
+  guests: where each starts, and its name (`x86dis.py`). Operands, sizes and immediates are
+  not compared.
 - About one run in six ends in a panic (exit code 1, after the message on file 2).
 - **Which instructions are lifted, and which of those the tests run**, is the table of each
   instruction set's `LIMITS.md` (`MachineChecked/{RiscV,ARM,X86}/LIMITS.md`). Every lifted

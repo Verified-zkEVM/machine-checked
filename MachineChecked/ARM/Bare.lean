@@ -2,7 +2,7 @@
   MachineChecked.ARM.Bare
 
   An AArch64 program without an operating system as a Pancake program: the lift of AArch64
-  (`Lprog/Lift.lean`), then lift 2 in the environment of a bare program
+  (`Lift/Lift.lean`), then lift 2 in the environment of a bare program
   (`Logical/Guest.lean`).
 
   A system call is `svc #0`, with the number in `x8`, the arguments in `x0`, `x1` and `x2`,

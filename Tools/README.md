@@ -15,7 +15,7 @@ checked by the Lean kernel, and nothing in `MachineChecked/` or `Cases/` imports
 | `Test/ToLean.lean` | (built) | Checks of `ToLean.lean`, run when it is built: a body in parts, a function's theorem from its parts, and a changed term refuted by the kernel. |
 | `Fjimg.lean` | (library) | The text form of a Flapjack image. |
 | `Elf.lean` | (library) | ELF and symbol-table helpers shared by the tools. |
-| `StructureTest.lean` | (built) | Checks of `Logical/Structure.lean` on small graphs, run when it is built: a switch is never a two-way choice or a way out. |
+| `Test/` | (built) | Unit tests, run when they are built (`#guard`): each instruction set's decoder and lift, one instruction at a time against its manual (`Run.lean` runs the lift of one instruction), and the shared passes. See below. |
 
 `NM` is the output of `llvm-nm -S --defined-only ELF`. It is used only for function boundaries,
 which are hints: the kernel re-checks what the tools derive from them. Words are read with
@@ -146,3 +146,23 @@ The other tools are RISC-V only for now. Generalising `gen-image` and the ELF re
 x86-64 and AArch64 is part of bringing those instruction sets up to RISC-V's level
 ([`ROADMAP.md`](../ROADMAP.md)): `decompile` reads their ELFs through riscv-zkvm's reader,
 which reads nothing that depends on the machine.
+
+## Tests
+
+`Tools/Test/` holds unit tests: `#guard`s that the build evaluates, so `lake build Tools`
+(and CI) fails if one does not hold. Expected values come from each instruction set's
+manual, worked out by hand, not from the code under test.
+
+| file | tests | what |
+| --- | --- | --- |
+| `Run.lean` | | Runs the lift of one instruction on concrete registers and a byte memory, and says how it ends: at the next instruction, at a branch target, giving up, going `wrong`, or leaving the function (a call, a return, a system call). |
+| `RiscV.lean` | 214 | `decodeWord` and the whole-program lift of RV64IM: each `*w` instruction, division by zero and overflow, loads and stores of each width, `x0`, branches, calls and far calls (`auipc` then `jalr`), computed jumps. |
+| `Arm.lean` | 342 | The AArch64 lift from instruction words: flags through the conditions that read them, logical immediates, bitfields, conditional select and compare, loads and stores with writeback, branches. |
+| `X86.lean` | 392 | The x86-64 decoder and lift from bytes: prefixes and addressing forms, flags at every size, partial register writes, shifts, division, the stack, string instructions with `rep`. |
+| `Dead.lean` | 45 | Dropping the writes of flags nothing reads: what is dropped and what is kept, and that a body runs the same before and after. |
+| `Text.lean` | 55 | The Lprog text format: each kind of instruction read back from its text, and malformed text refused. |
+| `Elf.lean` | 55 | The ELF reader on a small file made by hand, and on truncated and malformed ones: each gives an error, none a crash. |
+| `Structure.lean` | 6 | The structure of control flow on small graphs: a switch is never a two-way choice or a way out. |
+
+To test one file while working on it: `lake env lean Tools/Test/X86.lean` (no output is a
+pass).

@@ -12,7 +12,7 @@ The tool is tested, not proved. What the tests show is under "How far it is test
   functions are its sized text symbols. A stripped file, a relocatable file and a
   position-independent executable are refused.
 - **The integer instructions of x86-64 in 64-bit mode**, as the decoder here reads them
-  (`Lprog/Instr.lean`): Kraken's model has no decoder. Nothing of x87, MMX, SSE or AVX: a
+  (`Lift/Instr.lean`): Kraken's model has no decoder. Nothing of x87, MMX, SSE or AVX: a
   program must be built for a target without them (`x86_64-unknown-none`), or it gives up
   at the first such instruction it runs.
 - **A program without an operating system.** A system call is `syscall` with the number in
@@ -27,10 +27,11 @@ not the generated table. A kind is lifted if the lift of one instruction of it h
 
 An instruction is of the same kind at every operand size, unless the table says otherwise.
 What the decoder does not read is one kind, the last: the prefixes `lock`, `F2`, `67`, `fs`
-and `gs`; VEX and EVEX; x87, MMX and SSE; `cmpxchg`, `xadd`, `cmps`, `scas`, `lods`, `rcl`,
+and `gs`; a REX prefix that is not the last prefix (the processor ignores it); VEX and EVEX; x87, MMX and SSE; `cmpxchg`, `xadd`, `cmps`, `scas`, `lods`, `rcl`,
 `rcr`, `enter`, `ret` with a count, `pushf`, `popf`, `lahf`, `sahf`, `xlat`, `cpuid`,
 `rdtsc`, `xchg` of one byte, `movsxd` to 32 bits, `push` and `pop` of 16 bits, the bit
-instructions on memory with a register for the index, and the instructions for the
+instructions on memory with a register for the index, `endbr64` (so code built for CET, with
+one at the start of each function, is not lifted at all), and the instructions for the
 system. A function is read from its start, so after bytes the decoder does not read, the
 rest of the function is not lifted either.
 
@@ -183,7 +184,11 @@ reports `gave up (trap 12)`. The places are:
   and anything else that leaves a function other than by returning give up;
 - **control that leaves a function other than by a call, a tail call or a return**: a
   branch into the middle of another function, or running off the end;
-- **a division that faults on the processor**: by zero, or with a quotient that does not fit.
+- **a division that faults on the processor**: by zero, or with a quotient that does not fit;
+- **a 64-bit `idiv` whose dividend does not fit in `rax`**: one where `rdx` is not the sign
+  of `rax`. After `cqo`, as compilers emit it, it always is. The table says `idiv` is lifted
+  because its lift has no `Labort`; this case gives up as it runs. The unsigned `div` takes
+  all 128 bits of `rdx:rax`.
 
 ## What it assumes and does not check
 
@@ -217,7 +222,7 @@ reports `gave up (trap 12)`. The places are:
   same bytes as `bsf` and `bsr`.
 - **`syscall` does not write `rcx` and `r11`**, as the processor does.
 - **A return address is on the stack as in the original**, and the output also keeps it in
-  a register of its own while a call or return passes it (`Lprog/Lift.lean`).
+  a register of its own while a call or return passes it (`Lift/Lift.lean`).
 - **Time.** The output takes 15.5 times the steps of the original on the tests, and
   nothing about how long an operation takes is kept: a program that is constant-time is not
   so afterwards.
@@ -249,7 +254,7 @@ one by one, as AArch64's were.
 ## What is proved
 
 Nothing, and less is shared with a trusted model than for the other two: the instruction
-type and the decoder are this repository's (`Lprog/Instr.lean`), because Kraken's x64 model
+type and the decoder are this repository's (`Lift/Instr.lean`), because Kraken's x64 model
 takes assembly, not bytes, and lacks some instructions compilers emit (`div`, `idiv`, `bsr`,
 `tzcnt`, `bt`, `bts`, `cdqe` and its family, `syscall`). The decoder is compared with
 LLVM's disassembler on every instruction of the tests, for where each starts and its name
