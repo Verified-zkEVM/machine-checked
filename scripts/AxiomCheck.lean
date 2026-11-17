@@ -8,6 +8,7 @@
 -/
 
 import MachineChecked
+import Tools.ToLean
 
 -- the lift
 #print axioms Lprog.parse_print
@@ -22,3 +23,7 @@ import MachineChecked
 #print axioms MachineChecked.RiscV.Lift.lsafe_call
 #print axioms MachineChecked.RiscV.Lift.lsafe_write
 #print axioms MachineChecked.RiscV.Lift.corres_block
+
+-- decompile --to lean: a function's theorem from its parts
+#print axioms Tools.ToLean.flatten_chunks
+#print axioms Tools.ToLean.getElem?_eq_of_chunks

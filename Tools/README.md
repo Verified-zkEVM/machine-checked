@@ -10,7 +10,8 @@ checked by the Lean kernel, and nothing in `MachineChecked/` or `Cases/` imports
 | `GenImage.lean` | `lake exe gen-image ELF NM OUTDIR MODPREFIX [STACKTOP]` | The ELF as Lean data: one module per function (its words and their decoding), the data chunks and the layout. |
 | `Infer.lean` | `lake exe infer-contracts ELF NM OUT.tsv STACKTOP PROTLO PROTHI` | For every function, bottom-up over the call graph: an interface (`Check.Iface`) and a certificate, emitted as Lean for the checker to re-check. |
 | `FrameSweep.lean` | `lake exe frame-sweep ELF NM OUT.tsv` | Runs the frame analysis over every function and reports which annotations check, and why not. |
-| `Decompile.lean` | `lake exe decompile --to lprog\|pancake BINARY [OUT]` | A binary as an Lprog program, in text, or as a Pancake program. `BINARY` is an RV64 ELF or a Flapjack image. See below. |
+| `Decompile.lean` | `lake exe decompile --to lprog\|pancake\|lean BINARY …` | A binary as an Lprog program, in text or as Lean, or as a Pancake program. `BINARY` is an ELF or a Flapjack image. See below. |
+| `ToLean.lean` | (library, and the command `check_elf_words`) | `decompile --to lean`: the modules it writes, the lemmas their theorems rest on, and the check of their words against the ELF. |
 | `Fjimg.lean` | (library) | The text form of a Flapjack image. |
 | `Elf.lean` | (library) | ELF and symbol-table helpers shared by the tools. |
 | `Test/` | (built) | Unit tests, run when they are built (`#guard`): each instruction set's decoder and lift, one instruction at a time against its manual (`Run.lean` runs the lift of one instruction), and the shared passes. See below. |
@@ -29,6 +30,7 @@ for RISC-V, AArch64 or x86-64 to layer 0.5 (`--to lprog`) and on to layer 1
 lake exe decompile --to pancake GUEST.elf OUT.pnk     # an ELF for RV64IM, AArch64 or x86-64
 lake exe decompile --to lprog   GUEST.elf OUT.lprog
 lake exe decompile --to lprog --proved GUEST.elf      # RISC-V, by the lift the theorems are about
+lake exe decompile --to lean --proved GUEST.elf OUTDIR NAMESPACE   # the same as Lean, checked by the kernel
 lake exe decompile --to pancake IMAGE.fjimg OUT.pnk   # a binary from Flapjack
 lake exe decompile --table riscv|aarch64|x86-64 [KINDS]   # the instruction table of a LIMITS.md
 lake exe decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS
@@ -87,6 +89,50 @@ with a word riscv-zkvm does not decode is left out. In both forms the Lprog text
 back and compared with the program before it is written (`Lprog.parse_print` proves the
 step from tokens; the step from text is this check).
 
+### As Lean
+
+`decompile --to lean --proved GUEST.elf OUTDIR NS` writes the `--proved` lift as Lean modules
+(`ToLean.lean`), for proofs about the program to start from:
+
+- `OUTDIR/NS/Words.lean`: each function's words, and `check_elf_words words "GUEST.elf"`,
+  which reads the ELF when the module is built and adds `words_eq_elf`, the words equal to the
+  ELF's, for the kernel to check. The path is as given on the command line, read from where the
+  module is built. `fns` is the functions the words decode to.
+- `OUTDIR/NS/F<i>.lean`: the `i`th function's lift as a term `f<i>`, and
+  `f<i>_eq : (liftProg fns)[i]? = some f<i>`. The kernel decides its name, address and stack
+  bound (`f<i>_head`) and its body in parts of 128 instructions (`f<i>_parts`), and
+  `getElem?_eq_of_chunks` gives the whole; in parts, no limit of the kernel needs raising.
+- `OUTDIR/NS.lean` imports them all.
+
+So the kernel checks that each term is the lift of `fns`, and that `words` is the literal
+`check_elf_words` put in `words_eq_elf`. How a term came to be written is not trusted. What is:
+
+- **that the literal is the ELF's.** The kernel cannot read a file: `check_elf_words` reads it
+  when the module is built, by the same ELF reader as the tool (`Elf.lean`, `functions`,
+  `wordsOf`), from the path relative to where the module is built. Lake does not track the
+  ELF, so a changed ELF needs the words module rebuilt by hand.
+- **that the modules are as the tool wrote them.** Check that `Words.lean` defines `fns` from
+  `words` as written and calls `check_elf_words`, and `#print axioms NS.f<i>_eq` for what a
+  theorem rests on. A symbol's name goes into a comment only escaped (`commentSafe`).
+
+A misread word does not make a false theorem about the binary: `Equiv.lean`'s
+`equivalent_of_entry` takes the code at each function's address (`CodeAt`) as a hypothesis, so
+a proof about the machine must show it holds the words `fns` was built from. What a term says
+about the binary is what `liftProg`'s theorems say (`Equiv.lean`).
+
+`NS` is an ASCII letter in upper case followed by ASCII letters, digits and `_`, and
+`OUTDIR/NS` must not exist yet, so that no file of an earlier run is left among the new ones.
+The modules are `noncomputable` (data for the kernel; the code generator does not take terms
+this large), and require this repository's root package, for `liftProg` and `Tools.ToLean`.
+
+| binary | functions | instructions | Lean written | build of all modules, 8 at a time |
+| --- | --- | --- | --- | --- |
+| `experiments/leanvm/out/blake2s.elf` | 6 | 702 | 148 KB | 8 s of CPU |
+| `experiments/zip-2005/out/baseline.elf` | 304 | 41,631 | 8.3 MB | 74 s (495 s of CPU) on an Apple M3 Max; the longest function 12 s |
+
+A word or a term changed by one bit fails: the words module does not build, or `decide` finds
+the function's statement false. `Test/ToLean.lean` checks the second on a small program.
+
 ### A Flapjack image
 
 `decompile --to pancake IMAGE.fjimg` takes a binary from Flapjack (in flapjack-flip's text
@@ -116,6 +162,7 @@ manual, worked out by hand, not from the code under test.
 | `Text.lean` | 55 | The Lprog text format: each kind of instruction read back from its text, and malformed text refused. |
 | `Elf.lean` | 55 | The ELF reader on a small file made by hand, and on truncated and malformed ones: each gives an error, none a crash. |
 | `Structure.lean` | 6 | The structure of control flow on small graphs: a switch is never a two-way choice or a way out. |
+| `ToLean.lean` | 22 | `decompile --to lean`: a body in parts, a function's theorem from its parts, a changed term refuted by the kernel, symbol names escaped in comments, and the namespaces it takes. |
 
 To test one file while working on it: `lake env lean Tools/Test/X86.lean` (no output is a
 pass).
