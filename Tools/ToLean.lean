@@ -1,8 +1,9 @@
 /-
   Tools.ToLean
 
-  `decompile --to lean`: an ELF's `--proved` lift written as Lean modules, with nothing new to
-  trust (`docs/design/Packages.md` §2).
+  `decompile --to lean`: an ELF's `--proved` lift written as Lean modules, whose terms the
+  kernel checks against the lift (`docs/design/Packages.md` §2; what stays trusted is in
+  `Tools/README.md`, "As Lean").
 
   For an ELF the tool writes, under a namespace `NS`:
 
@@ -220,6 +221,23 @@ def short (s : String) : String :=
     ("Lprog.Target.", "Target."), ("Lprog.Width.", "Width."), ("Lprog.LabelKind.", "LabelKind."),
     ("RiscvZkvm.Rv64.Reg.", "Reg.")].foldl (fun s (a, b) => s.replace a b) s
 
+/-- A symbol's name as it may appear inside a comment of a module written: its string literal
+    (`reprStr`, which escapes quotes and control characters), with a space put between `-` and
+    `/` wherever they meet, so that it neither opens nor closes a comment. A symbol name is any
+    bytes of the ELF; one that closed the comment would put what follows into the module as
+    Lean. -/
+def commentSafe (s : String) : String :=
+  ((reprStr s).replace "-/" "- /").replace "/-" "/ -"
+
+/-- Is `ns` a namespace `--to lean` may write: an ASCII letter in upper case, then ASCII
+    letters, digits and `_`? It is a directory, a module's root and a namespace at once, so it
+    has no `.` (the module would not be where its import looks), no `/` (it would be written
+    outside `OUTDIR`) and is no keyword (keywords are in lower case). -/
+def validNs (ns : String) : Bool :=
+  match ns.toList with
+  | c :: cs => ('A' ≤ c && c ≤ 'Z') && cs.all fun c => c.isAlphanum && c.toNat < 128 || c == '_'
+  | [] => false
+
 /-- The header every module written shares. -/
 def header (ns what : String) (imports : List String) : String :=
   s!"/-\n  {ns}.{what}\n\n  Written by `decompile --to lean`. Do not edit: the theorems below check it.\n-/\n\n" ++
@@ -251,7 +269,7 @@ def functionModule (ns : String) (n i : Nat) (fd : Lfundef (Op Reg) Reg) : Strin
   for h : j in [0 : parts.length] do
     s := s ++ s!"def f{i}_{j} : Lcmd (Op Reg) Reg :=\n  {chunked (parts[j].map fun x => ranges n (short (reprStr x)))}\n\n"
   let names := (List.range parts.length).map (s!"f{i}_{·}")
-  s := s ++ s!"/-- `{fd.name}`, lifted. -/\n"
+  s := s ++ s!"/-- The function {commentSafe fd.name}, lifted. -/\n"
   s := s ++ s!"def f{i} : Lfundef (Op Reg) Reg :=\n  \{ name := {repr fd.name}, addr := {fd.addr.toNat}, depth := {fd.depth},\n    body := List.flatten [{", ".intercalate names}] }\n\n"
   s := s ++ s!"theorem f{i}_head : (liftProg fns)[{i}]?.map (fun g => (g.name, g.addr, g.depth)) =\n" ++
     s!"    some (f{i}.name, f{i}.addr, f{i}.depth) := by\n  decide +kernel\n\n"
@@ -269,7 +287,12 @@ def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String) := do
   let img ← IO.ofExcept (parseElf64 bytes)
   let (fs, skipped) := functions img (← IO.ofExcept (symbols bytes))
   let ws ← IO.ofExcept (wordsOf bytes)
+  unless validNs ns do
+    throw <| IO.userError s!"the namespace {repr ns} is not an ASCII letter in upper case followed by ASCII letters, digits and `_`"
   let dir := System.FilePath.mk outDir / ns
+  -- Files of an earlier run, of an ELF with more functions, would stay beside the new ones.
+  if ← dir.pathExists then
+    throw <| IO.userError s!"{dir} exists: remove it, or write to another OUTDIR or NAMESPACE"
   IO.FS.createDirAll dir
   IO.FS.writeFile (dir / "Words.lean") (wordsModule ns elfPath ws)
   let p := liftProg fs.toList

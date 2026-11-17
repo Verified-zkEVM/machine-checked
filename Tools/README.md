@@ -93,7 +93,7 @@ step from tokens; the step from text is this check).
 ### As Lean
 
 `decompile --to lean --proved GUEST.elf OUTDIR NS` writes the `--proved` lift as Lean modules
-(`ToLean.lean`), for proofs about the program to start from, with nothing new to trust:
+(`ToLean.lean`), for proofs about the program to start from:
 
 - `OUTDIR/NS/Words.lean`: each function's words, and `check_elf_words words "GUEST.elf"`,
   which reads the ELF when the module is built and adds `words_eq_elf`, the words equal to the
@@ -105,8 +105,24 @@ step from tokens; the step from text is this check).
   `getElem?_eq_of_chunks` gives the whole; in parts, no limit of the kernel needs raising.
 - `OUTDIR/NS.lean` imports them all.
 
-So a term is the lift of the ELF's words, checked by the kernel; the tool that wrote it is not
-trusted. What that says about the binary is what `liftProg`'s theorems say (`Equiv.lean`).
+So the kernel checks that each term is the lift of `fns`, and that `words` is the literal
+`check_elf_words` put in `words_eq_elf`. How a term came to be written is not trusted. What is:
+
+- **that the literal is the ELF's.** The kernel cannot read a file: `check_elf_words` reads it
+  when the module is built, by the same ELF reader as the tool (`Elf.lean`, `functions`,
+  `wordsOf`), from the path relative to where the module is built. Lake does not track the
+  ELF, so a changed ELF needs the words module rebuilt by hand.
+- **that the modules are as the tool wrote them.** Check that `Words.lean` defines `fns` from
+  `words` as written and calls `check_elf_words`, and `#print axioms NS.f<i>_eq` for what a
+  theorem rests on. A symbol's name goes into a comment only escaped (`commentSafe`).
+
+A misread word does not make a false theorem about the binary: `Equiv.lean`'s
+`equivalent_of_entry` takes the code at each function's address (`CodeAt`) as a hypothesis, so
+a proof about the machine must show it holds the words `fns` was built from. What a term says
+about the binary is what `liftProg`'s theorems say (`Equiv.lean`).
+
+`NS` is an ASCII letter in upper case followed by ASCII letters, digits and `_`, and
+`OUTDIR/NS` must not exist yet, so that no file of an earlier run is left among the new ones.
 The modules are `noncomputable` (data for the kernel; the code generator does not take terms
 this large), and require this repository's root package, for `liftProg` and `Tools.ToLean`.
 

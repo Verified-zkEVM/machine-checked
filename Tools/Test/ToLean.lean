@@ -42,7 +42,8 @@ def f : Lfundef (Op Reg) Reg :=
   | some g => { g with body := List.flatten [g.body] }
   | none => { name := "", addr := 0, body := [] }
 
-/-- The same with its third instruction's immediate changed: `a0 = 8`, not `7`. -/
+/-- The same with the immediate of the instruction at index 3 of its body changed: `a0 = 8`,
+    not `7`. -/
 def changed : Lfundef (Op Reg) Reg :=
   { f with body := f.body.set 3 (.Lopn (.set .x10 (.imm 8))) }
 
@@ -67,5 +68,32 @@ theorem changed_parts_false :
 
 theorem changed_ne : (liftProg fns)[0]? ≠ some changed := by
   rw [f_eq]; decide +kernel
+
+/-! ## What goes into a written module as text
+
+A symbol's name is any bytes of the ELF. In a comment it is escaped (`commentSafe`), so that a
+name that would close the comment cannot put Lean into the module: the module written for a
+function with such a name (`evil`) has as many comment ends as for a plain name, apart from
+the one inside the name's string literal (`name := …`), where it is no comment end. -/
+
+def evil : String := "a-/ #eval IO.println \"run at build time\" /--"
+
+#guard !((commentSafe evil).splitOn "-/").length > 1
+#guard !((commentSafe evil).splitOn "/-").length > 1
+#guard !((commentSafe "a\nb").contains '\n')
+#guard (((functionModule "NS" 1 0 { f with name := evil }).replace (reprStr evil) "").splitOn
+    "-/").length == ((functionModule "NS" 1 0 f).splitOn "-/").length
+
+/-! ## The namespace -/
+
+#guard validNs "Blake2s"
+#guard validNs "Zip_2005"
+#guard !validNs ""
+#guard !validNs "blake2s"
+#guard !validNs "A.B"
+#guard !validNs "../X"
+#guard !validNs "A/B"
+#guard !validNs "A-B"
+#guard !validNs "Aé"
 
 end Tools.Test.ToLean

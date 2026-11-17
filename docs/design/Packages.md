@@ -1,6 +1,6 @@
 # Design note: what this repository exports
 
-**Status: proposed (2026-11-16).** It plans how the decompiler of
+**Status: steps 1 and 2 done (2026-11-17); the rest proposed (2026-11-16).** It plans how the decompiler of
 [`Decompiler.md`](Decompiler.md) and the logic for reasoning about its output reach people
 outside this repository.
 
@@ -62,21 +62,26 @@ Flapjack's Pancake semantics imports no Mathlib, but the Flapjack package requir
 ZirenDet; until its semantics is a package of its own (a request upstream), `pancake/` is as
 heavy as Flapjack.
 
-## 2. From the decompiler to Lean, with nothing new to trust
+## 2. From the decompiler to Lean, checked by the kernel
 
 The decompiler writes text (Lprog's, or Pancake). A proof needs Lean. `decompile --to lean`
 writes, for a binary:
 
-1. **its words**, as Lean data (as `gen-image` does for the proved route);
+1. **its words**, as Lean data (as `gen-image` does for the case studies' images);
 2. **the decompiled program**, one module per function, as readable terms to prove things
    about;
 3. **for each function, a theorem that its term is the lift of the words**: `(liftProg fns)[i]?
    = some f_i`, by `decide +kernel`. The kernel evaluates the lift; the tool that wrote the
    term is not trusted. `native_decide` is not used (CI refuses it).
 
-What is left to trust is that the words in the Lean file are the ELF's. A Lean command that
-reads the ELF when the module is built and compares closes that, with only Lean's own I/O
-trusted.
+What is left to trust is that the words in the Lean file are the ELF's. The kernel cannot read
+a file, so this is not closed, only narrowed: a Lean command reads the ELF when the module is
+built and adds the words it finds as a theorem, so what is trusted is that command, the ELF
+reader it shares with the tool, and which file its path names when the module is built. Those
+modules must also be as the tool wrote them; a symbol's name is escaped where it appears. A
+word misread does not give a false theorem about the binary: the equivalence takes the code at
+each function's address as a hypothesis (`CodeAt` in `equivalent_of_entry`), which then does
+not hold of the machine. The details are in `Tools/README.md`, "As Lean".
 
 **What the theorem buys depends on the lift.** It says the term is what the lift computes.
 That says something about the binary only where the lift has a theorem of its own: today
@@ -94,7 +99,7 @@ built with `lean` module by module, eight at a time, on an Apple M3 Max:
 
 | binary | functions | instructions | Lean written | checked | build, all modules | slowest module |
 | --- | --- | --- | --- | --- | --- | --- |
-| `experiments/leanvm/out/blake2s.elf` | 5 | 702 | 156 KB | 6 | 5 s | 2.7 s |
+| `experiments/leanvm/out/blake2s.elf` | 6 (3 more left out, `main` among them: a word does not decode) | 702 | 156 KB | 6 | 5 s | 2.7 s |
 | `experiments/zip-2005/out/baseline.elf` | 304 | 41,631 | 11 MB | 304 (one with a raised limit, below) | 53 s (331 s of CPU) | 15 s |
 
 A term changed by one immediate fails: the kernel says the theorem is false.
@@ -137,14 +142,16 @@ to Flapjack's compiler. Two things to settle with Flapjack:
 **catcrypt-compiler.** `Ascent/Run.lean` and `Ascent/Corres.lean` are ported from it at
 `69ffea9f` and changed since (`Ascent/PROVENANCE.md`); Lprog follows its design. Importing it
 instead is not practical: its package requires Mathlib, CatCrypt-core, ParamTransfer and
-hax-lean, at another Lean version. The agreement in #16 is the way out, the other way round:
-the generic layer (`RefinesP`/`RefinesO`, `SContract`, `SafeN`, Lprog) moves into a package
-with no Mathlib that both projects require. **`lprog/` is that package**, kept in this
-repository for now and moved later if the projects choose. The ported code goes into it with
-its attribution, under the dual MIT/Apache-2.0 licence #16 agreed, and catcrypt-compiler
-requires it. Then nothing is vendored either way. Until it does, the port is a fork: its
-upstream commit stays recorded, and our `Corres` gives way to their `RefinesP`/`RefinesO` as
-#16 agreed, so that there is less to diverge.
+hax-lean, at another Lean version. The proposal in #16 (open; `docs/notes/SHARED-LIBRARY.md`
+on its branch) is the way out, the other way round: the generic layer (`SContract`, `SafeN`,
+Lprog, and a relational `RefinesR` of which catcrypt-compiler's `RefinesP`/`RefinesO` and our
+`Corres` are instances) moves into a package with no Mathlib that both projects require, in a
+repository of its own under a neutral name. **`lprog/` is the interim form of that package**:
+in this repository until the move #16 proposes is agreed with catcrypt-compiler. #16 also puts
+calls and returns as a field of `Isa` (#19) before the package is made. The ported code goes
+into it with its attribution, under the dual MIT/Apache-2.0 licence #16 proposes, and
+catcrypt-compiler requires it. Then nothing is vendored either way. Until it does, the port is
+a fork: its upstream commit stays recorded.
 
 **Flapjack** is a dependency, not vendored. Its pin is a commit only on its branch
 `lean-v4.36-frontend`; it needs a tag or a protected branch so that the pin cannot vanish.
@@ -152,15 +159,15 @@ upstream commit stays recorded, and our `Corres` gives way to their `RefinesP`/`
 **Keeping up.** A scheduled CI job builds against each upstream's latest commit and opens a
 pull request that moves the pin when that builds. The real cost is the Lean version: everything
 in one build is on one release. This repository is on v4.36.0-rc2, catcrypt-compiler on v4.35,
-Flapjack on v4.33.1 with a branch for v4.36. A common stable release, agreed with both and moved
-together, is the arrangement #16 settled on.
+Flapjack on v4.33.1 with a branch for v4.36. #16 proposes a common stable release with
+catcrypt-compiler, moved together; Flapjack is not party to #16, and is to be asked.
 
 ## 5. Order of work
 
 | step | what | done when |
 | --- | --- | --- |
 | 1 | `lprog/` as a package: `Ascent`, Lprog, AArch64's and x86-64's registers; `lprog-riscv/`: RISC-V's instance and SP1's context, moved; the root requires both by path | done: the root builds as before, no theorem changes its statement, and a project outside this repository that requires `lprog/` alone builds and fetches nothing else |
-| 2 | `decompile --to lean` (RISC-V, `--proved` route first), with the check against the ELF | done: blake2s and zip-2005 build completely, and a changed word or term fails |
+| 2 | `decompile --to lean` (RISC-V, `--proved` route first), with the check against the ELF | done: blake2s and zip-2005 build completely, and a changed word or term fails. This replaces "the zip-2005 modules build in CI's time": the ELFs are not in the repository, so these runs are local, and CI checks a changed term on a small program (`Tools/Test/ToLean.lean`) |
 | 3 | `--to lean` for the other routes, and for Pancake as Flapjack's syntax | each route's terms checked against its lift |
 | 4 | `pancake/`, on Flapjack's semantics; ask Flapjack for a semantics package and a syntax entry point | a proof about a decompiled guest's Pancake imports `pancake/` only |
 | 5 | Ascent's port into `lprog/` with catcrypt-compiler (#16), and the pins kept up by CI | catcrypt-compiler requires `lprog/` |
