@@ -11,7 +11,7 @@ lift itself and its proofs are in the root package. See
 | `LprogRiscV.Instance` | `Lprog.RiscV` | RISC-V as an instruction set of Lprog (`rvIsa`): each instruction that does not transfer control as a shared operation (`opOf`, proved against riscv-zkvm by `opOf_spec`), and states that agree (`Agree`) |
 | `LprogRiscV.Sp1Ctx` | `Lprog.RiscV` | SP1's execution context at Lprog (`sp1Ctx`) |
 | `LprogRiscV.Ecall` | `Lprog.RiscV` | SP1's `ecall` cannot tell agreeing states apart (`sp1Ecall_agree`) |
-| `LprogRiscV.Lsym` | `Lprog.RiscV` | RISC-V's definitions in `lsym`'s simp set, so that `lsym` computes RISC-V's operations and their checks; the frame of a postcondition (`frame_ofParts`) |
+| `LprogRiscV.Lsym` | `Lprog.RiscV` | RISC-V's definitions in `lsym`'s simp set, so that `lsym` computes RISC-V's operations and their checks; the frame of a postcondition (`frame_ofParts`); a contract proved over a machine state as one over the register file (`contract_of_agree`) |
 
 `import LprogRiscV` imports all of it. The modules are `LprogRiscV.*` and not `Lprog.RiscV.*`
 because Lean finds a module through the first directory on its search path that has the

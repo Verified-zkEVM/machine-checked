@@ -9,6 +9,9 @@
 
 import MachineChecked
 import Tools.ToLean
+import LprogRiscV.Lsym
+import Tools.Test.Lsym
+import Tools.Test.LsymX86
 
 -- the lift
 #print axioms Lprog.parse_print
@@ -32,3 +35,12 @@ import Tools.ToLean
 #print axioms Lprog.SafeN.block
 #print axioms Lprog.SafeN.opn'
 #print axioms Lprog.SafeN.cond'
+#print axioms Lprog.SafeN.call_contract
+#print axioms Lprog.SafeN.tail_contract
+
+-- contracts over the register file, and calls through them, on two instruction sets
+#print axioms Lprog.Isa.Contract.run
+#print axioms Lprog.RiscV.contract_of_agree
+#print axioms Tools.Test.Lsym.f_contract
+#print axioms Tools.Test.LsymX86.p_eq
+#print axioms Tools.Test.LsymX86.f_contract

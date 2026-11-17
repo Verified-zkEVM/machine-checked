@@ -1,6 +1,6 @@
 # Design note: proof automation at Lprog and Pancake
 
-**Status: proposed (2026-11-17); the first spike (items 1 and 2) and a second round (calls, item 4, a real port) done, below.** How to make proofs
+**Status: proposed (2026-11-17); the first spike (items 1 and 2) a second round (calls, item 4, a real port) and a third (proofs that compose, on two instruction sets) done, below.** How to make proofs
 about decompiled programs cheap: tactics and proof engineering that apply to every instruction
 set, since Lprog's operations are shared.
 
@@ -134,7 +134,50 @@ text (the default lift in brackets where it differs):
   thirds of the time now. The other routes keep `decide`: there the kernel's unfolding of
   `program.lift` to compare it with a term is far slower than evaluating the decision.
 
-Next: contracts over the register file, so that `using` takes them; a normal form for
-addresses (base plus one constant), so that facts about them are stated once; `SafeN.block`
-for long blocks, with atoms; then the rest of item 6: a shorter written term (elaborating it now costs more than
-checking it), and per-instruction checks.
+## Third round: proofs that compose, on two instruction sets
+
+- **Contracts over the register file** (`Lprog/Contract.lean`). `Isa.Contract p c f Pre Post`:
+  the function at index `f`, from its entry with return address `ret` and stack pointer `top`
+  and `Pre ret top regs m`, is safe if every state it returns to with
+  `Post ret top regs m r' m'` is. It is stated for any instruction set. `lsym … using [contract]`
+  steps a call or a tail call through it (`SafeN.call_contract`, `SafeN.tail_contract`): the
+  callee is the contract's, shown by `simp` and `decide` (indirect targets too); the
+  precondition and the stack pointer are closed by `simp` if they can be; and the continuation
+  is taken up after the return, the postcondition as `hret`. A caller's proof uses its callees'
+  contracts and gives its own, so proofs build bottom-up as the program does.
+- **Contracts proved over a machine state, kept.** `contract_of_agree`
+  (`LprogRiscV/Lsym.lean`) turns a RISC-V contract stated over any machine state the register
+  file agrees with into an `Isa.Contract`, by `Agree.refl`, without proving it again.
+- **One normal form for addresses** (`lsym_addr`, also in `lsym_simp`): a base plus one
+  constant. A subtraction becomes the addition of its negation, sums associate to the right,
+  constants fold, and an index `BitVec.ofNat 64 (8 * (2 * j + 1))` becomes
+  `BitVec.ofNat 64 (16 * j) + 8#64`. A region lemma's fact about a cell, normalised by
+  `simp only [lsym_addr] at h`, is about the address `lsym` computes, so a proof no longer
+  bridges two spellings of an address.
+- **`write_vectored` again** (`WriteVectoredLsym.lean`). `syscall_write`'s `lsym` proof goes
+  through `contract_of_agree`; `sys_write` is proved by `lsym` with its tail call through it;
+  and `write_vectored`'s call goes through `sys_write`'s contract:
+
+  | | second round | third round |
+  | --- | --- | --- |
+  | lines (the same theorems and their helpers) | 270 | 243 |
+  | `bv_decide` bridging addresses | 22 | 0 |
+  | call rules applied by hand (`lsafe_call`, `lsafe_tail`) | 2 | 0 |
+  | time to check | 4.2 s | 3.8 s |
+
+  The system call is still a rule applied by hand (`lsafe_write`): an external call has no
+  contract form yet.
+- **x86-64** (`Tools/Test/LsymX86.lean`). Two functions are lifted from their bytes by the
+  x86-64 lift, and the kernel checks the terms against it. `g` has a contract, and `f`'s,
+  proved through `g`'s, steps the call with its push and pop of the return address. The
+  instruction set added only its instance to `lsym_simp`. Nothing in `lsym` was RISC-V's; the
+  shared set lacked `Width.bits`, which a zero-extension needs and RISC-V's code never had.
+  What x86-64 lacks is an instance at Lprog backed by its machine (RISC-V's is `rvIsa` over
+  SP1, with the transfer theorem), so the test runs over a model of its memory (doublewords by
+  address). A machine-backed instance for x86-64 or AArch64, with a theorem like RISC-V's
+  `transfer`, is what would make such proofs about the binary.
+
+Next: a contract form for external calls (the system call above); `SafeN.block` for long
+blocks, with atoms; machine-backed instances for x86-64 and AArch64; and the rest of item 6, a
+shorter written term for `--to lean` (elaborating it now costs more than checking it), and
+per-instruction checks.

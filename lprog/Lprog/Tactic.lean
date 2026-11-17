@@ -106,7 +106,7 @@ theorem tail_contract {tgt : Target I.Reg} {f : Nat}
 
 end SafeN
 
-attribute [lsym_simp] Isa.ofOps Op.eval Expr.eval BinOp.eval UnOp.eval condEval operandVal cmpEval Width.bytes
+attribute [lsym_simp] Isa.ofOps Op.eval Expr.eval BinOp.eval UnOp.eval condEval operandVal cmpEval Width.bytes Width.bits
   updReg_apply
 
 -- addresses as a base plus one constant: a subtraction as the addition of its negation, sums
@@ -164,7 +164,8 @@ macro_rules
     -- a call or a tail call, through the first specification that applies. A contract
     -- (`Isa.Contract`) names the callee: the call's target must be shown to reach it
     -- (`callee`, by `rfl`, or by `simp` and `decide`), or the contract is not this call's; the
-    -- stack pointer and the precondition are closed by `simp` if they can be, and the
+    -- stack pointer and the precondition are closed by `simp` if they can be (not `rfl`, which
+    -- on the continuation can unfold `SafeN` past the depth allowed), and the
     -- continuation is left for `lsym` to take up. Any other specification is applied as it
     -- is, and what it leaves tried with `simp_all`.
     let callee ← match lems with
@@ -173,9 +174,9 @@ macro_rules
       | none => `(tactic| first | rfl | (focus (simp [Lprog.Isa.callee, $set:ident]; done)) |
           (focus (simp [Lprog.Isa.callee, $set:ident]; decide)))
     let side ← match lems with
-      | some ls => `(tactic| all_goals (try (first | rfl | (focus (simp [Lprog.Isa.callee, $set:ident, $ls,*]; done)) |
+      | some ls => `(tactic| all_goals (try (first | (focus (simp [Lprog.Isa.callee, $set:ident, $ls,*]; done)) |
           (focus (simp [Lprog.Isa.callee, $set:ident, $ls,*]; decide)))))
-      | none => `(tactic| all_goals (try (first | rfl | (focus (simp [Lprog.Isa.callee, $set:ident]; done)) |
+      | none => `(tactic| all_goals (try (first | (focus (simp [Lprog.Isa.callee, $set:ident]; done)) |
           (focus (simp [Lprog.Isa.callee, $set:ident]; decide)))))
     let specs : Array (TSyntax `term) := match specs with | some ss => ss.getElems | none => #[]
     let mut calls : Array (TSyntax `tactic) := #[]
