@@ -9,12 +9,15 @@ import Lprog.Ascent.Corres
 import Lprog.Ascent.Refine
 import Lprog.Ascent.Run
 import Lprog.Ascent.Safe
+import Lprog.Block
 import Lprog.Build
 import Lprog.Dead
 import Lprog.Expr
 import Lprog.Linked
+import Lprog.LsymAttr
 import Lprog.Op
 import Lprog.Sem
 import Lprog.Syntax
+import Lprog.Tactic
 import Lprog.Text
 import Lprog.X86.Reg

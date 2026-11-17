@@ -8,3 +8,5 @@ import LprogRiscV.Machine
 import LprogRiscV.Instance
 import LprogRiscV.Sp1Ctx
 import LprogRiscV.Ecall
+import LprogRiscV.Lsym
+

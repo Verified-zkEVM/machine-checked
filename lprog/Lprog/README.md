@@ -27,6 +27,8 @@ context makes), and a lift from its machine code.
 | `Linked.lean` | The lift of a program as a compiler links it, for any instruction set (`liftProgram`): functions as runs of instructions at addresses, labels, calls and tail calls among them, computed jumps among the candidates the program holds as values, and a label to give up at. An instruction set gives the lift of one instruction. Nothing is proved of it yet. |
 | `Ascent/` | Runs of any step function, the judgement `SafeN`, refinement and equivalence (`Refines`, `Equivalent`), and correspondence (`Corres`); namespace `Lprog.Ascent`. See [`Ascent/README.md`](Ascent/README.md). |
 | `ARM/Reg.lean`, `X86/Reg.lean` | AArch64's and x86-64's registers at Lprog, with their names (`RegText`); namespaces `Lprog.ARM`, `Lprog.X86`. Their lifts are in the root package (`MachineChecked/ARM/Lift`, `MachineChecked/X86/Lift`). |
+| `Block.lean` | `Isa.runStraight`, the operations of a straight-line piece run in order, and `SafeN.block`: the piece stepped over at once. |
+| `Tactic.lean`, `LsymAttr.lean` | `lsym`: symbolic execution of a body, on every branch, to a loop's head, a call or a return's continuation; `lsym_simp`, the simp set it normalises with. See `docs/design/Automation.md`. |
 | `Dead.lean` | `dropDead`: a body without the writes, to registers an instruction set names (its flags), that nothing reads. It assumes nothing of what is outside the function. Nothing is proved of it yet. |
 
 ## Using it

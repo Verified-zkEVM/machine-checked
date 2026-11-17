@@ -27,3 +27,8 @@ import Tools.ToLean
 -- decompile --to lean: a function's theorem from its parts
 #print axioms Tools.ToLean.flatten_chunks
 #print axioms Tools.ToLean.getElem?_eq_of_chunks
+
+-- lsym: a straight-line block in one step, and the rules in the form the tactic applies
+#print axioms Lprog.SafeN.block
+#print axioms Lprog.SafeN.opn'
+#print axioms Lprog.SafeN.cond'
