@@ -36,7 +36,7 @@ open Lift (gvar num gset seq when fn)
 
 /-- Where the environment leaves the results of a system call: below anything a program
     here uses. -/
-def scratch : Nat := 0x100
+def scratch : Nat := _root_.Pancake.scratch
 
 /-- The words one installing function writes. -/
 def perInit : Nat := 256
@@ -56,7 +56,7 @@ def trap (place : Nat) : Prog W := .call (some (none, none)) "l_trap" [num place
 /-- `l_trap(n)`: tell the environment the program gave up at place `n`, and go no further. -/
 def trapFn : Decl W :=
   fn "l_trap" ["n"] <| seq
-    [.extCall "trap" (Lift.var "n") (num 0) (num 0) (num 0), .while (num 1) .skip, .return (num 0)]
+    [.extCall _root_.Pancake.trap (Lift.var "n") (num 0) (num 0) (num 0), .while (num 1) .skip, .return (num 0)]
 
 /-- **A system call**: the FFI function `name` on the registers `number`, `a`, `b` and `c`;
     the program ends after number 0, and otherwise reads `results` back from `scratch`. -/
@@ -73,7 +73,7 @@ def bare (memory : List (W × W)) (number a b c result : String) : Env where
   init := install memory
   decls := trapFn :: inits memory
   wrong := trap
-  ext n stop := if n = 0 then some (syscall "syscall" number a b c [result] stop) else none
+  ext n stop := if n = 0 then some (syscall _root_.Pancake.syscall number a b c [result] stop) else none
 
 /-- **A linked program as it is loaded**: its functions, where it starts, and the words it
     loads, each at an address that is a multiple of eight. `I` is its instructions. -/

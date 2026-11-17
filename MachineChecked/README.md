@@ -10,11 +10,13 @@ depends on them.
 the bottom and is lifted upward; a specification enters at the top and is refined downward.
 This is where each layer is in the code today.
 
-Three Lake packages hold it ([`docs/design/Packages.md`](../docs/design/Packages.md)): this
+Four Lake packages hold it ([`docs/design/Packages.md`](../docs/design/Packages.md)): this
 directory is the root package's; Lprog and the semantics around it are the package
-[`lprog`](../lprog/README.md) (modules `Lprog.*`, requiring nothing); and RISC-V at Lprog is
+[`lprog`](../lprog/README.md) (modules `Lprog.*`, requiring nothing); RISC-V at Lprog is
 [`lprog-riscv`](../lprog-riscv/README.md) (modules `LprogRiscV.*`, declarations in
-`Lprog.RiscV`, on riscv-zkvm). A proof about a decompiled program needs only those two.
+`Lprog.RiscV`, on riscv-zkvm); and Pancake as the decompiler writes it is
+[`pancake`](../pancake/README.md) (modules `Pancake.*`, on Flapjack's syntax). A proof about a
+decompiled program needs only those.
 
 ```
   layer 2     spec refinement           Refine/              not started (README only)
@@ -52,7 +54,7 @@ directory is the root package's; Lprog and the semantics around it are the packa
 | [`Logical/`](Logical/README.md) | 0.5 → 1 | Pancake as text, and lift 2: an Lprog program as a Pancake program, a function for each function, structured where its control flow is. Not proved; checked by running. | no |
 | [`Refine/`](Refine/README.md) | 2 | Placeholder: specification refinement. | no |
 
-`MachineChecked.lean` imports every module of the three packages.
+`MachineChecked.lean` imports every module of the four packages.
 
 ## How a proof goes today
 

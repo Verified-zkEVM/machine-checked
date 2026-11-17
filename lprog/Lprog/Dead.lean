@@ -27,7 +27,7 @@
 -/
 
 import Lprog.Op
-import Std.Data.HashMap
+import Std.Data.TreeMap
 
 namespace Lprog
 
@@ -75,7 +75,7 @@ open Dead in
 def dropDead (regs : List Reg) (body : Lcmd (Op Reg) Reg) : Lcmd (Op Reg) Reg := Id.run do
   let code := body.toArray
   let n := code.size
-  let mut at_ : Std.HashMap LLabel Nat := {}
+  let mut at_ : Std.TreeMap LLabel Nat := {}
   for h : i in [0 : n] do
     if let .Llabel _ l := code[i] then at_ := at_.insert l i
   -- what is read from each instruction on; `live[n]` is the end of the body

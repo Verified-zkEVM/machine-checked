@@ -14,7 +14,7 @@
 -/
 
 import Lprog.Text
-import MachineChecked.Logical.Pancake
+import Pancake.Print
 
 namespace MachineChecked.Logical
 

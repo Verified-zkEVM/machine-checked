@@ -1,5 +1,5 @@
 /-
-  MachineChecked.Logical.Pancake
+  Pancake.Print
 
   Pancake programs as text.
 
@@ -8,12 +8,12 @@
   has a parser and no printer, so this is the printer: `print` gives the source text Flapjack
   reads back. Expressions are printed with every bracket, so no precedence is relied on.
 
-  It prints what lift 2 writes (`Logical/Lift.lean`) and the rest of the language without
+  It prints what lift 2 writes (`MachineChecked/Logical/Lift.lean`, in the root package) and the rest of the language without
   structures: words, the three loads and stores, the operators, calls, FFI calls and control
   flow. A program with structures, exceptions or shared-memory operations is not printed
   (`none`).
 
-  Nothing is proved of it. `decompile` (`Tools/README.md`) is checked by compiling what it
+  Nothing is proved of it. `decompile` (the root's `Tools/README.md`) is checked by compiling what it
   prints with Flapjack and running it.
 
   ## Main definitions
@@ -21,14 +21,11 @@
   * `Pancake.print`
 -/
 
-import Flapjack.Pancake.PanLang
+import Pancake.Basic
 
-namespace MachineChecked.Logical.Pancake
+namespace Pancake
 
 open Flapjack (Exp Prog Decl FunDecl Shape VarKind Shift)
-
-/-- A word: the value type of Pancake at 64 bits. -/
-abbrev W := BitVec 64
 
 def shape : Shape → Option String
   | .one => some "1"
@@ -128,4 +125,4 @@ def decl : Decl W → Option String
 def print (ds : List (Decl W)) : Option String := do
   some ("\n".intercalate (← ds.mapM decl))
 
-end MachineChecked.Logical.Pancake
+end Pancake
