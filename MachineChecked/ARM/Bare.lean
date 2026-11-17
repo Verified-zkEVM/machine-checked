@@ -2,7 +2,7 @@
   MachineChecked.ARM.Bare
 
   An AArch64 program without an operating system as a Pancake program: the lift of AArch64
-  (`Lprog/Lift.lean`), then lift 2 in the environment of a bare program
+  (`Lift/Lift.lean`), then lift 2 in the environment of a bare program
   (`Logical/Guest.lean`).
 
   A system call is `svc #0`, with the number in `x8`, the arguments in `x0`, `x1` and `x2`,
@@ -15,13 +15,13 @@
   * `Guest`, `Guest.toPancake`
 -/
 
-import MachineChecked.ARM.Lprog.Lift
-import MachineChecked.Lprog.Dead
+import MachineChecked.ARM.Lift.Lift
+import Lprog.Dead
 import MachineChecked.Logical.Guest
 
 namespace MachineChecked.ARM
 
-open MachineChecked.Lprog MachineChecked.ARM.Lprog MachineChecked.Logical
+open Lprog MachineChecked.ARM.Lift MachineChecked.Logical Lprog.ARM
 
 /-- A program: its functions, where it starts, and the words it loads. -/
 abbrev Guest := Logical.Guest.Program (Option Arm64.Instr)

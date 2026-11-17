@@ -1,7 +1,7 @@
 # The ELF problem
 
 > **Note (2026-10-21).** `riscv-decomp` is dropped in favour of catcrypt-compiler's ascent,
-> ported as `MachineChecked/Ascent` and the lift to Lprog (`notes/CATCRYPT-PORT.md`). The mentions of `riscv-decomp` and `Decomp.Stepper` below
+> ported as `lprog/Lprog/Ascent` and the lift to Lprog (`notes/CATCRYPT-PORT.md`). The mentions of `riscv-decomp` and `Decomp.Stepper` below
 > are part of this dated research record. Read "the ascent" for them.
 
 Notes from a `/deep-research` run (2026-10-12; 20 sources fetched, 94 claims extracted, 25

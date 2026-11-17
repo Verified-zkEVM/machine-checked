@@ -10,15 +10,15 @@
 import MachineChecked
 
 -- the lift
-#print axioms MachineChecked.Lprog.parse_print
-#print axioms MachineChecked.RiscV.Lprog.opOf_spec
-#print axioms MachineChecked.RiscV.Lprog.transfer
-#print axioms MachineChecked.RiscV.Lprog.SafeN.of_lift
-#print axioms MachineChecked.RiscV.Lprog.SafeN.of_contract
-#print axioms MachineChecked.RiscV.Lprog.sp1Ecall_agree
-#print axioms MachineChecked.RiscV.Lprog.refines_lift
-#print axioms MachineChecked.RiscV.Lprog.lift_refines
-#print axioms MachineChecked.RiscV.Lprog.equivalent_of_entry
-#print axioms MachineChecked.RiscV.Lprog.lsafe_call
-#print axioms MachineChecked.RiscV.Lprog.lsafe_write
-#print axioms MachineChecked.RiscV.Lprog.corres_block
+#print axioms Lprog.parse_print
+#print axioms Lprog.RiscV.opOf_spec
+#print axioms MachineChecked.RiscV.Lift.transfer
+#print axioms MachineChecked.RiscV.Lift.SafeN.of_lift
+#print axioms MachineChecked.RiscV.Lift.SafeN.of_contract
+#print axioms Lprog.RiscV.sp1Ecall_agree
+#print axioms MachineChecked.RiscV.Lift.refines_lift
+#print axioms MachineChecked.RiscV.Lift.lift_refines
+#print axioms MachineChecked.RiscV.Lift.equivalent_of_entry
+#print axioms MachineChecked.RiscV.Lift.lsafe_call
+#print axioms MachineChecked.RiscV.Lift.lsafe_write
+#print axioms MachineChecked.RiscV.Lift.corres_block

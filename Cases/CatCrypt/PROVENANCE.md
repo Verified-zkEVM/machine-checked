@@ -2,7 +2,7 @@
 
 The kernels here are catcrypt-compiler's RV64 kernels at their encoded bytes, taken with
 the permission of its maintainer. catcrypt-compiler is MIT-licensed; its licence is in
-`MachineChecked/Ascent/LICENSE-catcrypt`.
+`lprog/Lprog/Ascent/LICENSE-catcrypt`.
 
 `Image/*.lean` hold the words `encodeMBlock64` produces for `addp256Phys`, `feAddPhys`,
 `feSubPhys`, `feMul121666Phys` and `cswapPhys` of `Ascent/Demos/RiscvBytesProof.lean` on
@@ -13,5 +13,5 @@ artifact: every theorem here is about them under `stepSp1`, and nothing depends 
 catcrypt-compiler's own RV64 model.
 
 The proofs are new. They restate catcrypt-compiler's `*Bytes_correct` theorems as
-correspondences (`MachineChecked.Ascent.Corres`) over riscv-zkvm's `stepSp1`, proved through the
+correspondences (`Lprog.Ascent.Corres`) over riscv-zkvm's `stepSp1`, proved through the
 lift to Lprog.

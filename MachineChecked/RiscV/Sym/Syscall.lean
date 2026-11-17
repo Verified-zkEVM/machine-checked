@@ -27,6 +27,8 @@ import MachineChecked.RiscV.Accel
 
 namespace MachineChecked.RiscV.Sym
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64
 
 /-! ## `getMem` through `writeWords` -/

@@ -15,10 +15,12 @@
   bytes.
 -/
 
-import MachineChecked.RiscV.Lprog.Rules
+import MachineChecked.RiscV.Lift.Rules
 import Cases.Zip2005.Image.F_7803f54c
 
 namespace Cases.Zip2005
+
+open Lprog.RiscV Lprog.RiscV.Machine
 
 open RiscvZkvm.Rv64
 
@@ -51,7 +53,7 @@ end Cases.Zip2005
 
 namespace Cases.Zip2005.MemcmpLprog
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.Lprog MachineChecked.RiscV.Lprog Cases.Zip2005.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog MachineChecked.RiscV.Lift Cases.Zip2005.Image Lprog.RiscV Lprog.RiscV.Machine
 
 /-- The instructions of `memcmp`. -/
 def prog : List Instr := F_7803f54c.prog.filterMap id

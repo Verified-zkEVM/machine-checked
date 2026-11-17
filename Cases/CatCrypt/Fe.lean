@@ -1,4 +1,4 @@
-import MachineChecked.RiscV.Lprog.Block
+import MachineChecked.RiscV.Lift.Block
 
 /-!
 # Four-limb values in registers, for catcrypt-compiler's RV64 kernels
@@ -12,13 +12,13 @@ A kernel is stated as a correspondence (`MachineChecked.RiscV.CorresSp1`, a cont
 continuation form over `stepSp1`) between the machine and an abstract state that is either the
 entry (two values, at the block's start) or the exit (one value, past the block): `KState`,
 `KSR`. The block runs over the machine as a straight-line block
-(`MachineChecked.RiscV.Lprog.corres_block`), and its effect is the fold of `execInstrBr` over
+(`MachineChecked.RiscV.Lift.corres_block`), and its effect is the fold of `execInstrBr` over
 it.
 -/
 
 namespace Cases.CatCrypt
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Lprog
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Lift Lprog.RiscV
 
 /-- The Curve25519 prime. -/
 def p25519 : Nat := 2 ^ 255 - 19

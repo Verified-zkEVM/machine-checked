@@ -22,6 +22,8 @@ import MachineChecked.RiscV.Safe
 
 namespace MachineChecked.RiscV.Sym
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64 RiscvZkvm.Interpreter
 
 /-! ## The code hypothesis -/
@@ -149,11 +151,6 @@ theorem stepSp1_plain {s : MachineState} {i : Instr}
     stepSp1 s = some (execInstrBr s i) := by
   rw [stepSp1_eq_step_of_fetch hfetch hmem hecall hbreak]
   exact step_non_ecall_non_mem hfetch hecall hbreak hmem
-
-/-- `.CSRS`, the other backend's accelerator call; `stepSp1` traps on it. -/
-def isCSRS : Instr → Bool
-  | .CSRS _ _ => true
-  | _ => false
 
 /-- A memory instruction whose access is permitted steps to `execInstrBr`. -/
 theorem stepSp1_mem {s : MachineState} {i : Instr}

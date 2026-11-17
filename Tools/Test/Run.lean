@@ -16,14 +16,14 @@
   * `cx`, `body`, `run`, `End`
 -/
 
-import MachineChecked.Lprog.Linked
-import MachineChecked.Lprog.Op
-import MachineChecked.Lprog.Sem
+import Lprog.Linked
+import Lprog.Op
+import Lprog.Sem
 import Std.Data.HashMap
 
 namespace Tools.Test
 
-open MachineChecked.Lprog
+open Lprog
 
 /-- Memory: bytes by address. -/
 abbrev Mem := Std.HashMap (BitVec 64) (BitVec 8)
@@ -38,7 +38,7 @@ def Mem.read (m : Mem) (w : Width) (a : BitVec 64) : BitVec 64 :=
 def Mem.write (m : Mem) (w : Width) (a v : BitVec 64) : Mem :=
   (List.range w.bytes).foldl (fun m k => m.insert (a + BitVec.ofNat 64 k) ((v >>> (8 * k)).truncate 8)) m
 
-def mem : MachineChecked.Lprog.Mem Mem where
+def mem : Lprog.Mem Mem where
   load w a m := some (m.read w a)
   store w a v m := some (m.write w a v)
 

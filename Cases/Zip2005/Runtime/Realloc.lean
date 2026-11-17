@@ -27,7 +27,7 @@ set_option maxHeartbeats 4000000
 namespace Cases.Zip2005.Runtime.Realloc
 
 open RiscvZkvm.Rv64
-open MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check MachineChecked.RiscV.Exec
+open MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check MachineChecked.RiscV.Exec Lprog.RiscV.Machine
   Cases.Zip2005.Image
 
 noncomputable abbrev C : Word → Option Instr := Layout.image.codeAt
@@ -482,7 +482,7 @@ theorem spec (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
   clear hout1
   simp only [getReg_setReg, MachineState.getReg_setPC, reduceCtorEq, ne_eq, not_false_eq_true,
     and_true, if_true, if_false, MachineState.getMem_setReg, MachineState.getMem_setPC,
-    MachineChecked.RiscV.getReg_setMem] at om op osv oc hrep1 hfr1 hgr
+    Lprog.RiscV.Machine.getReg_setMem] at om op osv oc hrep1 hfr1 hgr
   rw [show (2013529632#64 : Word) = HEAP from rfl] at hrep1 hfr1
   have hsp1 : (s0.getReg .x2 + 0xffffffffffffffd0#64).toNat = (s0.getReg .x2).toNat - 0x30 := by
     rw [BitVec.toNat_add]; simp; omega

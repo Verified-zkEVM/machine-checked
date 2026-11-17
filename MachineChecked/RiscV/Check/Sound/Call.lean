@@ -10,6 +10,8 @@ import MachineChecked.RiscV.Check.Sound.Plain
 
 namespace MachineChecked.RiscV.Check
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame
 
 /-! ## Instantiating a callee's interface -/

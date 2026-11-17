@@ -6,13 +6,13 @@
   against what Intel's manual says it does.
 -/
 
-import MachineChecked.X86.Lprog.Lift
+import MachineChecked.X86.Lift.Lift
 import Tools.Test.Run
 
 namespace Tools.Test.X86
 
-open MachineChecked.Lprog MachineChecked.X86.Lprog
-open MachineChecked.X86.Lprog.Reg
+open Lprog MachineChecked.X86.Lift Lprog.X86
+open Lprog.X86.Reg
 
 /-- Where the instructions of the tests are. -/
 def at0 : BitVec 64 := 0x401000

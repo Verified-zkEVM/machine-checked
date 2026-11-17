@@ -50,10 +50,10 @@ Flapjack and compares what the two binaries do.
 The functions are the ELF's own text symbols (it must not be stripped). The route is
 
 - the lift of linked programs (`Lprog/Linked.lean`), with the lift of one instruction that
-  each instruction set gives: `RiscV/Lprog/Whole.lean` (every instruction of RV64IM, far
-  calls, calls that link through `t0`), `ARM/Lprog/Lift.lean` (the integer instructions,
-  with the flags as registers), `X86/Lprog/Lift.lean` (the integer instructions, read from
-  bytes by `X86/Lprog/Instr.lean`; a return address on the stack). Jump tables, indirect
+  each instruction set gives: `RiscV/Lift/Whole.lean` (every instruction of RV64IM, far
+  calls, calls that link through `t0`), `ARM/Lift/Lift.lean` (the integer instructions,
+  with the flags as registers), `X86/Lift/Lift.lean` (the integer instructions, read from
+  bytes by `X86/Lift/Instr.lean`; a return address on the stack). Jump tables, indirect
   calls and tail calls are shared;
 - for AArch64 and x86-64, dropping the writes of flags that nothing reads (`Lprog/Dead.lean`);
 - lift 2 (`Logical/Lift.lean`): a Pancake function for each function, with `if` and `while`
@@ -81,7 +81,7 @@ as the binary or says that it stopped, and where.
 nothing has a type or a name of its own. The text is about as long as the disassembly.
 
 `--to lprog --proved` is the lift `liftProg`, the definition the theorems are about
-(`RiscV/Lprog/Equiv.lean`: a machine that holds the functions and the lifted program are
+(`RiscV/Lift/Equiv.lean`: a machine that holds the functions and the lifted program are
 equivalent to an observer). It covers less: what it does not is an `abort`, and a function
 with a word riscv-zkvm does not decode is left out. In both forms the Lprog text is read
 back and compared with the program before it is written (`Lprog.parse_print` proves the
@@ -90,7 +90,7 @@ step from tokens; the step from text is this check).
 ### A Flapjack image
 
 `decompile --to pancake IMAGE.fjimg` takes a binary from Flapjack (in flapjack-flip's text
-form): lift 1 for code without functions (`RiscV/Lprog/Flat.lean`), in the layout of a
+form): lift 1 for code without functions (`RiscV/Lift/Flat.lean`), in the layout of a
 Flapjack image (`RiscV/Flapjack/`), then lift 2. Flapjack's code has no function boundaries
 left and returns through computed jumps, so the whole image is one function and a loop over
 its blocks. The image gets half the heap and half the stack it had.

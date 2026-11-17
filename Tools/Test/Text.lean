@@ -1,18 +1,18 @@
 /-
   Tools.Test.Text
 
-  Tests of the text format of Lprog (`MachineChecked/Lprog/Text.lean`) at the level the tool
+  Tests of the text format of Lprog (`lprog/Lprog/Text.lean`) at the level the tool
   uses it: `toText` and `ofText` (`Tools/Decompile.lean` writes a program with `toText` and
   checks that `ofText` reads it back), over RISC-V's registers. `parse (print p) = some p` is
   proved on tokens; these tests are of the text: the lexer, numbers in decimal and
   hexadecimal, comments, names, and text that is not a program, which must read as nothing.
 -/
 
-import MachineChecked.RiscV.Lprog.Instance
+import LprogRiscV.Instance
 
 namespace Tools.Test.Text
 
-open MachineChecked.Lprog
+open Lprog
 open RiscvZkvm.Rv64 (Reg)
 
 abbrev P := Lprog (Op Reg) Reg

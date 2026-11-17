@@ -1,7 +1,7 @@
 /-
   Tools.Test.Dead
 
-  Tests of `dropDead` (`MachineChecked/Lprog/Dead.lean`), run when the module is built: small
+  Tests of `dropDead` (`lprog/Lprog/Dead.lean`), run when the module is built: small
   function bodies written by hand, over five registers of which two are flags, and what the
   pass makes of them. A flag write is dropped only when no later instruction of the function
   can read it; calls, tail calls, returns and external calls read everything; only `set`s of
@@ -9,12 +9,12 @@
   everything but the flags that were dropped.
 -/
 
-import MachineChecked.Lprog.Dead
+import Lprog.Dead
 import Tools.Test.Run
 
 namespace Tools.Test.Dead
 
-open MachineChecked.Lprog
+open Lprog
 
 /-- The registers of the tests: three that are not flags, two that are. -/
 inductive R where

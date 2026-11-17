@@ -4,6 +4,15 @@ defaultTargets = ["MachineChecked", "Tools"]
 # Generated image modules are deep literals; mirror riscv-zkvm's own setting.
 moreLeanArgs = ["--tstack=400000"]
 
+# The proof libraries of this repository, as packages of their own (`docs/design/Packages.md`).
+[[require]]
+name = "lprog"
+path = "lprog"
+
+[[require]]
+name = "lprog-riscv"
+path = "lprog-riscv"
+
 # The three instruction-set semantics (`docs/ISA.md`), each used unmodified at a pinned commit.
 
 # RISC-V: the RV64IM machine model, its decoder and ELF loader. Pinned to riscv-zkvm's Lean

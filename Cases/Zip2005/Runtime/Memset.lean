@@ -13,7 +13,7 @@ set_option maxRecDepth 100000
 
 namespace Cases.Zip2005.Runtime.Memset
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check Lprog.RiscV.Machine
   MachineChecked.RiscV.Exec Cases.Zip2005.Image
 
 noncomputable abbrev C : Word → Option Instr := Layout.image.codeAt

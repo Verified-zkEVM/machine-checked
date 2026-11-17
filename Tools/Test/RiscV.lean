@@ -11,13 +11,13 @@
   tested here hardest.
 -/
 
-import MachineChecked.RiscV.Lprog.Whole
+import MachineChecked.RiscV.Lift.Whole
 import Tools.Test.Run
 
 namespace Tools.Test.RiscV
 
-open RiscvZkvm.Rv64 MachineChecked.Lprog MachineChecked.RiscV.Lprog
-open MachineChecked.Lprog.Linked (At Cx)
+open RiscvZkvm.Rv64 Lprog MachineChecked.RiscV.Lift
+open Lprog.Linked (At Cx)
 
 /-- Where the instructions of the tests are. -/
 def at0 : BitVec 64 := 0x10000

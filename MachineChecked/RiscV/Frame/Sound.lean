@@ -9,6 +9,8 @@ import MachineChecked.RiscV.Safe
 
 namespace MachineChecked.RiscV.Frame
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64
 
 /-! ## The machine: what a successful step is -/

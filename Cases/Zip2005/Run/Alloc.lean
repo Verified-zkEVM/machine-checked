@@ -21,7 +21,7 @@ set_option maxHeartbeats 4000000
 
 namespace Cases.Zip2005.Run
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Frame MachineChecked.RiscV.Check Lprog.RiscV.Machine
   MachineChecked.RiscV.Exec Cases.Zip2005 Cases.Zip2005.Image Cases.Zip2005.Runtime
 
 noncomputable abbrev C : Word → Option Instr := Layout.image.codeAt

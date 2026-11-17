@@ -3,9 +3,9 @@
 > **Status (2026-10-21): a sketch of layer 1, not implemented.** In
 > [`ROADMAP.md`](../ROADMAP.md)'s terms this is the *structured logical program* (layer 1):
 > variables, structured control flow, function contracts. What exists is the layer below it,
-> the *low logical program* (layer 0.5): `MachineChecked/Lprog`, CatCrypt's linear Jasmin
+> the *low logical program* (layer 0.5): `lprog/Lprog`, CatCrypt's linear Jasmin
 > (`Lprog`) with operations shared by every instruction set (`Lprog/Op.lean`). RISC-V lifts
-> into it (`MachineChecked/RiscV/Lprog`). The lift from layer 0.5 into the structured program
+> into it (`MachineChecked/RiscV/Lift`). The lift from layer 0.5 into the structured program
 > sketched here is decompilation, per function and possibly partial. The home for this layer
 > is `MachineChecked/Logical/`.
 

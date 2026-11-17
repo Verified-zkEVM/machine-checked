@@ -69,8 +69,8 @@ These hold for every change. A pull request that breaks one is not merged.
 - **One judgement.** Function specifications are stated as `SafeN` in continuation form
   (`MachineChecked/RiscV/Safe.lean`), so that results proved by different tools compose
   through the contract table.
-- **One of each concept.** One notion of a run (`MachineChecked/Ascent/Run.lean`), one
-  correspondence (`MachineChecked/Ascent/Corres.lean`), one logical machine per layer, and one
+- **One of each concept.** One notion of a run (`lprog/Lprog/Ascent/Run.lean`), one
+  correspondence (`lprog/Lprog/Ascent/Corres.lean`), one logical machine per layer, and one
   route from an ISA up to it (its lift). Do not add a second version of a data structure or
   a second refinement step beside an existing one; extend or generalise the existing one.
 
@@ -144,7 +144,7 @@ Keep commits buildable where you can.
 2. Generate its image with `lake exe gen-image` into `Cases/<Name>/Image/`.
 3. Prove the image facts in `Cases/<Name>/Loaded.lean`, from the image, not as hypotheses.
 4. Write and prove function specifications, one module per function or family, through the
-   lift where it covers the code (`MachineChecked/RiscV/Lprog`). Reuse the runtime
+   lift where it covers the code (`MachineChecked/RiscV/Lift`). Reuse the runtime
    specifications where the code is shared.
 5. Compose them through the contract table into a theorem about the binary's accepting runs.
 6. Add `Cases/<Name>/README.md`, saying where the binary came from and under what licence

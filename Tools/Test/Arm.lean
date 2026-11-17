@@ -7,13 +7,13 @@
   Architecture Reference Manual says it does.
 -/
 
-import MachineChecked.ARM.Lprog.Lift
+import MachineChecked.ARM.Lift.Lift
 import Tools.Test.Run
 
 namespace Tools.Test.Arm
 
-open MachineChecked.Lprog MachineChecked.ARM.Lprog
-open MachineChecked.ARM.Lprog.Reg
+open Lprog MachineChecked.ARM.Lift Lprog.ARM
+open Lprog.ARM.Reg
 open Arm64 (CondCode)
 
 /-- Where the instructions of the tests are: not at the start of a page, for `adrp`. -/

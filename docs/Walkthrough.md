@@ -51,7 +51,7 @@ contract table (`docs/Architecture.md`).
 
 ## 3. The lift (layer 0 to layer 0.5)
 
-The function is lifted to a low logical program (`MachineChecked/RiscV/Lprog`), here a program
+The function is lifted to a low logical program (`MachineChecked/RiscV/Lift`), here a program
 of one function:
 
 ```lean
@@ -61,7 +61,7 @@ def fs : List Fn := [F]
 ```
 
 `liftProg fs` puts a label before each instruction and translates the instruction:
-- an operation becomes `Lopn (opOf i)`, a shared operation (`MachineChecked/Lprog/Op.lean`):
+- an operation becomes `Lopn (opOf i)`, a shared operation (`lprog/Lprog/Op.lean`):
   `LBU x13, 0(x10)` becomes `load .x13 .b1 false (x10 + 0)`;
 - a conditional branch becomes `Lcond` on a comparison, to the label of its target;
 - `jalr x0, 0(ra)` becomes `Lret`, a call `Lcall`, a tail call `Ltail`, `ecall` `Lext`;
@@ -79,7 +79,7 @@ otherwise the step goes `wrong`, and the judgement at Lprog (the generic `SafeN`
 `wrong`, so a proof at Lprog also proves that the function returns where it was called from.
 
 The function's contract is proved with one rule per instruction
-(`MachineChecked/Lprog/Sem.lean`, `MachineChecked/RiscV/Lprog/Rules.lean`): `SafeN.label`,
+(`lprog/Lprog/Sem.lean`, `MachineChecked/RiscV/Lift/Rules.lean`): `SafeN.label`,
 `lsafe_opn`, `lsafe_cond`, `SafeN.goto`, `lsafe_ret`. Each takes a machine state `u` the
 Lprog state stands for (`Agree (ofParts regs m) u`), so what an instruction reads is stated
 on `u`, in riscv-zkvm's terms:
@@ -108,7 +108,7 @@ from the call, every continuation safe from the states `Post` describes is safe.
 
 ## 5. Back down to the machine
 
-The transfer theorem (`MachineChecked/RiscV/Lprog/Transfer.lean`) carries a contract at Lprog
+The transfer theorem (`MachineChecked/RiscV/Lift/Transfer.lean`) carries a contract at Lprog
 to the machine: every step of `stepSp1` from a state the Lprog state stands for is matched at
 Lprog, and Lprog's `wrong` matches nothing. `SafeN.of_contract` states it for a function's
 entry:
@@ -128,6 +128,6 @@ the run was found.
   The call of `sys_write` is an Lprog call that uses `sys_write`'s contract at Lprog, which
   tail-calls `syscall_write`'s, whose `WRITE` is SP1's execution context.
 - Straight-line kernels, run over the machine: `Cases/CatCrypt/` and
-  `MachineChecked/RiscV/Lprog/Block.lean`.
+  `MachineChecked/RiscV/Lift/Block.lean`.
 - What is not lifted yet (jump tables) and what comes after layer 0.5:
   [`ROADMAP.md`](../ROADMAP.md).
