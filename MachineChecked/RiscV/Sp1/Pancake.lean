@@ -40,7 +40,7 @@ def Guest.env (g : Guest) : Env where
   wrong := Guest.trap
   ext n stop :=
     if n = 0 then
-      some (Guest.syscall "ecall" (reg .x5) (reg .x10) (reg .x11) (reg .x12) [reg .x5, reg .x10] stop)
+      some (Guest.syscall _root_.Pancake.ecall (reg .x5) (reg .x10) (reg .x11) (reg .x12) [reg .x5, reg .x10] stop)
     else none
 
 /-- The guest as an Lprog program. -/

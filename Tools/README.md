@@ -11,7 +11,8 @@ checked by the Lean kernel, and nothing in `MachineChecked/` or `Cases/` imports
 | `Infer.lean` | `lake exe infer-contracts ELF NM OUT.tsv STACKTOP PROTLO PROTHI` | For every function, bottom-up over the call graph: an interface (`Check.Iface`) and a certificate, emitted as Lean for the checker to re-check. |
 | `FrameSweep.lean` | `lake exe frame-sweep ELF NM OUT.tsv` | Runs the frame analysis over every function and reports which annotations check, and why not. |
 | `Decompile.lean` | `lake exe decompile --to lprog\|pancake\|lean BINARY …` | A binary as an Lprog program, in text or as Lean, or as a Pancake program. `BINARY` is an ELF or a Flapjack image. See below. |
-| `ToLean.lean` | (library, and the command `check_elf_words`) | `decompile --to lean`: the modules it writes, the lemmas their theorems rest on, and the check of their words against the ELF. |
+| `ToLean.lean` | (library, and the commands `check_elf_words`, `check_elf_input`, `kernel_eq`) | `decompile --to lean`: the modules it writes, the lemmas their theorems rest on, and the check of their input against the ELF. |
+| `Program.lean` | (library) | An ELF as the input of the lift of whole programs, as plain data (`inputOf`), and the program each instruction set builds from it: what `decompile` lifts, and what a module of `--to lean` checks against. |
 | `Fjimg.lean` | (library) | The text form of a Flapjack image. |
 | `Elf.lean` | (library) | ELF and symbol-table helpers shared by the tools. |
 | `Test/` | (built) | Unit tests, run when they are built (`#guard`): each instruction set's decoder and lift, one instruction at a time against its manual (`Run.lean` runs the lift of one instruction), and the shared passes. See below. |
@@ -31,6 +32,7 @@ lake exe decompile --to pancake GUEST.elf OUT.pnk     # an ELF for RV64IM, AArch
 lake exe decompile --to lprog   GUEST.elf OUT.lprog
 lake exe decompile --to lprog --proved GUEST.elf      # RISC-V, by the lift the theorems are about
 lake exe decompile --to lean --proved GUEST.elf OUTDIR NAMESPACE   # the same as Lean, checked by the kernel
+lake exe decompile --to lean [--pancake] GUEST.elf OUTDIR NAMESPACE # the program --to lprog (pancake) gives, as Lean
 lake exe decompile --to pancake IMAGE.fjimg OUT.pnk   # a binary from Flapjack
 lake exe decompile --table riscv|aarch64|x86-64 [KINDS]   # the instruction table of a LIMITS.md
 lake exe decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS
@@ -132,6 +134,43 @@ this large), and require this repository's root package, for `liftProg` and `Too
 
 A word or a term changed by one bit fails: the words module does not build, or `decide` finds
 the function's statement false. `Test/ToLean.lean` checks the second on a small program.
+
+#### The other routes: the lift of whole programs, and Pancake
+
+`decompile --to lean GUEST.elf OUTDIR NS` writes the program `decompile --to lprog` gives, for
+RISC-V, AArch64 or x86-64, and `decompile --to lean --pancake GUEST.elf OUTDIR NS` the one
+`--to pancake` gives (`ToLean.lean`, "The other routes"). Neither lift is proved; the terms
+are checked against the lift, as for `--proved`.
+
+- `OUTDIR/NS/Code.lean`: the input of the lift as `Program.lean` reads it from the ELF (each
+  function's name, address, bytes and the addresses a computed jump in it may reach; the entry;
+  the memory), and `check_elf_input`, which reads the ELF when the module is built and adds
+  `code_eq_elf`, `entry_eq_elf` and `memory_eq_elf` for the kernel to check. `program` is the
+  program the instruction set builds from that input: the one the tool lifted, by the same
+  definitions (`riscvProgram`, `armProgram`, `x86Program`).
+- `OUTDIR/NS/F<i>.lean`: the `i`th function of `program.lift`, and `f<i>_eq`, as above.
+- With `--pancake`, `OUTDIR/NS/Pancake.lean` instead: the declarations of `program.toPancake`
+  as terms of Flapjack's syntax, and `pancake_eq : program.toPancake = .ok (decls, notes)`.
+  Lift 2 is of the whole program, so this is one theorem, and Flapjack's syntax has no
+  decidable equality, so it is checked by `kernel_eq` (the kernel's definitional equality, by
+  `Eq.refl`).
+
+Here the kernel evaluates the lift of whole programs, which builds maps of labels and entries
+and, for AArch64 and x86-64, removes dead flag writes (`dropDead`); those lifts use
+`Std.TreeMap`, which the kernel reduces, where `Std.HashMap` it does not (the output is the
+same, byte for byte, on every test binary). It is slow on large functions: the kernel's arrays
+are lists, so the decoding and the fixpoint of `dropDead` cost far more than their size.
+
+| program | route | what the kernel checked |
+| --- | --- | --- |
+| blake2s (RISC-V) | `--to lean` | the input; 8 of 9 functions, the largest of them (38 KB of terms) in 30 s; the ninth (114 KB of terms) had not finished after 15 minutes |
+| `k_iter`, a bare AArch64 guest | `--to lean` | the input, in 6 s; 29 of 35 functions, up to 14 minutes each for 21 KB of terms; the six largest (30 to 125 KB) had not finished in 40 minutes |
+| blake2s (RISC-V) | `--to lean --pancake` | the terms elaborate, in 2 s; `pancake_eq`, lift 2 of the whole program, including that 114 KB function, had not finished after 15 minutes |
+| a function of two instructions, each instruction set | (`Test/ToLean.lean`) | each lift, a changed AArch64 term refuted, and lift 2 by `kernel_eq`, in seconds, in CI |
+
+So for these routes the modules are right and the checks hold where they finish, but large
+functions need the kernel's work cut down: checking a certificate the tool writes (the labels,
+the live flags) instead of evaluating the lift again.
 
 ### A Flapjack image
 

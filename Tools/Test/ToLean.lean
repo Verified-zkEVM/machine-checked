@@ -9,6 +9,12 @@
   (`f<i>_head`, `f<i>_parts`). Here the same statements are made of a small program: of its
   own lift they are proved, and of the lift with one instruction changed the kernel proves
   them false.
+
+  For the other routes (the lift of whole programs, and Pancake), a written module checks its
+  terms against `program.lift` or `program.toPancake`, the program an instruction set builds
+  from its input (`Tools.Program`). Here the kernel evaluates those on a small program of each
+  instruction set, including the removal of dead flag writes (AArch64, x86-64) and lift 2, and
+  refutes a changed term.
 -/
 
 import Tools.ToLean
@@ -95,5 +101,53 @@ def evil : String := "a-/ #eval IO.println \"run at build time\" /--"
 #guard !validNs "A/B"
 #guard !validNs "A-B"
 #guard !validNs "Aé"
+
+/-! ## The other routes -/
+
+section Routes
+open Tools.Program
+
+/-- `addi a0, zero, 7; ret`, `mov w0, #7; ret` and `mov eax, 7; ret`, each a function `f` at
+    `0x1000`. -/
+def rvCode : List Entry := [("f", 0x1000, [0x13, 0x05, 0x70, 0x00, 0x67, 0x80, 0x00, 0x00], [])]
+def armCode : List Entry := [("f", 0x1000, [0xe0, 0x00, 0x80, 0x52, 0xc0, 0x03, 0x5f, 0xd6], [])]
+def x86Code' : List Entry := [("f", 0x1000, [0xb8, 0x07, 0x00, 0x00, 0x00, 0xc3], [])]
+
+-- the kernel evaluates each instruction set's lift of whole programs: decoding, the tree maps
+-- of `Linked.liftProgram`, and for AArch64 and x86-64 `dropDead`
+theorem rv_len : (riscvProgram rvCode 0x1000 []).lift.map (·.body.length) = [5] := by decide +kernel
+theorem arm_len : (armProgram armCode 0x1000 []).lift.map (·.body.length) = [5] := by decide +kernel
+theorem x86_len : (x86Program x86Code' 0x1000 []).lift.map (·.body.length) = [6] := by decide +kernel
+
+/-- The AArch64 lift, as a written module would give it. -/
+def armF : Lfundef (Op Lprog.ARM.Reg) Lprog.ARM.Reg :=
+  { name := "f", addr := 0x1000, depth := 0
+    body := List.flatten [[.Llabel .internal 0, .Lopn (.set .x0 (.imm 7)), .Llabel .internal 1, .Lret, .Labort]] }
+
+theorem armF_head : (armProgram armCode 0x1000 []).lift[0]?.map (fun g => (g.name, g.addr, g.depth)) =
+    some (armF.name, armF.addr, armF.depth) := by
+  decide +kernel
+
+theorem armF_parts : (armProgram armCode 0x1000 []).lift[0]?.map (fun g => chunks chunk g.body) =
+    some [[.Llabel .internal 0, .Lopn (.set .x0 (.imm 7)), .Llabel .internal 1, .Lret, .Labort]] := by
+  decide +kernel
+
+theorem armF_eq : (armProgram armCode 0x1000 []).lift[0]? = some armF :=
+  getElem?_eq_of_chunks armF_head armF_parts rfl
+
+-- a changed term fails: `x0 = 8`
+theorem armF_changed : (armProgram armCode 0x1000 []).lift[0]?.map (fun g => chunks chunk g.body) ≠
+    some [[.Llabel .internal 0, .Lopn (.set .x0 (.imm 8)), .Llabel .internal 1, .Lret, .Labort]] := by
+  decide +kernel
+
+-- lift 2, evaluated by the kernel through `kernel_eq`: 38 declarations and 3 places where the
+-- program may give up
+kernel_eq rv_pancake : (riscvProgram rvCode 0x1000 []).toPancake.toOption.map
+    (fun (d, n) => (d.length, n.length)) = some (38, 3)
+
+-- the memory, flat and back
+#guard pairsOf (flatMemory [(8, 1), (16, 2)]) == [(8, 1), (16, 2)]
+
+end Routes
 
 end Tools.Test.ToLean
