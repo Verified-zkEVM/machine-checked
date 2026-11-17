@@ -28,7 +28,7 @@ binary ──lift 1──▶ Lprog ──lift 2──▶ Pancake ──▶ Flapj
 ```
 
 - **Lift 1** takes an ISA's code into Lprog (`lprog/Lprog`, layer 0.5). RISC-V's
-  exists (`RiscV/Lprog`, `liftProg`), as a verified function.
+  exists (`RiscV/Lift`, `liftProg`), as a verified function.
 - **Lift 2** takes Lprog into Pancake (layer 1). It is written and proved once, over Lprog, so
   another ISA needs only its own lift 1 and execution context.
 - The two targets are two stops on one path, not two decompilers. A decompiler per target

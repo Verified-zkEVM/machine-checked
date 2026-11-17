@@ -246,8 +246,8 @@ change and the end theorem stays green at every step. `PanicPaths`, the open pre
 
 Milestone A follows §1–§5, §7 and §8, with these departures. The code is the reference.
 
-- **`Lext` takes no name.** SP1's context (`RiscV/Lift/Lift.lean`, `sp1Ctx`) is not restated
-  per system call: its specification is "the outcome of riscv-zkvm's own `sp1Ecall` on a
+- **`Lext` takes no name.** SP1's context (`sp1Ctx`, in `lprog-riscv/LprogRiscV/Sp1Ctx.lean`)
+  is not restated per system call: its specification is "the outcome of riscv-zkvm's own `sp1Ecall` on a
   machine state the Lprog state stands for". Over-approximation (§7) then holds by definition,
   and per-call facts are lemmas over it (`lsafe_write` in `RiscV/Lift/Rules.lean`). Accepting
   is an `ecall` with `t0 = 0` (`HALT`) and exit code 0, or an empty stack.

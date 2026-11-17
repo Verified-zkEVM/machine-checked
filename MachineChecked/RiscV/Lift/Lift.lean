@@ -23,7 +23,7 @@
 
   SP1's execution context (`sp1Ctx`) is in `lprog-riscv/LprogRiscV/Sp1Ctx.lean`, in the package
   `lprog-riscv`. The syscall facts the layer-0 tools use are lemmas about it
-  (`RiscV/Lift/Sp1.lean`).
+  (`RiscV/Lift/Rules.lean`).
 
   The correctness of the lift, by simulation, is `RiscV/Lift/Transfer.lean`.
 -/

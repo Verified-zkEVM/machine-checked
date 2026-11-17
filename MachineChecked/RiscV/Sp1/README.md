@@ -9,7 +9,7 @@ built for SP1.
 | `Pancake.lean` | `Guest`: the functions of an ELF, its entry and the words it loads. `Guest.env`, its environment for lift 2 ([`../../Logical/Lift.lean`](../../Logical/Lift.lean)), and `Guest.toPancake`. The Pancake program uses the guest's own addresses, so nothing is translated; `ecall` is the FFI call `@ecall(t0, a0, a1, a2)`, whose results the environment leaves in memory; where the guest goes `wrong`, the program says so through `@trap(n, 0, 0, 0)` and stops. |
 
 The guest reaches Lprog by the lift of whole programs
-([`../Lprog/Whole.lean`](../Lift/Whole.lean)).
+([`../Lift/Whole.lean`](../Lift/Whole.lean)).
 
 Nothing is proved here yet. The tool is `lake exe decompile --to pancake GUEST.elf`
 ([`Tools/`](../../../Tools/README.md)). It is checked by recompiling and running:
