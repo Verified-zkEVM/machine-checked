@@ -15,6 +15,8 @@ import MachineChecked.RiscV.Sym.Regs
 
 namespace MachineChecked.RiscV.Sym
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64
 
 variable {L : Layout}

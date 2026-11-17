@@ -10,7 +10,7 @@ semantics in the repository. The execution context is SP1.
 
 | file | contents |
 | --- | --- |
-| `State.lean` | Reading a machine state after an update: the pc, registers after register and memory writes, a normal form. |
+| `lprog-riscv/LprogRiscV/Machine.lean` (package `lprog-riscv`, namespace `Lprog.RiscV.Machine`) | Reading a machine state after an update: the pc, registers after register and memory writes, a normal form. In the package `lprog-riscv`, since RISC-V's instance of Lprog rests on it. |
 | `Safe.lean` | The judgement every result is written in. `SafeN G n P s`, the instance of `Ascent.SafeN` at `stepSp1`: every accepting state reached from `s` in fewer than `n` steps, along a run every state of which satisfies the guard `G`, satisfies `P`. `stepsSp1` is the generic run (`Ascent.steps`) of `stepSp1`, and `SafeN.of_reaches` passes `SafeN` back along a run. |
 | `Accept.lean` | The accepting halt (`Accepted`): the `ECALL` with `t0 = 0` and exit code 0 that an SP1 verifier checks. |
 | `Accel.lean` | The SP1 accelerator arms ZIP 2005 uses (`UINT256_MUL`, `PALLAS_ADD`, `PALLAS_DOUBLE`), cut out of riscv-zkvm's dispatch: each arm's write and exact trap condition, and the point coordinates `Wire.xOf`/`Wire.yOf`. |
@@ -24,16 +24,16 @@ semantics in the repository. The execution context is SP1.
 
 ## The lift to layer 0.5
 
-[`Lprog/`](Lprog/README.md): `rvIsa`, the translation of each instruction into a shared
-operation (proved against riscv-zkvm), `lift`, and the simulation that carries Lprog runs down
-to `stepSp1`. This is the intended route for new proofs. `Lprog/Whole.lean` lifts a whole program as
-rustc and its linker emit it, and `Lprog/Flat.lean` code that has no functions; nothing is
+[`Lift/`](Lift/README.md): the lift (`liftProg`) of each instruction into a shared
+operation (that translation, `rvIsa`, is proved against riscv-zkvm in the package `lprog-riscv`), and the simulation that carries Lprog runs down
+to `stepSp1`. This is the intended route for new proofs. `Lift/Whole.lean` lifts a whole program as
+rustc and its linker emit it, and `Lift/Flat.lean` code that has no functions; nothing is
 proved of these two yet.
 What the decompiler does not do on RISC-V is in [`LIMITS.md`](LIMITS.md).
 
 ## SP1 guests, to Pancake
 
-[`Sp1/`](Sp1/README.md): an SP1 guest ELF as a Pancake program, through `Lprog/Whole.lean`
+[`Sp1/`](Sp1/README.md): an SP1 guest ELF as a Pancake program, through `Lift/Whole.lean`
 and lift 2, with its memory at its own addresses and `ecall` as an FFI call.
 
 ## Flapjack images
@@ -59,4 +59,4 @@ of the roadmap.
 `Sym.lean` imports the executor.
 
 This directory is the template for the other instruction sets: `../ARM` and `../X86` are to
-grow their own counterparts of it, starting with a loader and a lift into `../Lprog`.
+grow their own counterparts of it, starting with a loader and a lift into Lprog.

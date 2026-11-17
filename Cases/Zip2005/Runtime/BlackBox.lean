@@ -13,7 +13,7 @@
   four instructions.
 -/
 
-import MachineChecked.RiscV.Lprog.Rules
+import MachineChecked.RiscV.Lift.Rules
 import Cases.Zip2005.Runtime.Stubs
 import Cases.Zip2005.Kit.Bytes
 import Cases.Zip2005.Image.F_7803a0fc
@@ -21,8 +21,10 @@ import Cases.Zip2005.Image.Ro
 
 namespace Cases.Zip2005.BlackBox
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV MachineChecked.RiscV.Sym
-open MachineChecked.Lprog MachineChecked.RiscV.Lprog
+open Lprog.RiscV Lprog.RiscV.Machine
+
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog.RiscV.Machine
+open Lprog MachineChecked.RiscV.Lift Lprog.RiscV
 
 /-- The instructions of `black_box`. -/
 def prog : List Instr := F_7803a0fc.prog.filterMap id
@@ -74,8 +76,8 @@ end Cases.Zip2005.BlackBox
 
 namespace Cases.Zip2005
 
-open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV MachineChecked.RiscV.Sym
-open MachineChecked.Lprog MachineChecked.RiscV.Lprog
+open RiscvZkvm.Rv64 Cases.Zip2005.Image MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog.RiscV.Machine
+open Lprog MachineChecked.RiscV.Lift Lprog.RiscV
 
 /-- The frame slot the byte goes through, for a 16-byte aligned `sp`. -/
 theorem black_box_slot {sp : Word} (h : sp &&& 15#64 = 0#64) :

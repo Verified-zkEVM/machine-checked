@@ -2,7 +2,7 @@
 
 Standing proof rules are in `CONTRIBUTING.md` (the Ground rules section). The
 trust ladder is `docs/ELF.md` §4. The layers, and where the code stands, are in
-`ROADMAP.md`. New proofs go through the lift (`MachineChecked/RiscV/Lprog`).
+`ROADMAP.md`. New proofs go through the lift (`MachineChecked/RiscV/Lift`).
 
 ## Skills
 

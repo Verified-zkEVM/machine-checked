@@ -228,6 +228,6 @@ each of the 33 cannot be seen was not proved.
 ## What is proved
 
 Nothing. The instructions and their decoder are arm64-semantics' (`Arm64.lean`), but the
-lift (`Lprog/Lift.lean`) is not proved against its `Arm64.Step`: what each instruction does
+lift (`Lift/Lift.lean`) is not proved against its `Arm64.Step`: what each instruction does
 is written again here, and tested against Unicorn, which is QEMU's emulation and not
 arm64-semantics.

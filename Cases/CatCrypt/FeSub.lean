@@ -14,7 +14,9 @@ to `(x + 2·p25519 - y) mod p25519` in `a0..a3`.
 
 namespace Cases.CatCrypt.FeSub
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lprog Cases.CatCrypt.Image.FeSub
+open Lprog.RiscV
+
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lift Cases.CatCrypt.Image.FeSub
 
 /-- What the block's registers `ρ` satisfy, from inputs in `m`. -/
 def Spec (m : MachineState) (ρ : Reg → Word) : Prop :=

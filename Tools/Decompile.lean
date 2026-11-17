@@ -4,14 +4,14 @@
   `decompile --to lprog|pancake BINARY [OUT]`: a RISC-V binary as an Lprog program, in text,
   or as a Pancake program (`docs/design/Decompiler.md`).
 
-  An ELF goes by the lift of whole programs (`RiscV/Lprog/Whole.lean`) and, to Pancake, by
+  An ELF goes by the lift of whole programs (`RiscV/Lift/Whole.lean`) and, to Pancake, by
   lift 2 in SP1's environment (`RiscV/Sp1/Pancake.lean`). Its functions are its text symbols,
   read from its own symbol table, and the hints of the lift are the addresses of code it
   holds as values. A Flapjack image goes by the lift of code without functions. Nothing on
   these routes is proved: they are checked by running (`scripts/decompile-check`).
 
   `--to lprog --proved` is `liftProg` of the ELF's functions, the lift that
-  `RiscV/Lprog/Equiv.lean` proves equivalent to the machine. A function with a word that
+  `RiscV/Lift/Equiv.lean` proves equivalent to the machine. A function with a word that
   riscv-zkvm does not decode is left out there and named in a comment.
 
   Lprog text is `toText` (`Lprog/Text.lean`); the tool reads its own text back and fails
@@ -22,23 +22,23 @@
 -/
 
 import RiscvZkvm.Interpreter
-import MachineChecked.RiscV.Lprog.Lift
+import MachineChecked.RiscV.Lift.Lift
 import MachineChecked.RiscV.Flapjack.Pancake
 import MachineChecked.RiscV.Sp1.Pancake
 import MachineChecked.ARM.Bare
 import MachineChecked.X86.Bare
-import MachineChecked.X86.Lprog.Table
-import MachineChecked.ARM.Lprog.Table
-import MachineChecked.RiscV.Lprog.Table
+import MachineChecked.X86.Lift.Table
+import MachineChecked.ARM.Lift.Table
+import MachineChecked.RiscV.Lift.Table
 import Tools.Elf
 import Tools.Fjimg
 
 namespace Tools.Decompile
 
 open RiscvZkvm.Rv64 RiscvZkvm.Interpreter
-open MachineChecked.Lprog MachineChecked.RiscV.Lprog MachineChecked.RiscV.Flapjack
+open Lprog MachineChecked.RiscV.Lift MachineChecked.RiscV.Flapjack Lprog.RiscV
 open Tools.Elf
-open MachineChecked.Lprog.Linked (At)
+open Lprog.Linked (At)
 
 /-- The functions of an image the lift takes, and the names of those it does not, each with
     the reason. -/
@@ -191,13 +191,13 @@ def words {I : Type} (decode : BitVec 32 → I) (bs : ByteArray) (addr : Nat) : 
 /-- The code of x86-64: one instruction after another from the start of a function. Bytes
     that are no instruction end it: what follows them cannot be told apart, and is one
     piece that is no instruction. -/
-def x86Code (bs : ByteArray) (addr : Nat) : Array (At (Option MachineChecked.X86.Lprog.Instr)) := Id.run do
+def x86Code (bs : ByteArray) (addr : Nat) : Array (At (Option MachineChecked.X86.Lift.Instr)) := Id.run do
   let mut out := #[]
   let mut pos := 0
   for _ in [0 : bs.size] do
     if pos ≥ bs.size then break
     let a := BitVec.ofNat 64 (addr + pos)
-    match MachineChecked.X86.Lprog.decode bs pos a with
+    match MachineChecked.X86.Lift.decode bs pos a with
     | some (i, n) =>
       out := out.push { addr := a, size := n, instr := some i }
       pos := pos + n
@@ -281,7 +281,7 @@ def tablesArm (parts : Array (String × Array (At (Option Arm64.Instr)))) (w4 : 
     address is formed by `lea` or as a constant. A table of offsets is of 32-bit numbers
     counted from an address that a `lea` or an `add` before the `jmp` names, so: each such
     address plus each word of four bytes in the data. -/
-def formedX86 (parts : Array (String × Array (At (Option MachineChecked.X86.Lprog.Instr)))) (w4 : Array Nat) :
+def formedX86 (parts : Array (String × Array (At (Option MachineChecked.X86.Lift.Instr)))) (w4 : Array Nat) :
     Array Nat := Id.run do
   let mut out : Array Nat := #[]
   for (_, prog) in parts do
@@ -289,7 +289,7 @@ def formedX86 (parts : Array (String × Array (At (Option MachineChecked.X86.Lpr
     let lo := first.addr.toNat
     let hi := prog.foldl (fun n i => n + i.size) lo
     -- the address an instruction names without a register
-    let named (i : Option MachineChecked.X86.Lprog.Instr) : Option Nat := match i with
+    let named (i : Option MachineChecked.X86.Lift.Instr) : Option Nat := match i with
       | some (.lea _ _ { base := none, index := none, disp }) => some disp.toNat
       | some (.mov _ _ (.imm v)) | some (.push (.imm v)) | some (.alu .add _ _ (.imm v)) => some v.toNat
       | some (.movx true .q .d _ (.mem { base := none, disp, .. })) => some disp.toNat
@@ -352,18 +352,18 @@ def imageTo (target imgPath : String) (out? : Option String) : IO UInt32 := do
   | .ok (summary, text) => emit out? summary text; return 0
   | .error e => IO.eprintln s!"decompile: {e}"; return 1
 
-/-- The instructions of an instruction set by kind (`RiscV/Lprog/Table.lean`,
-    `ARM/Lprog/Table.lean`): the kinds with whether each is lifted, and the kind of an
+/-- The instructions of an instruction set by kind (`RiscV/Lift/Table.lean`,
+    `ARM/Lift/Table.lean`): the kinds with whether each is lifted, and the kind of an
     instruction given as its bytes. -/
 def kindsOf (isa : String) : Except String (List (String × Bool) × (ByteArray → String)) :=
   let word (bs : ByteArray) : BitVec 32 :=
     BitVec.ofNat 32 ((List.range 4).foldl (fun v k => v ||| (bs[k]!.toNat <<< (8 * k))) 0)
   match isa with
   | "riscv" => .ok (Table.rows, fun bs => Table.kind (word bs))
-  | "aarch64" => .ok (MachineChecked.ARM.Lprog.Table.rows,
-      fun bs => MachineChecked.ARM.Lprog.Table.kind (Arm64.decode (word bs)))
-  | "x86-64" => .ok (MachineChecked.X86.Lprog.Table.rows,
-      fun bs => MachineChecked.X86.Lprog.Table.kind ((MachineChecked.X86.Lprog.decode bs 0 0).map (·.1)))
+  | "aarch64" => .ok (MachineChecked.ARM.Lift.Table.rows,
+      fun bs => MachineChecked.ARM.Lift.Table.kind (Arm64.decode (word bs)))
+  | "x86-64" => .ok (MachineChecked.X86.Lift.Table.rows,
+      fun bs => MachineChecked.X86.Lift.Table.kind ((MachineChecked.X86.Lift.decode bs 0 0).map (·.1)))
   | _ => .error s!"no instruction set `{isa}` (riscv, aarch64, x86-64)"
 
 /-- The lines of a file that are not empty. -/
@@ -409,7 +409,7 @@ def listing (path : String) : IO UInt32 := do
     if (← machineOf bytes) != 62 then throw "not an ELF for x86-64"
     let (_, parts, _) ← codeOf bytes 1 x86Code
     return String.join (parts.toList.flatMap fun (_, code) => code.toList.map fun i =>
-      s!"{hex i.addr.toNat 8} {i.size} {MachineChecked.X86.Lprog.Table.kind i.instr}\n")
+      s!"{hex i.addr.toNat 8} {i.size} {MachineChecked.X86.Lift.Table.kind i.instr}\n")
   match r with
   | .ok text => IO.print text; return 0
   | .error e => IO.eprintln s!"decompile: {e}"; return 1

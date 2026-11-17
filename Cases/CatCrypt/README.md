@@ -2,8 +2,8 @@
 
 RV64 kernels emitted by catcrypt-compiler, verified at their encoded bytes against riscv-zkvm's
 `stepSp1`: each kernel is a pure block, whose run over the machine is the fold of
-`execInstrBr` over its instructions (`MachineChecked/RiscV/Lprog/Block.lean`, `corres_block`).
-The statements are correspondences (`MachineChecked.RiscV.CorresSp1`, `MachineChecked.Ascent.Corres`
+`execInstrBr` over its instructions (`MachineChecked/RiscV/Lift/Block.lean`, `corres_block`).
+The statements are correspondences (`MachineChecked.RiscV.CorresSp1`, `Lprog.Ascent.Corres`
 over `stepSp1`).
 
 | file | kernel | instructions | result |

@@ -31,7 +31,7 @@ use the case the session is about.
 
 | binding | this host |
 | --- | --- |
-| bytecode | The loaded image and `riscv-zkvm`'s SP1 machine: `MachineState`, `stepSp1`. The dependency is pinned in `lakefile.toml` and left unmodified. Image facts live under `Cases/<case>/` (`Loaded.lean`, `Image/`). Host wrappers: `MachineChecked/RiscV/Lprog` (the lift; the preferred route), `MachineChecked/RiscV/Exec`, `MachineChecked/RiscV/Load`. |
+| bytecode | The loaded image and `riscv-zkvm`'s SP1 machine: `MachineState`, `stepSp1`. The dependency is pinned in `lakefile.toml` and left unmodified. Image facts live under `Cases/<case>/` (`Loaded.lean`, `Image/`). Host wrappers: `MachineChecked/RiscV/Lift` (the lift; the preferred route), `MachineChecked/RiscV/Exec`, `MachineChecked/RiscV/Load`. |
 | spec | The high-level claim about what that bytecode computes. The user names it, otherwise the case module and the targets in `ROADMAP.md`. Blake2s: BLAKE2s-256 of the advice bytes, length and digest committed (`Cases/LeanVM/Blake2s/Loaded.lean`). zip-2005: the guest program over the verified runtime (`Cases/Zip2005/PLAN.md`). |
 | proofs | `MachineChecked/RiscV/` (framework) and `Cases/` (`Cases/Zip2005`, `Cases/LeanVM`). |
 | observation | `SafeN` / `Safe` and `Iface.HoldsN` / `Iface.Holds` in `MachineChecked/RiscV/Check/Spec.lean`. Accepting is `Accepted`: SP1 `HALT` with exit code 0. |

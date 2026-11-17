@@ -1,4 +1,4 @@
-> **Status (2026-10-21): archived; largely done.** The port it describes landed: Lprog is the logical machine, its operations are shared (`MachineChecked/Lprog/Op.lean`), the correspondence is `MachineChecked/Ascent`, and the CatCrypt kernels are proved through the lift. References below to `docs/PLAN.md`, `RiscV/Corres`, `CorresIsa` and the small x86 model describe the state when it was written. What remains is in [`ROADMAP.md`](../../ROADMAP.md).
+> **Status (2026-10-21): archived; largely done.** The port it describes landed: Lprog is the logical machine, its operations are shared (`lprog/Lprog/Op.lean`), the correspondence is `lprog/Lprog/Ascent`, and the CatCrypt kernels are proved through the lift. References below to `docs/PLAN.md`, `RiscV/Corres`, `CorresIsa` and the small x86 model describe the state when it was written. What remains is in [`ROADMAP.md`](../../ROADMAP.md).
 
 # CatCrypt port: taking what we need from catcrypt-compiler
 

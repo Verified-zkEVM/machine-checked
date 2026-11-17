@@ -1,4 +1,4 @@
-import MachineChecked.RiscV.Lprog.Block
+import MachineChecked.RiscV.Lift.Block
 import Cases.CatCrypt.Image.Cswap
 
 /-!
@@ -13,7 +13,7 @@ instructions swap the two elements exactly when `t0 = 1`, and leave `t0` and the
 
 namespace Cases.CatCrypt
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Lprog
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.RiscV.Lift Lprog.RiscV Lprog.RiscV.Machine
 
 /-- The abstract state of `cswap`: the pc, two four-limb values and the swap word. -/
 structure SwapState where

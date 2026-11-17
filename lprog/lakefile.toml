@@ -1,0 +1,11 @@
+# Lprog, the low logical program, and the semantics around it: runs, the `SafeN` judgement,
+# refinement and equivalence (`Ascent`), and each instruction set's registers at Lprog that
+# need no machine model. It requires nothing; see `docs/design/Packages.md`.
+name = "lprog"
+version = "0.1.0"
+defaultTargets = ["Lprog"]
+moreLeanArgs = ["--tstack=400000"]
+
+[[lean_lib]]
+name = "Lprog"
+globs = ["Lprog", "Lprog.+"]

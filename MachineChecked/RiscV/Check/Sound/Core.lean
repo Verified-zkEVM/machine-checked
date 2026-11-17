@@ -10,6 +10,8 @@ import MachineChecked.RiscV.Check.Ecall
 
 namespace MachineChecked.RiscV.Check
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame
 
 /-- The function's words, and its fragments' instructions, are what the code map holds. -/

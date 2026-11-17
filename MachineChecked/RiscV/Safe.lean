@@ -26,19 +26,18 @@
 -/
 
 import MachineChecked.RiscV.Accept
-import MachineChecked.Ascent.Run
-import MachineChecked.Ascent.Safe
-import MachineChecked.Ascent.Corres
-import MachineChecked.RiscV.State
-
+import Lprog.Ascent.Run
+import Lprog.Ascent.Safe
+import Lprog.Ascent.Corres
+import LprogRiscV.Machine
 namespace MachineChecked.RiscV
 
 open RiscvZkvm.Rv64
 
 /-! ## Runs -/
 
-/-- `n` steps of the SP1 backend: the generic run (`Ascent.steps`) of `stepSp1`. -/
-abbrev stepsSp1 : Nat → MachineState → Option MachineState := Ascent.steps stepSp1
+/-- `n` steps of the SP1 backend: the generic run (`Lprog.Ascent.steps`) of `stepSp1`. -/
+abbrev stepsSp1 : Nat → MachineState → Option MachineState := Lprog.Ascent.steps stepSp1
 
 @[simp] theorem stepsSp1_zero (s : MachineState) : stepsSp1 0 s = some s := rfl
 
@@ -51,11 +50,11 @@ theorem stepsSp1_succ {n : Nat} {s s' : MachineState} (h : stepsSp1 (n + 1) s = 
 
 theorem stepsSp1_succ_of_step {n : Nat} {s s₁ : MachineState} (h : stepSp1 s = some s₁) :
     stepsSp1 (n + 1) s = stepsSp1 n s₁ :=
-  Ascent.steps_succ_of_step h
+  Lprog.Ascent.steps_succ_of_step h
 
 theorem stepsSp1_add (m n : Nat) (s : MachineState) :
     stepsSp1 (m + n) s = (stepsSp1 m s).bind (stepsSp1 n) :=
-  Ascent.steps_add m n s
+  Lprog.Ascent.steps_add m n s
 
 /-- A stuck state ends the run where it is. -/
 theorem stepsSp1_of_stuck {s s' : MachineState} {k : Nat} (hstuck : stepSp1 s = none)
@@ -70,10 +69,10 @@ theorem not_accepted_of_step {s t : MachineState} (h : stepSp1 s = some t) : ¬ 
 
 /-! ## The judgement -/
 
-/-- The generic judgement (`Ascent.SafeN`) at `stepSp1`, which never goes `wrong`, with
+/-- The generic judgement (`Lprog.Ascent.SafeN`) at `stepSp1`, which never goes `wrong`, with
     `Accepted` as the accepting states, every one of which must give `P`. -/
 def SafeN (G : MachineState → Prop) (n : Nat) (P : Prop) (s : MachineState) : Prop :=
-  Ascent.SafeN (Ascent.detStep stepSp1) Accepted G n (fun _ => P) s
+  Lprog.Ascent.SafeN (Lprog.Ascent.detStep stepSp1) Accepted G n (fun _ => P) s
 
 def Safe (G : MachineState → Prop) (P : Prop) (s : MachineState) : Prop := ∀ n, SafeN G n P s
 
@@ -82,15 +81,15 @@ namespace SafeN
 variable {G : MachineState → Prop}
 
 theorem zero {P : Prop} {s : MachineState} : SafeN G 0 P s :=
-  Ascent.SafeN.zero
+  Lprog.Ascent.SafeN.zero
 
 theorem mono {P : Prop} {s : MachineState} {k n : Nat} (hk : k ≤ n) (h : SafeN G n P s) :
-    SafeN G k P s := Ascent.SafeN.mono hk h
+    SafeN G k P s := Lprog.Ascent.SafeN.mono hk h
 
 /-- A step from a state that does not accept: one budget unit is spent. -/
 theorem step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
     (hs : stepSp1 s = some t) (ht : SafeN G n P t) : SafeN G (n + 1) P s :=
-  Ascent.SafeN.step hna (fun _ => (Ascent.detStep_of_some hs).1) ht
+  Lprog.Ascent.SafeN.step hna (fun _ => (Lprog.Ascent.detStep_of_some hs).1) ht
 
 /-- A step does not need budget: `SafeN n` passes back along it. -/
 theorem of_step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
@@ -100,7 +99,7 @@ theorem of_step {P : Prop} {s t : MachineState} {n : Nat} (hna : ¬ Accepted s)
 /-- A state with no step: safe unless it accepts. -/
 theorem stuck {P : Prop} {s : MachineState} {n : Nat} (hs : stepSp1 s = none)
     (hp : Accepted s → P) : SafeN G n P s :=
-  Ascent.SafeN.stuck (fun _ => (Ascent.detStep_of_none hs).1) hp
+  Lprog.Ascent.SafeN.stuck (fun _ => (Lprog.Ascent.detStep_of_none hs).1) hp
 
 /-- From a state that does not accept, safe for `n + 1` steps if every successor is safe
     for `n`. -/
@@ -113,7 +112,7 @@ theorem intro {P : Prop} {s : MachineState} {n : Nat} (hna : ¬ Accepted s)
 /-- The guard holds at the current state of every run it constrains. -/
 theorem assume {P : Prop} {s : MachineState} {n : Nat} (h : G s → SafeN G n P s) :
     SafeN G n P s :=
-  Ascent.SafeN.assume h
+  Lprog.Ascent.SafeN.assume h
 
 /-! ### The symbolic executor's forms
 
@@ -162,12 +161,12 @@ theorem trap {P : Prop} {s : MachineState} {n : Nat} (h : s.code s.pc = none) : 
 
 /-- Anything is safe for a true `P`. -/
 theorem of_true {P : Prop} {n : Nat} (hp : P) (s : MachineState) : SafeN G n P s :=
-  Ascent.SafeN.of_true (fun _ => Ascent.detStep_ne_wrong) (fun _ => hp) s
+  Lprog.Ascent.SafeN.of_true (fun _ => Lprog.Ascent.detStep_ne_wrong) (fun _ => hp) s
 
 /-- Monotonicity in `P`. -/
 theorem imp {P Q : Prop} {s : MachineState} {n : Nat} (h : SafeN G n P s) (hpq : P → Q) :
     SafeN G n Q s :=
-  Ascent.SafeN.imp h fun _ _ => hpq
+  Lprog.Ascent.SafeN.imp h fun _ _ => hpq
 
 /-- Name a value: the executor's way of introducing an atom. -/
 theorem gen {P : Prop} {s : MachineState} {n : Nat} {α : Sort _} (e : α)
@@ -192,30 +191,30 @@ hands over to the code after the loop. The iteration count is the induction; the
 theorem loop {P : Prop} {n : Nat} (Inv : Nat → MachineState → Prop) (N : Nat)
     (hbody : ∀ i, i < N → ∀ s, Inv i s → (∀ t, Inv (i + 1) t → SafeN G n P t) → SafeN G n P s)
     (hN : ∀ s, Inv N s → SafeN G n P s) : ∀ s, Inv 0 s → SafeN G n P s :=
-  Ascent.loop Inv N hbody hN
+  Lprog.Ascent.loop Inv N hbody hN
 
 /-- A loop whose iteration count is not known in advance: a measure that decreases on
     every iteration that does not exit. -/
 theorem loop_measure {P : Prop} {n : Nat} (Inv : MachineState → Prop) (μ : MachineState → Nat)
     (hbody : ∀ s, Inv s → (∀ t, Inv t → μ t < μ s → SafeN G n P t) → SafeN G n P s) :
     ∀ s, Inv s → SafeN G n P s :=
-  Ascent.loop_measure Inv μ hbody
+  Lprog.Ascent.loop_measure Inv μ hbody
 
 end SafeN
 
 /-- **The bridge for a run.** A run from `s` to states that are all safe for `n` steps makes
     `s` safe for `n` steps. -/
 theorem SafeN.of_reaches {G : MachineState → Prop} {n : Nat} {P : Prop} {Q : MachineState → Prop}
-    {s : MachineState} (h : Ascent.Reaches stepSp1 Q s) (hk : ∀ t, Q t → SafeN G n P t) :
+    {s : MachineState} (h : Lprog.Ascent.Reaches stepSp1 Q s) (hk : ∀ t, Q t → SafeN G n P t) :
     SafeN G n P s := by
   obtain ⟨k, t, hk', ht⟩ := h
   exact SafeN.steps hk' (hk t ht)
 
-/-- A correspondence over riscv-zkvm's machine: the generic one (`Ascent.Corres`) at
+/-- A correspondence over riscv-zkvm's machine: the generic one (`Lprog.Ascent.Corres`) at
     `stepSp1`, with `Accepted` as the accepting states. -/
 abbrev CorresSp1 {AState : Type} (SR : MachineState → AState → Prop) (Pre : AState → Prop)
     (fa : AState → AState) : Prop :=
-  Ascent.Corres (Ascent.detStep stepSp1) Accepted SR Pre fa
+  Lprog.Ascent.Corres (Lprog.Ascent.detStep stepSp1) Accepted SR Pre fa
 
 /-- **A correspondence as a contract**: from a state related to an abstract state satisfying
     the precondition, `SafeN` holds if it holds from every state related to the result. -/

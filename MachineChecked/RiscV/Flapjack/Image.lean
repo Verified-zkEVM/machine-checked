@@ -23,7 +23,7 @@
   function, which may rewrite the second, and the run goes on at `ra`.
 
   The image as Lprog is `Image.lift`, by the lift of code without functions
-  (`RiscV/Lprog/Flat.lean`). Its meaning as an execution context (`Lprog.Context`) is not
+  (`RiscV/Lift/Flat.lean`). Its meaning as an execution context (`Lprog.Context`) is not
   defined yet: `rvIsa` reads memory behind SP1's check, which this layout does not pass.
 
   ## Main definitions
@@ -32,11 +32,13 @@
 -/
 
 import RiscvZkvm.Interpreter.Decode
-import MachineChecked.RiscV.Lprog.Flat
+import MachineChecked.RiscV.Lift.Flat
 
 namespace MachineChecked.RiscV.Flapjack
 
-open RiscvZkvm.Rv64 MachineChecked.Lprog MachineChecked.RiscV.Lprog
+open Lprog.RiscV
+
+open RiscvZkvm.Rv64 Lprog MachineChecked.RiscV.Lift
 
 /-- A Flapjack binary: the FFI names in index order, the bitmaps and the code. -/
 structure Image where

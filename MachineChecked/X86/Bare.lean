@@ -2,7 +2,7 @@
   MachineChecked.X86.Bare
 
   An x86-64 program without an operating system, as a Pancake program: the lift of linked
-  programs (`Lprog/Lift.lean`), then lift 2 (`Logical/Lift.lean`) in the environment of a
+  programs (`Lift/Lift.lean`), then lift 2 (`Logical/Lift.lean`) in the environment of a
   bare program (`Logical/Guest.lean`).
 
   A system call is `syscall` with its number in `rax`, its arguments in `rdi`, `rsi` and
@@ -16,13 +16,13 @@
   * `Guest`, `Guest.lift`, `Guest.toPancake`
 -/
 
-import MachineChecked.X86.Lprog.Lift
-import MachineChecked.Lprog.Dead
+import MachineChecked.X86.Lift.Lift
+import Lprog.Dead
 import MachineChecked.Logical.Guest
 
 namespace MachineChecked.X86
 
-open MachineChecked.Lprog MachineChecked.X86.Lprog MachineChecked.Logical
+open Lprog MachineChecked.X86.Lift MachineChecked.Logical Lprog.X86
 
 /-- A program: its functions, where it starts, and the words it loads. -/
 abbrev Guest := Logical.Guest.Program (Option Instr)

@@ -14,7 +14,9 @@ instructions, decoded by riscv-zkvm, take any `x` in `a0..a3` and `y` in `a4..a7
 
 namespace Cases.CatCrypt.FeAdd
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lprog Cases.CatCrypt.Image.FeAdd
+open Lprog.RiscV
+
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Lift Cases.CatCrypt.Image.FeAdd
 
 /-- What the block's registers `ρ` satisfy, from inputs in `m`: the result `r` in `a0..a3` is
     below `p25519` and `x + y = r + k·p25519` for some `k ≤ 4`. -/

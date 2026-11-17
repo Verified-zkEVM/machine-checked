@@ -14,7 +14,7 @@ import MachineChecked.RiscV.Check.Ecall
 
 namespace MachineChecked.RiscV.Exec
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Frame MachineChecked.RiscV.Check Lprog.RiscV.Machine
 
 variable {G : MachineState → Prop} {k : Nat} {P : Prop}
 

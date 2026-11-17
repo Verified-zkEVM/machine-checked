@@ -18,13 +18,13 @@
   the machine.
 -/
 
-import MachineChecked.RiscV.Lprog.Rules
+import MachineChecked.RiscV.Lift.Rules
 import Cases.Zip2005.Runtime.Trivial
 import Cases.Zip2005.Image.F_7803c684
 
 namespace Cases.Zip2005.WriteVectored
 
-open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym MachineChecked.Lprog MachineChecked.RiscV.Lprog
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog MachineChecked.RiscV.Lift Lprog.RiscV Lprog.RiscV.Machine
   Cases.Zip2005.Image
 
 set_option autoImplicit false

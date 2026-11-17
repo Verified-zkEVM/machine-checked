@@ -53,6 +53,8 @@ import MachineChecked.RiscV.Check.Model
 
 namespace MachineChecked.RiscV.Check
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame
 
 /-- An abstract state given by how it differs from the entry state: the registers listed

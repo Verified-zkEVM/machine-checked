@@ -11,6 +11,8 @@ import MachineChecked.RiscV.Check.Spec
 
 namespace MachineChecked.RiscV.Check
 
+open Lprog.RiscV.Machine
+
 open RiscvZkvm.Rv64 MachineChecked.RiscV.Frame
 
 /-! ## Writing doublewords -/

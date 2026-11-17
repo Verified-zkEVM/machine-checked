@@ -12,7 +12,7 @@ The tool is tested, not proved. What the tests show is under "How far it is test
   functions are its sized text symbols. A stripped file, a relocatable file and a
   position-independent executable are refused.
 - **The integer instructions of x86-64 in 64-bit mode**, as the decoder here reads them
-  (`Lprog/Instr.lean`): Kraken's model has no decoder. Nothing of x87, MMX, SSE or AVX: a
+  (`Lift/Instr.lean`): Kraken's model has no decoder. Nothing of x87, MMX, SSE or AVX: a
   program must be built for a target without them (`x86_64-unknown-none`), or it gives up
   at the first such instruction it runs.
 - **A program without an operating system.** A system call is `syscall` with the number in
@@ -217,7 +217,7 @@ reports `gave up (trap 12)`. The places are:
   same bytes as `bsf` and `bsr`.
 - **`syscall` does not write `rcx` and `r11`**, as the processor does.
 - **A return address is on the stack as in the original**, and the output also keeps it in
-  a register of its own while a call or return passes it (`Lprog/Lift.lean`).
+  a register of its own while a call or return passes it (`Lift/Lift.lean`).
 - **Time.** The output takes 15.5 times the steps of the original on the tests, and
   nothing about how long an operation takes is kept: a program that is constant-time is not
   so afterwards.
@@ -249,7 +249,7 @@ one by one, as AArch64's were.
 ## What is proved
 
 Nothing, and less is shared with a trusted model than for the other two: the instruction
-type and the decoder are this repository's (`Lprog/Instr.lean`), because Kraken's x64 model
+type and the decoder are this repository's (`Lift/Instr.lean`), because Kraken's x64 model
 takes assembly, not bytes, and lacks some instructions compilers emit (`div`, `idiv`, `bsr`,
 `tzcnt`, `bt`, `bts`, `cdqe` and its family, `syscall`). The decoder is compared with
 LLVM's disassembler on every instruction of the tests, for where each starts and its name

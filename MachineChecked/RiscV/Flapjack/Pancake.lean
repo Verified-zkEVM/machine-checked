@@ -32,7 +32,9 @@ import MachineChecked.RiscV.Flapjack.Image
 
 namespace MachineChecked.RiscV.Flapjack
 
-open RiscvZkvm.Rv64 MachineChecked.Lprog MachineChecked.RiscV.Lprog MachineChecked.Logical
+open Lprog.RiscV Lprog.RiscV.Machine
+
+open RiscvZkvm.Rv64 Lprog MachineChecked.RiscV.Lift MachineChecked.Logical
 open MachineChecked.Logical.Lift (gvar num gset add seq when)
 
 /-- The size of the heap the image gets, and of its stack: half the heap each. -/
@@ -74,7 +76,7 @@ def env : Env where
 
 /-- **The image as a Pancake program.** -/
 def toPancake : Except String (List (_root_.Flapjack.Decl Pancake.W)) :=
-  (Logical.lift img.env allRegs .x1 .x2 0 img.lift).map (·.1)
+  (Logical.lift img.env Lprog.RiscV.Machine.allRegs .x1 .x2 0 img.lift).map (·.1)
 
 end Image
 

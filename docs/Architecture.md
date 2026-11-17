@@ -38,7 +38,7 @@ list and a control-flow premise (`CfiOk`) that the target is on it.
 
 **Two ways to prove a table entry.** An entry is either derived by the checker
 (`MachineChecked/RiscV/Check`) or proved by hand. A hand proof is preferably done at the low
-logical program (`MachineChecked/RiscV/Lprog`): the function is lifted, a contract is proved
+logical program (`MachineChecked/RiscV/Lift`): the function is lifted, a contract is proved
 for it at Lprog, and the contract is carried down to `stepSp1` by the lift's transfer theorem
 (`transfer`, `SafeN.of_contract`).
 The older route, symbolic execution over the machine (`MachineChecked/RiscV/Sym`,
