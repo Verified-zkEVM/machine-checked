@@ -12,7 +12,6 @@ checked by the Lean kernel, and nothing in `MachineChecked/` or `Cases/` imports
 | `FrameSweep.lean` | `lake exe frame-sweep ELF NM OUT.tsv` | Runs the frame analysis over every function and reports which annotations check, and why not. |
 | `Decompile.lean` | `lake exe decompile --to lprog\|pancake\|lean BINARY …` | A binary as an Lprog program, in text or as Lean, or as a Pancake program. `BINARY` is an ELF or a Flapjack image. See below. |
 | `ToLean.lean` | (library, and the command `check_elf_words`) | `decompile --to lean`: the modules it writes, the lemmas their theorems rest on, and the check of their words against the ELF. |
-| `Test/ToLean.lean` | (built) | Checks of `ToLean.lean`, run when it is built: a body in parts, a function's theorem from its parts, and a changed term refuted by the kernel. |
 | `Fjimg.lean` | (library) | The text form of a Flapjack image. |
 | `Elf.lean` | (library) | ELF and symbol-table helpers shared by the tools. |
 | `Test/` | (built) | Unit tests, run when they are built (`#guard`): each instruction set's decoder and lift, one instruction at a time against its manual (`Run.lean` runs the lift of one instruction), and the shared passes. See below. |
@@ -163,6 +162,7 @@ manual, worked out by hand, not from the code under test.
 | `Text.lean` | 55 | The Lprog text format: each kind of instruction read back from its text, and malformed text refused. |
 | `Elf.lean` | 55 | The ELF reader on a small file made by hand, and on truncated and malformed ones: each gives an error, none a crash. |
 | `Structure.lean` | 6 | The structure of control flow on small graphs: a switch is never a two-way choice or a way out. |
+| `ToLean.lean` | 22 | `decompile --to lean`: a body in parts, a function's theorem from its parts, a changed term refuted by the kernel, symbol names escaped in comments, and the namespaces it takes. |
 
 To test one file while working on it: `lake env lean Tools/Test/X86.lean` (no output is a
 pass).
