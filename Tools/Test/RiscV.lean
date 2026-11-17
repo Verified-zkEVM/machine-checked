@@ -636,4 +636,23 @@ def JALR16T1 := [0xe7, 0x00, 0x03, 0x01]
 -- the word 0 is none
 #guard (decodeWord 0) matches .none
 
+/-! ## The candidates of a computed jump in the `--proved` lift (`jalrCands`)
+
+  Two functions: `f` at 0x1000 calls `g` at 0x2000 by `auipc ra, 1; jalr ra, 0(ra)`, then
+  jumps through `t0`, which nothing before sets. -/
+
+def fnsC : List Fn :=
+  [{ name := "f", base := 0x1000,
+     prog := [.AUIPC .x1 1, .JALR .x1 .x1 0, .JALR .x0 .x5 0] },
+   { name := "g", base := 0x2000, prog := [.JALR .x0 .x1 0] }]
+
+-- `auipc ra` then `jalr ra`: the one function at the address
+#guard jalrCands fnsC 1 0x1004 .x1 0 == [1]
+-- the offset of `jalr` counts: 0x2000 + 4 is no function's entry, so every function
+#guard jalrCands fnsC 1 0x1004 .x1 4 == [0, 1]
+-- a register `auipc` did not set: every function
+#guard jalrCands fnsC 2 0x1008 .x5 0 == [0, 1]
+-- the first instruction of a function has none before it
+#guard jalrCands fnsC 0 0x2000 .x1 0 == [0, 1]
+
 end Tools.Test.RiscV

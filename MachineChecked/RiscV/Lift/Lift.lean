@@ -80,12 +80,39 @@ def liftJal (fs : List Fn) (len k : Nat) (pc : Word) (rd : Reg) (off : BitVec 21
     | none => .Labort
   else .Labort
 
-/-- `jalr`, lifted: a return, an indirect tail call or an indirect call. -/
-def liftJalr (fs : List Fn) (pc : Word) (rd rs : Reg) (off : BitVec 12) : LinstrR (Op Reg) Reg :=
+/-- The instruction before index `k` of the function whose entry is `pc - 4 k`: the function
+    of the instruction at index `k` and address `pc`. -/
+def prevInstr (fs : List Fn) (k : Nat) (pc : Word) : Option Instr :=
+  match k, entryOf fs (pc - BitVec.ofNat 64 (4 * k)) with
+  | k + 1, some g => fs[g]?.bind fun f => f.prog[k]?
+  | _, _ => none
+
+/-- The function a `jalr` at index `k` and address `pc` reaches when the instruction before it
+    is an `auipc` of its register, as the `call` and `tail` pseudo-instructions are. -/
+def jalrStatic (fs : List Fn) (k : Nat) (pc : Word) (rs : Reg) (off : BitVec 12) : Option Nat :=
+  match prevInstr fs k pc with
+  | some (.AUIPC rd imm) =>
+    if rd = rs ∧ rs ≠ .x0 then entryOf fs ((pc - 4 + auipcOff imm + signExtend12 off) &&& ~~~1#64)
+    else none
+  | _ => none
+
+/-- **The candidates of a computed jump**: the function `jalrStatic` finds, or else every
+    function. Any list is sound (`callee_indirect`): a target outside it is a step to `wrong`,
+    which a proof of safety rules out. A short list makes fewer cases to prove; it can only
+    lose a jump into the `jalr` from elsewhere with another target, which compilers do not
+    emit. -/
+def jalrCands (fs : List Fn) (k : Nat) (pc : Word) (rs : Reg) (off : BitVec 12) : List Nat :=
+  match jalrStatic fs k pc rs off with
+  | some g => [g]
+  | none => List.range fs.length
+
+/-- `jalr` at index `k`, lifted: a return, an indirect tail call or an indirect call. -/
+def liftJalr (fs : List Fn) (k : Nat) (pc : Word) (rd rs : Reg) (off : BitVec 12) :
+    LinstrR (Op Reg) Reg :=
   if rd = .x0 then
     if rs = .x1 ∧ off = 0 then .Lret
-    else .Ltail (.indirect (jalrTgt rs off) (List.range fs.length))
-  else if rd = .x1 then .Lcall (pc + 4) (.indirect (jalrTgt rs off) (List.range fs.length))
+    else .Ltail (.indirect (jalrTgt rs off) (jalrCands fs k pc rs off))
+  else if rd = .x1 then .Lcall (pc + 4) (.indirect (jalrTgt rs off) (jalrCands fs k pc rs off))
   else .Labort
 
 /-- An instruction that is not an operation, lifted. -/
@@ -98,7 +125,7 @@ def liftCtl (fs : List Fn) (len k : Nat) (pc : Word) : Instr → LinstrR (Op Reg
   | .BLTU a b off => liftBr k len "ltu" a b off
   | .BGEU a b off => liftBr k len "geu" a b off
   | .JAL rd off => liftJal fs len k pc rd off
-  | .JALR rd rs off => liftJalr fs pc rd rs off
+  | .JALR rd rs off => liftJalr fs k pc rd rs off
   | .ECALL => .Lext 0
   | _ => .Labort
 
@@ -237,28 +264,33 @@ theorem entryOf_spec {fs : List Fn} {a : Word} {f : Nat} (h : entryOf fs a = som
   obtain ⟨hlt, hp, -⟩ := List.findIdx?_eq_some_iff_getElem.mp h
   exact ⟨fs[f], List.getElem?_eq_getElem hlt, by simpa using hp⟩
 
-/-- An indirect target among all functions is a function with that address. -/
-theorem callee_indirect {fs : List Fn} {regs : Reg → BitVec 64} {e : Expr Reg} {f : Nat}
-    (h : rvIsa.callee (liftProg fs) regs (.indirect e (List.range fs.length)) = some f) :
+/-- An indirect target among any candidates is a function with that address. -/
+theorem callee_indirect {fs : List Fn} {regs : Reg → BitVec 64} {e : Expr Reg} {cs : List Nat} {f : Nat}
+    (h : rvIsa.callee (liftProg fs) regs (.indirect e cs) = some f) :
     ∃ fn, fs[f]? = some fn ∧ fn.base = e.eval regs := by
   simp only [Isa.callee] at h
   have hp := List.find?_some h
-  have hm := List.mem_of_find?_eq_some h
-  rw [List.mem_range] at hm
-  simp only [Isa.addrAt, getElem?_liftProg (List.getElem?_eq_getElem hm)] at hp
-  exact ⟨fs[f], List.getElem?_eq_getElem hm, by simpa [liftFn] using hp⟩
+  simp only [Isa.addrAt, beq_iff_eq, Option.map_eq_some_iff] at hp
+  obtain ⟨fd, hfd, ha⟩ := hp
+  simp only [liftProg, List.getElem?_map, Option.map_eq_some_iff] at hfd
+  obtain ⟨fn, hfn, rfl⟩ := hfd
+  exact ⟨fn, hfn, by simpa [liftFn] using ha⟩
 
-/-- A function with that address is found among all functions. -/
-theorem callee_indirect_of {fs : List Fn} {regs : Reg → BitVec 64} {e : Expr Reg}
-    {f : Nat} {fn : Fn} (hf : fs[f]? = some fn) (ha : fn.base = e.eval regs) :
-    ∃ g, rvIsa.callee (liftProg fs) regs (.indirect e (List.range fs.length)) = some g := by
+/-- A function with that address, among the candidates, is found. -/
+theorem callee_indirect_of {fs : List Fn} {regs : Reg → BitVec 64} {e : Expr Reg} {cs : List Nat}
+    {f : Nat} {fn : Fn} (hf : fs[f]? = some fn) (ha : fn.base = e.eval regs) (hm : f ∈ cs) :
+    ∃ g, rvIsa.callee (liftProg fs) regs (.indirect e cs) = some g := by
   simp only [Isa.callee]
-  have hlt : f < fs.length := (List.getElem?_eq_some_iff.mp hf).1
-  cases hfind : (List.range fs.length).find? (fun g => rvIsa.addrAt (liftProg fs) g == some (e.eval regs)) with
+  cases hfind : cs.find? (fun g => rvIsa.addrAt (liftProg fs) g == some (e.eval regs)) with
   | some g => exact ⟨g, rfl⟩
   | none =>
-    have := List.find?_eq_none.mp hfind f (List.mem_range.mpr hlt)
+    have := List.find?_eq_none.mp hfind f hm
     simp [Isa.addrAt, getElem?_liftProg hf, liftFn, ha] at this
+
+/-- Every function is a candidate of a computed jump that `jalrStatic` does not resolve. -/
+theorem mem_jalrCands {fs : List Fn} {k : Nat} {pc : Word} {rs : Reg} {off : BitVec 12} {f : Nat}
+    (h : jalrStatic fs k pc rs off = none) (hf : f < fs.length) : f ∈ jalrCands fs k pc rs off := by
+  simp [jalrCands, h, hf]
 
 theorem callee_direct {fs : List Fn} {regs : Reg → BitVec 64} {f : Nat} (h : f < fs.length) :
     rvIsa.callee (liftProg fs) regs (.direct f) = some f := by

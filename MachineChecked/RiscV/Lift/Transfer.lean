@@ -472,7 +472,7 @@ theorem back_jal (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, 
 theorem back_jalr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong)
     (h : At fs exit fr rest regs m t f k) {rd rs : Reg} {off : BitVec 12}
     (hfetch : t.code t.pc = some (.JALR rd rs off))
-    (hstep : StepIs fs fr rest regs m f (liftJalr fs (f.base + BitVec.ofNat 64 (4 * k)) rd rs off)) :
+    (hstep : StepIs fs fr rest regs m f (liftJalr fs k (f.base + BitVec.ofNat 64 (4 * k)) rd rs off)) :
     ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   rw [stepSp1_ctl hfetch rfl (by simp) (by simp)] at ht'
@@ -504,7 +504,7 @@ theorem back_jalr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs,
             by rw [hpc, h.sim.chain.2.1 (by simp)]; exact hchain, by simp⟩, hs1⟩
       · exact (hL ((hstep _).2 (by simp [Isa.stepI, hra]))).elim
     · by_cases hsp : regs .x2 = fr.top
-      · cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (List.range fs.length)) with
+      · cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (jalrCands fs k (f.base + BitVec.ofNat 64 (4 * k)) rs off)) with
         | none => exact (hL ((hstep _).2 (by simp only [Isa.stepI, hsp, hc]; simp))).elim
         | some g =>
           obtain ⟨fn, hfn, hbase⟩ := callee_indirect hc
@@ -516,7 +516,7 @@ theorem back_jalr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs,
     by_cases h1 : rd = .x1
     · subst h1
       rw [ite_eq_left rfl] at hstep
-      cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (List.range fs.length)) with
+      cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (jalrCands fs k (f.base + BitVec.ofNat 64 (4 * k)) rs off)) with
       | none => exact (hL ((hstep _).2 (by simp only [Isa.stepI, hc]))).elim
       | some g =>
         obtain ⟨fn, hfn, hbase⟩ := callee_indirect hc
