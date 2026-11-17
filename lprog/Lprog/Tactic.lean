@@ -67,17 +67,26 @@ theorem cond' {cnd : LOperand I.Reg} {l : LLabel} (hf : p[fn]? = some fd)
     · exact cond hf hi hc hl (fun h => nomatch h) (fun _ => hn hc)
     · exact cond hf hi hc hl (fun _ => ht hc) (fun h => nomatch h)
 
+/-- A tail call, its continuation first and the stack pointer's condition after, the order a
+    tactic that applies a specification to the continuation wants. -/
+theorem tail' {tgt : Target I.Reg} (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Ltail tgt))
+    {f : Nat} (hc : I.callee p regs tgt = some f)
+    (h : I.SafeN p c G n Q ⟨⟨f, 0, rv, top⟩ :: rest, regs, m⟩) (hsp : regs I.sp = top) :
+    I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ :=
+  tail hf hi hsp hc h
+
 end SafeN
 
 attribute [lsym_simp] Isa.ofOps Op.eval Expr.eval BinOp.eval UnOp.eval condEval operandVal cmpEval Width.bytes
   updReg_apply
 
 /-- One step of `lsym`, side conditions tried with `simp_all` and the given lemmas. -/
-syntax (name := lstep) "lstep " term (" with " "[" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
+syntax (name := lstep) "lstep " term (" with " "[" Lean.Parser.Tactic.simpLemma,* "]")?
+  (" using " "[" term,* "]")? : tactic
 
 open Lean in
 macro_rules
-  | `(tactic| lstep $hf $[with [$lems,*]]?) => do
+  | `(tactic| lstep $hf $[with [$lems,*]]? $[using [$specs,*]]?) => do
     -- the simp set by its name as it is, not as the quotation's hygiene would make it
     let set := mkIdent `lsym_simp
     -- the branch's hypothesis, by a name a proof can use
@@ -95,7 +104,15 @@ macro_rules
         `(tactic| try (simp [$set:ident, $ls,*, Option.some.injEq, Prod.mk.injEq] at he; obtain ⟨h1, h2⟩ := he; subst h1; subst h2))
       | none =>
         `(tactic| try (simp [$set:ident, Option.some.injEq, Prod.mk.injEq] at he; obtain ⟨h1, h2⟩ := he; subst h1; subst h2))
-    `(tactic| first
+    -- a call or a tail call, through the first specification that applies: the callee is
+    -- computed (`rfl`), the specification applied to the state at its entry, and what it leaves
+    -- (its preconditions, and its continuation, which `lsym` takes up) tried with `simp_all`
+    let specs : Array (TSyntax `term) := match specs with | some ss => ss.getElems | none => #[]
+    let mut calls : Array (TSyntax `tactic) := #[]
+    for sp in specs do
+      calls := calls.push (← `(tactic| (refine Lprog.SafeN.call $hf rfl rfl ?_; apply $sp; all_goals ($close:tactic))))
+      calls := calls.push (← `(tactic| (refine Lprog.SafeN.tail' $hf rfl rfl ?_ ?_; apply $sp; all_goals ($close:tactic))))
+    let base ← `(tactic| first
       | refine Lprog.SafeN.label $hf rfl ?_
       | refine Lprog.SafeN.opn $hf rfl rfl ?_
       | (refine Lprog.SafeN.opn' $hf rfl (fun r' m' he => ?_) ?_; $subst; rotate_left 1; $close)
@@ -104,6 +121,22 @@ macro_rules
       | (refine Lprog.SafeN.ret $hf rfl ?_ ?_ ?_
          $close
          $close))
+    let all ← calls.foldlM (β := TSyntax `tactic)
+      (fun acc c => `(tactic| first | ($acc:tactic) | ($c:tactic))) base
+    return all
+
+/-- **`lframe`**: a goal `∀ r, r ∉ S → r ≠ x0 → r' r = regs r`, where `r'` is `regs` with
+    registers written by `updReg` (as `lsym` leaves it): each register written is in `S`. The
+    lemmas given unfold `S` where it is a name. -/
+syntax (name := lframe) "lframe" (" [" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
+
+open Lean in
+macro_rules
+  | `(tactic| lframe $[[$lems,*]]?) => do
+    let set := mkIdent `lsym_simp
+    match lems with
+    | some ls => `(tactic| (intro r hr _h0; simp only [$ls,*, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr; simp [$set:ident, hr]))
+    | none => `(tactic| (intro r hr _h0; simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr; simp [$set:ident, hr]))
 
 open Lean Elab Tactic Meta in
 /-- The program counter of a goal `… ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩`, if it is a
@@ -120,12 +153,31 @@ def goalPc? (g : MVarId) : MetaM (Option Nat) := do
   unless fr.isAppOfArity ``Frame.mk 4 do return none
   evalNat fr.getAppArgs[1]!
 
+open Lean Meta in
+/-- A goal `∀ r' m', Post … → SafeN … s`, a specification's continuation, with its binders
+    introduced as `r'`, `m'` and `hret` (and `h₁`, … for any more); any other goal as it is. -/
+def introCont (g : MVarId) : MetaM MVarId := g.withContext do
+  let t := (← instantiateMVars (← g.getType)).consumeMData
+  unless t.isForall do return g
+  let n ← forallTelescope t fun xs body => do
+    let body := body.consumeMData
+    let some s := body.getAppArgs.back? | return 0
+    let s ← whnfR s
+    return if s.isAppOfArity ``State.mk 4 then xs.size else 0
+  if n == 0 then return g
+  let names := [`r', `m', `hret] ++ (List.range n).map fun k => Name.mkSimple s!"h{k}"
+  let (_, g') ← g.introN n (names.take n)
+  return g'
+
 /-- **`lsym hf`**: step the body of the function `hf` names, on every branch, as far as
     `lstep` goes. `lsym hf stop [p, …]` leaves a goal where it comes to one of the program
     counters `p`, a loop's head, for its invariant (the goal it starts from is stepped even at
-    one); `lsym hf … with [lemmas]` gives `simp_all`
-    lemmas and hypotheses for the side conditions. -/
-syntax (name := lsym) "lsym " term (" stop " "[" num,* "]")? (" with " "[" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
+    one); `lsym hf … with [lemmas]` gives `simp_all` lemmas and hypotheses for the side
+    conditions; `lsym hf … using [specs]` steps calls and tail calls through the first
+    specification that applies (a callee's contract, stated from its entry, with a continuation
+    `∀ r' m', Post … → SafeN …`), and goes on after the call with the postcondition as `hret`. -/
+syntax (name := lsym) "lsym " term (" stop " "[" num,* "]")?
+  (" with " "[" Lean.Parser.Tactic.simpLemma,* "]")? (" using " "[" term,* "]")? : tactic
 
 open Lean Elab Tactic Meta in
 @[tactic lsym] def evalLsym : Tactic := fun stx => do
@@ -135,7 +187,14 @@ open Lean Elab Tactic Meta in
   let lems : Array (TSyntax ``Lean.Parser.Tactic.simpLemma) := if stx[3].isNone then #[] else
     stx[3][2].getSepArgs.map fun t => ⟨t⟩
   let ls : Syntax.TSepArray ``Lean.Parser.Tactic.simpLemma "," := lems
-  let step ← if lems.isEmpty then `(tactic| lstep $hf) else `(tactic| lstep $hf with [$ls,*])
+  let specs : Array (TSyntax `term) := if stx[4].isNone then #[] else
+    stx[4][2].getSepArgs.map fun t => ⟨t⟩
+  let ss : Syntax.TSepArray `term "," := specs
+  let step ← match lems.isEmpty, specs.isEmpty with
+    | true, true => `(tactic| lstep $hf)
+    | false, true => `(tactic| lstep $hf with [$ls,*])
+    | true, false => `(tactic| lstep $hf using [$ss,*])
+    | false, false => `(tactic| lstep $hf with [$ls,*] using [$ss,*])
   let mut todo := (← getGoals)
   -- the goals it starts from are stepped even at a stop: a stop is for coming back to
   let start := todo
@@ -155,7 +214,12 @@ open Lean Elab Tactic Meta in
       else
         setGoals [g]
         let ok ← try evalTactic step; pure true catch _ => pure false
-        if ok then todo := (← getGoals) ++ todo
+        if ok then
+          -- a specification's continuation, `∀ r' m', Post … → SafeN …`, taken up after the call
+          let mut next : List MVarId := []
+          for g' in (← getGoals) do
+            next := next ++ [← introCont g']
+          todo := next ++ todo
         else left := left.push g
   setGoals (left.toList ++ todo)
 

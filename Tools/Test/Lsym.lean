@@ -31,4 +31,39 @@ theorem f_spec {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {
   lsym hf with [hra, hsp]
   all_goals (apply hpost; simp_all [lsym_simp])
 
+/-! ## A call through a specification -/
+
+/-- `g`: `a0 = 5`, at `0x2000`. -/
+def G' : Fn := ⟨"g", 0x2000, [.ADDI .x10 .x0 5, .JALR .x0 .x1 0], 0⟩
+
+/-- `f`: saves `ra` in `s1`, calls `g`, adds one to its result and returns, at `0x1000`:
+    `addi s1, ra, 0; jal ra, g; addi a0, a0, 1; addi ra, s1, 0; ret`. -/
+def F' : Fn :=
+  ⟨"f", 0x1000, [.ADDI .x9 .x1 0, .JAL .x1 0xffc, .ADDI .x10 .x10 1, .ADDI .x1 .x9 0, .JALR .x0 .x1 0], 0⟩
+
+def fs' : List Fn := [F', G']
+
+theorem hf0 : (liftProg fs')[0]? = some (liftFn fs' F') := rfl
+theorem hf1 : (liftProg fs')[1]? = some (liftFn fs' G') := rfl
+
+/-- `g`'s contract: `a0` is 5, and every other register is kept. -/
+theorem g_spec {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
+    (hra : regs .x1 = ret) (hsp : regs .x2 = top)
+    (hpost : ∀ r' m', r' .x10 = 5 → (∀ r, r ≠ .x10 → r' r = regs r) → LSafeN fs' G N Q ⟨rest, r', m'⟩) :
+    LSafeN fs' G N Q ⟨⟨1, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  lsym hf1 with [hra, hsp]
+  apply hpost
+  · simp [lsym_simp]
+  · intro r h; simp [lsym_simp, h]
+
+/-- `f`'s contract, through `g`'s: `a0` is 6. -/
+theorem f_spec' {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
+    (hra : regs .x1 = ret) (hsp : regs .x2 = top)
+    (hpost : ∀ r' m', r' .x10 = 6 → LSafeN fs' G N Q ⟨rest, r', m'⟩) :
+    LSafeN fs' G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  lsym hf0 with [hra, hsp] using [g_spec]
+  apply hpost; simp [lsym_simp, hret]
+
 end Tools.Test.Lsym
