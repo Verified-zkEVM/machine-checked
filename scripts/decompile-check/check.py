@@ -47,7 +47,8 @@ counts included. `expected.txt` was written by flapjack-flip's own machine (risc
 one statement of the Pancake text assigns to a register or stores, compile and run as `run`
 does, and count the changed programs that `run` would have failed. A change in code the
 test never reaches, or to a value nothing reads, goes unnoticed, so the count is a floor on
-what the tests see, not a pass or fail. For a guest the statement is one of the program's,
+what the tests see, not a pass or fail. A changed program that Flapjack rejects is counted
+as caught. For a guest the statement is one of the program's,
 not of the functions that write its memory image, and it is marked
 (`sp1run.py`), so the count is also given among the changes some input reaches: most of a
 guest is its runtime, which one program runs little of.
