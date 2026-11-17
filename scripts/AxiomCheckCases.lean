@@ -7,6 +7,8 @@
 import Cases.CatCrypt
 import Cases.Zip2005.Runtime.MemcmpLprog
 import Cases.Zip2005.Runtime.WriteVectored
+import Cases.Zip2005.Runtime.MemcmpLsym
+import Cases.Zip2005.Runtime.WriteVectoredLsym
 import Cases.Zip2005.Runtime.BlackBox
 
 -- the CatCrypt kernels
@@ -20,3 +22,7 @@ import Cases.Zip2005.Runtime.BlackBox
 #print axioms Cases.Zip2005.WriteVectored.contract
 #print axioms Cases.Zip2005.WriteVectored.spec
 #print axioms Cases.Zip2005.black_box_spec
+
+-- the same, with `lsym`
+#print axioms Cases.Zip2005.MemcmpLsym.contract
+#print axioms Cases.Zip2005.WriteVectoredLsym.contract

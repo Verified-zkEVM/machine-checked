@@ -13,7 +13,23 @@ namespace Lprog.RiscV
 
 open RiscvZkvm.Rv64 Lprog.RiscV.Machine
 
-attribute [lsym_simp] rvIsa rv opnd se12 sh addr opOf rvMem alignedFor signExtend12
+attribute [lsym_simp] rvIsa rv opnd se12 sh addr opOf rvMem signExtend12
+
+/-! A memory access's check, in the form the lemmas about regions give it (`dwordOk`): a
+  doubleword's as `isValidDwordAccessSp1`, a byte's as validity alone. -/
+
+@[lsym_simp] theorem dword_check (a : Word) :
+    (isValidMemAddrSp1 a && alignedFor 8 a) = isValidDwordAccessSp1 a := rfl
+
+@[lsym_simp] theorem dword_check' (a : Word) :
+    (isValidMemAddrSp1 a = true ∧ alignedFor 8 a = true) ↔ isValidDwordAccessSp1 a = true := by
+  simp [isValidDwordAccessSp1, alignedFor]
+
+/-- A store does not change the code, so not where the code is. -/
+@[lsym_simp] theorem noCodeAt_setMem (m : MachineState) (a v b : Word) (w : Nat) :
+    noCodeAt (m.setMem a v) b w = noCodeAt m b w := rfl
+
+@[lsym_simp] theorem alignedFor_1 (a : Word) : alignedFor 1 a = true := rfl
 
 /-- **The frame of a postcondition.** Every register outside `S` reads in the machine state
     built from `r'` as in `u0`, if `regs` agrees with `u0` outside `S` and `r'` with `regs`

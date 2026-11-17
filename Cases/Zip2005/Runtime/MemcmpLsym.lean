@@ -58,7 +58,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
       · exact hcode
       · exact frame_ofParts hkept (by lframe [clobbered]) _ r hr
       · rw [getReg_ofParts_ne (by decide)]
-        simp only [lsym_simp, hbyte, ↓reduceIte, reduceCtorEq]
+        simp only [lsym_simp, hbyte, ↓reduceIte]
         rw [BitVec.sub_eq_add_neg]; exact sext32_sub_bytes _ _
     · -- the bytes agree and some are left: the back edge
       rename_i hb
@@ -67,9 +67,9 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         · exact h
         · rw [ofNat_add_neg_one (by omega), show n - j - 1 = 0 by omega] at hc; exact absurd rfl hc
       apply ih (j + 1) _ m (by omega) hlt
-      · simp [lsym_simp, h10, BitVec.add_assoc, ofNat_succ]
-      · simp [lsym_simp, h11, BitVec.add_assoc, ofNat_succ]
-      · simp [lsym_simp, h12, ofNat_add_neg_one (show 0 < n - j by omega), show n - j - 1 = n - (j + 1) by omega]
+      · simp [lsym_simp, BitVec.add_assoc, ofNat_succ]
+      · simp [lsym_simp, BitVec.add_assoc, ofNat_succ]
+      · simp [lsym_simp, ofNat_add_neg_one (show 0 < n - j by omega), show n - j - 1 = n - (j + 1) by omega]
       · simp [lsym_simp, hra]
       · simp [lsym_simp, hsp]
       · exact hmem
@@ -99,7 +99,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
       · exact hcode
       · exact frame_ofParts hkept (by lframe [clobbered]) _ r hr
       · rw [getReg_ofParts_ne (by decide)]
-        simp [lsym_simp, signExtend12]
+        simp [lsym_simp]
 
 /-- **`memcmp`'s contract at Lprog**, as in `MemcmpLprog.contract`. -/
 theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
@@ -129,7 +129,7 @@ theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
     · simp [hmem]
     · exact hcode
     · exact frame_ofParts (fun r _ h0 => hr r h0) (by lframe [clobbered]) _ r hr'
-    · rw [getReg_ofParts_ne (by decide)]; simp [lsym_simp, signExtend12]
+    · rw [getReg_ofParts_ne (by decide)]; simp [lsym_simp]
   · -- some bytes: the loop
     have hpos : 0 < n := by
       rcases Nat.eq_zero_or_pos n with h | h

@@ -194,7 +194,7 @@ manual, worked out by hand, not from the code under test.
 | file | tests | what |
 | --- | --- | --- |
 | `Run.lean` | | Runs the lift of one instruction on concrete registers and a byte memory, and says how it ends: at the next instruction, at a branch target, giving up, going `wrong`, or leaving the function (a call, a return, a system call). |
-| `RiscV.lean` | 214 | `decodeWord` and the whole-program lift of RV64IM: each `*w` instruction, division by zero and overflow, loads and stores of each width, `x0`, branches, calls and far calls (`auipc` then `jalr`), computed jumps. |
+| `RiscV.lean` | 218 | `decodeWord` and the whole-program lift of RV64IM: each `*w` instruction, division by zero and overflow, loads and stores of each width, `x0`, branches, calls and far calls (`auipc` then `jalr`), computed jumps; the candidates the `--proved` lift gives a computed jump (`jalrCands`). |
 | `Arm.lean` | 342 | The AArch64 lift from instruction words: flags through the conditions that read them, logical immediates, bitfields, conditional select and compare, loads and stores with writeback, branches. |
 | `X86.lean` | 392 | The x86-64 decoder and lift from bytes: prefixes and addressing forms, flags at every size, partial register writes, shifts, division, the stack, string instructions with `rep`. |
 | `Dead.lean` | 45 | Dropping the writes of flags nothing reads: what is dropped and what is kept, and that a body runs the same before and after. |
@@ -202,7 +202,7 @@ manual, worked out by hand, not from the code under test.
 | `Elf.lean` | 55 | The ELF reader on a small file made by hand, and on truncated and malformed ones: each gives an error, none a crash. |
 | `Structure.lean` | 6 | The structure of control flow on small graphs: a switch is never a two-way choice or a way out. |
 | `ToLean.lean` | 22 | `decompile --to lean`: a body in parts, a function's theorem from its parts, a changed term refuted by the kernel, symbol names escaped in comments, and the namespaces it takes. |
-| `Lsym.lean` | 1 | `lsym` (`lprog/Lprog/Tactic.lean`) on a small RISC-V function: a branch, two paths, a return, proved with the postcondition alone. |
+| `Lsym.lean` | 3 | `lsym` (`lprog/Lprog/Tactic.lean`) on small RISC-V functions: a branch, two paths, a return, proved with the postcondition alone; a call through the callee's specification, stepped on after the return. |
 
 To test one file while working on it: `lake env lean Tools/Test/X86.lean` (no output is a
 pass).
