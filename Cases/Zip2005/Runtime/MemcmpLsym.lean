@@ -59,7 +59,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
       · exact frame_ofParts hkept (by lframe [clobbered]) _ r hr
       · rw [getReg_ofParts_ne (by decide)]
         simp only [lsym_simp, hbyte, ↓reduceIte]
-        rw [BitVec.sub_eq_add_neg]; exact sext32_sub_bytes _ _
+        exact sext32_sub_bytes _ _
     · -- the bytes agree and some are left: the back edge
       rename_i hb
       have hlt : j + 1 < n := by
@@ -67,8 +67,8 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         · exact h
         · rw [ofNat_add_neg_one (by omega), show n - j - 1 = 0 by omega] at hc; exact absurd rfl hc
       apply ih (j + 1) _ m (by omega) hlt
-      · simp [lsym_simp, BitVec.add_assoc, ofNat_succ]
-      · simp [lsym_simp, BitVec.add_assoc, ofNat_succ]
+      · simp [lsym_simp, ofNat_succ]
+      · simp [lsym_simp, ofNat_succ]
       · simp [lsym_simp, ofNat_add_neg_one (show 0 < n - j by omega), show n - j - 1 = n - (j + 1) by omega]
       · simp [lsym_simp, hra]
       · simp [lsym_simp, hsp]

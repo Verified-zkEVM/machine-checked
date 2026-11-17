@@ -19,6 +19,7 @@
 -/
 
 import MachineChecked.RiscV.Lift.Transfer
+import Lprog.LsymAttr
 
 namespace MachineChecked.RiscV.Lift
 
@@ -26,6 +27,13 @@ open Lprog.RiscV
 
 open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog
 open Lprog.Ascent (Outcome)
+
+-- a computed jump's target, for `lsym` to compute a callee (`Lprog/Tactic.lean`)
+attribute [lsym_simp] jalrTgt
+
+/-- Where the code is, in a machine state built from a register file: the memory's. -/
+@[lsym_simp] theorem codeWithin_ofParts {lo hi : Nat} (r : Reg → BitVec 64) (m : MachineState) :
+    CodeWithin lo hi (ofParts r m) ↔ CodeWithin lo hi m := Iff.rfl
 
 section Rules
 
