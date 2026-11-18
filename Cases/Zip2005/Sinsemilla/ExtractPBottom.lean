@@ -52,12 +52,12 @@ theorem epb_mask (X Y : Nat) (hX : X < 2 ^ 256) (hY : Y < 2 ^ 256) :
         (BitVec.ofNat 64 Y = 0#64 ∧ BitVec.ofNat 64 (Y >>> 64) = 0#64 ∧ BitVec.ofNat 64 (Y >>> 128) = 0#64 ∧ BitVec.ofNat 64 (Y >>> 192) = 0#64) :=
       ⟨hx.mpr h.1, hy.mpr h.2⟩
     obtain ⟨⟨h0, h1, h2, h3⟩, ⟨h4, h5, h6, h7⟩⟩ := hc
-    rw [if_pos ⟨h0, h1, h2, h3, h4, h5, h6, h7⟩, if_pos h]
+    rw [ite_eq_left ⟨h0, h1, h2, h3, h4, h5, h6, h7⟩, ite_eq_left h]
     simp
   · have hc : ¬ (BitVec.ofNat 64 X = 0#64 ∧ BitVec.ofNat 64 (X >>> 64) = 0#64 ∧ BitVec.ofNat 64 (X >>> 128) = 0#64 ∧ BitVec.ofNat 64 (X >>> 192) = 0#64 ∧
         BitVec.ofNat 64 Y = 0#64 ∧ BitVec.ofNat 64 (Y >>> 64) = 0#64 ∧ BitVec.ofNat 64 (Y >>> 128) = 0#64 ∧ BitVec.ofNat 64 (Y >>> 192) = 0#64) := by
       intro hc; exact h ⟨hx.mp ⟨hc.1, hc.2.1, hc.2.2.1, hc.2.2.2.1⟩, hy.mp ⟨hc.2.2.2.2.1, hc.2.2.2.2.2.1, hc.2.2.2.2.2.2.1, hc.2.2.2.2.2.2.2⟩⟩
-    rw [if_neg hc, if_neg h, natToLeLimbs_cells4,
+    rw [ite_eq_right hc, ite_eq_right h, natToLeLimbs_cells4,
       show (-BitVec.zeroExtend 64 1#8 : Word) = BitVec.allOnes 64 by decide,
       BitVec.and_allOnes, BitVec.and_allOnes, BitVec.and_allOnes, BitVec.and_allOnes]
 

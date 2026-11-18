@@ -79,7 +79,7 @@ theorem step_ptr {tb : Word} {i : Nat} (h : i + 1 < 256) (hnw : tb.toNat + 0x200
     have h1 : ((tb + BitVec.ofNat 64 (32 * (i + 1))) ^^^ (tb + 0x2000#64)).toNat ≠ 0 :=
       fun hz => h0 (BitVec.eq_of_toNat_eq (by rw [hz]; rfl))
     unfold BitVec.ult; rw [decide_eq_true_eq]; simp only [BitVec.toNat_ofNat]; omega
-  rw [if_pos hx, show (1#64 : Word) <<< 5 = 32#64 by decide, BitVec.add_assoc, BitVec.ofNat_add_ofNat,
+  rw [ite_eq_left hx, show (1#64 : Word) <<< 5 = 32#64 by decide, BitVec.add_assoc, BitVec.ofNat_add_ofNat,
     show 32 * (i + 1) + 32 = 32 * (i + 1 + 1) by ring]
 
 set_option maxRecDepth 100000 in

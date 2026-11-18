@@ -43,13 +43,13 @@ theorem BitsUpTo.set {A B V : List Word} {m : Nat} (w : Word) (r : Nat) (hr : r 
   by_cases hom : o / 8 = m
   · apply byteAt_of_extract
     have hlen : o / 8 < (V.set m w).length := by rw [List.length_set]; omega
-    rw [getBang hlen, List.getElem_set, if_pos hom.symm, hb (o % 8) (by omega),
+    rw [getBang hlen, List.getElem_set, ite_eq_left hom.symm, hb (o % 8) (by omega),
       show 8 * m + o % 8 = o by omega]
   · have hlt : o / 8 < m := lt_of_le_of_ne ho8 hom
     have ho' : o < 8 * m := by omega
     unfold byteAt
     have hlen : o / 8 < (V.set m w).length := by rw [List.length_set]; omega
-    rw [getBang hlen, List.getElem_set, if_neg (Ne.symm hom), ← getBang (by omega)]
+    rw [getBang hlen, List.getElem_set, ite_eq_right (Ne.symm hom), ← getBang (by omega)]
     exact h o ho'
 
 /-- Word `m` written with bytes `1 ≤ b < 8` the bits, byte 0 kept. -/
@@ -104,7 +104,7 @@ theorem Region.set_of_parts {p : Word} {V : List Word} {s : MachineState} (m : N
     (hm : m < V.length) (h1 : Region p (V.take m) s) (h2 : Region (p + BitVec.ofNat 64 (8 * m)) [w] s)
     (h3 : Region (p + BitVec.ofNat 64 (8 * (m + 1))) (V.drop (m + 1)) s) :
     Region p (V.set m w) s := by
-  rw [List.set_eq_take_append_cons_drop, if_pos hm]
+  rw [List.set_eq_take_append_cons_drop, ite_eq_left hm]
   show Region p (V.take m ++ ([w] ++ V.drop (m + 1))) s
   refine Region.append' h1 (Region.append' h2 h3 ?_) ?_
   · rw [List.length_singleton, BitVec.add_assoc, ← BitVec.ofNat_add]

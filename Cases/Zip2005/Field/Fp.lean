@@ -75,16 +75,16 @@ theorem powBitsV_true (x e i a : Nat) : powBitsV x e i a true = powBits x e i a 
   induction i generalizing a with
   | zero => rfl
   | succ i ih =>
-    simp only [powBitsV, powBits, sqmul, if_true]
+    simp only [powBitsV, powBits, sqmul, ite_true]
     split <;> exact ih _
 
 theorem powBitsV_clear {x e i : Nat} (a : Nat) (f : Bool) (h : e.testBit i = false) :
     powBitsV x e (i + 1) a f = powBitsV x e i (if f then mul a a else a) f := by
-  simp only [powBitsV, h, Bool.false_eq_true, if_false]
+  simp only [powBitsV, h, Bool.false_eq_true, ite_false]
 
 theorem powBitsV_set {x e i : Nat} (a : Nat) (f : Bool) (h : e.testBit i = true) :
     powBitsV x e (i + 1) a f = powBitsV x e i (mul (if f then mul a a else a) x) true := by
-  simp only [powBitsV, h, if_true]
+  simp only [powBitsV, h, ite_true]
 
 theorem testBit_2pow62 (i : Nat) : Nat.testBit 4611686018427387904 i = decide (i = 62) := by
   rw [show (4611686018427387904 : Nat) = 2 ^ 62 by norm_num, Nat.testBit_two_pow]

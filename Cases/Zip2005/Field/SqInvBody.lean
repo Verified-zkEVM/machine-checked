@@ -21,7 +21,7 @@ set_option autoImplicit false
 
 theorem remu1098_lt (x : Word) : (rv64_remu x 1098#64).toNat < 1098 := by
   unfold rv64_remu
-  rw [if_neg (by decide), BitVec.toNat_umod]
+  rw [ite_eq_right (by decide), BitVec.toNat_umod]
   exact Nat.mod_lt _ (by decide)
 
 set_option maxHeartbeats 400000000 in

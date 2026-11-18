@@ -196,8 +196,8 @@ theorem AccRep.step (T : List Word) (m : Option (List Word)) (acc : List Word) (
   cases m with
   | none =>
     have h0 : acc[0]! = 0#64 := hnone.mpr rfl
-    have ht0' : t0 = 0#64 := by rw [ht0, if_pos (Or.inl h0)]
-    have ht1' : t1 = 0#64 := by rw [ht1, if_pos (Or.inl ht0')]
+    have ht0' : t0 = 0#64 := by rw [ht0, ite_eq_left (Or.inl h0)]
+    have ht1' : t1 = 0#64 := by rw [ht1, ite_eq_left (Or.inl ht0')]
     refine ⟨rfl, ?_, ?_⟩
     · simp [sinStep, ht1']
     · intro L hL; simp [sinStep] at hL
@@ -213,19 +213,19 @@ theorem AccRep.step (T : List Word) (m : Option (List Word)) (acc : List Word) (
       not_false_eq_true, true_implies] at ht0 hL1 ht1 hL2
     simp only [sinStep, Option.bind_some, sinAdd, ← hS, List.take_succ_cons, List.take_zero]
     by_cases heq : [a0, a1, a2, a3] = [s0, s1, s2, s3]
-    · have ht0' : t0 = 0#64 := by rw [ht0, if_pos heq]
-      have ht1' : t1 = 0#64 := by rw [ht1, if_pos (Or.inl ht0')]
+    · have ht0' : t0 = 0#64 := by rw [ht0, ite_eq_left heq]
+      have ht1' : t1 = 0#64 := by rw [ht1, ite_eq_left (Or.inl ht0')]
       simp only [heq, ↓reduceIte, Option.bind_none]
       exact ⟨rfl, by simp [ht1'], fun L hL => by simp at hL⟩
-    · have ht0' : t0 = 1#64 := by rw [ht0, if_neg heq]
+    · have ht0' : t0 = 1#64 := by rw [ht0, ite_eq_right heq]
       have hL1' := hL1 heq
       simp only [heq, ↓reduceIte, Option.bind_some, ← hL1', List.take_succ_cons, List.take_zero]
       simp only [ht0', h10, false_or, not_false_eq_true, true_implies] at ht1 hL2
       by_cases heq2 : [l0, l1, l2, l3] = [a0, a1, a2, a3]
-      · have ht1' : t1 = 0#64 := by rw [ht1, if_pos heq2]
+      · have ht1' : t1 = 0#64 := by rw [ht1, ite_eq_left heq2]
         simp only [heq2, ↓reduceIte]
         exact ⟨rfl, by simp [ht1'], fun L hL => by simp at hL⟩
-      · have ht1' : t1 = 1#64 := by rw [ht1, if_neg heq2]
+      · have ht1' : t1 = 1#64 := by rw [ht1, ite_eq_right heq2]
         have hL2' := hL2 heq2
         simp only [heq2, ↓reduceIte, ← hL2']
         exact ⟨rfl, by simp [ht1', h10], fun L hL => by cases hL; rw [ht1']⟩

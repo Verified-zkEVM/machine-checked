@@ -81,7 +81,7 @@ theorem bitNext (A : List Word) (k : Nat) :
 /-- `seqz` of a cursor compared with its end: `0` when the pointers differ. -/
 theorem seqz_or_xor (p e h : Word) (hpe : p ≠ e) :
     (if ((p ^^^ e) ||| h).ult 1#64 = true then 1#64 else 0#64) = 0#64 := by
-  rw [if_neg]
+  rw [ite_eq_right]
   intro hlt
   have h0 : (p ^^^ e) ||| h = 0#64 := by
     apply BitVec.eq_of_toNat_eq

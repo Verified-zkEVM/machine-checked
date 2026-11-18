@@ -112,14 +112,14 @@ theorem setMem (h : St s0 M y) {k : Word} (hk : ¬ InFrame (s0.getReg .x2) k)
     fun c hc => slot_ne hk hsp hc
   refine ⟨h.code0, by simp [h.code], by simp [getReg_setMem, h.sp], by simp [getReg_setMem, h.self],
     fun r hr => by simp [getReg_setMem, h.regs r hr], ?_, ?_, ?_, ?_, fun a ha => ?_, ?_⟩
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fra
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs0
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs1
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs2
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fra
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs0
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs1
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs2
   · rw [getMem_setMem]
     by_cases e : a = k
-    · rw [if_pos e, e, Tlsf.upd_same]
-    · rw [if_neg e, Tlsf.upd_ne e]; exact h.mem a ha
+    · rw [ite_eq_left e, e, Tlsf.upd_same]
+    · rw [ite_eq_right e, Tlsf.upd_ne e]; exact h.mem a ha
   · simp [h.priv]
 
 end St
@@ -171,13 +171,13 @@ theorem entry {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 : MachineStat
       xregs
       rw [r18] at hb
       have hb' : s0.getReg .x12 ≤ 31#64 := by simpa [BitVec.ult_iff_lt, BitVec.not_lt] using hb
-      unfold blkOf; rw [if_pos hb', r9]
+      unfold blkOf; rw [ite_eq_left hb', r9]
     · iterate 2 xstep code
       refine hk _ (by dstm) rfl ?_
       xregs
       rw [r18] at hb
       have hb' : ¬ s0.getReg .x12 ≤ 31#64 := by simpa [BitVec.ult_iff_lt, BitVec.not_le] using hb
-      unfold blkOf; rw [if_neg hb', r9]
+      unfold blkOf; rw [ite_eq_right hb', r9]
       simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem]
       unfold Tlsf.upd
       split
@@ -195,9 +195,9 @@ theorem entry {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 : MachineStat
   · simp only [untouched, List.mem_cons, List.mem_nil_iff, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> xregs
   all_goals simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
-    off_eq_iff, BitVec.reduceEq, if_true, if_false]
+    off_eq_iff, BitVec.reduceEq, ite_true, ite_false]
   simp only [hn 0xfffffffffffffff8#64 (by decide) a ha, hn 0xfffffffffffffff0#64 (by decide) a ha,
-    hn 0xffffffffffffffe8#64 (by decide) a ha, hn 0xffffffffffffffe0#64 (by decide) a ha, if_false]
+    hn 0xffffffffffffffe8#64 (by decide) a ha, hn 0xffffffffffffffe0#64 (by decide) a ha, ite_false]
 
 /-- The next block's class, `0x7801c6b0`–`0x7801c780`: registers only. -/
 theorem clsN {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineState}
@@ -278,7 +278,7 @@ theorem headN {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
     have hz : nx ≠ 0#64 := by simpa [r12] using hb
     have e : popTail (s0.getReg .x10) M f s nx =
         Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) f s) nx := by
-      unfold popTail; simp only [if_neg hz]
+      unfold popTail; simp only [ite_eq_right hz]
     refine hk _ ?_ rfl ?_
     · rw [e]
       refine St.setPC ?_ _
@@ -293,7 +293,7 @@ theorem headN {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
   simp only [hs.self, r13, r14]
   xag0
   simp only [Alloc.sl_addr2, MachineState.getMem_setReg, MachineState.getMem_setPC,
-    getMem_setMem, if_neg dSL, hs.mem _ hSL, Alloc.shl_mod hs', Alloc.xor_ones]
+    getMem_setMem, ite_eq_right dSL, hs.mem _ hSL, Alloc.shl_mod hs', Alloc.xor_ones]
   generalize ht : M (Tlsf.slBm (s0.getReg .x10) f) &&& ~~~(1#64 <<< s.toNat) = t
   xstep code
   · -- The class keeps a list.
@@ -301,7 +301,7 @@ theorem headN {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
     have e : popTail (s0.getReg .x10) M f s 0#64 =
         Tlsf.upd (Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) f s) 0#64)
           (Tlsf.slBm (s0.getReg .x10) f) t := by
-      unfold popTail; simp only [if_true, Tlsf.upd_ne dSL, ht, if_neg h0]
+      unfold popTail; simp only [ite_true, Tlsf.upd_ne dSL, ht, ite_eq_right h0]
     refine hk _ ?_ rfl ?_
     · rw [e]
       refine St.setPC ?_ _
@@ -318,13 +318,13 @@ theorem headN {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
     simp only [hs.self, r14]
     xag0
     simp only [Alloc.fl_addr2, MachineState.getMem_setReg, MachineState.getMem_setPC,
-      getMem_setMem, if_neg dFL, if_neg dFH, hs.mem _ hFL, Alloc.shl_mod hf, Alloc.xor_ones]
+      getMem_setMem, ite_eq_right dFL, ite_eq_right dFH, hs.mem _ hFL, Alloc.shl_mod hf, Alloc.xor_ones]
     have e : popTail (s0.getReg .x10) M f s 0#64 =
         Tlsf.upd (Tlsf.upd (Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) f s) 0#64)
           (Tlsf.slBm (s0.getReg .x10) f) t) (Tlsf.flBm (s0.getReg .x10))
           (M (Tlsf.flBm (s0.getReg .x10)) &&& ~~~(1#64 <<< f.toNat)) := by
       unfold popTail
-      simp only [if_true, Tlsf.upd_ne dSL, ht, h0, Tlsf.upd_ne dFL, Tlsf.upd_ne dFH]
+      simp only [ite_true, Tlsf.upd_ne dSL, ht, h0, Tlsf.upd_ne dFL, Tlsf.upd_ne dFH]
     refine hk _ ?_ rfl ?_
     · rw [e]
       refine St.setPC ?_ _
@@ -389,7 +389,7 @@ theorem nextSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
   rw [hbs] at hch
   obtain ⟨a', p', -, hcb⟩ := (Tlsf.chain_append (List.cons_ne_nil _ _)).mp hch
   obtain ⟨hb1, hb2, -, hb4, -, hb6⟩ := hcb
-  rw [if_neg (by simp [hbl])] at hb6
+  rw [ite_eq_right (by simp [hbl])] at hb6
   obtain ⟨hq1, hq2, -, hq4, -, hq6⟩ := hb6
   subst hb1
   have hbA := hsh.blkA hbm
@@ -411,7 +411,7 @@ theorem nextSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
           cases hl : q.last
           · rfl
           · have := hsh.chain.last_used q hqm hl; rw [hu] at this; exact absurd this (by simp)
-        simp only [Tlsf.Blk.hdr, hu, hql, Bool.false_eq_true, if_false] at h
+        simp only [Tlsf.Blk.hdr, hu, hql, Bool.false_eq_true, ite_false] at h
         rw [(hdr_free_sz hq4).1] at h
         exact h (hdr_free_sz hq4).2.1
       · rfl
@@ -486,7 +486,7 @@ theorem nextSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
       intro y3 hs3 hpc3 hregs3
       refine hk _ _ hs3 hpc3 ?_ (.inr ⟨hqu, ?_, ?_, ?_⟩)
       · rw [hregs3 .x9 (by simp), hregs .x9 (by simp)]; xregs; exact q9
-      · rw [unlinkMem_eq]; simp only [h10', h18', hp0, if_true]
+      · rw [unlinkMem_eq]; simp only [h10', h18', hp0, ite_true]
       · rw [hregs3 .x10 (by simp), hregs .x10 (by simp)]; xregs
       · rw [hregs3 .x11 (by simp), hregs .x11 (by simp)]; xregs
     · -- The predecessor forwards past `q`.
@@ -500,7 +500,7 @@ theorem nextSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
         refine St.setMem ?_ offP hsp _
         dst
       · xregs; exact q9
-      · rw [unlinkMem_eq]; simp only [h10', h18', if_neg hp0]
+      · rw [unlinkMem_eq]; simp only [h10', h18', ite_eq_right hp0]
       · xregs
       · xregs
   iterate 3 xstep code
@@ -510,12 +510,12 @@ theorem nextSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
   · have hz : nf = 0#64 := by simpa using hb
     refine mid _ ?_ rfl (by xregs; try exact r9) (by xregs) (by xregs) (by xregs; try exact hz.symm)
       (by xregs) (by xregs) (by xregs)
-    rw [if_pos hz]; dst
+    rw [ite_eq_left hz]; dst
   · have hz : nf ≠ 0#64 := by simpa using hb
     xstep code
     refine mid _ ?_ rfl (by xregs; try exact r9) (by xregs) (by xregs) (by xregs) (by xregs) (by xregs)
       (by xregs)
-    rw [if_neg hz]
+    rw [ite_eq_right hz]
     refine St.setPC ?_ _
     refine St.setMem ?_ (offNode nf 0x18#64 (hnfL hz) (by decide)) hsp _
     dst
@@ -576,7 +576,7 @@ theorem headP {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
     have hz : nx ≠ 0#64 := by simpa [r13] using hb
     have e : popTail (s0.getReg .x10) M f s nx =
         Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) f s) nx := by
-      unfold popTail; simp only [if_neg hz]
+      unfold popTail; simp only [ite_eq_right hz]
     refine hk _ ?_ rfl ?_
     · rw [e]
       refine St.setPC ?_ _
@@ -591,7 +591,7 @@ theorem headP {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
   simp only [hs.self, r14, r15]
   xag0
   simp only [Alloc.sl_addr2, MachineState.getMem_setReg, MachineState.getMem_setPC,
-    getMem_setMem, if_neg dSL, hs.mem _ hSL, Alloc.shl_mod hs', Alloc.xor_ones]
+    getMem_setMem, ite_eq_right dSL, hs.mem _ hSL, Alloc.shl_mod hs', Alloc.xor_ones]
   generalize ht : M (Tlsf.slBm (s0.getReg .x10) f) &&& ~~~(1#64 <<< s.toNat) = t
   xstep code
   · -- The class keeps a list.
@@ -599,7 +599,7 @@ theorem headP {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
     have e : popTail (s0.getReg .x10) M f s 0#64 =
         Tlsf.upd (Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) f s) 0#64)
           (Tlsf.slBm (s0.getReg .x10) f) t := by
-      unfold popTail; simp only [if_true, Tlsf.upd_ne dSL, ht, if_neg h0]
+      unfold popTail; simp only [ite_true, Tlsf.upd_ne dSL, ht, ite_eq_right h0]
     refine hk _ ?_ rfl ?_
     · rw [e]
       refine St.setPC ?_ _
@@ -616,13 +616,13 @@ theorem headP {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
     simp only [hs.self, r15]
     xag0
     simp only [Alloc.fl_addr2, MachineState.getMem_setReg, MachineState.getMem_setPC,
-      getMem_setMem, if_neg dFL, if_neg dFH, hs.mem _ hFL, Alloc.shl_mod hf, Alloc.xor_ones]
+      getMem_setMem, ite_eq_right dFL, ite_eq_right dFH, hs.mem _ hFL, Alloc.shl_mod hf, Alloc.xor_ones]
     have e : popTail (s0.getReg .x10) M f s 0#64 =
         Tlsf.upd (Tlsf.upd (Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) f s) 0#64)
           (Tlsf.slBm (s0.getReg .x10) f) t) (Tlsf.flBm (s0.getReg .x10))
           (M (Tlsf.flBm (s0.getReg .x10)) &&& ~~~(1#64 <<< f.toNat)) := by
       unfold popTail
-      simp only [if_true, Tlsf.upd_ne dSL, ht, h0, Tlsf.upd_ne dFL, Tlsf.upd_ne dFH]
+      simp only [ite_true, Tlsf.upd_ne dSL, ht, h0, Tlsf.upd_ne dFL, Tlsf.upd_ne dFH]
     refine hk _ ?_ rfl ?_
     · rw [e]
       refine St.setPC ?_ _
@@ -715,7 +715,7 @@ theorem prevSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
     · intro h
       cases hu : p.used
       · exfalso
-        simp only [Tlsf.Blk.hdr, hu, hpl, Bool.false_eq_true, if_false] at h
+        simp only [Tlsf.Blk.hdr, hu, hpl, Bool.false_eq_true, ite_false] at h
         rw [(hdr_free_sz hp4).1] at h
         exact h (hdr_free_sz hp4).2.1
       · rfl
@@ -793,7 +793,7 @@ theorem prevSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
       obtain ⟨pre'', p'', h1, h2, h3, h4, h5⟩ := hres
         (popTail (s0.getReg .x10) (if nf = 0#64 then M else Tlsf.upd M (nf + 0x18#64) pf)
           (Tlsf.flOf p.sz) (Tlsf.slOf p.sz) nf) (by
-        rw [unlinkMem_eq]; simp only [h10', h18', hp0, if_true])
+        rw [unlinkMem_eq]; simp only [h10', h18', hp0, ite_true])
       refine hk _ _ p.a (p.sz + y.getReg .x11) hs3 hpc3 ?_ ?_ ?_ (.inr ⟨pre'', p'', h1, h2, h3, h4, h5⟩)
       · rw [hregs3 .x12 (by simp), hregs .x12 (by simp)]; xregs; try exact q12
       · rw [hregs3 .x10 (by simp), hregs .x10 (by simp)]; xregs; try exact q10
@@ -805,7 +805,7 @@ theorem prevSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
       simp only [q13, q15]
       obtain ⟨pre'', p'', h1, h2, h3, h4, h5⟩ := hres
         (Tlsf.upd (if nf = 0#64 then M else Tlsf.upd M (nf + 0x18#64) pf) (pf + 0x10#64) nf) (by
-        rw [unlinkMem_eq]; simp only [h10', h18', if_neg hp0])
+        rw [unlinkMem_eq]; simp only [h10', h18', ite_eq_right hp0])
       refine hk _ _ p.a (p.sz + y.getReg .x11) ?_ rfl ?_ ?_ ?_
         (.inr ⟨pre'', p'', h1, h2, h3, h4, h5⟩)
       · refine St.setPC ?_ _
@@ -821,11 +821,11 @@ theorem prevSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
   · have hz : nf = 0#64 := by simpa using hb
     refine mid _ ?_ rfl (by xregs) (by xregs) (by xregs) (by xregs; try exact hz.symm)
       (by xregs) (by xregs)
-    rw [if_pos hz]; dst
+    rw [ite_eq_left hz]; dst
   · have hz : nf ≠ 0#64 := by simpa using hb
     xstep code
     refine mid _ ?_ rfl (by xregs) (by xregs) (by xregs) (by xregs) (by xregs) (by xregs)
-    rw [if_neg hz]
+    rw [ite_eq_right hz]
     refine St.setPC ?_ _
     refine St.setMem ?_ (offNode nf 0x18#64 (hnfL hz) (by decide)) hsp _
     dst
@@ -930,7 +930,7 @@ theorem fin {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineStat
   simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, hs.sp]
   xa
   simp only [getMem_setMem, MachineState.getMem_setReg, Ne.symm n1,
-    Ne.symm n2, Ne.symm n3, Ne.symm n4, Ne.symm m1, Ne.symm m2, Ne.symm m3, Ne.symm m4, if_false,
+    Ne.symm n2, Ne.symm n3, Ne.symm n4, Ne.symm m1, Ne.symm m2, Ne.symm m3, Ne.symm m4, ite_false,
     hs.fra, hs.fs0, hs.fs1, hs.fs2]
   apply hk
   refine ⟨by simp, fun q hq => ?_, by simpa using hs.code.trans hs.code0.symm, fun a ha => ?_,
@@ -942,11 +942,11 @@ theorem fin {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineStat
   · simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem]
     unfold Tlsf.upd
     by_cases e1 : a = s0.getReg .x10
-    · rw [if_pos e1, if_pos e1]
-    · rw [if_neg e1, if_neg e1]
+    · rw [ite_eq_left e1, ite_eq_left e1]
+    · rw [ite_eq_right e1, ite_eq_right e1]
       by_cases e2 : a = Tlsf.slBm (s0.getReg .x10) f
-      · rw [if_pos e2, if_pos e2]
-      · rw [if_neg e2, if_neg e2]; exact hs.mem a ha
+      · rw [ite_eq_left e2, ite_eq_left e2]
+      · rw [ite_eq_right e2, ite_eq_right e2]; exact hs.mem a ha
 
 /-- Filing the merged block, `0x7801c818`–`0x7801c944`, then `fin`. -/
 theorem relSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineState}
@@ -1037,7 +1037,7 @@ theorem relSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineS
   · have hz : h = 0#64 := by simpa using hb
     refine c3 _ ?_ rfl (by xregs; try exact q10) (by xregs; try exact q11) (by xregs; try exact q12)
       (by xregs; try exact q13)
-    rw [e3, if_pos hz]
+    rw [e3, ite_eq_left hz]
     refine St.setPC ?_ _
     refine St.setMem ?_ (offT _ (by decide)) hsp _
     refine St.setMem ?_ (offT _ (by decide)) hsp _
@@ -1048,7 +1048,7 @@ theorem relSeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineS
     simp only [q12]
     refine c3 _ ?_ rfl (by xregs; try exact q10) (by xregs; try exact q11) (by xregs; try exact q12)
       (by xregs; try exact q13)
-    rw [e3, if_neg hz]
+    rw [e3, ite_eq_right hz]
     refine St.setPC ?_ _
     refine St.setMem ?_ (offH hz) hsp _
     refine St.setMem ?_ (offT _ (by decide)) hsp _

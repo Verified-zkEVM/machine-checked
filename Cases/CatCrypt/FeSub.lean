@@ -37,7 +37,7 @@ set_option maxHeartbeats 20000000 in
 theorem bv (m : MachineState) : Spec m (prog.foldl stepRegs m.getReg) := by
   simp only [prog]
   regs_run
-  simp only [Spec, cat4, p25519, upd, reduceCtorEq, if_false, if_true]
+  simp only [Spec, cat4, p25519, upd, reduceCtorEq, ite_false, ite_true]
   bv_decide (config := { timeout := 1200, enums := false })
 
 set_option maxRecDepth 100000 in

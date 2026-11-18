@@ -183,7 +183,7 @@ theorem roundsTo_toNat (h0 h1 h2 h3 h4 h5 h6 h7 m0 m1 m2 m3 m4 m5 m6 m7 m8 m9 m1
   simp only [G_toNat_0_4_8_12, G_toNat_1_5_9_13, G_toNat_2_6_10_14, G_toNat_3_7_11_15, G_toNat_0_5_10_15, G_toNat_1_6_11_12, G_toNat_2_7_8_13, G_toNat_3_4_9_14, G_length, List.length_cons, List.length_nil, Nat.reduceAdd,
     List.map_cons, List.map_nil, BitVec.toNat_xor, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod,
     Zip2005.Blake2b.M64]
-  cases f <;> simp only [Bool.false_eq_true, if_true, if_false, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod,
+  cases f <;> simp only [Bool.false_eq_true, ite_true, ite_false, BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod,
     Nat.reduceSub, Nat.xor_zero]
 
 /-- The compression function agrees with the spec's, word for word. -/

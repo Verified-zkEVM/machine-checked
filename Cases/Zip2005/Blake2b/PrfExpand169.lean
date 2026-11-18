@@ -68,13 +68,13 @@ theorem prfExpand169_eq (e0 e1 e2 e3 x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x
     prfExpand (stateBytes ([e0, e1, e2, e3].map BitVec.toNat)) ([UInt8.ofNat d.toNat] ++ stateBytes ([x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16].map BitVec.toNat)) := by
   have hb1 := compress_toNat (0x6A09E667F3BCC908#64 ^^^ 0x01010040#64) 0xBB67AE8584CAA73B#64 0x3C6EF372FE94F82B#64 0xA54FF53A5F1D36F1#64 0x510E527FADE682D1#64 0x9B05688C2B3E6C1F#64 (0x1F83D9ABFB41BD6B#64 ^^^ 0x78455f687361635a#64) (0x5BE0CD19137E2179#64 ^^^ 0x64656553646e6170#64)
     e0 e1 e2 e3 ((x0 <<< 8) ||| BitVec.zeroExtend 64 (BitVec.truncate 8 d)) ((x1 <<< 8) ||| (x0 >>> 56)) ((x2 <<< 8) ||| (x1 >>> 56)) ((x3 <<< 8) ||| (x2 >>> 56)) ((x4 <<< 8) ||| (x3 >>> 56)) ((x5 <<< 8) ||| (x4 >>> 56)) ((x6 <<< 8) ||| (x5 >>> 56)) ((x7 <<< 8) ||| (x6 >>> 56)) ((x8 <<< 8) ||| (x7 >>> 56)) ((x9 <<< 8) ||| (x8 >>> 56)) ((x10 <<< 8) ||| (x9 >>> 56)) ((x11 <<< 8) ||| (x10 >>> 56)) 128#64 0#64 false
-  rw [if_neg (by decide)] at hb1
+  rw [ite_eq_right (by decide)] at hb1
   have hH := prfH_toNat
   unfold prfH at hH ⊢
   obtain ⟨o0, o1, o2, o3, o4, o5, o6, o7, hO⟩ := exists8 _ (compress_length _ _ 128#64 0#64 0#64 0#64)
   rw [hO] at hb1 ⊢
   have hb2 := compress_toNat o0 o1 o2 o3 o4 o5 o6 o7 ((x12 <<< 8) ||| (x11 >>> 56)) ((x13 <<< 8) ||| (x12 >>> 56)) ((x14 <<< 8) ||| (x13 >>> 56)) ((x15 <<< 8) ||| (x14 >>> 56)) ((x16 <<< 8) ||| (x15 >>> 56)) (x16 >>> 56) 0#64 0#64 0#64 0#64 0#64 0#64 0#64 0#64 0#64 0#64 169#64 0#64 true
-  rw [if_pos rfl] at hb2
+  rw [ite_eq_left rfl] at hb2
   rw [hb2, prfExpand, blake2b512]
   simp only [← List.append_assoc]
   have hlen : (stateBytes ([e0, e1, e2, e3].map BitVec.toNat) ++ [UInt8.ofNat d.toNat] ++ stateBytes ([x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16].map BitVec.toNat)).length = 169 := by

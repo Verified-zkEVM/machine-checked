@@ -33,7 +33,7 @@ theorem jacOk_of_jacW {m : List Word} (h : JacW m) : JacOk (ptX m) (ptY m) (ptZ 
   · refine ⟨by rw [h]; exact Fp.R_lt, fun _ => ?_⟩
     rw [specPt_eq m (by rw [h]; exact Fp.R_lt)] at hon
     unfold specT affD at hon
-    rw [h, D_R, if_neg one_ne_zero] at hon
+    rw [h, D_R, ite_eq_right one_ne_zero] at hon
     rw [h, D_R]
     exact hon
 
@@ -43,11 +43,11 @@ theorem ptZ_lt_of_jacW {m : List Word} (h : JacW m) : ptZ m < Fp.p := (jacOk_of_
 theorem jacW_mulW (pt k : List Word) (hb : ptZ pt ≠ 0 → ValidA (mulBase pt)) (hf : mulFacts pt k) :
     JacW (mulW pt k) := by
   by_cases hz : ptZ pt = 0
-  · left; rw [mulW, if_pos hz]; exact ptZ_replicate
+  · left; rw [mulW, ite_eq_left hz]; exact ptZ_replicate
   obtain ⟨hok, hcan⟩ := hf hz
   obtain ⟨hSv, -⟩ := mulSum_spec pt k (hb hz) hok
   by_cases h0 : (mulSum pt k)[0]! = 0
-  · left; rw [mulW, if_neg hz, if_pos h0]; exact ptZ_replicate
+  · left; rw [mulW, ite_eq_right hz, ite_eq_left h0]; exact ptZ_replicate
   right
   obtain ⟨hxl, hyl⟩ := hcan h0
   obtain ⟨ht, hd⟩ := drop1_take4 hSv.1
@@ -58,12 +58,12 @@ theorem jacW_mulW (pt k : List Word) (hb : ptZ pt ≠ 0 → ValidA (mulBase pt))
   obtain ⟨cx, cy, cz⟩ := cells3 _ _ _ (lt_trans hxs Fp.p_lt) (lt_trans hys Fp.p_lt)
     (lt_trans Fp.R_lt Fp.p_lt)
   have hc := (hSv.2 h0).2
-  rw [mulW, if_neg hz, if_neg h0]
+  rw [mulW, ite_eq_right hz, ite_eq_right h0]
   refine ⟨cz, ?_⟩
   rw [Point.onCurve_iff]
   apply (onCurve_iff_sw _ _).mp
   unfold jacXY
-  rw [cx, cy, cz, Fp.toAffine, if_pos rfl]
+  rw [cx, cy, cz, Fp.toAffine, ite_eq_left rfl]
   simp only
   rw [mont_in_out _ hxl, mont_in_out _ hyl]
   rw [xOf, yOf, ht, hd] at hc
@@ -117,12 +117,12 @@ theorem jacW_toCurve (L : List Word) (hL : AffOk L) :
     exact absurd hon (by decide)
   have hz : toCurveW (unpackW L) = Accel.natToLeLimbs 4 X ++ Accel.natToLeLimbs 4 Y ++
       Accel.natToLeLimbs 4 Fp.R := by
-    rw [toCurveW, if_neg hnz, hu]
+    rw [toCurveW, ite_eq_right hnz, hu]
   obtain ⟨cx, cy, cz⟩ := cells3 _ _ _ (lt_trans hxs Fp.p_lt) (lt_trans hys Fp.p_lt)
     (lt_trans Fp.R_lt Fp.p_lt)
   have hsp : specPt (toCurveW (unpackW L)) = dec8 L := by
     unfold specPt dec8 jacXY
-    rw [hz, cx, cy, cz, Fp.toAffine, if_pos rfl]
+    rw [hz, cx, cy, cz, Fp.toAffine, ite_eq_left rfl]
     simp only
     rw [mont_in_out _ hx, mont_in_out _ hy]
   refine ⟨Or.inr ⟨by rw [hz, cz], ?_⟩, hsp⟩

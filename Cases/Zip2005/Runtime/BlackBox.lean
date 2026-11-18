@@ -124,10 +124,10 @@ theorem black_box_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
   have hSB : memOkSp1 (execInstrBr s (.ADDI .x2 .x2 0xff0#12)) (.SB .x2 .x10 0x00f#12) = true := by
     apply memOk_SB
     · simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, hsp, reduceCtorEq,
-        if_true, ne_eq, not_false_eq_true, and_self]
+        ite_true, ne_eq, not_false_eq_true, and_self]
       apply isValidMemAddrSp1_of_lt; rw [haddr]; omega
     · simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, hsp, reduceCtorEq,
-        if_true, ne_eq, not_false_eq_true, and_self]
+        ite_true, ne_eq, not_false_eq_true, and_self]
       apply noCodeAt_of_codeWithin (codeWithin_of_code_eq (by simp) hcw) _ 1 (by decide)
       · rw [haddr]; omega
       · rw [haddr]; omega
@@ -135,7 +135,7 @@ theorem black_box_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
       (.SB .x2 .x10 0x00f#12)) (.LBU .x10 .x2 0x00f#12) = true := by
     apply memOk_LBU
     simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, hsp, reduceCtorEq,
-      if_true, ne_eq, not_false_eq_true, and_self, getReg_setByte]
+      ite_true, ne_eq, not_false_eq_true, and_self, getReg_setByte]
     apply isValidMemAddrSp1_of_lt; rw [haddr]; omega
   -- the contract at Lprog, carried down
   have hc : CodeAt F_7803a0fc.base (BlackBox.prog.map some) s := BlackBox.prog_map ▸ hcode
@@ -147,7 +147,7 @@ theorem black_box_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
     have hsp16 : sp + signExtend12 0xff0#12 + signExtend12 0x010#12 = sp := by
       simp only [signExtend12]; bv_decide (config := { enums := false })
     simp only [BlackBox.body, execInstrBr, MachineState.getReg_setPC, getReg_setReg,
-      getReg_setByte, hsp, reduceCtorEq, if_true, if_false, ne_eq, not_false_eq_true, and_self,
+      getReg_setByte, hsp, reduceCtorEq, ite_true, ite_false, ne_eq, not_false_eq_true, and_self,
       false_and]
     exact hsp16
   refine SafeN.of_contract BlackBox.hok (g := 0) (fn := BlackBox.F) rfl hpc
@@ -174,12 +174,12 @@ theorem black_box_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
     rw [hU.mem]
     simp only [BlackBox.body, execInstrBr, MachineState.getMem_setPC, MachineState.getMem_setReg,
       MachineState.setByte, getReg_setReg, MachineState.getReg_setPC, getReg_setMem, hsp,
-      reduceCtorEq, if_true, ne_eq, not_false_eq_true, and_self]
+      reduceCtorEq, ite_true, ne_eq, not_false_eq_true, and_self]
     rw [hslot, MachineState.getMem_setMem_ne hne]
     simp
   · rw [hU.regs]
     simp only [BlackBox.body, execInstrBr, MachineState.getReg_setPC, getReg_setReg, getReg_setMem,
-      hsp, ha0, reduceCtorEq, if_true, if_false, ne_eq, not_false_eq_true, and_self, false_and,
+      hsp, ha0, reduceCtorEq, ite_true, ite_false, ne_eq, not_false_eq_true, and_self, false_and,
       MachineState.getByte, MachineState.setByte, MachineState.getMem_setPC,
       MachineState.getMem_setReg]
     rw [hslot, hoff, MachineState.getMem_setMem_eq, extractByte_replaceByte _ 7 (by decide)]

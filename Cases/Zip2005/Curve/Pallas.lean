@@ -70,15 +70,15 @@ theorem cadd_dbl (hp0 : p[0]! ≠ 0) (hq0 : q[0]! ≠ 0)
       [q[1]!, q[2]!, q[3]!, q[4]!, q[5]!, q[6]!, q[7]!, q[8]!]) :
     completeAddW p q = p[0]! :: Accel.curveDblL Sp1.pallasP 4
       [p[1]!, p[2]!, p[3]!, p[4]!, p[5]!, p[6]!, p[7]!, p[8]!] := by
-  rw [completeAddW, if_neg hp0, if_neg hq0, drop1_9 hpl, drop1_9 hql, if_pos heq]
+  rw [completeAddW, ite_eq_right hp0, ite_eq_right hq0, drop1_9 hpl, drop1_9 hql, ite_eq_left heq]
 
 theorem cadd_neg (hp0 : p[0]! ≠ 0) (hq0 : q[0]! ≠ 0)
     (hne : [p[1]!, p[2]!, p[3]!, p[4]!, p[5]!, p[6]!, p[7]!, p[8]!] ≠
       [q[1]!, q[2]!, q[3]!, q[4]!, q[5]!, q[6]!, q[7]!, q[8]!])
     (hx : [p[1]!, p[2]!, p[3]!, p[4]!] = [q[1]!, q[2]!, q[3]!, q[4]!]) :
     completeAddW p q = [(0 : Word), p[1]!, p[2]!, p[3]!, p[4]!, p[5]!, p[6]!, p[7]!, p[8]!] := by
-  rw [completeAddW, if_neg hp0, if_neg hq0, drop1_9 hpl, drop1_9 hql, if_neg hne]
-  exact if_pos hx
+  rw [completeAddW, ite_eq_right hp0, ite_eq_right hq0, drop1_9 hpl, drop1_9 hql, ite_eq_right hne]
+  exact ite_eq_left hx
 
 theorem cadd_add (hp0 : p[0]! ≠ 0) (hq0 : q[0]! ≠ 0)
     (hne : [p[1]!, p[2]!, p[3]!, p[4]!, p[5]!, p[6]!, p[7]!, p[8]!] ≠
@@ -87,8 +87,8 @@ theorem cadd_add (hp0 : p[0]! ≠ 0) (hq0 : q[0]! ≠ 0)
     completeAddW p q = p[0]! :: Accel.curveAddL Sp1.pallasP 4
       [p[1]!, p[2]!, p[3]!, p[4]!, p[5]!, p[6]!, p[7]!, p[8]!]
       [q[1]!, q[2]!, q[3]!, q[4]!, q[5]!, q[6]!, q[7]!, q[8]!] := by
-  rw [completeAddW, if_neg hp0, if_neg hq0, drop1_9 hpl, drop1_9 hql, if_neg hne]
-  exact if_neg hx
+  rw [completeAddW, ite_eq_right hp0, ite_eq_right hq0, drop1_9 hpl, drop1_9 hql, ite_eq_right hne]
+  exact ite_eq_right hx
 
 end cases
 
@@ -120,9 +120,9 @@ theorem complete_add_assign_spec {G : MachineState → Prop} {n : Nat} {P : Prop
   all_goals try exact length_completeAddW hpl hql
   all_goals sym_subst
   · -- `self` is the identity: `other` was copied over it
-    rw [completeAddW, if_pos (by simpa using hbr6)]; exact fold9 hql
+    rw [completeAddW, ite_eq_left (by simpa using hbr6)]; exact fold9 hql
   · -- `other` is the identity
-    rw [completeAddW, if_neg (by simpa using hbr6), if_pos (by simpa using hbr8)]; exact fold9 hpl
+    rw [completeAddW, ite_eq_right (by simpa using hbr6), ite_eq_left (by simpa using hbr8)]; exact fold9 hpl
   · -- equal points: doubled
     replace hbr6 : p[0]! ≠ 0 := by simpa using hbr6
     replace hbr8 : q[0]! ≠ 0 := by simpa using hbr8
@@ -166,7 +166,7 @@ theorem double_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Machin
   all_goals sym_close hk
   all_goals try exact length_doubleW hpl
   all_goals sym_subst
-  · rw [doubleW, if_pos (by simpa using hbr1)]; exact fold9 hpl
-  · rw [doubleW, if_neg (by simpa using hbr1), drop1_9 hpl, fold8 (length_curveDblL _)]
+  · rw [doubleW, ite_eq_left (by simpa using hbr1)]; exact fold9 hpl
+  · rw [doubleW, ite_eq_right (by simpa using hbr1), drop1_9 hpl, fold8 (length_curveDblL _)]
 
 end Cases.Zip2005

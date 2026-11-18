@@ -127,7 +127,7 @@ theorem exit {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSta
   have n4 := hne 0xffffffffffffffe0#64 (by decide)
   have n5 := hne 0xffffffffffffffd8#64 (by decide)
   simp only [MachineState.getMem_setReg, getMem_setMem, n1, n2, n3,
-    n4, n5, if_false, hs.fra, hs.fs0, hs.fs1, hs.fs2, hs.fs3]
+    n4, n5, ite_false, hs.fra, hs.fs0, hs.fs1, hs.fs2, hs.fs3]
   apply hk
   refine ⟨by simp, fun q hq => ?_, by simpa using hs.code.trans hs.code0.symm, fun a ha => ?_, ?_,
     by simp [hs.priv]⟩
@@ -137,8 +137,8 @@ theorem exit {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSta
         (refine hs.regs _ ?_; simp [untouched])
   · simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem]
     by_cases he : a = s0.getReg .x10
-    · rw [if_pos he, he, hs.mem _ hself, Tlsf.upd_same]; rfl
-    · rw [if_neg he, hs.mem _ ha, Tlsf.upd_ne he]
+    · rw [ite_eq_left he, he, hs.mem _ hself, Tlsf.upd_same]; rfl
+    · rw [ite_eq_right he, hs.mem _ ha, Tlsf.upd_ne he]
   · xregs
 
 namespace St
@@ -170,15 +170,15 @@ theorem setMem (h : St s0 M y) {k : Word} (hk : ¬ InFrame (s0.getReg .x2) k)
   refine ⟨h.code0, by simp [h.code], by simp [getReg_setMem, h.sp], by simp [getReg_setMem, h.self],
     by simp [getReg_setMem, h.align], by simp [getReg_setMem, h.size],
     fun r hr => by simp [getReg_setMem, h.regs r hr], ?_, ?_, ?_, ?_, ?_, fun a ha => ?_, ?_⟩
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fra
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs0
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs1
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs2
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs3
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fra
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs0
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs1
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs2
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs3
   · rw [getMem_setMem]
     by_cases e : a = k
-    · rw [if_pos e, e, Tlsf.upd_same]
-    · rw [if_neg e, Tlsf.upd_ne e]; exact h.mem a ha
+    · rw [ite_eq_left e, e, Tlsf.upd_same]
+    · rw [ite_eq_right e, Tlsf.upd_ne e]; exact h.mem a ha
   · simp [h.priv]
 
 end St
@@ -288,7 +288,7 @@ theorem found {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
               Tlsf.upd (Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) fl sl) 0#64)
                 (Tlsf.slBm (s0.getReg .x10) fl) t := by
             have : ¬ t = 0#64 := by simpa using hb
-            unfold Tlsf.popMem; simp only [if_true, ht, if_neg this]
+            unfold Tlsf.popMem; simp only [ite_true, ht, ite_eq_right this]
           rw [hpm]
           refine St.setPC ?_ _
           refine St.setMem ?_ (offC _ hSL) hsp _
@@ -301,14 +301,14 @@ theorem found {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
         simp only [hs1.self, r12]
         xag
         simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
-          show (s0.getReg .x10 + 0x8208#64) = Tlsf.flBm (s0.getReg .x10) from rfl, if_neg dFL,
+          show (s0.getReg .x10 + 0x8208#64) = Tlsf.flBm (s0.getReg .x10) from rfl, ite_eq_right dFL,
           hs1.mem _ (offC _ hFL), Tlsf.upd_ne dFH, shl_mod hfl, xor_ones]
         refine hk _ ?_ rfl ?_ ?_ ?_ ?_
         · have hpm : Tlsf.popMem (s0.getReg .x10) M fl sl 0#64 =
               Tlsf.upd (Tlsf.upd (Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) fl sl) 0#64)
                 (Tlsf.slBm (s0.getReg .x10) fl) t) (Tlsf.flBm (s0.getReg .x10))
                 (M (Tlsf.flBm (s0.getReg .x10)) &&& ~~~(1#64 <<< fl.toNat)) := by
-            unfold Tlsf.popMem; simp only [if_true, ht, ht0]
+            unfold Tlsf.popMem; simp only [ite_true, ht, ht0]
           rw [hpm]
           refine St.setPC ?_ _
           refine St.setMem ?_ (offC _ hFL) hsp _
@@ -332,7 +332,7 @@ theorem found {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineSt
       refine hk _ ?_ rfl ?_ ?_ ?_ ?_
       · have hpm : Tlsf.popMem (s0.getReg .x10) M fl sl nx =
             Tlsf.upd (Tlsf.upd M (Tlsf.headAddr (s0.getReg .x10) fl sl) nx) (nx + 0x18#64) 0#64 := by
-          unfold Tlsf.popMem; rw [if_neg hnx0]
+          unfold Tlsf.popMem; rw [ite_eq_right hnx0]
         rw [hpm]
         refine St.setPC ?_ _
         refine St.setMem ?_ off18 hsp _
@@ -384,10 +384,10 @@ theorem fin {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineStat
       have : finMem (s0.getReg .x10) M x N ptr (s0.getReg .x11) =
           Tlsf.upd (Tlsf.upd M x (N + 1#64)) (s0.getReg .x10)
             (Tlsf.upd M x (N + 1#64) (s0.getReg .x10) + 1#64) := by
-        unfold finMem; simp only [if_pos ha]
+        unfold finMem; simp only [ite_eq_left ha]
       rw [this]
       simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setMem, reduceCtorEq, ne_eq,
-        not_false_eq_true, and_true, if_false, r19] at ht
+        not_false_eq_true, and_true, ite_false, r19] at ht
       exact ht
   · have ha : 32#64 ≤ s0.getReg .x11 := by
       rw [hs.align] at hb; simpa [BitVec.ult_iff_lt, BitVec.not_lt] using hb
@@ -409,10 +409,10 @@ theorem fin {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : MachineStat
             (s0.getReg .x10)
             (Tlsf.upd (Tlsf.upd M x (N + 1#64)) (ptr + 0xfffffffffffffff8#64) x (s0.getReg .x10) +
               1#64) := by
-        unfold finMem; simp only [if_neg this]
+        unfold finMem; simp only [ite_eq_right this]
       rw [e]
       simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setMem, reduceCtorEq, ne_eq,
-        not_false_eq_true, and_true, if_false, r19] at ht
+        not_false_eq_true, and_true, ite_false, r19] at ht
       exact ht
 
 /-- `splitMem` without its last write, `x`'s header: what the split path leaves. -/
@@ -519,7 +519,7 @@ theorem bitmaps {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machine
   simp only [r10, r15, r16, hs.self]
   xag0
   simp only [fl_addr2, sl_addr2, MachineState.getMem_setReg, MachineState.getMem_setPC,
-    getMem_setMem, if_neg hne, hs.mem _ hFL, hs.mem _ hSL, shl_mod hf2, shl_mod hs2]
+    getMem_setMem, ite_eq_right hne, hs.mem _ hFL, hs.mem _ hSL, shl_mod hf2, shl_mod hs2]
   refine hk _ ?_ rfl ?_ ?_ ?_
   · refine St.setPC ?_ _
     refine St.setMem ?_ hSL hsp _
@@ -649,7 +649,7 @@ theorem splitPath {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machi
       (by xregs; exact q11) (by xregs; exact q12) (by xregs; exact r15) (by xregs; exact r16)
       (by xregs; exact q19) ?_
     intro y' hy' hpc' a b c
-    exact hk y' (by rw [hpre _ (if_pos hz).symm]; exact hy') hpc' a b c
+    exact hk y' (by rw [hpre _ (ite_eq_left hz).symm]; exact hy') hpc' a b c
   · -- The old head's back link to the remainder.
     have hz : h2 ≠ 0#64 := by simpa using hb
     -- The old head is a free block of the arena.
@@ -674,7 +674,7 @@ theorem splitPath {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machi
       (by xregs; exact q11) (by xregs; exact q12) (by xregs; exact r15) (by xregs; exact r16)
       (by xregs; exact q19) ?_
     intro y' hy' hpc' a b c
-    exact hk y' (by rw [hpre _ (if_neg hz).symm]; exact hy') hpc' a b c
+    exact hk y' (by rw [hpre _ (ite_eq_right hz).symm]; exact hy') hpc' a b c
 
 /-- Where the pointer goes in a block at `x`, and the block size it needs. -/
 def ptrOf (x align : Word) : Word :=

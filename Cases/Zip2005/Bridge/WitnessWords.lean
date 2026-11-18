@@ -34,7 +34,7 @@ include htag
 
 theorem witO1_one : witO1 (overlay (hintWords r) J) = 33 := by
   unfold witO1 optLen
-  rw [inByte_overlay r J 0 (by omega) (by omega), htag, if_pos rfl]
+  rw [inByte_overlay r J 0 (by omega) (by omega), htag, ite_eq_left rfl]
 
 /-- A word of the eight `Bytes32` fields (struct words 128..159). -/
 theorem witW_mid (n : ℕ) (h1 : 128 ≤ n) (h2 : n < 160) :
@@ -44,7 +44,7 @@ theorem witW_mid (n : ℕ) (h1 : 128 ≤ n) (h2 : n < 160) :
   have e : ∀ k, k < 8 → witByte (overlay (hintWords r) J) V (8 * n + k) = r[8 * n - 991 + k]! := by
     intro k hk
     simp only [witByte, witO1_one r J hJ hr htag]
-    rw [if_neg (by omega), if_pos (by omega), rd r J hJ _ _ (by omega) (by omega)]
+    rw [ite_eq_right (by omega), ite_eq_left (by omega), rd r J hJ _ _ (by omega) (by omega)]
     exact congrArg (fun i => r[i]!) (by omega)
   have e0 := e 0 (by decide)
   rw [Nat.add_zero, Nat.add_zero] at e0
@@ -69,7 +69,7 @@ theorem witW_value : (witW (overlay (hintWords r) J) V)[160]! = (wordsAt r 289 1
   have e : ∀ k, k < 8 → witByte (overlay (hintWords r) J) V (8 * 160 + k) = r[289 + k]! := by
     intro k hk
     simp only [witByte, witO1_one r J hJ hr htag]
-    rw [if_neg (by omega), if_neg (by omega), if_pos (by omega), rd r J hJ _ _ (by omega) (by omega)]
+    rw [ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_left (by omega), rd r J hJ _ _ (by omega) (by omega)]
     exact congrArg (fun i => r[i]!) (by omega)
   have e0 := e 0 (by decide)
   rw [Nat.add_zero, Nat.add_zero] at e0
@@ -91,8 +91,8 @@ theorem witW_sk (i : ℕ) (hi : i < 4) :
   have e : ∀ p, 0x50c < p → p < 0x52d → witByte (overlay (hintWords r) J) V p = r[p - 0x50c]! := by
     intro p h1 h2
     simp only [witByte, witOptByte]
-    rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos (by omega), if_neg (by omega),
-      inByte_overlay r J 0 (by omega) (by omega), htag, if_pos rfl, rd r J hJ 0 _ (by omega) (by omega), Nat.zero_add]
+    rw [ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_left (by omega), ite_eq_right (by omega),
+      inByte_overlay r J 0 (by omega) (by omega), htag, ite_eq_left rfl, rd r J hJ 0 _ (by omega) (by omega), Nat.zero_add]
   unfold skWord
   rw [witW_byte _ _ _ _ (by omega) (by decide), witW_byte _ _ _ _ (by omega) (by decide),
     witW_byte _ _ _ _ (by omega) (by decide), witW_byte _ _ _ _ (by omega) (by decide),
@@ -122,7 +122,7 @@ theorem optSize_ofBitVec (b : BitVec 8) : optSize (UInt8.ofBitVec b) = optLen b 
   unfold optSize optLen
   by_cases h : b = 1#8
   · subst h; rfl
-  · rw [if_neg h, if_neg]
+  · rw [ite_eq_right h, ite_eq_right]
     intro h'
     exact h (by simpa using congrArg UInt8.toBitVec h')
 
@@ -142,7 +142,7 @@ omit hr htag in
 theorem witO4_negOff (hs : inByte (overlay (hintWords r) J) 0 0 = 1#8)
     (hw : witO4 (overlay (hintWords r) J) + 1 ≤ r.length) :
     witO4 (overlay (hintWords r) J) = negOff (inBytes r) := by
-  have h1 : witO1 (overlay (hintWords r) J) = 33 := by unfold witO1 optLen; rw [hs, if_pos rfl]
+  have h1 : witO1 (overlay (hintWords r) J) = 33 := by unfold witO1 optLen; rw [hs, ite_eq_left rfl]
   unfold witO4 witO3 witO2 at hw ⊢
   rw [h1] at hw ⊢
   have p1 := optLen_pos (inByte (overlay (hintWords r) J) (33 + 1292) 0)
@@ -164,7 +164,7 @@ omit htag in
 theorem witW_skTag : extractByte (witW (overlay (hintWords r) J) V)[161]! 4 = r[0]! := by
   rw [witW_byte _ _ 161 4 (by decide) (by decide)]
   simp only [witByte, witOptByte]
-  rw [if_neg (by decide), if_neg (by decide), if_neg (by decide), if_pos (by decide), if_pos (by decide),
+  rw [ite_eq_right (by decide), ite_eq_right (by decide), ite_eq_right (by decide), ite_eq_left (by decide), ite_eq_left (by decide),
     inByte_overlay r J 0 (by omega) (by omega)]
 
 omit hr htag in
@@ -174,8 +174,8 @@ theorem witW_negate (hw : witO4 (overlay (hintWords r) J) + 1 ≤ r.length) :
   have := witO4_le (overlay (hintWords r) J)
   rw [witW_byte _ _ 173 7 (by decide) (by decide)]
   simp only [witByte]
-  rw [if_neg (by decide), if_neg (by decide), if_neg (by decide), if_neg (by decide), if_neg (by decide),
-    if_neg (by decide), rd r J hJ (witO4 (overlay (hintWords r) J)) 0 (by omega) (by omega), Nat.add_zero]
+  rw [ite_eq_right (by decide), ite_eq_right (by decide), ite_eq_right (by decide), ite_eq_right (by decide), ite_eq_right (by decide),
+    ite_eq_right (by decide), rd r J hJ (witO4 (overlay (hintWords r) J)) 0 (by omega) (by omega), Nat.add_zero]
 
 end
 

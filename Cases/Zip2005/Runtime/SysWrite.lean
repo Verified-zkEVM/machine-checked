@@ -92,7 +92,7 @@ theorem inWin_frame {sp a c : Word} (hc : 2 ^ 64 - 960 ≤ c.toNat)
 
 /-- A key outside the window (`hw`) is none of the frame slots. -/
 macro "xnf" hw:term:max : tactic => `(tactic|
-  repeat (rw [getMem_setMem, if_neg (fun h => $hw (inWin_frame (by decide) h))]))
+  repeat (rw [getMem_setMem, ite_eq_right (fun h => $hw (inWin_frame (by decide) h))]))
 
 /-- Replacing the low byte of a doubleword: the low byte is the new one. -/
 theorem low_byte (w : Word) (b : BitVec 8) :
@@ -220,17 +220,17 @@ theorem setPos (h : Mid s0 y) (hd : 960 ≤ (s0.getReg .x2).toNat)
     ?_, fun a ha hnw ho => ?_, ?_⟩
   · simp only [MachineState.setByte, getReg_setMem]; exact h.sp
   · simp only [MachineState.setByte, getReg_setMem]; exact h.regs r hr
-  · rw [hset, if_neg (hne _ (by decide))]; exact h.fra
-  · rw [hset, if_neg (hne _ (by decide))]; exact h.fs0
-  · rw [hset, if_neg (hne _ (by decide))]; exact h.fs1
-  · rw [hset, if_neg (hne _ (by decide))]; exact h.fs2
-  · rw [hset, if_neg (hne _ (by decide))]; exact h.fs3
-  · rw [hset, if_neg (hne _ (by decide))]; exact h.fs4
-  · rw [hset, if_neg (fun he => ho (by rw [he]; exact Owned.pos_own))]
+  · rw [hset, ite_eq_right (hne _ (by decide))]; exact h.fra
+  · rw [hset, ite_eq_right (hne _ (by decide))]; exact h.fs0
+  · rw [hset, ite_eq_right (hne _ (by decide))]; exact h.fs1
+  · rw [hset, ite_eq_right (hne _ (by decide))]; exact h.fs2
+  · rw [hset, ite_eq_right (hne _ (by decide))]; exact h.fs3
+  · rw [hset, ite_eq_right (hne _ (by decide))]; exact h.fs4
+  · rw [hset, ite_eq_right (fun he => ho (by rw [he]; exact Owned.pos_own))]
     exact h.mem a ha hnw ho
   · have := h.ok
     simp only [Owned.HasherOk, Owned.tagKey, Owned.posKey] at this ⊢
-    rw [hset, hset, if_neg (by decide), if_pos rfl]
+    rw [hset, hset, ite_eq_right (by decide), ite_eq_left rfl]
     refine ⟨this.1, ?_⟩
     simp only [replaceByte, Nat.zero_mul, BitVec.shiftLeft_zero]
     have : (y.getMem 0x780488a0#64 &&& ~~~0xff#64 ||| BitVec.zeroExtend 64 b) &&& 0xff#64 =
@@ -248,20 +248,20 @@ theorem setCounter (h : Mid s0 y) (hd : 960 ≤ (s0.getReg .x2).toNat)
   refine ⟨h.code0, by simp [h.code], by rw [getReg_setMem]; exact h.sp,
     fun r hr => by rw [getReg_setMem]; exact h.regs r hr, ?_, ?_, ?_, ?_, ?_, ?_,
     fun a ha hnw ho => ?_, ?_⟩
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fra
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs0
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs1
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs2
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs3
-  · rw [getMem_setMem, if_neg (hne _ (by decide))]; exact h.fs4
-  · rw [getMem_setMem, if_neg]
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fra
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs0
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs1
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs2
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs3
+  · rw [getMem_setMem, ite_eq_right (hne _ (by decide))]; exact h.fs4
+  · rw [getMem_setMem, ite_eq_right]
     · exact h.mem a ha hnw ho
     · rintro rfl
       exact hnw (Or.inr ⟨_, List.mem_singleton_self _, by
         simp only [Item.Hits, AVal.eval, Len.eval, Hits]; left; decide⟩)
   · have := h.ok
     simp only [Owned.HasherOk, Owned.tagKey, Owned.posKey] at this ⊢
-    rw [getMem_setMem, getMem_setMem, if_neg (by decide), if_neg (by decide)]
+    rw [getMem_setMem, getMem_setMem, ite_eq_right (by decide), ite_eq_right (by decide)]
     exact this
 
 end Mid
@@ -579,7 +579,7 @@ theorem holds : iface.Holds Owned.env C := by
         (rw [hy.regs _ (by decide)]; xregs)
     all_goals try (rw [hy.mem _ (by simp), hsp]
                    simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
-                     BitVec.add_right_inj, BitVec.reduceEq, if_true, if_false]; done)
+                     BitVec.add_right_inj, BitVec.reduceEq, ite_true, ite_false]; done)
     · rw [hy.mem _ (by simp)]
       simp only [MachineState.getMem_setReg, MachineState.getMem_setPC]
       have hw : ¬ InWin sp iface.depth a := fun h => hnw (Or.inl (by simpa [regsOf, hsp] using h))
@@ -590,7 +590,7 @@ theorem holds : iface.Holds Owned.env C := by
         intro a ha
         rw [hy.mem _ (by simp)]
         simp only [MachineState.getMem_setReg, MachineState.getMem_setPC]
-        repeat (rw [getMem_setMem, if_neg (frame_ne ht (by bv_omega) ha)])
+        repeat (rw [getMem_setMem, ite_eq_right (frame_ne ht (by bv_omega) ha)])
         simp only [MachineState.getMem_setReg]
       simp only [Owned.HasherOk] at hinv ⊢
       rw [hm _ (by decide), hm _ (by decide)]

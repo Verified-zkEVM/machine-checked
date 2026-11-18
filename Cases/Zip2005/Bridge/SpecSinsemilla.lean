@@ -48,11 +48,11 @@ theorem sinAdd_spec {a b : List Word} (ha : AffOk a) (hb : AffOk b) :
   have hxa := (ptValid_iff a).mp ha.2.1
   have hxb := (ptValid_iff b).mp hb.2.1
   by_cases hx : a.take 4 = b.take 4
-  · rw [if_pos hx, if_pos (Or.inr (Or.inr (by simp only [dec8, xOf, hx])))]
+  · rw [ite_eq_left hx, ite_eq_left (Or.inr (Or.inr (by simp only [dec8, xOf, hx])))]
     exact ⟨rfl, fun c h => by cases h⟩
   have hxne : xOf a ≠ xOf b := fun h => hx (limbs_eq_of_val (by simp [ha.1, hb.1]) h)
   have hxne' : (dec8 a).x ≠ (dec8 b).x := fun h => hxne (natCast_inj_lt hxa.1 hxb.1 h)
-  rw [if_neg hx, if_neg (by
+  rw [ite_eq_right hx, ite_eq_right (by
     rintro (h | h | h)
     · exact Point.ne_zero_of_onCurve hpa h
     · exact Point.ne_zero_of_onCurve hpb h

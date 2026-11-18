@@ -46,13 +46,13 @@ theorem asm_word8 (b0 b1 b2 b3 b4 b5 b6 b7 : BitVec 8) :
 theorem mcByte_in (D S : List Word) (n i k : Nat) (hk : k < 8) (h : 8 * i + k < n) :
     mcByte D S 0 0 n i k = extractByte S[i]! k := by
   unfold mcByte
-  rw [if_pos (by omega)]
+  rw [ite_eq_left (by omega)]
   rw [show (8 * i + k - 0 + 0) / 8 = i by omega, show (8 * i + k - 0 + 0) % 8 = k by omega]
 
 theorem mcByte_out (D S : List Word) (n i k : Nat) (h : n ≤ 8 * i + k) :
     mcByte D S 0 0 n i k = extractByte D[i]! k := by
   unfold mcByte
-  rw [if_neg (by omega)]
+  rw [ite_eq_right (by omega)]
 
 /-- The 1383-byte copy: 172 whole source cells, then seven source bytes and the kept top byte. -/
 theorem mcpyW_1383 (D S : List Word) (hSl : S.length = 173) :
@@ -287,7 +287,7 @@ theorem parse_nk_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : L
       Region a0 [1#64, r0, r1, r2, r3] t → SafeN G n P t) :
     SafeN G n P s :=
   parse_nk_spec s ra sp a0 w b0 b1 b2 b3 O hOl hpaf hpc hcode hcodeF hcodeR hcodeM hcodeB hcw hro hheap hra hra1 hsp hstk ha0 ha1 hB hokB hO hok0 hd0 hdB heB (fun t tag L h1 h2 h3 h4 htag _ hLeq hR => by
-    rw [if_pos hc] at htag; subst htag
+    rw [ite_eq_left hc] at htag; subst htag
     have e := hLeq hc; subst e
     have hX := leLimbsToNat_natToLeLimbs 4 (Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2) (lt_trans (Fp.mul_lt _ _) Fp.p_lt)
     rw [natToLeLimbs_four] at hR hX
@@ -315,7 +315,7 @@ theorem parse_nk_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
       Region a0 (0#64 :: L) t → SafeN G n P t) :
     SafeN G n P s :=
   parse_nk_spec s ra sp a0 w b0 b1 b2 b3 O hOl hpaf hpc hcode hcodeF hcodeR hcodeM hcodeB hcw hro hheap hra hra1 hsp hstk ha0 ha1 hB hokB hO hok0 hd0 hdB heB (fun t tag L h1 h2 h3 h4 htag hL _ hR => by
-    rw [if_neg hc] at htag; subst htag; exact hk t L h1 h2 h3 h4 hL hR)
+    rw [ite_eq_right hc] at htag; subst htag; exact hk t L h1 h2 h3 h4 hL hR)
 
 /-- `SpendValidatingKey::from_bytes` returned `Some` (its tag word found non-zero by `main`'s
 branch): the point's twelve words, their decoding facts, and the canonicity of `x` and `z`. -/

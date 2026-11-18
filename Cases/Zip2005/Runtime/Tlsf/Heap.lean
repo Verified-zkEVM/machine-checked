@@ -95,8 +95,8 @@ theorem Chain.congr {m m' : Word → Word} :
     · rw [← h1, e1, h1, h2]
     · rw [← h1, e2, h1, h3]
     · split
-      · rename_i hl; rw [if_pos hl] at h6; exact h6
-      · rename_i hl; rw [if_neg hl] at h6
+      · rename_i hl; rw [ite_eq_left hl] at h6; exact h6
+      · rename_i hl; rw [ite_eq_right hl] at h6
         exact h6.congr fun c hc => hm c (List.mem_cons_of_mem _ hc)
 
 /-! ## The chain tiles the arena -/
@@ -148,7 +148,7 @@ theorem Chain.last_used {m : Word → Word} :
   | [], _, _, h, _, _, _ => h.elim
   | b :: bs, a, p, ⟨_, _, _, _, _, h6⟩, c, hc, hl => by
     rcases List.mem_cons.mp hc with rfl | hc
-    · rw [if_pos hl] at h6; exact h6.2.2
+    · rw [ite_eq_left hl] at h6; exact h6.2.2
     · split at h6
       · rw [h6.1] at hc; simp at hc
       · exact Chain.last_used h6 c hc hl
@@ -463,13 +463,13 @@ theorem pop_cons (h : Shape self base m bs L out) {f s x y : Word} {ys : List Wo
   · have := keepA _ 0#64 (h.blkA hb) (by decide) (.inr (by decide)); simpa using this
   · unfold Lset
     by_cases he : f' = f ∧ s' = s
-    · rw [if_pos he, he.1, he.2, upd_ne (fun e => h.ne_ctl hyA (by decide) hH e.symm), upd_same]
+    · rw [ite_eq_left he, he.1, he.2, upd_ne (fun e => h.ne_ctl hyA (by decide) hH e.symm), upd_same]
       rfl
-    · rw [if_neg he, keepC _ (headAddr_inCtl hc hf' hs')
+    · rw [ite_eq_right he, keepC _ (headAddr_inCtl hc hf' hs')
         (fun e => he (headAddr_inj hf' hs' hf hs e)), h.heads f' s' hf' hs']
   · unfold Lset
     by_cases he : f' = f ∧ s' = s
-    · rw [if_pos he]
+    · rw [ite_eq_left he]
       obtain ⟨_, _, hd⟩ := hdll
       obtain ⟨_, h2, hd⟩ := hd
       refine ⟨upd_same .., ?_, hd.congr fun z hz => ?_⟩
@@ -479,7 +479,7 @@ theorem pop_cons (h : Shape self base m bs L out) {f s x y : Word} {ys : List Wo
           rw [hL]; exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ hz)
         exact ⟨keepA _ _ (h.nodeA hzL) (by decide) (.inl hzy),
           keepA _ _ (h.nodeA hzL) (by decide) (.inl hzy)⟩
-    · rw [if_neg he]
+    · rw [ite_eq_right he]
       exact (h.links f' s').congr fun z hz =>
         ⟨keepA _ _ (h.nodeA hz) (by decide) (.inl (hcl he z hz)),
           keepA _ _ (h.nodeA hz) (by decide) (.inl (hcl he z hz))⟩
@@ -537,18 +537,18 @@ theorem pop_nil (h : Shape self base m bs L out) {f s x : Word}
   generalize ht : m (slBm self f) &&& ~~~(1#64 <<< s.toNat) = t
   have e1 : ∀ a, a ≠ headAddr self f s → a ≠ slBm self f → a ≠ flBm self →
       popMem self m f s 0#64 a = m a := fun a h1 h2 h3 => by
-    unfold popMem; simp only [if_true, ht]; split <;> simp [upd, h1, h2, h3]
+    unfold popMem; simp only [ite_true, ht]; split <;> simp [upd, h1, h2, h3]
   have e2 : popMem self m f s 0#64 (headAddr self f s) = 0#64 := by
-    unfold popMem; simp only [if_true, ht]
+    unfold popMem; simp only [ite_true, ht]
     have := headAddr_ne_slBm (self := self) hf hs hf; have := headAddr_ne_flBm (self := self) hf hs
     split <;> simp [upd, *]
   have e3 : popMem self m f s 0#64 (slBm self f) = t := by
-    unfold popMem; simp only [if_true, ht]
+    unfold popMem; simp only [ite_true, ht]
     have := slBm_ne_flBm (self := self) hf
     split <;> simp [upd, *]
   have e4 : popMem self m f s 0#64 (flBm self) =
       if t = 0#64 then m (flBm self) &&& ~~~(1#64 <<< f.toNat) else m (flBm self) := by
-    unfold popMem; simp only [if_true, ht]
+    unfold popMem; simp only [ite_true, ht]
     have := (slBm_ne_flBm (self := self) hf).symm
     have := (headAddr_ne_flBm (self := self) hf hs).symm
     split <;> simp [upd, *]
@@ -566,8 +566,8 @@ theorem pop_nil (h : Shape self base m bs L out) {f s x : Word}
   · have := keepA _ 0#64 (h.blkA hb) (by decide); simpa using this
   · unfold Lset
     by_cases he : f' = f ∧ s' = s
-    · rw [if_pos he, he.1, he.2, e2]; rfl
-    · rw [if_neg he, e1 _ (fun e => he (headAddr_inj hf' hs' hf hs e))
+    · rw [ite_eq_left he, he.1, he.2, e2]; rfl
+    · rw [ite_eq_right he, e1 _ (fun e => he (headAddr_inj hf' hs' hf hs e))
         (headAddr_ne_slBm hf' hs' hf) (headAddr_ne_flBm hf' hs'), h.heads f' s' hf' hs']
   · unfold Lset
     split
@@ -604,8 +604,8 @@ theorem pop_nil (h : Shape self base m bs L out) {f s x : Word}
       by_cases hss : s' = s
       · subst hss; simp
       · have : s'.toNat ≠ s.toNat := fun e => hss (BitVec.eq_of_toNat_eq e)
-        rw [if_neg (fun e => hss e.2), h.slbm f' s' hf' hs']; simp [this]
-    · rw [if_neg (fun e => he e.1), e1 _ (fun e => headAddr_ne_slBm hf hs hf' e.symm)
+        rw [ite_eq_right (fun e => hss e.2), h.slbm f' s' hf' hs']; simp [this]
+    · rw [ite_eq_right (fun e => he e.1), e1 _ (fun e => headAddr_ne_slBm hf hs hf' e.symm)
         (fun e => he (slBm_inj hf' hf e)) (slBm_ne_flBm hf'), h.slbm f' s' hf' hs']
   · have hf'6 := lt64 hf'
     rw [e4]
@@ -613,8 +613,8 @@ theorem pop_nil (h : Shape self base m bs L out) {f s x : Word}
     · subst he
       rw [e3]
       by_cases ht0 : t = 0#64
-      · rw [if_pos ht0, getLsbD_clr _ hf6, ht0]; simp
-      · rw [if_neg ht0, h.flbm f' hf']
+      · rw [ite_eq_left ht0, getLsbD_clr _ hf6, ht0]; simp
+      · rw [ite_eq_right ht0, h.flbm f' hf']
         have : m (slBm self f') ≠ 0#64 := fun e => by rw [e] at hbit; simp at hbit
         simp only [Bool.not_eq_eq_eq_not, Bool.not_not]
         rw [beq_false_of_ne (b := 0) this, beq_false_of_ne (b := 0) ht0]
@@ -637,7 +637,7 @@ theorem pop (h : Shape self base m bs L out) {f s x : Word} {xs : List Word}
     have := h.pop_cons hf hs hL
     change Shape self base (popMem self m f s y) bs _ _
     unfold popMem
-    rw [if_neg (h.node_ne_zero hy)]
+    rw [ite_eq_right (h.node_ne_zero hy)]
     exact this
 
 end Shape

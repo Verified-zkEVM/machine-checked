@@ -30,7 +30,7 @@ theorem powModAux_eq (m : Nat) :
     unfold Accel.powModAux
     by_cases he : e = 0
     · subst he; simp
-    · rw [if_neg he]
+    · rw [ite_eq_right he]
       have hlt : e / 2 < 2 ^ fuel := by rw [Nat.pow_succ] at h; omega
       simp only
       rw [powModAux_eq m fuel _ _ hlt]

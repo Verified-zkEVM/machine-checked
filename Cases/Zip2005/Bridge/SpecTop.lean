@@ -123,7 +123,7 @@ theorem epb_val (W : List Word) :
     Accel.leLimbsToNat (extractPBottomW 1#8 W) = (Cases.Zip2005.Fp.toAffine (ptX W) (ptY W) (ptZ W)).1 := by
   have hA := Cases.Zip2005.toAffine_lt (X := ptX W) (Y := ptY W) (Z := ptZ W) (leLimbsToNat_lt _) (leLimbsToNat_lt _)
   unfold extractPBottomW selJ
-  rw [if_pos rfl]
+  rw [ite_eq_left rfl]
   dsimp only
   split
   · rename_i h; rw [h.1]; rfl
@@ -166,7 +166,7 @@ theorem accB_ivk (n f rb sd w e rk ak gb : List Word) (v : Word)
     Cases.Zip2005.Precompile.leLimbsToNat_natToLeLimbs_four (lt_trans hxp Fp.p_lt)
   rw [hx4] at hi hnz
   obtain ⟨hxq, hx0⟩ := nz_of_flag x hnz
-  rw [nzScalarW, if_pos hxq] at hi
+  rw [nzScalarW, ite_eq_left hxq] at hi
   refine ⟨c0, c1, c2, c3, i0, i1, i2, i3, x, hC, hxp, hxq, hi, ?_, cast_ne_zero x hxp hx0, hc, hrk⟩
   have hav : leLimbsToNat ak * Fp.rInv % Fp.p < Fp.p := Nat.mod_lt _ Fp.p_pos
   have hnv : leLimbsToNat n * Fp.rInv % Fp.p < Fp.p := Nat.mod_lt _ Fp.p_pos
@@ -460,7 +460,7 @@ theorem bytes_of_msb (b0 b1 b2 b3 : Word) (P : Point Fp) (hb : b3.msb = false)
   have hx : P.x.val < 2 ^ 255 := lt_trans (ZMod.val_lt P.x) p_lt_255
   have hy : Zip2005.ytilde P < 2 := Nat.mod_lt _ (by decide)
   unfold Zip2005.reprPNat at hr
-  simp only [Bool.false_eq_true, if_false, Nat.zero_mul, Nat.add_zero] at hs
+  simp only [Bool.false_eq_true, ite_false, Nat.zero_mul, Nat.add_zero] at hs
   have hval : leLimbsToNat [b0, b1, b2, b3] = P.x.val := by
     have h01 : Zip2005.ytilde P = 0 ∨ Zip2005.ytilde P = 1 := by omega
     generalize (2 : ℕ) ^ 255 = c at *

@@ -76,7 +76,7 @@ theorem reprPNat_inj {P Q : Point Fp} (hP : P.Valid) (hQ : Q.Valid)
     · cases P; cases Q; simp only at hx' hy; rw [hx', hy]
     · exfalso
       have hQy := onCurve_y_ne_zero' hQ
-      rw [hy, ZMod.neg_val, if_neg hQy] at ht
+      rw [hy, ZMod.neg_val, ite_eq_right hQy] at ht
       have hlt : Q.y.val < Fp.p := ZMod.val_lt Q.y
       have hpos : 0 < Q.y.val := by
         rcases Nat.eq_zero_or_pos Q.y.val with h0 | h0
@@ -150,7 +150,7 @@ theorem fb_decode (x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 b0 b1 b2 b3 : Word)
   rcases hc with ⟨hX0, hsign, hx0, hy0⟩ | ⟨hxm, hyy, hpar⟩
   · -- the identity's encoding
     subst hx0 hy0
-    rw [if_pos ⟨rfl, rfl⟩] at hz
+    rw [ite_eq_left ⟨rfl, rfl⟩] at hz
     subst hz
     rw [toAffine_Z_zero] at hsp
     simp only [Nat.zero_mul, Nat.zero_mod, Nat.cast_zero] at hsp
@@ -167,7 +167,7 @@ theorem fb_decode (x0 x1 x2 x3 y0 y1 y2 y3 z0 z1 z2 z3 b0 b1 b2 b3 : Word)
       simp only [Cases.Zip2005.Poseidon.D_mul, Cases.Zip2005.Poseidon.D_zero] at this
       exact Cases.Zip2005.Poseidon.y_ne_zero_of_onCurve (x := Cases.Zip2005.Poseidon.D x) (y := 0)
         (by linear_combination this) rfl
-    rw [if_neg (fun h => hy0 h.2)] at hz
+    rw [ite_eq_right (fun h => hy0 h.2)] at hz
     subst hz
     rw [toAffine_R] at hsp
     simp only at hsp

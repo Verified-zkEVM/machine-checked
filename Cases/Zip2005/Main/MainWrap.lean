@@ -248,7 +248,7 @@ theorem enc_from_bytes_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} 
         BitVec.ofNat 64 ((Fp.mul (Accel.leLimbsToNat [b0, b1, b2, b3]) Fp.R2) >>> 128), BitVec.ofNat 64 ((Fp.mul (Accel.leLimbsToNat [b0, b1, b2, b3]) Fp.R2) >>> 192),
         replaceByte O[4]! 0 1#8] t → SafeN G n P t) :
     SafeN G n P s :=
-  enc_from_bytes_spec s ra sp a0 a1 b0 b1 b2 b3 O hOl hpc hcode hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hok_a1 hO hok0 hd0 hd_a1 he_a1 (fun t h1 h2 h3 h4 hR => hk t h1 h2 h3 h4 (by simpa only [natToLeLimbs_four, ctLimbs_four, if_pos hc] using hR))
+  enc_from_bytes_spec s ra sp a0 a1 b0 b1 b2 b3 O hOl hpc hcode hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hok_a1 hO hok0 hd0 hd_a1 he_a1 (fun t h1 h2 h3 h4 hR => hk t h1 h2 h3 h4 (by simpa only [natToLeLimbs_four, ctLimbs_four, ite_eq_left hc] using hR))
 
 /-- `enc_from_bytes_spec` on a non-canonical input: zero limbs and the flag byte `0`, with no `if` left in the output region. -/
 theorem enc_from_bytes_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp a0 a1 : Word) (b0 b1 b2 b3 : Word)
@@ -270,6 +270,6 @@ theorem enc_from_bytes_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop}
       Unchanged [(sp - 0x110#64, 34), (a0, 5)] s t →
       Region a0 [0#64, 0#64, 0#64, 0#64, replaceByte O[4]! 0 0#8] t → SafeN G n P t) :
     SafeN G n P s :=
-  enc_from_bytes_spec s ra sp a0 a1 b0 b1 b2 b3 O hOl hpc hcode hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hok_a1 hO hok0 hd0 hd_a1 he_a1 (fun t h1 h2 h3 h4 hR => hk t h1 h2 h3 h4 (by simpa only [natToLeLimbs_four, ctLimbs_four, if_neg hc] using hR))
+  enc_from_bytes_spec s ra sp a0 a1 b0 b1 b2 b3 O hOl hpc hcode hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hok_a1 hO hok0 hd0 hd_a1 he_a1 (fun t h1 h2 h3 h4 hR => hk t h1 h2 h3 h4 (by simpa only [natToLeLimbs_four, ctLimbs_four, ite_eq_right hc] using hR))
 
 end Cases.Zip2005

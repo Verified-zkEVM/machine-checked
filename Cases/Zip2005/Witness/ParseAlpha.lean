@@ -85,7 +85,7 @@ theorem parse_alpha_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : M
     sym_close (hk _ _ _)
     all_goals first
       | rfl
-      | exact (if_pos hc).symm
+      | exact (ite_eq_left hc).symm
       | (intro _; rw [← v104_def, ← v105_def, ← v106_def, ← v107_def, natToLeLimbs_four]; rfl)
 
 end Cases.Zip2005

@@ -182,10 +182,10 @@ theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : Li
     memcpy96_spec, memcpy160_spec, hpb, hpaf, hpp, hprz, hpanic]
   · -- `Err`: a non-canonical representation
     have hnq : ¬ leLimbsToNat [r0, r1, r2, r3] < Fq.q := by
-      intro h; rw [if_pos h] at v3_def; rw [← v3_def] at hbr4; exact absurd hbr4 (by decide)
+      intro h; rw [ite_eq_left h] at v3_def; rw [← v3_def] at hbr4; exact absurd hbr4 (by decide)
     have hRo : Region out (tryFromW O [r0, r1, r2, r3] (List.replicate 12 0#64)) s_11 := by
       unfold tryFromW
-      rw [if_neg hnq]
+      rw [ite_eq_right hnq]
       rw [← v6_def] at hR1
       exact hR1
     clear hR1
@@ -193,7 +193,7 @@ theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : Li
   · -- `Ok`: `[sk] G`, its bytes, `sk`
     have hq : leLimbsToNat [r0, r1, r2, r3] < Fq.q := by
       refine Classical.byContradiction fun h => ?_
-      rw [if_neg h] at v3_def; rw [← v3_def] at hbr4; exact hbr4 (by decide)
+      rw [ite_eq_right h] at v3_def; rw [← v3_def] at hbr4; exact hbr4 (by decide)
     have hk8 : [v8, v9, v10, v11] = skW [r0, r1, r2, r3] := by
       rw [skW, natToLeLimbs_cells4, ← v8_def, ← v9_def, ← v10_def, ← v11_def, Nat.shiftRight_zero]
     have hk37 : [v37, v38, v39, v40] = skW [r0, r1, r2, r3] := by
@@ -202,7 +202,7 @@ theorem try_from_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L : Li
     have hb : ptBytesW acc25_0 = natToLeLimbs 4 acc30_0 := by rw [← acc30_0_def]; rfl
     have hRo : Region out (tryFromW O [r0, r1, r2, r3] [post19_0, post19_1, post19_2, post19_3, post19_4, post19_5, post19_6, post19_7, post19_8, post19_9, post19_10, post19_11]) s_56 := by
       unfold tryFromW
-      rw [if_pos hq, acc25_0_def, hb, ← hk37, natToLeLimbs_cells4,
+      rw [ite_eq_left hq, acc25_0_def, hb, ← hk37, natToLeLimbs_cells4,
         ← cells12_eq acc25_0 (acc25_0_def ▸ post25_4)]
       rw [← v51_def] at hR1
       exact hR1
@@ -338,10 +338,10 @@ theorem try_from_off2_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L
     memcpy96_spec, memcpy160_spec, hpb, hpaf, hpp, hprz, hpanic]
   · -- `Err`: a non-canonical representation
     have hnq : ¬ leLimbsToNat [unsplice2 c0 c1, unsplice2 c1 c2, unsplice2 c2 c3, unsplice2 c3 c4] < Fq.q := by
-      intro h; rw [if_pos h] at v3_def; rw [← v3_def] at hbr4; exact absurd hbr4 (by decide)
+      intro h; rw [ite_eq_left h] at v3_def; rw [← v3_def] at hbr4; exact absurd hbr4 (by decide)
     have hRo : Region out (tryFromW O [unsplice2 c0 c1, unsplice2 c1 c2, unsplice2 c2 c3, unsplice2 c3 c4] (List.replicate 12 0#64)) s_11 := by
       unfold tryFromW
-      rw [if_neg hnq]
+      rw [ite_eq_right hnq]
       rw [← v6_def] at hR1
       exact hR1
     clear hR1
@@ -349,7 +349,7 @@ theorem try_from_off2_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L
   · -- `Ok`: `[sk] G`, its bytes, `sk`
     have hq : leLimbsToNat [unsplice2 c0 c1, unsplice2 c1 c2, unsplice2 c2 c3, unsplice2 c3 c4] < Fq.q := by
       refine Classical.byContradiction fun h => ?_
-      rw [if_neg h] at v3_def; rw [← v3_def] at hbr4; exact hbr4 (by decide)
+      rw [ite_eq_right h] at v3_def; rw [← v3_def] at hbr4; exact hbr4 (by decide)
     have hk8 : [v8, v9, v10, v11] = skW [unsplice2 c0 c1, unsplice2 c1 c2, unsplice2 c2 c3, unsplice2 c3 c4] := by
       rw [skW, natToLeLimbs_cells4, ← v8_def, ← v9_def, ← v10_def, ← v11_def, Nat.shiftRight_zero]
     have hk37 : [v37, v38, v39, v40] = skW [unsplice2 c0 c1, unsplice2 c1 c2, unsplice2 c2 c3, unsplice2 c3 c4] := by
@@ -358,7 +358,7 @@ theorem try_from_off2_spec {Gd : MachineState → Prop} {nb : Nat} {P : Prop} {L
     have hb : ptBytesW acc25_0 = natToLeLimbs 4 acc30_0 := by rw [← acc30_0_def]; rfl
     have hRo : Region out (tryFromW O [unsplice2 c0 c1, unsplice2 c1 c2, unsplice2 c2 c3, unsplice2 c3 c4] [post19_0, post19_1, post19_2, post19_3, post19_4, post19_5, post19_6, post19_7, post19_8, post19_9, post19_10, post19_11]) s_56 := by
       unfold tryFromW
-      rw [if_pos hq, acc25_0_def, hb, ← hk37, natToLeLimbs_cells4,
+      rw [ite_eq_left hq, acc25_0_def, hb, ← hk37, natToLeLimbs_cells4,
         ← cells12_eq acc25_0 (acc25_0_def ▸ post25_4)]
       rw [← v51_def] at hR1
       exact hR1

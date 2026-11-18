@@ -114,12 +114,12 @@ theorem inByte_overlay (r : List (BitVec 8)) (J : List Word) (k : ℕ) (hk : k <
   unfold inByte overlay
   rw [Nat.zero_add, getElem!_pos _ _ (by simpa using hJ)]
   simp only [List.getElem_map, List.getElem_range, hintWords_length, show k / 8 < r.length / 8 + 1 by omega,
-    if_true]
+    ite_true]
   unfold hintWords
   rw [getElem!_pos _ _ (by simp; omega)]
   simp only [List.getElem_map, List.getElem_range]
   rw [extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide)), List.getElem?_take,
-    if_pos (Nat.mod_lt _ (by decide)), List.getElem?_drop, show 8 * (k / 8) + k % 8 = k by omega,
+    ite_eq_left (Nat.mod_lt _ (by decide)), List.getElem?_drop, show 8 * (k / 8) + k % 8 = k by omega,
     List.getElem?_eq_getElem hk, Option.getD_some, getElem!_pos r k hk]
 
 /-! ## Records -/

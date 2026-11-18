@@ -101,18 +101,18 @@ theorem unlink_head (h : Shape self base m bs L out) {f s x : Word} {xs : List W
     | cons y ys => rw [hL]; exact List.mem_cons_of_mem _ (List.mem_cons_self ..)
   generalize xs.headD 0#64 = nx at h10' hy
   unfold unlinkMem popMem
-  simp only [h18', h10', if_true]
+  simp only [h18', h10', ite_true]
   by_cases hz : nx = 0#64
   · subst hz
-    simp only [if_true, upd_ne (headAddr_ne_slBm hf hs hf).symm, upd_ne (slBm_ne_flBm hf).symm,
+    simp only [ite_true, upd_ne (headAddr_ne_slBm hf hs hf).symm, upd_ne (slBm_ne_flBm hf).symm,
       upd_ne (headAddr_ne_flBm hf hs).symm]
-  · simp only [if_neg hz]
+  · simp only [ite_eq_right hz]
     have hne : nx + 0x18#64 ≠ headAddr self f s := h.ne_ctl (h.nodeA (hy hz)) (by decide) hH
     funext a
     unfold upd
     by_cases e1 : a = headAddr self f s
-    · rw [if_pos e1, if_pos e1, if_neg (by rw [e1]; exact hne.symm)]
-    · rw [if_neg e1, if_neg e1]
+    · rw [ite_eq_left e1, ite_eq_left e1, ite_eq_right (by rw [e1]; exact hne.symm)]
+    · rw [ite_eq_right e1, ite_eq_right e1]
 
 /-- **Unlinking any node of a free list** detaches it. -/
 theorem unlink (h : Shape self base m bs L out) {f s x : Word}
@@ -151,7 +151,7 @@ theorem unlink (h : Shape self base m bs L out) {f s x : Word}
     | cons z zs => rw [← hnxe, hL']; exact ⟨by simp, zs, rfl⟩
   have hm' : unlinkMem self m f s x =
       upd (if nx = 0#64 then m else upd m (nx + 0x18#64) pv) (pv + 0x10#64) nx := by
-    unfold unlinkMem; simp only [h10, h18, if_neg hpv0]
+    unfold unlinkMem; simp only [h10, h18, ite_eq_right hpv0]
   rw [hm']
   -- What the writes leave alone.
   have keepA : ∀ z c, (A32 z ∧ base.toNat ≤ z.toNat ∧ z.toNat < 2 ^ 40) → c < 32#64 →
@@ -190,7 +190,7 @@ theorem unlink (h : Shape self base m bs L out) {f s x : Word}
     · rfl
   · unfold Lset
     by_cases he : f' = f ∧ s' = s
-    · rw [if_pos he]
+    · rw [ite_eq_left he]
       have hmem : ∀ y ∈ pre' ++ pv :: post, y ∈ L f s := fun y hy => by
         rw [hL']; simp only [List.mem_append, List.mem_cons] at hy ⊢
         rcases hy with h1 | h1 | h1
@@ -204,12 +204,12 @@ theorem unlink (h : Shape self base m bs L out) {f s x : Word}
         have hnz : nx = z := by rw [← hnxe, hp]; rfl
         subst hnz
         rw [upd_ne (key_ne (h.nodeA (hnxL hz0).1).1 hpvA.1 (by decide) (by decide)
-          (.inr (by decide))), if_neg hz0, upd_same]
+          (.inr (by decide))), ite_eq_right hz0, upd_same]
       · exact keepA _ _ (h.nodeA (hmem y hy)) (by decide) (.inl hne) (fun _ => .inr (by decide))
       · exact keepA _ _ (h.nodeA (hmem y hy)) (by decide) (.inr (by decide)) fun hn => by
           obtain ⟨-, zs, hp⟩ := hnxL hn
           exact .inl (hne nx zs hp)
-    · rw [if_neg he]
+    · rw [ite_eq_right he]
       exact (h.links f' s').congr fun z hz => by
         have hz' := hcl he z hz
         have h1 : z ≠ pv := fun e => hz' (e ▸ hpv)
@@ -380,8 +380,8 @@ theorem merge (h : Shape self base m bs L out) {pre cs post : List Blk} {c q : B
     have hcl : c.last = false := by
       cases hl : c.last
       · rfl
-      · rw [if_pos hl] at hc6; exact absurd hc6.1 (by simp)
-    rw [if_neg (by simp [hcl])] at hc6
+      · rw [ite_eq_left hl] at hc6; exact absurd hc6.1 (by simp)
+    rw [ite_eq_right (by simp [hcl])] at hc6
     have hch2 : Chain m (a' + c.sz) a' ((cs ++ [q]) ++ post) := by simpa using hc6
     -- Through `cs` to `q`.
     have hseg2 : ∃ e pe, Seg m (a' + c.sz) a' cs e pe ∧ Chain m e pe (q :: post) :=
@@ -402,15 +402,15 @@ theorem merge (h : Shape self base m bs L out) {pre cs post : List Blk} {c q : B
         exact hdr_free
       · rw [keepA _ _ hcA (by decide) (.inr (by decide))
           (.inl fun e => hne_c q (by simp) e.symm)]; exact hc3
-      · simp only [Bool.false_eq_true, if_false]
+      · simp only [Bool.false_eq_true, ite_false]
         rw [hS]
         refine ⟨rfl, ?_, upd_same .., hq4, hq5, ?_⟩
         · rw [upd_ne (key_ne0 hqA.1 hqA.1 (by decide) (.inr (by decide))),
             upd_ne (fun e => hne_c q (by simp) e)]
           exact hq2
         · by_cases hl : q.last = true
-          · rw [if_pos hl] at hq6 ⊢; exact hq6
-          · rw [if_neg hl] at hq6 ⊢
+          · rw [ite_eq_left hl] at hq6 ⊢; exact hq6
+          · rw [ite_eq_right hl] at hq6 ⊢
             refine hq6.congr fun d hd => ?_
             have hdb : d ∈ pre ++ post := List.mem_append_right _ hd
             have hdb' : d ∈ pre ++ q :: post := by simp [hd]
@@ -516,14 +516,14 @@ theorem push (h : Shape self base m bs L out) {t S : Word}
   · -- heads
     unfold Lset
     by_cases he : f = f2 ∧ s = s2
-    · rw [if_pos he, he.1, he.2, eH]; rfl
-    · rw [if_neg he, kC _ (headAddr_inCtl hc hf hs) (fun e => he (headAddr_inj hf hs hf2 hs2 e))
+    · rw [ite_eq_left he, he.1, he.2, eH]; rfl
+    · rw [ite_eq_right he, kC _ (headAddr_inCtl hc hf hs) (fun e => he (headAddr_inj hf hs hf2 hs2 e))
         (headAddr_ne_flBm hf hs) (headAddr_ne_slBm hf hs hf2)]
       exact h.heads f s hf hs
   · -- links
     unfold Lset
     by_cases he : f = f2 ∧ s = s2
-    · rw [if_pos he]
+    · rw [ite_eq_left he]
       refine ⟨e18, e10, ?_⟩
       cases hl : L f2 s2 with
       | nil => trivial
@@ -539,7 +539,7 @@ theorem push (h : Shape self base m bs L out) {t S : Word}
         have hwz : w ≠ z := fun e => (List.nodup_cons.mp hnd).1 (e ▸ hw)
         exact ⟨(kN _ _ _ hwL).1, (kN _ _ _ hwL).2 fun w' ws' e => by
           rw [hl] at e; cases e; exact hwz⟩
-    · rw [if_neg he]
+    · rw [ite_eq_right he]
       exact (h.links f s).congr fun w hw => ⟨(kN _ _ _ hw).1, (kN _ _ _ hw).2 fun w' ws' e hww => by
         subst hww
         exact he (h.class_uniq hw (by rw [e]; exact List.mem_cons_self ..))⟩
@@ -582,8 +582,8 @@ theorem push (h : Shape self base m bs L out) {t S : Word}
       by_cases hss : s = s2
       · subst hss; simp
       · have : s.toNat ≠ s2.toNat := fun e => hss (BitVec.eq_of_toNat_eq e)
-        rw [if_neg (fun e => hss e.2), h.slbm f s hf hs]; simp [this]
-    · rw [if_neg (fun e => he e.1), kC _ (slBm_inCtl hc hf) (fun e => headAddr_ne_slBm hf2 hs2 hf e.symm)
+        rw [ite_eq_right (fun e => hss e.2), h.slbm f s hf hs]; simp [this]
+    · rw [ite_eq_right (fun e => he e.1), kC _ (slBm_inCtl hc hf) (fun e => headAddr_ne_slBm hf2 hs2 hf e.symm)
         (slBm_ne_flBm hf) (fun e => he (slBm_inj hf hf2 e))]
       exact h.slbm f s hf hs
   · -- first-level bitmap

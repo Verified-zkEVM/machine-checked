@@ -46,9 +46,9 @@ theorem eq_R_of_limbs {z0 z1 z2 z3 : Word} (h0 : z0 = 3780891978758094845#64)
 theorem mask_flag (w : Word) (c : Prop) [Decidable c] :
     (w &&& -BitVec.zeroExtend 64 (if c then 0#8 else 1#8)) = if c then 0#64 else w := by
   by_cases h : c
-  · simp only [h, if_true]
+  · simp only [h, ite_true]
     rw [show -BitVec.zeroExtend 64 (0#8) = 0#64 by decide, BitVec.and_zero]
-  · simp only [h, if_false]
+  · simp only [h, ite_false]
     rw [show -BitVec.zeroExtend 64 (1#8) = BitVec.allOnes 64 by decide, BitVec.and_allOnes]
 
 theorem allOnes_and' (x : Word) : 18446744073709551615#64 &&& x = x := by
@@ -106,7 +106,7 @@ theorem to_affine_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : Ma
     clear hbr67
     rw [show [F[15]!, F[16]!, F[17]!, F[18]!, F[19]!][4]! = F[19]! from rfl,
       extractByte_replaceByte _ 0 (by decide)]
-    simp only [mask_flag, Fp.toAffine, hZR, if_false]
+    simp only [mask_flag, Fp.toAffine, hZR, ite_false]
     have hinvlt := Fp.invert_lt (leLimbsToNat [pt[8]!, pt[9]!, pt[10]!, pt[11]!])
     generalize leLimbsToNat [pt[0]!, pt[1]!, pt[2]!, pt[3]!] = X at *
     generalize leLimbsToNat [pt[4]!, pt[5]!, pt[6]!, pt[7]!] = Y at *
@@ -129,7 +129,7 @@ theorem to_affine_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : Ma
         BitVec.reduceSetWidth, BitVec.reduceAnd, BitVec.reduceAdd]
       simp only [BitVec.zero_and]
       decide
-    · simp only [hZI, if_false]
+    · simp only [hZI, ite_false]
       generalize hb0 : decide (BitVec.ofNat 64 (ZI >>> 0) = 0#64) = b0
       generalize hb1 : decide (BitVec.ofNat 64 (ZI >>> 64) = 0#64) = b1
       generalize hb2 : decide (BitVec.ofNat 64 (ZI >>> 128) = 0#64) = b2
@@ -150,7 +150,7 @@ theorem to_affine_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : Ma
         by_cases h3 : pt[11]! = 4611686018427387903#64 <;>
         simp only [h0, h1, h2, h3, decide_true, decide_false] at hbr67 <;>
         first | exact eq_R_of_limbs h0 h1 h2 h3 | exact absurd hbr67 (by decide)
-    simp only [Fp.toAffine, hz, if_true]
+    simp only [Fp.toAffine, hz, ite_true]
     rw [show ∀ (a b c d e f g h : Word), [a, b, c, d, e, f, g, h] = [a, b, c, d] ++ [e, f, g, h]
       from fun _ _ _ _ _ _ _ _ => rfl]
     exact congrArg₂ (· ++ ·) (natToLeLimbs_leLimbsToNat [_, _, _, _]).symm

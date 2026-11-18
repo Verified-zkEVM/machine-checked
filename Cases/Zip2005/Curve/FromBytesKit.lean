@@ -31,7 +31,7 @@ theorem zext_if8 (c : Prop) [Decidable c] :
 theorem and_negbw (x : Word) (a : Bool) : x &&& -(bw a) = if a then x else 0#64 := by
   cases a
   · simp [bw]
-  · simp only [bw, if_true]
+  · simp only [bw, ite_true]
     rw [show -(1#64) = 18446744073709551615#64 by decide, and_allOnes']
 
 /-- The xor-and-xor conditional select. -/
@@ -39,7 +39,7 @@ theorem sel_bw (a b : Word) (c : Bool) : ((a ^^^ b) &&& -(bw c)) ^^^ b = if c th
   rw [and_negbw]
   cases c
   · simp
-  · simp only [if_true]
+  · simp only [ite_true]
     rw [BitVec.xor_assoc, BitVec.xor_self, BitVec.xor_zero]
 
 theorem not1_bw (a : Bool) : (bw a ^^^ 18446744073709551615#64) &&& 1#64 = bw (!a) := by
@@ -324,8 +324,8 @@ theorem Fp.mul_neg_neg {y : Nat} (hy : y < Fp.p) : Fp.mul (Fp.sub 0 y) (Fp.sub 0
 theorem parity_same {r : Nat} {b : Bool} (hf : decide (r % 2 = 1) = b) :
     r % 2 = if b then 1 else 0 := by
   cases b
-  · rw [decide_eq_false_iff_not] at hf; simp only [Bool.false_eq_true, if_false]; omega
-  · rw [decide_eq_true_eq] at hf; simp only [if_true]; exact hf
+  · rw [decide_eq_false_iff_not] at hf; simp only [Bool.false_eq_true, ite_false]; omega
+  · rw [decide_eq_true_eq] at hf; simp only [ite_true]; exact hf
 
 /-- The sign disagrees with the parity: `-y` (representative `p - r`, `p` odd) has the other one. -/
 theorem parity_flip {r p : Nat} {b : Bool} (hp : p % 2 = 1) (hr0 : r ≠ 0) (hr : r < p)
@@ -333,10 +333,10 @@ theorem parity_flip {r p : Nat} {b : Bool} (hp : p % 2 = 1) (hr0 : r ≠ 0) (hr 
   have hlt : p - r < p := by omega
   rw [Nat.mod_eq_of_lt hlt]
   cases b
-  · simp only [Bool.false_eq_true, if_false]
+  · simp only [Bool.false_eq_true, ite_false]
     have : r % 2 = 1 := by by_contra hc; exact hf (decide_eq_false hc)
     omega
-  · simp only [if_true]
+  · simp only [ite_true]
     have : ¬ r % 2 = 1 := fun hc => hf (decide_eq_true hc)
     omega
 
@@ -381,40 +381,40 @@ theorem fb_post {b0 b1 b2 b3 : Word} {X xm R Y : Nat} {canon zero ident sq flip 
       (if (if !ident then sq else ident) && canon then 1#8 else 0#8) := by
   have hxm_lt : xm < Fp.p := by
     rw [← hxm]; cases canon
-    · simp only [Bool.false_eq_true, if_false]; exact Fp.p_pos
-    · simp only [if_true]; exact Fp.mul_lt _ _
+    · simp only [Bool.false_eq_true, ite_false]; exact Fp.p_pos
+    · simp only [ite_true]; exact Fp.mul_lt _ _
   have hYlt : Y < Fp.p := by
     rw [hY]; cases sq
-    · simp only [Bool.false_eq_true, if_false]; exact Fp.p_pos
-    · simp only [if_true]; exact hR
+    · simp only [Bool.false_eq_true, ite_false]; exact Fp.p_pos
+    · simp only [ite_true]; exact hR
   have hYf_lt : (if flip then Fp.sub 0 Y else Y) < Fp.p := by
     cases flip
-    · simp only [Bool.false_eq_true, if_false]; exact hYlt
-    · simp only [if_true]; exact Fp.sub_zero_lt _
+    · simp only [Bool.false_eq_true, ite_false]; exact hYlt
+    · simp only [ite_true]; exact Fp.sub_zero_lt _
   unfold FromBytesPost
   dsimp only
   rw [hX]
   refine ⟨?_, ?_, ?_⟩
   · cases ident
-    · simp only [Bool.not_false, if_true]; exact hxm_lt
-    · simp only [Bool.not_true, Bool.false_eq_true, if_false]; exact Fp.p_pos
+    · simp only [Bool.not_false, ite_true]; exact hxm_lt
+    · simp only [Bool.not_true, Bool.false_eq_true, ite_false]; exact Fp.p_pos
   · cases ident
-    · simp only [Bool.not_false, if_true]; exact hYf_lt
-    · simp only [Bool.not_true, Bool.false_eq_true, if_false]; exact Fp.p_pos
+    · simp only [Bool.not_false, ite_true]; exact hYf_lt
+    · simp only [Bool.not_true, Bool.false_eq_true, ite_false]; exact Fp.p_pos
   · cases canon
     · -- `X ≥ p`: rejected
       right
-      simp only [Bool.and_false, Bool.false_eq_true, if_false, true_and]
+      simp only [Bool.and_false, Bool.false_eq_true, ite_false, true_and]
       exact Or.inl (Nat.not_lt.mp (of_decide_eq_false hcanon))
     · have hXlt : X < Fp.p := of_decide_eq_true hcanon
-      have hxm' : xm = Fp.mul X Fp.R2 := by rw [← hxm]; exact if_pos rfl
+      have hxm' : xm = Fp.mul X Fp.R2 := by rw [← hxm]; exact ite_eq_left rfl
       cases ident
       · -- not the identity encoding: the square-root flag decides
-        simp only [Bool.not_false, if_true, Bool.and_true]
+        simp only [Bool.not_false, ite_true, Bool.and_true]
         cases sq
         · -- rejected: `x³ + 5` is zero or a non-square
           right
-          simp only [Bool.false_eq_true, if_false, true_and]
+          simp only [Bool.false_eq_true, ite_false, true_and]
           right
           rw [← hxm']
           have hne : ¬ Fp.mul R R = Fp.rhs xm := of_decide_eq_false hsq
@@ -423,17 +423,17 @@ theorem fb_post {b0 b1 b2 b3 : Word} {X xm R Y : Nat} {canon zero ident sq flip 
           · exact Or.inr ⟨R, hR, by_contra fun hn => hne (h.mpr hn)⟩
         · -- accepted: a point on the curve with the requested sign
           left
-          have hYR : Y = R := by rw [hY]; exact if_pos rfl
+          have hYR : Y = R := by rw [hY]; exact ite_eq_left rfl
           have hsqR : Fp.mul R R = Fp.rhs xm := of_decide_eq_true hsq
           refine ⟨rfl, hXlt, Or.inr ⟨hxm', ?_, ?_⟩⟩
           · cases flip
-            · simp only [Bool.false_eq_true, if_false]; rw [hYR]; exact hsqR
-            · simp only [if_true]; rw [Fp.mul_neg_neg hYlt, hYR]; exact hsqR
+            · simp only [Bool.false_eq_true, ite_false]; rw [hYR]; exact hsqR
+            · simp only [ite_true]; rw [Fp.mul_neg_neg hYlt, hYR]; exact hsqR
           · intro hne
             cases flip
-            · simp only [Bool.false_eq_true, if_false] at hne ⊢
+            · simp only [Bool.false_eq_true, ite_false] at hne ⊢
               exact parity_same (bne_eq_false_iff_eq.mp hflip)
-            · simp only [if_true] at hne ⊢
+            · simp only [ite_true] at hne ⊢
               rw [Fp.fromMont_neg hYlt]
               have hr0 : Fp.fromMont Y ≠ 0 := by
                 intro h0
@@ -441,7 +441,7 @@ theorem fb_post {b0 b1 b2 b3 : Word} {X xm R Y : Nat} {canon zero ident sq flip 
                 rw [Fp.fromMont_eq_zero hYlt h0, Fp.sub, Nat.zero_add, Nat.sub_zero, Nat.mod_self]
               exact parity_flip Fp.p_odd hr0 (Nat.mod_lt _ Fp.p_pos) (bne_iff_ne.mp hflip)
       · -- the identity encoding
-        simp only [Bool.not_true, Bool.false_eq_true, if_false, if_true, Bool.and_true]
+        simp only [Bool.not_true, Bool.false_eq_true, ite_false, ite_true, Bool.and_true]
         left
         rw [Bool.and_eq_true] at hident
         obtain ⟨hs, hz⟩ := hident

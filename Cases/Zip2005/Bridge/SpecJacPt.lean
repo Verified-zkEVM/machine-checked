@@ -99,13 +99,13 @@ theorem jacOk_addJ {X1 Y1 Z1 X2 Y2 Z2 : ℕ} (h1 : JacOk X1 Y1 Z1) (h2 : JacOk X
   have hD1 : D Z1 ≠ 0 := D_ne_zero_of h1.1 hz1
   have hD2 : D Z2 ≠ 0 := D_ne_zero_of h2.1 hz2
   have hA := affD_addJ h1.1 h2.1 h1.2 h2.2
-  have e1 : affD X1 Y1 Z1 = (D X1 / D Z1 ^ 2, D Y1 / D Z1 ^ 3) := by unfold affD; rw [if_neg hD1]
-  have e2 : affD X2 Y2 Z2 = (D X2 / D Z2 ^ 2, D Y2 / D Z2 ^ 3) := by unfold affD; rw [if_neg hD2]
+  have e1 : affD X1 Y1 Z1 = (D X1 / D Z1 ^ 2, D Y1 / D Z1 ^ 3) := by unfold affD; rw [ite_eq_right hD1]
+  have e2 : affD X2 Y2 Z2 = (D X2 / D Z2 ^ 2, D Y2 / D Z2 ^ 3) := by unfold affD; rw [ite_eq_right hD2]
   have e3 : affD (Fp.addJ X1 Y1 Z1 X2 Y2 Z2).1 (Fp.addJ X1 Y1 Z1 X2 Y2 Z2).2.1
       (Fp.addJ X1 Y1 Z1 X2 Y2 Z2).2.2 =
       (D (Fp.addJ X1 Y1 Z1 X2 Y2 Z2).1 / D (Fp.addJ X1 Y1 Z1 X2 Y2 Z2).2.2 ^ 2,
         D (Fp.addJ X1 Y1 Z1 X2 Y2 Z2).2.1 / D (Fp.addJ X1 Y1 Z1 X2 Y2 Z2).2.2 ^ 3) := by
-    unfold affD; rw [if_neg hz3]
+    unfold affD; rw [ite_eq_right hz3]
   rw [e1, e2, e3] at hA
   have hn : ¬ (D X1 / D Z1 ^ 2 = D X2 / D Z2 ^ 2 ∧ D Y1 / D Z1 ^ 3 + D Y2 / D Z2 ^ 3 = 0) := by
     rintro ⟨hx, hy⟩

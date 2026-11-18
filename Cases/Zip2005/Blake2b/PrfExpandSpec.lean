@@ -94,7 +94,7 @@ theorem prfExpand33_eq (s0 s1 s2 s3 d : Word) :
     (0x1F83D9ABFB41BD6B#64 ^^^ 0x78455f687361635a#64) (0x5BE0CD19137E2179#64 ^^^ 0x64656553646e6170#64)
     s0 s1 s2 s3 (BitVec.zeroExtend 64 (BitVec.truncate 8 d)) 0#64 0#64 0#64 0#64 0#64 0#64 0#64 0#64 0#64 0#64 0#64
     33#64 0#64 true
-  rw [if_pos rfl] at hb
+  rw [ite_eq_left rfl] at hb
   have hH := prfH_toNat
   unfold prfH at hH ⊢
   rw [hb, prfExpand, blake2b512]
@@ -216,7 +216,7 @@ theorem prfExpand65_eq (s0 s1 s2 s3 a0 a1 a2 a3 d : Word) :
     (0x1F83D9ABFB41BD6B#64 ^^^ 0x78455f687361635a#64) (0x5BE0CD19137E2179#64 ^^^ 0x64656553646e6170#64)
     s0 s1 s2 s3 ((a0 <<< 8) ||| BitVec.zeroExtend 64 (BitVec.truncate 8 d)) ((a1 <<< 8) ||| (a0 >>> 56)) ((a2 <<< 8) ||| (a1 >>> 56)) ((a3 <<< 8) ||| (a2 >>> 56)) (a3 >>> 56) 0#64 0#64 0#64 0#64 0#64 0#64 0#64
     65#64 0#64 true
-  rw [if_pos rfl] at hb
+  rw [ite_eq_left rfl] at hb
   have hH := prfH_toNat
   unfold prfH at hH ⊢
   rw [hb, prfExpand, blake2b512]
@@ -250,7 +250,7 @@ theorem prfExpand97_eq (s0 s1 s2 s3 a0 a1 a2 a3 b0 b1 b2 b3 d : Word) :
     (0x1F83D9ABFB41BD6B#64 ^^^ 0x78455f687361635a#64) (0x5BE0CD19137E2179#64 ^^^ 0x64656553646e6170#64)
     s0 s1 s2 s3 ((a0 <<< 8) ||| BitVec.zeroExtend 64 (BitVec.truncate 8 d)) ((a1 <<< 8) ||| (a0 >>> 56)) ((a2 <<< 8) ||| (a1 >>> 56)) ((a3 <<< 8) ||| (a2 >>> 56)) ((b0 <<< 8) ||| (a3 >>> 56)) ((b1 <<< 8) ||| (b0 >>> 56)) ((b2 <<< 8) ||| (b1 >>> 56)) ((b3 <<< 8) ||| (b2 >>> 56)) (b3 >>> 56) 0#64 0#64 0#64
     97#64 0#64 true
-  rw [if_pos rfl] at hb
+  rw [ite_eq_left rfl] at hb
   have hH := prfH_toNat
   unfold prfH at hH ⊢
   rw [hb, prfExpand, blake2b512]

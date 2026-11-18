@@ -85,14 +85,14 @@ theorem add_eq_zero_of_x_eq {x y1 y2 : ℕ} (hy1 : y1 < p) (hy2 : y2 < p) (hy : 
 
 theorem ptA_cons {t : Word} {X : List Word} (ht : t ≠ 0#64) :
     ptA (t :: X) = pointOf (xOf X) (yOf X) := by
-  unfold ptA; rw [List.getElem!_cons_zero, if_neg ht]; rfl
+  unfold ptA; rw [List.getElem!_cons_zero, ite_eq_right ht]; rfl
 
 theorem ptA_zero (X : List Word) : ptA ((0 : Word) :: X) = 0 := by
-  unfold ptA; rw [List.getElem!_cons_zero]; exact if_pos rfl
+  unfold ptA; rw [List.getElem!_cons_zero]; exact ite_eq_left rfl
 
 theorem ptA_of_tag {a : List Word} (h : a[0]! ≠ 0#64) :
     ptA a = pointOf (xOf (a.drop 1)) (yOf (a.drop 1)) := by
-  unfold ptA; rw [if_neg h]
+  unfold ptA; rw [ite_eq_right h]
 
 /-- **`completeAddW` is the group law** on tagged points. -/
 theorem completeAddW_spec {a b : List Word} (ha : ValidA a) (hb : ValidA b) :
@@ -101,13 +101,13 @@ theorem completeAddW_spec {a b : List Word} (ha : ValidA a) (hb : ValidA b) :
   obtain ⟨hbl, hbv⟩ := hb
   unfold completeAddW
   by_cases h0 : a[0]! = 0
-  · rw [if_pos h0]
+  · rw [ite_eq_left h0]
     exact ⟨⟨hbl, hbv⟩, by simp [ptA, h0]⟩
-  rw [if_neg h0]
+  rw [ite_eq_right h0]
   by_cases h1 : b[0]! = 0
-  · rw [if_pos h1]
+  · rw [ite_eq_left h1]
     exact ⟨⟨hal, hav⟩, by simp [ptA, h1]⟩
-  rw [if_neg h1]
+  rw [ite_eq_right h1]
   obtain ⟨hva, hca⟩ := hav h0
   obtain ⟨hvb, hcb⟩ := hbv h1
   have hal1 : (a.drop 1).length = 8 := by rw [List.length_drop, hal]
@@ -145,11 +145,11 @@ theorem doubleW_spec {a : List Word} (ha : ValidA a) :
   obtain ⟨hal, hav⟩ := ha
   unfold doubleW
   by_cases h0 : a[0]! = 0
-  · rw [if_pos h0]
+  · rw [ite_eq_left h0]
     refine ⟨⟨hal, hav⟩, ?_⟩
-    have : ptA a = 0 := by unfold ptA; exact if_pos h0
+    have : ptA a = 0 := by unfold ptA; exact ite_eq_left h0
     rw [this, nsmul_zero]
-  rw [if_neg h0]
+  rw [ite_eq_right h0]
   obtain ⟨hva, hca⟩ := hav h0
   have hy0 : yOf (a.drop 1) ≠ 0 := fun h => onCurve_y_ne_zero (h ▸ hca)
   obtain ⟨hl, hv, hc, hpt⟩ := curveDblL_spec (a.drop 1) hva hy0 hca
@@ -187,11 +187,11 @@ theorem mulLoop_spec (bits : ℕ → Bool) :
         ptA (mulStep (bits i) acc base).1 = ptA acc + (if bits i then 1 else 0) • ptA base := by
       unfold mulStep
       cases hbi : bits i
-      · simp only [Bool.false_eq_true, if_false, zero_nsmul, add_zero]
+      · simp only [Bool.false_eq_true, ite_false, zero_nsmul, add_zero]
         refine ⟨⟨?_, fun _ => ?_⟩, by rw [List.getElem!_cons_zero]; exact h1, ptA_retag h1 ht⟩
         · rw [List.length_cons, List.length_drop, ha.1]
         · have := ha.2 ht; simpa using this
-      · simp only [if_true, one_nsmul]
+      · simp only [ite_true, one_nsmul]
         refine ⟨⟨?_, fun _ => ?_⟩, by rw [List.getElem!_cons_zero]; exact h1, ?_⟩
         · rw [List.length_cons, List.length_drop, hcv.1]
         · have := hcv.2 hok0; simpa using this
@@ -379,15 +379,15 @@ scalar out of Montgomery form. -/
 theorem mulW_spec (pt k : List Word) (hb : ptZ pt ≠ 0 → ValidA (mulBase pt)) (hf : mulFacts pt k) :
     jacPt (mulW pt k) = (Accel.leLimbsToNat k * Fq.rInv % Fq.q) • jacPt pt := by
   by_cases hz : ptZ pt = 0
-  · rw [mulW, if_pos hz, jacPt_of_Z ptZ_replicate, jacPt_of_Z hz, nsmul_zero]
+  · rw [mulW, ite_eq_left hz, jacPt_of_Z ptZ_replicate, jacPt_of_Z hz, nsmul_zero]
   obtain ⟨hok, hcan⟩ := hf hz
   obtain ⟨hSv, hSp⟩ := mulSum_spec pt k (hb hz) hok
   rw [ptA_mulBase] at hSp
-  rw [mulW, if_neg hz]
+  rw [mulW, ite_eq_right hz]
   by_cases h0 : (mulSum pt k)[0]! = 0
-  · rw [if_pos h0, jacPt_of_Z ptZ_replicate, ← hSp]
-    unfold ptA; rw [if_pos (show (mulSum pt k)[0]! = 0#64 from h0)]
-  rw [if_neg h0]
+  · rw [ite_eq_left h0, jacPt_of_Z ptZ_replicate, ← hSp]
+    unfold ptA; rw [ite_eq_left (show (mulSum pt k)[0]! = 0#64 from h0)]
+  rw [ite_eq_right h0]
   obtain ⟨hxl, hyl⟩ := hcan h0
   obtain ⟨ht, hd⟩ := drop1_take4 hSv.1
   have hxs := Fp.mul_lt (Accel.leLimbsToNat [(mulSum pt k)[1]!, (mulSum pt k)[2]!,
@@ -398,7 +398,7 @@ theorem mulW_spec (pt k : List Word) (hb : ptZ pt ≠ 0 → ValidA (mulBase pt))
     (lt_trans Fp.R_lt Fp.p_lt)
   rw [← hSp, ptA_of_tag h0]
   unfold jacPt jacXY
-  rw [cx, cy, cz, Fp.toAffine, if_pos rfl]
+  rw [cx, cy, cz, Fp.toAffine, ite_eq_left rfl]
   simp only
   rw [mont_in_out _ hxl, mont_in_out _ hyl, xOf, yOf, ht, hd]
 

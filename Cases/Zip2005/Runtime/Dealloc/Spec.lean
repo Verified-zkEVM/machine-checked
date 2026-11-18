@@ -127,7 +127,7 @@ theorem release {self base : Word} {m : Word → Word} {bs : List Blk} {L : Word
       else m a := by
     intro a ha
     by_cases hz : hd = 0#64
-    · simp only [relMem, upd, hhe, if_pos hz, Ne.symm d_T_H, Ne.symm d_T_F, Ne.symm d_T_SL, Ne.symm d_T_Z, Ne.symm d_T16_F, Ne.symm d_T16_SL, Ne.symm d_T16_Z, Ne.symm d_T24_F, Ne.symm d_T24_SL, Ne.symm d_T24_Z, Ne.symm d_E8_Z, Ne.symm d_H_F, Ne.symm d_H_SL, Ne.symm d_H_Z, Ne.symm d_F_SL, Ne.symm d_F_Z, if_false]
+    · simp only [relMem, upd, hhe, ite_eq_left hz, Ne.symm d_T_H, Ne.symm d_T_F, Ne.symm d_T_SL, Ne.symm d_T_Z, Ne.symm d_T16_F, Ne.symm d_T16_SL, Ne.symm d_T16_Z, Ne.symm d_T24_F, Ne.symm d_T24_SL, Ne.symm d_T24_Z, Ne.symm d_E8_Z, Ne.symm d_H_F, Ne.symm d_H_SL, Ne.symm d_H_Z, Ne.symm d_F_SL, Ne.symm d_F_Z, ite_false]
     · have := hdF hz
       have d_D_T : hd + 0x18#64 ≠ c.a := by kd
       have d_D_T16 : hd + 0x18#64 ≠ (c.a + 0x10#64) := by kd
@@ -138,7 +138,7 @@ theorem release {self base : Word} {m : Word → Word} {bs : List Blk} {L : Word
       have d_D_SL : hd + 0x18#64 ≠ slBm self (flOf S) := by kd
       have d_D_Z : hd + 0x18#64 ≠ self := by kd
       have ha := ha hz
-      simp only [relMem, upd, hhe, if_neg hz, Ne.symm d_T_H, Ne.symm d_T_F, Ne.symm d_T_SL, Ne.symm d_T_Z, Ne.symm d_T16_F, Ne.symm d_T16_SL, Ne.symm d_T16_Z, Ne.symm d_T24_F, Ne.symm d_T24_SL, Ne.symm d_T24_Z, Ne.symm d_E8_Z, Ne.symm d_H_F, Ne.symm d_H_SL, Ne.symm d_H_Z, Ne.symm d_F_SL, Ne.symm d_F_Z, Ne.symm d_D_F, Ne.symm d_D_SL, Ne.symm d_D_Z, if_false,
+      simp only [relMem, upd, hhe, ite_eq_right hz, Ne.symm d_T_H, Ne.symm d_T_F, Ne.symm d_T_SL, Ne.symm d_T_Z, Ne.symm d_T16_F, Ne.symm d_T16_SL, Ne.symm d_T16_Z, Ne.symm d_T24_F, Ne.symm d_T24_SL, Ne.symm d_T24_Z, Ne.symm d_E8_Z, Ne.symm d_H_F, Ne.symm d_H_SL, Ne.symm d_H_Z, Ne.symm d_F_SL, Ne.symm d_F_Z, Ne.symm d_D_F, Ne.symm d_D_SL, Ne.symm d_D_Z, ite_false,
         ha]
   have hRd : hd ≠ 0#64 → relMem self m c.a S q.a (hd + 0x18#64) = c.a := by
     intro hz
@@ -151,8 +151,8 @@ theorem release {self base : Word} {m : Word → Word} {bs : List Blk} {L : Word
     have d_D_F : hd + 0x18#64 ≠ flBm self := by kd
     have d_D_SL : hd + 0x18#64 ≠ slBm self (flOf S) := by kd
     have d_D_Z : hd + 0x18#64 ≠ self := by kd
-    simp only [relMem, upd, hhe, if_neg hz, Ne.symm d_T_H, Ne.symm d_T_F, Ne.symm d_T_SL, Ne.symm d_T_Z, Ne.symm d_T16_F, Ne.symm d_T16_SL, Ne.symm d_T16_Z, Ne.symm d_T24_F, Ne.symm d_T24_SL, Ne.symm d_T24_Z, Ne.symm d_E8_Z, Ne.symm d_H_F, Ne.symm d_H_SL, Ne.symm d_H_Z, Ne.symm d_F_SL, Ne.symm d_F_Z, d_D_T, d_D_T16, d_D_T24, d_D_E8, d_D_H, d_D_F, d_D_SL, d_D_Z, Ne.symm d_D_F, Ne.symm d_D_SL, Ne.symm d_D_Z, if_false,
-      if_true]
+    simp only [relMem, upd, hhe, ite_eq_right hz, Ne.symm d_T_H, Ne.symm d_T_F, Ne.symm d_T_SL, Ne.symm d_T_Z, Ne.symm d_T16_F, Ne.symm d_T16_SL, Ne.symm d_T16_Z, Ne.symm d_T24_F, Ne.symm d_T24_SL, Ne.symm d_T24_Z, Ne.symm d_E8_Z, Ne.symm d_H_F, Ne.symm d_H_SL, Ne.symm d_H_Z, Ne.symm d_F_SL, Ne.symm d_F_Z, d_D_T, d_D_T16, d_D_T24, d_D_E8, d_D_H, d_D_F, d_D_SL, d_D_Z, Ne.symm d_D_F, Ne.symm d_D_SL, Ne.symm d_D_Z, ite_false,
+      ite_true]
   have hD : ∀ a, a = headAddr self (flOf S) (slOf S) ∨ a = c.a + 0x10#64 ∨ a = c.a + 0x18#64 ∨
       a = flBm self ∨ a = slBm self (flOf S) → hd ≠ 0#64 → a ≠ hd + 0x18#64 := by
     intro a ha hz
@@ -165,21 +165,21 @@ theorem release {self base : Word} {m : Word → Word} {bs : List Blk} {L : Word
     · rcases List.mem_cons.mp hd' with rfl | hd'
       · rfl
       · exact ho.elim (fun o => (hout d (by simp only [List.mem_append]; exact .inr hd') o).elim) id
-  · rw [hR _ (hD _ (.inl rfl))]; simp only [d_H_F, d_H_SL, d_H_Z, Ne.symm d_T_H, Ne.symm d_T16_H, Ne.symm d_T24_H, Ne.symm d_E8_H, if_true, if_false]
+  · rw [hR _ (hD _ (.inl rfl))]; simp only [d_H_F, d_H_SL, d_H_Z, Ne.symm d_T_H, Ne.symm d_T16_H, Ne.symm d_T24_H, Ne.symm d_E8_H, ite_true, ite_false]
   · rw [hR _ (hD _ (.inr (.inl rfl))), ← hhd]
-    simp only [d_T16_T24, d_T16_E8, d_T16_H, d_T16_F, d_T16_SL, d_T16_Z, Ne.symm d_T_T16, if_true, if_false]
+    simp only [d_T16_T24, d_T16_E8, d_T16_H, d_T16_F, d_T16_SL, d_T16_Z, Ne.symm d_T_T16, ite_true, ite_false]
   · rw [hR _ (hD _ (.inr (.inr (.inl rfl))))]
-    simp only [d_T24_E8, d_T24_H, d_T24_F, d_T24_SL, d_T24_Z, Ne.symm d_T_T24, Ne.symm d_T16_T24, if_true, if_false]
+    simp only [d_T24_E8, d_T24_H, d_T24_F, d_T24_SL, d_T24_Z, Ne.symm d_T_T24, Ne.symm d_T16_T24, ite_true, ite_false]
   · intro z zs hl
     have hz : hd ≠ 0#64 := by rw [hhd, hl]; exact h.node_ne_zero (by rw [hl]; simp)
     have : z = hd := by rw [hhd, hl]; rfl
     subst this
     exact hRd hz
   · rw [hR _ (hD _ (.inr (.inr (.inr (.inl rfl)))))]
-    simp only [d_F_Z, d_F_SL, Ne.symm d_E8_F, if_true, if_false]
+    simp only [d_F_Z, d_F_SL, Ne.symm d_E8_F, ite_true, ite_false]
     rw [upd_ne (Ne.symm d_E8_F), upd_ne (Ne.symm d_T_F)]
   · rw [hR _ (hD _ (.inr (.inr (.inr (.inr rfl)))))]
-    simp only [d_SL_Z, if_true, if_false]
+    simp only [d_SL_Z, ite_true, ite_false]
     rw [upd_ne (Ne.symm d_E8_SL), upd_ne (Ne.symm d_T_SL)]
   · intro a hk h1 h2 h3 h4 h5 h6
     have hz' : hd ≠ 0#64 → a ≠ hd + 0x18#64 := fun hz => by
@@ -197,11 +197,11 @@ theorem release {self base : Word} {m : Word → Word} {bs : List Blk} {L : Word
         rcases hk with hk | hk | ⟨-, hk | hk⟩ <;> subst hk <;>
           (try rw [BitVec.toNat_add] at te) <;> (try simp at te) <;> omega
     rw [hR _ hz']
-    simp only [hZ, h6, h5, h3, h2, h1, if_false]
+    simp only [hZ, h6, h5, h3, h2, h1, ite_false]
     unfold upd
     by_cases e1 : a = q.a + 8#64
     · simp [e1]
-    · simp only [e1, if_false]
+    · simp only [e1, ite_false]
 
 
 open Tlsf in
@@ -213,12 +213,12 @@ theorem relMem_other {self t S e a : Word} {m : Word → Word} (h1 : a ≠ self)
       a ≠ upd m t S (headAddr self (flOf S) (slOf S)) + 0x18#64) :
     relMem self m t S e a = m a := by
   by_cases hz : upd m t S (headAddr self (flOf S) (slOf S)) = 0#64
-  · simp only [relMem, if_pos hz]
-    simp only [upd, h1, h2, h3, h4, h5, h6, h7, h8, if_false]
+  · simp only [relMem, ite_eq_left hz]
+    simp only [upd, h1, h2, h3, h4, h5, h6, h7, h8, ite_false]
   · have h9 := h9 hz
-    simp only [relMem, if_neg hz]
+    simp only [relMem, ite_eq_right hz]
     simp only [upd] at h9 ⊢
-    simp only [h1, h2, h3, h4, h5, h6, h7, h8, h9, if_false]
+    simp only [h1, h2, h3, h4, h5, h6, h7, h8, h9, ite_false]
 
 open Tlsf in
 /-- `unlinkMem` leaves alone everything but the control block and its list's links. -/
@@ -247,13 +247,13 @@ theorem unlink_other {self base : Word} {m : Word → Word} {bs : List Blk}
   simp only [h10', h18']
   by_cases hn0 : nf = 0#64
   · by_cases hp0 : pf = 0#64
-    · simp only [if_pos hn0, if_pos hp0, popTail]
-      split <;> simp only [upd, ha1, ha2, ha3, if_false]
-    · simp only [if_pos hn0, if_neg hp0, upd, (hn _ (hpfL hp0)).1, if_false]
+    · simp only [ite_eq_left hn0, ite_eq_left hp0, popTail]
+      split <;> simp only [upd, ha1, ha2, ha3, ite_false]
+    · simp only [ite_eq_left hn0, ite_eq_right hp0, upd, (hn _ (hpfL hp0)).1, ite_false]
   · have e1 := (hn _ (hnfL hn0)).2
     by_cases hp0 : pf = 0#64
-    · simp only [if_neg hn0, if_pos hp0, popTail, upd, e1, ha1, if_false]
-    · simp only [if_neg hn0, if_neg hp0, upd, e1, (hn _ (hpfL hp0)).1, if_false]
+    · simp only [ite_eq_right hn0, ite_eq_left hp0, popTail, upd, e1, ha1, ite_false]
+    · simp only [ite_eq_right hn0, ite_eq_right hp0, upd, e1, (hn _ (hpfL hp0)).1, ite_false]
 
 open Tlsf in
 /-- The lock after `relMem`: one more than before. -/
@@ -269,12 +269,12 @@ theorem relMem_self {self t S e : Word} {m : Word → Word}
   congr 1
   unfold rel5 rel4 rel3
   by_cases hz : upd m t S (headAddr self (flOf S) (slOf S)) = 0#64
-  · simp only [if_pos hz]
-    simp only [upd, h3, h4, h5, h6, h7, h8, if_false]
+  · simp only [ite_eq_left hz]
+    simp only [upd, h3, h4, h5, h6, h7, h8, ite_false]
   · have h9 := h9 hz
-    simp only [if_neg hz]
+    simp only [ite_eq_right hz]
     simp only [upd] at h9 ⊢
-    simp only [h3, h4, h5, h6, h7, h8, h9, if_false]
+    simp only [h3, h4, h5, h6, h7, h8, h9, ite_false]
 
 /-- What `dealloc`'s caller gets back: the return (`Out`) with memory `M'`; the heap well formed
     again, with every other used block kept; and nothing changed but the allocator's own
@@ -495,7 +495,7 @@ theorem spec {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 : MachineState
   rw [hbs] at hch
   obtain ⟨a', p', hseg, hcb⟩ := (Tlsf.chain_append (List.cons_ne_nil _ _)).mp hch
   obtain ⟨hb1, -, -, -, -, hb6⟩ := hcb
-  rw [if_neg (by simp [hbl])] at hb6
+  rw [ite_eq_right (by simp [hbl])] at hb6
   cases post with
   | nil => exact hb6.elim
   | cons q post' =>
@@ -570,7 +570,7 @@ theorem spec {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 : MachineState
       cases hl : q.last
       · rfl
       · have := hsh0.chain.last_used q hqm hl; rw [hqu] at this; exact absurd this (by simp)
-    rw [if_neg (by simp [hql])] at hq6
+    rw [ite_eq_right (by simp [hql])] at hq6
     cases post' with
     | nil => exact hq6.elim
     | cons r rest =>

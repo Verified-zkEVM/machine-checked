@@ -142,11 +142,11 @@ theorem sar_fact {x v : Word} (h : x.sshiftRight 63 = v) :
   · right
     have h' : 2 ^ (64 - 1) ≤ x.toNat := h
     have : (2 ^ 64 - 1 - x.toNat) / 2 ^ 63 = 0 := Nat.div_eq_of_lt (by omega)
-    rw [if_pos (by simpa using h'), this]
+    rw [ite_eq_left (by simpa using h'), this]
     omega
   · left
     have h' : ¬ 2 ^ (64 - 1) ≤ x.toNat := h
-    simp only [h', decide_false, Bool.false_eq_true, if_false]
+    simp only [h', decide_false, Bool.false_eq_true, ite_false]
     have : x.toNat / 2 ^ 63 = 0 := Nat.div_eq_of_lt (by omega)
     omega
 

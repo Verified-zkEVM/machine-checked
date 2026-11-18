@@ -77,8 +77,8 @@ theorem fp_from_repr_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
       replaceByte O[4]! 0 (if leLimbsToNat [x0, x1, x2, x3] < Fp.p then 1#8 else 0#8) := by
     rw [← v195_def, ← v187_def, hXe]
     by_cases h : x0.toNat + 2^64 * x1.toNat + 2^128 * x2.toNat + 2^192 * x3.toNat < Fp.p
-    · rw [show v125 = 0#64 from BitVec.eq_of_toNat_eq (fl.1 h), if_pos h]; rfl
-    · rw [show v125 = 1#64 from BitVec.eq_of_toNat_eq (fl.2 (by omega)), if_neg h]; rfl
+    · rw [show v125 = 0#64 from BitVec.eq_of_toNat_eq (fl.1 h), ite_eq_left h]; rfl
+    · rw [show v125 = 1#64 from BitVec.eq_of_toNat_eq (fl.2 (by omega)), ite_eq_right h]; rfl
   rw [show [v183, v184, v185, v186, v195] = [v183, v184, v185, v186] ++ [v195] from rfl,
     hcells, hAm, hflag]
 

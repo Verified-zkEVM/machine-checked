@@ -96,7 +96,7 @@ macro "xn" : tactic => `(tactic| (
     signExtend12, signExtend13, rv64_mulhu, MachineState.setByte, replaceByte, alignToDword,
     byteOffset] at *
   try simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
-    getMem_load, getReg_load, Loaded.stackTop_word, BitVec.reduceEq, if_true, if_false, reduceIte] at *
+    getMem_load, getReg_load, Loaded.stackTop_word, BitVec.reduceEq, ite_true, ite_false, reduceIte] at *
   try simp (disch := decide) only [bss0] at *))
 
 set_option hygiene false in

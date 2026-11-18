@@ -92,7 +92,7 @@ theorem cmSel_cells (Q R B k : List Word) :
   generalize (commitFold Q B).isSome = c
   cases c
   · rfl
-  · simp only [if_true]
+  · simp only [ite_true]
     exact cells12_eq _ (commitW_length _ _ _ _)
 
 theorem cmSel_length (Q R B k : List Word) : (cmSel Q R B k).length = 12 := by

@@ -69,11 +69,11 @@ theorem tail_s3r {t7 c1 c2 c3 v250 v253 v254 v255 v256 v257 v258 v259 v260 v261 
     subst v254_def v255_def v256_def
     rw [BitVec.toNat_add, BitVec.toNat_add]
     by_cases h : (v253 + c1 + c2).ult v253 = true
-    · rw [if_pos h]
+    · rw [ite_eq_left h]
       simp only [BitVec.ult, decide_eq_true_eq, BitVec.toNat_add] at h
       rw [show (1#64).toNat = 1 from rfl]
       omega
-    · rw [if_neg h]
+    · rw [ite_eq_right h]
       simp only [BitVec.ult, decide_eq_true_eq, BitVec.toNat_add] at h
       rw [show (0#64).toNat = 0 from rfl]
       omega
@@ -179,12 +179,12 @@ theorem tail_s1b {P0 N0 P1 N1 : Nat} (hN0 : N0 + P0 = 2 ^ 64) (hN1 : N1 + P1 = 2
       simp only [BitVec.ult, decide_eq_true_eq, BitVec.toNat_add, Bn.toNat_ofNat']
       have := a1.isLt
       by_cases ha : 1 ≤ a1.toNat
-      · rw [if_pos (by simp; omega), if_pos ⟨rfl, ha⟩]; rfl
-      · rw [if_neg (by simp; omega), if_neg (by omega)]; rfl
+      · rw [ite_eq_left (by simp; omega), ite_eq_left ⟨rfl, ha⟩]; rfl
+      · rw [ite_eq_right (by simp; omega), ite_eq_right (by omega)]; rfl
     · have : v152 = 1#64 := BitVec.eq_of_toNat_eq h
       subst this
       simp only [BitVec.ult, decide_eq_true_eq, BitVec.toNat_add, Bn.toNat_ofNat']
-      rw [if_neg (by simp)]; simp
+      rw [ite_eq_right (by simp)]; simp
   clear v157_def
   bn_lin
   rcases e152 with h1 | h1 <;>

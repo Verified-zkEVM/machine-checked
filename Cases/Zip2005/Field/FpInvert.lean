@@ -90,7 +90,7 @@ theorem inv_loop3 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         refine hk u hp (hc.trans hcode) (g3.trans hx3) (g4.trans hx4) r2 r8 r9 r18 r19 r20 r21 r22 r23 (hunch.trans hU) ?_ (Fp.powBits_lt _ _ hA)
         rw [show m + 2 - 1 = m + 1 by omega, Fp.powBits, hbit]
         rw [show m + 1 - 1 = m by omega] at hR
-        rw [show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A false = Fp.mul A A from if_neg (by decide)]
+        rw [show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A false = Fp.mul A A from ite_eq_right (by decide)]
         exact hR
     · -- bit set, exit
       sym_close hk
@@ -101,7 +101,7 @@ theorem inv_loop3 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
       rw [show 0 + 2 - 1 = 0 + 1 by omega, Fp.powBits, Fp.powBits,
         show Nat.testBit 2469829653914515739 0 = true by decide,
         show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A true =
-          Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]) from if_pos rfl]
+          Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]) from ite_eq_left rfl]
       simp only [cells4, cells4', Fp.limbs_p, Fp.limbs_rInv, Fp.limbs_mod, hAl]; rfl
     · -- bit set, next bit
       sym_close ih (m + 1) _ (Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]))
@@ -119,7 +119,7 @@ theorem inv_loop3 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         rw [show m + 2 - 1 = m + 1 by omega, Fp.powBits, hbit]
         rw [show m + 1 - 1 = m by omega] at hR
         rw [show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A true =
-          Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]) from if_pos rfl]
+          Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]) from ite_eq_left rfl]
         exact hR
 
 set_option maxHeartbeats 20000000 in
@@ -193,7 +193,7 @@ theorem inv_loop4 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         refine hk u hp (hc.trans hcode) (g3.trans hx3) (g4.trans hx4) r2 r8 r9 r18 r19 r20 r21 r22 r23 (hunch.trans hU) ?_ (Fp.powBits_lt _ _ hA)
         rw [show m + 2 - 1 = m + 1 by omega, Fp.powBits, hbit]
         rw [show m + 1 - 1 = m by omega] at hR
-        rw [show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A false = Fp.mul A A from if_neg (by decide)]
+        rw [show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A false = Fp.mul A A from ite_eq_right (by decide)]
         exact hR
     · -- bit set, exit
       sym_close hk
@@ -204,7 +204,7 @@ theorem inv_loop4 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
       rw [show 0 + 2 - 1 = 0 + 1 by omega, Fp.powBits, Fp.powBits,
         show Nat.testBit 11037532056220336127 0 = true by decide,
         show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A true =
-          Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]) from if_pos rfl]
+          Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]) from ite_eq_left rfl]
       simp only [cells4, cells4', Fp.limbs_p, Fp.limbs_rInv, Fp.limbs_mod, hAl]; rfl
     · -- bit set, next bit
       sym_close ih (m + 1) _ (Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]))
@@ -222,7 +222,7 @@ theorem inv_loop4 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         rw [show m + 2 - 1 = m + 1 by omega, Fp.powBits, hbit]
         rw [show m + 1 - 1 = m by omega] at hR
         rw [show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A true =
-          Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]) from if_pos rfl]
+          Fp.mul (Fp.mul A A) (leLimbsToNat [x0, x1, x2, x3]) from ite_eq_left rfl]
         exact hR
 
 set_option maxHeartbeats 20000000 in
@@ -277,7 +277,7 @@ theorem inv_loop2 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
       rw [Bn.ult_dec (m + 2) (by omega) (by omega)] at hbr46
       obtain rfl : m = 0 := by simp at hbr46; omega
       rw [show 0 + 2 - 1 = 0 + 1 by omega, Fp.powBits, Fp.powBits, Nat.zero_testBit,
-        show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A false = Fp.mul A A from if_neg (by decide)]
+        show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A false = Fp.mul A A from ite_eq_right (by decide)]
       simp only [cells4, cells4', Fp.limbs_p, Fp.limbs_rInv, Fp.limbs_mod, hAl]; rfl
     · -- next bit
       sym_close ih (m + 1) _ (Fp.mul A A)
@@ -290,7 +290,7 @@ theorem inv_loop2 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         refine hk u hp (hc.trans hcode) (g3.trans hx3) (g4.trans hx4) r2 r9 r18 r19 r20 r21 r22 r23 (hunch.trans hU) ?_ (Fp.powBits_lt _ _ hA)
         rw [show m + 2 - 1 = m + 1 by omega, Fp.powBits, Nat.zero_testBit]
         rw [show m + 1 - 1 = m by omega] at hR
-        rw [show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A false = Fp.mul A A from if_neg (by decide)]
+        rw [show Fp.sqmul (leLimbsToNat [x0, x1, x2, x3]) A false = Fp.mul A A from ite_eq_right (by decide)]
         exact hR
 
 set_option maxHeartbeats 20000000 in
@@ -349,7 +349,7 @@ theorem inv_loop1 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         sym_close ih 64 _ A false
         · intro u hp hc g3 g4 r2 r9 r18 r19 r20 r21 r22 r23 hU hR _
           refine hk u hp (hc.trans hcode) (g3.trans hx3) (g4.trans hx4) r2 r9 r18 r19 r20 r21 r22 r23 (hunch.trans hU) ?_ (Fp.powBitsV_lt _ _ _ hA)
-          rw [show 63 + 2 - 1 = 63 + 1 from rfl, Fp.powBitsV_clear A false (by rw [Fp.testBit_2pow62]; decide), if_neg (by decide)]
+          rw [show 63 + 2 - 1 = 63 + 1 from rfl, Fp.powBitsV_clear A false (by rw [Fp.testBit_2pow62]; decide), ite_eq_right (by decide)]
           rw [show 64 - 1 = 63 from rfl] at hR
           exact hR
       · simp only [Bool.toNat_false] at h20
@@ -360,7 +360,7 @@ theorem inv_loop1 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         · simp only [cells4, cells4', Fp.limbs_p, Fp.limbs_rInv, Fp.limbs_mod, hAl]; rfl
         · intro u hp hc g3 g4 r2 r9 r18 r19 r20 r21 r22 r23 hU hR _
           refine hk u hp (hc.trans hcode) (g3.trans hx3) (g4.trans hx4) r2 r9 r18 r19 r20 r21 r22 r23 (hunch.trans hU) ?_ (Fp.powBitsV_lt _ _ _ hA)
-          rw [show 62 + 2 - 1 = 62 + 1 from rfl, Fp.powBitsV_set A false (by rw [Fp.testBit_2pow62]; decide), if_neg (by decide)]
+          rw [show 62 + 2 - 1 = 62 + 1 from rfl, Fp.powBitsV_set A false (by rw [Fp.testBit_2pow62]; decide), ite_eq_right (by decide)]
           rw [show 63 - 1 = 62 from rfl] at hR
           exact hR
     · simp only [Bool.toNat_true] at h20
@@ -371,7 +371,7 @@ theorem inv_loop1 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         rw [Bn.ult_dec (m + 2) (by omega) (by omega)] at hbr47
         obtain rfl : m = 0 := by simp at hbr47; omega
         rw [show 0 + 2 - 1 = 0 + 1 from rfl, Fp.powBitsV_clear A true (by rw [Fp.testBit_2pow62]; decide),
-          if_pos rfl]
+          ite_eq_left rfl]
         simp only [cells4, cells4', Fp.limbs_p, Fp.limbs_rInv, Fp.limbs_mod, hAl]; rfl
       · sym_close ih (m + 1) _ (Fp.mul A A) true
         all_goals sym_subst
@@ -383,7 +383,7 @@ theorem inv_loop1 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         · have hm62 : m ≠ 62 := by rw [Bn.ne_lit (m + 2) 64 (by omega) (by omega)] at hbr45; simp at hbr45; omega
           intro u hp hc g3 g4 r2 r9 r18 r19 r20 r21 r22 r23 hU hR _
           refine hk u hp (hc.trans hcode) (g3.trans hx3) (g4.trans hx4) r2 r9 r18 r19 r20 r21 r22 r23 (hunch.trans hU) ?_ (Fp.powBitsV_lt _ _ _ hA)
-          rw [show m + 2 - 1 = m + 1 by omega, Fp.powBitsV_clear A true (by rw [Fp.testBit_2pow62]; simpa using hm62), if_pos rfl]
+          rw [show m + 2 - 1 = m + 1 by omega, Fp.powBitsV_clear A true (by rw [Fp.testBit_2pow62]; simpa using hm62), ite_eq_left rfl]
           rw [show m + 1 - 1 = m by omega] at hR
           exact hR
       · sym_subst
@@ -400,7 +400,7 @@ theorem inv_loop1 {G : MachineState → Prop} {n : Nat} {P : Prop} (sp xp : Word
         · have hm62 : m = 62 := by rw [Bn.ne_lit (m + 2) 64 (by omega) (by omega)] at hbr45; simp at hbr45; omega
           intro u hp hc g3 g4 r2 r9 r18 r19 r20 r21 r22 r23 hU hR _
           refine hk u hp (hc.trans hcode) (g3.trans hx3) (g4.trans hx4) r2 r9 r18 r19 r20 r21 r22 r23 (hunch.trans hU) ?_ (Fp.powBitsV_lt _ _ _ hA)
-          rw [show m + 2 - 1 = m + 1 by omega, Fp.powBitsV_set A true (by rw [Fp.testBit_2pow62, hm62]; rfl), if_pos rfl]
+          rw [show m + 2 - 1 = m + 1 by omega, Fp.powBitsV_set A true (by rw [Fp.testBit_2pow62, hm62]; rfl), ite_eq_left rfl]
           rw [show m + 1 - 1 = m by omega] at hR
           exact hR
 
@@ -482,6 +482,6 @@ theorem fp_invert_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
     by_cases h0 : x0 = 0#64 <;> by_cases h1 : x1 = 0#64 <;> by_cases h2 : x2 = 0#64 <;>
       by_cases h3 : x3 = 0#64 <;>
       simp only [h0, h1, h2, h3, decide_true, decide_false, and_true,
-        and_false, if_true, if_false, Bool.false_eq_true] <;> decide
+        and_false, ite_true, ite_false, Bool.false_eq_true] <;> decide
 
 end Cases.Zip2005

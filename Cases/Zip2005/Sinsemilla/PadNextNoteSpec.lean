@@ -60,40 +60,40 @@ def noteState (sp : Word) (J : List Word) (j : Word) (k : Nat) : List Word :=
 /-! ## The phases, as rewrite rules -/
 
 theorem noteState_0 (sp : Word) (J : List Word) (j : Word) : noteState sp J j 0 = noteBlk0 sp J j := by
-  rw [noteState, if_pos rfl]
+  rw [noteState, ite_eq_left rfl]
 
 theorem noteState_A (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk1 : 1 ≤ k) (hk : k ≤ 256) :
     noteState sp J j k = noteBlkA sp J j 0#8 (sp + 18446744073709551408#64 + BitVec.ofNat 64 (k / 8))
       (BitVec.ofNat 8 (k % 8)) (BitVec.ofNat 64 k) := by
-  rw [noteState, if_neg (by omega), if_pos hk]
+  rw [noteState, ite_eq_right (by omega), ite_eq_left hk]
 
 theorem noteState_B (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk1 : 257 ≤ k) (hk : k ≤ 512) :
     noteState sp J j k = noteBlkB sp J j (sp + 18446744073709551440#64 + BitVec.ofNat 64 ((k - 256) / 8))
       (BitVec.ofNat 8 ((k - 256) % 8)) (BitVec.ofNat 64 k) := by
-  rw [noteState, if_neg (by omega), if_neg (by omega), if_pos hk]
+  rw [noteState, ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_left hk]
 
 theorem noteState_C (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk1 : 513 ≤ k) (hk : k ≤ 576) :
     noteState sp J j k = noteBlkC sp J j (sp + 18446744073709551472#64 + BitVec.ofNat 64 ((k - 512) / 8))
       (BitVec.ofNat 8 ((k - 512) % 8)) (BitVec.ofNat 64 k) := by
-  rw [noteState, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos hk]
+  rw [noteState, ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_left hk]
 
 theorem noteState_D (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk1 : 577 ≤ k) (hk : k ≤ 831) :
     noteState sp J j k = noteBlkD sp J j (BitVec.ofNat 64 (255 - (k - 576)))
       (sp + 18446744073709551480#64 + BitVec.ofNat 64 (8 * ((k - 576) / 64))) (BitVec.ofNat 8 ((k - 576) % 64))
       (BitVec.ofNat 64 k) := by
-  rw [noteState, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos hk]
+  rw [noteState, ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_left hk]
 
 theorem noteState_E (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk1 : 832 ≤ k) (hk : k ≤ 1086) :
     noteState sp J j k = noteBlkE sp J j (BitVec.ofNat 64 (255 - (k - 831)))
       (sp + 18446744073709551512#64 + BitVec.ofNat 64 (8 * ((k - 831) / 64))) (BitVec.ofNat 8 ((k - 831) % 64))
       (BitVec.ofNat 64 k) := by
-  rw [noteState, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-    if_neg (by omega), if_pos hk]
+  rw [noteState, ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega),
+    ite_eq_right (by omega), ite_eq_left hk]
 
 theorem noteState_P (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk : 1087 ≤ k) :
     noteState sp J j k = noteBlkP sp J (BitVec.ofNat 64 (1090 - k)) := by
-  rw [noteState, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-    if_neg (by omega), if_neg (by omega)]
+  rw [noteState, ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega),
+    ite_eq_right (by omega), ite_eq_right (by omega)]
 
 set_option maxHeartbeats 4000000 in
 theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
@@ -133,7 +133,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_A _ _ _ 1 (by decide) (by decide), show (1 / 8 : Nat) = 0 from rfl, show (1 % 8 : Nat) = 1 from rfl, BitVec.add_zero]
       exact h5
-    · rw [h6, if_pos (by decide)]
+    · rw [h6, ite_eq_left (by decide)]
   rcases Nat.lt_or_ge k 256 with h256 | h256
   · -- `g★_d`'s bits
     rw [noteState_A _ _ _ k hk1 (by omega), BitVec.add_assoc] at hI
@@ -142,7 +142,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_A _ _ _ (k + 1) (by omega) (by omega)]
       exact h5
-    · rw [h6, if_pos (by omega)]
+    · rw [h6, ite_eq_left (by omega)]
   rcases Nat.eq_or_lt_of_le h256 with h256' | h257
   · subst h256'
     -- the change to `pk★_d`'s bits
@@ -152,7 +152,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_B _ _ _ (256 + 1) (by decide) (by decide), show ((256 + 1 - 256) / 8 : Nat) = 0 from rfl, show ((256 + 1 - 256) % 8 : Nat) = 1 from rfl, BitVec.add_zero]
       exact h5
-    · rw [h6, if_pos (by decide)]
+    · rw [h6, ite_eq_left (by decide)]
   rcases Nat.lt_or_ge k 512 with h512 | h512
   · obtain ⟨m, rfl⟩ : ∃ m, k = 256 + m := ⟨k - 256, by omega⟩
     -- `pk★_d`'s bits
@@ -162,7 +162,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_B _ _ _ (256 + m + 1) (by omega) (by omega), show 256 + m + 1 - 256 = m + 1 by omega]
       exact h5
-    · rw [h6, if_pos (by omega)]
+    · rw [h6, ite_eq_left (by omega)]
   rcases Nat.eq_or_lt_of_le h512 with h512' | h513
   · subst h512'
     -- the change to `v`'s bits
@@ -172,7 +172,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_C _ _ _ (512 + 1) (by decide) (by decide), show ((512 + 1 - 512) / 8 : Nat) = 0 from rfl, show ((512 + 1 - 512) % 8 : Nat) = 1 from rfl, BitVec.add_zero]
       exact h5
-    · rw [h6, if_pos (by decide)]
+    · rw [h6, ite_eq_left (by decide)]
   rcases Nat.lt_or_ge k 576 with h576 | h576
   · obtain ⟨m, rfl⟩ : ∃ m, k = 512 + m := ⟨k - 512, by omega⟩
     -- `v`'s bits
@@ -182,7 +182,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_C _ _ _ (512 + m + 1) (by omega) (by omega), show 512 + m + 1 - 512 = m + 1 by omega]
       exact h5
-    · rw [h6, if_pos (by omega)]
+    · rw [h6, ite_eq_left (by omega)]
   rcases Nat.eq_or_lt_of_le h576 with h576' | h577
   · subst h576'
     -- the change to `ρ`'s bits
@@ -192,7 +192,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_D _ _ _ (576 + 1) (by decide) (by decide), show (255 - (576 + 1 - 576) : Nat) = 254 from rfl, show (8 * ((576 + 1 - 576) / 64) : Nat) = 0 from rfl, show ((576 + 1 - 576) % 64 : Nat) = 1 from rfl, BitVec.add_zero]
       exact h5
-    · rw [h6, if_pos (by decide)]
+    · rw [h6, ite_eq_left (by decide)]
   rcases Nat.lt_or_ge k 831 with h831 | h831
   · obtain ⟨m, rfl⟩ : ∃ m, k = 576 + m := ⟨k - 576, by omega⟩
     -- `ρ`'s bits
@@ -202,7 +202,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_D _ _ _ (576 + m + 1) (by omega) (by omega), show 576 + m + 1 - 576 = m + 1 by omega]
       exact h5
-    · rw [h6, if_pos (by omega)]
+    · rw [h6, ite_eq_left (by omega)]
   rcases Nat.eq_or_lt_of_le h831 with h831' | h832
   · subst h831'
     -- the change to `ψ`'s bits
@@ -212,7 +212,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_E _ _ _ (831 + 1) (by decide) (by decide), show (255 - (831 + 1 - 831) : Nat) = 254 from rfl, show (8 * ((831 + 1 - 831) / 64) : Nat) = 0 from rfl, show ((831 + 1 - 831) % 64 : Nat) = 1 from rfl, BitVec.add_zero]
       exact h5
-    · rw [h6, if_pos (by decide)]
+    · rw [h6, ite_eq_left (by decide)]
   rcases Nat.lt_or_ge k 1086 with h1086 | h1086
   · obtain ⟨m, rfl⟩ : ∃ m, k = 831 + m := ⟨k - 831, by omega⟩
     -- `ψ`'s bits
@@ -222,7 +222,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_E _ _ _ (831 + m + 1) (by omega) (by omega), show 831 + m + 1 - 831 = m + 1 by omega]
       exact h5
-    · rw [h6, if_pos (by omega)]
+    · rw [h6, ite_eq_left (by omega)]
   rcases Nat.eq_or_lt_of_le h1086 with h1086' | h1087
   · subst h1086'
     -- the message exhausted: the padding begins
@@ -232,7 +232,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_P _ _ _ (1086 + 1) (by decide), show (1090 - (1086 + 1) : Nat) = 3 from rfl]
       exact h5
-    · rw [h6, if_pos (by decide)]
+    · rw [h6, ite_eq_left (by decide)]
   rcases Nat.lt_or_ge k 1090 with h1090 | h1090
   · -- the padding
     rw [noteState_P _ _ _ k (by omega)] at hI
@@ -241,7 +241,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_P _ _ _ (k + 1) (by omega), show (1090 - (k + 1) : Nat) = 1090 - k - 1 by omega]
       exact h5
-    · rw [h6, if_pos h1090, show (1090 - (1090 - k) : Nat) = k by omega]
+    · rw [h6, ite_eq_left h1090, show (1090 - (1090 - k) : Nat) = k by omega]
   · -- the end
     have hk' : k = 1090 := by omega
     subst hk'
@@ -251,7 +251,7 @@ theorem pad_next_note_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [noteState_P _ _ _ (1090 + 1) (by decide), show (1090 - (1090 + 1) : Nat) = 0 from rfl]
       exact h5
-    · rw [h6, if_neg (by decide)]
+    · rw [h6, ite_eq_right (by decide)]
 
 /-- The calls that yield a bit: `k < 1090`. -/
 theorem pad_next_note_lt_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra spn sp iter v : Word)
@@ -285,7 +285,7 @@ theorem pad_next_note_lt_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} 
     SafeN Gd n P s := by
   refine pad_next_note_spec s ra spn sp iter v J G K R Q hGl hKl hRl hQl j k (by omega) hpc hcode hcw hra hra1 hsp hstk hsp_lo hsp_hi ha0 hI hokI hGr hokG hKr hokK hVr hokV hRr hokR hQr hokQ hdjIG hdjIK hdjIV hdjIR hdjIQ hdjS hdjSG hdjSK hdjSV hdjSR hdjSQ ?_
   intro t h1 h2 h3 h4 h5 h6
-  exact hk t h1 h2 h3 h4 h5 (by rw [h6, if_pos hk1090])
+  exact hk t h1 h2 h3 h4 h5 (by rw [h6, ite_eq_left hk1090])
 
 /-- The same, with the block as a list variable related to the model (the form the executor
     matches at a call inside `from_iter`'s loop). -/
@@ -395,6 +395,6 @@ theorem pad_next_note_end_cells_spec {Gd : MachineState → Prop} {n : Nat} {P :
   refine pad_next_note_spec s ra spn sp iter v J G K R Q hGl hKl hRl hQl j 1090 (by decide) hpc hcode hcw hra hra1 hsp hstk hsp_lo hsp_hi ha0 hI hokI hGr hokG hKr hokK hVr hokV hRr hokR hQr hokQ hdjIG hdjIK hdjIV hdjIR hdjIQ hdjS hdjSG hdjSK hdjSV hdjSR hdjSQ ?_
   intro t h1 h2 h3 h4 h5 h6
   rw [list18_cells _ (noteState_length sp J j 1091)] at h5
-  exact hk t _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ h1 h2 h3 h4 rfl h5 (by rw [h6, if_neg (by decide)])
+  exact hk t _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ h1 h2 h3 h4 rfl h5 (by rw [h6, ite_eq_right (by decide)])
 
 end Cases.Zip2005

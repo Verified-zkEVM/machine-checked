@@ -102,10 +102,10 @@ theorem bt {s0 s : MachineState} {G : MachineState → Prop} {k : Nat} {P : Prop
       intro h0; apply hb; bv_omega
     refine IH _ (by xframe <;> xw h13) ⟨rfl, o + 1, r - 1, by omega, by omega, ?_, ?_⟩
     · simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setByte, reduceCtorEq,
-        ne_eq, not_false_eq_true, and_true, if_true, h13]
+        ne_eq, not_false_eq_true, and_true, ite_true, h13]
       bv_omega
     · simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setByte, reduceCtorEq,
-        ne_eq, not_false_eq_true, and_true, if_true, if_false, h12]
+        ne_eq, not_false_eq_true, and_true, ite_true, ite_false, h12]
       bv_omega
   · xret code hk
     xframe <;> xw h13

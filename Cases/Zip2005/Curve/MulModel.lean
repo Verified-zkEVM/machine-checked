@@ -106,12 +106,12 @@ theorem toAffine_lt {X Y Z : Nat} (hX : X < 2 ^ 256) (hY : Y < 2 ^ 256) :
   have := Fp.p_lt
   unfold Fp.toAffine
   by_cases hR : Z = Fp.R
-  · rw [if_pos hR]; exact ⟨hX, hY⟩
-  · rw [if_neg hR]
+  · rw [ite_eq_left hR]; exact ⟨hX, hY⟩
+  · rw [ite_eq_right hR]
     dsimp only
     by_cases h0 : (if Z = 0 then 0 else Fp.invert Z) = 0
-    · rw [if_pos h0]; exact ⟨Nat.two_pow_pos _, Nat.two_pow_pos _⟩
-    · rw [if_neg h0]; exact ⟨lt_trans (Fp.mul_lt _ _) this, lt_trans (Fp.mul_lt _ _) this⟩
+    · rw [ite_eq_left h0]; exact ⟨Nat.two_pow_pos _, Nat.two_pow_pos _⟩
+    · rw [ite_eq_right h0]; exact ⟨lt_trans (Fp.mul_lt _ _) this, lt_trans (Fp.mul_lt _ _) this⟩
 
 /-- The guest's in-line `from_repr` (`x R2`, then a Montgomery product by one). -/
 theorem cells_mulR2 {a0 a1 a2 a3 : Word} {acc1 acc2 : Nat}
@@ -235,13 +235,13 @@ theorem mul_pathA (pt k : List Word) (hkl : k.length = 4)
   have hz := zflag v18_def v23_def v24_def v28_def v29_def v34_def v35_def v39_def v40_def v45_def
     v46_def v50_def v51_def v55_def
   have hZ0 : ptZ pt ≠ 0 := by
-    apply limbs_ne_zero; intro h; rw [if_pos h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
+    apply limbs_ne_zero; intro h; rw [ite_eq_left h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
   have hr := rflag v77_def v78_def v84_def v85_def v86_def v90_def v91_def v95_def v97_def v101_def
     v102_def v106_def v109_def v110_def v114_def v115_def v119_def
   have hZR : ptZ pt = Fp.R := by
     have h : pt[8]! = 3780891978758094845#64 ∧ pt[9]! = 11037255111966004397#64 ∧
         pt[10]! = 18446744073709551615#64 ∧ pt[11]! = 4611686018427387903#64 := by
-      by_contra h; rw [if_neg h] at hr; rw [hr] at hbr120; exact absurd hbr120 (by decide)
+      by_contra h; rw [ite_eq_right h] at hr; rw [hr] at hbr120; exact absurd hbr120 (by decide)
     obtain ⟨e0, e1, e2, e3⟩ := h
     show leLimbsToNat [pt[8]!, pt[9]!, pt[10]!, pt[11]!] = Fp.R
     rw [e0, e1, e2, e3]; exact Fp.limbs_R
@@ -260,7 +260,7 @@ theorem mul_pathA (pt k : List Word) (hkl : k.length = 4)
     rw [mulSum, hscal, hbase, ← acc248_0_def, list9_eta hl, ← acc226_1_def]; rfl
   have htag : (mulSum pt k)[0]! = 0 := by rw [hsum]; simpa using hbr250
   refine ⟨?_, fun _ => ⟨?_, fun h => absurd htag h⟩⟩
-  · rw [mulW, if_neg hZ0, if_pos htag, ← acc256_0_def]; rfl
+  · rw [mulW, ite_eq_right hZ0, ite_eq_left htag, ← acc256_0_def]; rfl
   · rw [hscal, hbase]; exact post226_15
 
 set_option maxRecDepth 4000 in
@@ -446,13 +446,13 @@ theorem mul_pathB (pt k : List Word) (hkl : k.length = 4)
   have hz := zflag v18_def v23_def v24_def v28_def v29_def v34_def v35_def v39_def v40_def v45_def
     v46_def v50_def v51_def v55_def
   have hZ0 : ptZ pt ≠ 0 := by
-    apply limbs_ne_zero; intro h; rw [if_pos h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
+    apply limbs_ne_zero; intro h; rw [ite_eq_left h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
   have hr := rflag v77_def v78_def v84_def v85_def v86_def v90_def v91_def v95_def v97_def v101_def
     v102_def v106_def v109_def v110_def v114_def v115_def v119_def
   have hZR : ptZ pt = Fp.R := by
     have h : pt[8]! = 3780891978758094845#64 ∧ pt[9]! = 11037255111966004397#64 ∧
         pt[10]! = 18446744073709551615#64 ∧ pt[11]! = 4611686018427387903#64 := by
-      by_contra h; rw [if_neg h] at hr; rw [hr] at hbr120; exact absurd hbr120 (by decide)
+      by_contra h; rw [ite_eq_right h] at hr; rw [hr] at hbr120; exact absurd hbr120 (by decide)
     obtain ⟨e0, e1, e2, e3⟩ := h
     show leLimbsToNat [pt[8]!, pt[9]!, pt[10]!, pt[11]!] = Fp.R
     rw [e0, e1, e2, e3]; exact Fp.limbs_R
@@ -489,7 +489,7 @@ theorem mul_pathB (pt k : List Word) (hkl : k.length = 4)
     rw [limbs4]; exact lt_of_lt_of_eq this (by decide)
   have htag : ¬(mulSum pt k)[0]! = 0 := by rw [hsum]; simpa using hbr250
   refine ⟨?_, fun _ => ⟨?_, fun _ => ⟨?_, ?_⟩⟩⟩
-  · rw [mulW, if_neg hZ0, if_neg htag, hsum, ← cells_mulR2 acc329_0_def acc348_0_def,
+  · rw [mulW, ite_eq_right hZ0, ite_eq_right htag, hsum, ← cells_mulR2 acc329_0_def acc348_0_def,
       ← cells_mulR2 acc415_0_def acc428_0_def, ← cells_R, v349_def, v351_def, v353_def, v355_def,
       v429_def, v430_def, v431_def, v432_def]
     rfl
@@ -735,7 +735,7 @@ theorem mul_pathC (pt k : List Word) (hkl : k.length = 4)
   have hz := zflag v18_def v23_def v24_def v28_def v29_def v34_def v35_def v39_def v40_def v45_def
     v46_def v50_def v51_def v55_def
   have hZ0 : ptZ pt ≠ 0 := by
-    apply limbs_ne_zero; intro h; rw [if_pos h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
+    apply limbs_ne_zero; intro h; rw [ite_eq_left h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
   simp only [List.getElem!_cons_zero, List.getElem!_cons_succ] at v135_def v136_def v137_def v138_def v143_def v144_def v145_def v146_def
   have hA := toAffine_lt (X := ptX pt) (Y := ptY pt) (Z := ptZ pt) (leLimbsToNat_lt _) (leLimbsToNat_lt _)
   have eA : leLimbsToNat [v135, v136, v137, v138] = (Fp.toAffine (ptX pt) (ptY pt) (ptZ pt)).1 := by
@@ -757,7 +757,7 @@ theorem mul_pathC (pt k : List Word) (hkl : k.length = 4)
     rw [mulSum, hscal, hbase, ← acc278_0_def, list9_eta hl, ← acc256_1_def]; rfl
   have htag : (mulSum pt k)[0]! = 0 := by rw [hsum]; simpa using hbr280
   refine ⟨?_, fun _ => ⟨?_, fun h => absurd htag h⟩⟩
-  · rw [mulW, if_neg hZ0, if_pos htag, ← acc286_0_def]; rfl
+  · rw [mulW, ite_eq_right hZ0, ite_eq_left htag, ← acc286_0_def]; rfl
   · rw [hscal, hbase]; exact post256_15
 
 set_option maxRecDepth 4000 in
@@ -1077,7 +1077,7 @@ theorem mul_pathD (pt k : List Word) (hkl : k.length = 4)
   have hz := zflag v18_def v23_def v24_def v28_def v29_def v34_def v35_def v39_def v40_def v45_def
     v46_def v50_def v51_def v55_def
   have hZ0 : ptZ pt ≠ 0 := by
-    apply limbs_ne_zero; intro h; rw [if_pos h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
+    apply limbs_ne_zero; intro h; rw [ite_eq_left h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
   simp only [List.getElem!_cons_zero, List.getElem!_cons_succ] at v135_def v136_def v137_def v138_def v143_def v144_def v145_def v146_def
   have hA := toAffine_lt (X := ptX pt) (Y := ptY pt) (Z := ptZ pt) (leLimbsToNat_lt _) (leLimbsToNat_lt _)
   have eA : leLimbsToNat [v135, v136, v137, v138] = (Fp.toAffine (ptX pt) (ptY pt) (ptZ pt)).1 := by
@@ -1117,7 +1117,7 @@ theorem mul_pathD (pt k : List Word) (hkl : k.length = 4)
     rw [limbs4]; exact lt_of_lt_of_eq this (by decide)
   have htag : ¬(mulSum pt k)[0]! = 0 := by rw [hsum]; simpa using hbr280
   refine ⟨?_, fun _ => ⟨?_, fun _ => ⟨?_, ?_⟩⟩⟩
-  · rw [mulW, if_neg hZ0, if_neg htag, hsum, ← cells_mulR2 acc359_0_def acc378_0_def,
+  · rw [mulW, ite_eq_right hZ0, ite_eq_right htag, hsum, ← cells_mulR2 acc359_0_def acc378_0_def,
       ← cells_mulR2 acc445_0_def acc458_0_def, ← cells_R, v379_def, v381_def, v383_def, v385_def,
       v459_def, v460_def, v461_def, v462_def]
     rfl
@@ -1155,8 +1155,8 @@ theorem mul_pathE (pt k : List Word)
   have hz := zflag v18_def v23_def v24_def v28_def v29_def v34_def v35_def v39_def v40_def v45_def
     v46_def v50_def v51_def v55_def
   have hZ : ptZ pt = 0 := by
-    apply limbs_eq_zero; by_contra h; rw [if_neg h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
+    apply limbs_eq_zero; by_contra h; rw [ite_eq_right h] at hz; rw [hz] at hbr56; exact absurd hbr56 (by decide)
   refine ⟨?_, fun h => absurd hZ h⟩
-  rw [mulW, if_pos hZ, ← acc62_0_def]; rfl
+  rw [mulW, ite_eq_left hZ, ← acc62_0_def]; rfl
 
 end Cases.Zip2005

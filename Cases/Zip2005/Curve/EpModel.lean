@@ -79,28 +79,28 @@ theorem add_lt (a b : Nat) : add a b < p := Nat.mod_lt _ p_pos
 
 /-- The five outcomes of `addJ`, one lemma each. -/
 theorem addJ_z1_zero {X1 Y1 Z1 X2 Y2 Z2 : Nat} (h : Z1 = 0) : addJ X1 Y1 Z1 X2 Y2 Z2 = (X2, Y2, Z2) := by
-  simp only [addJ, if_pos h]
+  simp only [addJ, ite_eq_left h]
 
 theorem addJ_z2_zero {X1 Y1 Z1 X2 Y2 Z2 : Nat} (h1 : Z1 ≠ 0) (h2 : Z2 = 0) :
     addJ X1 Y1 Z1 X2 Y2 Z2 = (X1, Y1, Z1) := by
-  simp only [addJ, if_neg h1, if_pos h2]
+  simp only [addJ, ite_eq_right h1, ite_eq_left h2]
 
 theorem addJ_identity {X1 Y1 Z1 X2 Y2 Z2 : Nat} (h1 : Z1 ≠ 0) (h2 : Z2 ≠ 0)
     (hu : mul X1 (mul Z2 Z2) = mul X2 (mul Z1 Z1))
     (hs : mul (mul Y1 (mul Z2 Z2)) Z2 ≠ mul (mul Y2 (mul Z1 Z1)) Z1) :
     addJ X1 Y1 Z1 X2 Y2 Z2 = (0, 0, 0) := by
-  simp only [addJ, if_neg h1, if_neg h2, if_pos hu, if_neg hs]
+  simp only [addJ, ite_eq_right h1, ite_eq_right h2, ite_eq_left hu, ite_eq_right hs]
 
 theorem addJ_double {X1 Y1 Z1 X2 Y2 Z2 : Nat} (h1 : Z1 ≠ 0) (h2 : Z2 ≠ 0)
     (hu : mul X1 (mul Z2 Z2) = mul X2 (mul Z1 Z1))
     (hs : mul (mul Y1 (mul Z2 Z2)) Z2 = mul (mul Y2 (mul Z1 Z1)) Z1) :
     addJ X1 Y1 Z1 X2 Y2 Z2 = dblJ X1 Y1 Z1 := by
-  simp only [addJ, if_neg h1, if_neg h2, if_pos hu, if_pos hs]
+  simp only [addJ, ite_eq_right h1, ite_eq_right h2, ite_eq_left hu, ite_eq_left hs]
 
 theorem addJ_general {X1 Y1 Z1 X2 Y2 Z2 : Nat} (h1 : Z1 ≠ 0) (h2 : Z2 ≠ 0)
     (hu : mul X1 (mul Z2 Z2) ≠ mul X2 (mul Z1 Z1)) :
     addJ X1 Y1 Z1 X2 Y2 Z2 = addJ_main Z1 Z2 (mul Z1 Z1) (mul Z2 Z2) (mul X1 (mul Z2 Z2))
       (mul X2 (mul Z1 Z1)) (mul (mul Y1 (mul Z2 Z2)) Z2) (mul (mul Y2 (mul Z1 Z1)) Z1) := by
-  simp only [addJ, if_neg h1, if_neg h2, if_neg hu]
+  simp only [addJ, ite_eq_right h1, ite_eq_right h2, ite_eq_right hu]
 
 end Cases.Zip2005.Fp

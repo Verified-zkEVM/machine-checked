@@ -122,8 +122,8 @@ theorem pad_next_note_1086_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop
     refine hk t h1 h2 h3 h4 (Region.of_eq h5 ?_) ?_
     · simp only [noteBlkP, List.cons.injEq, and_true, true_and]
       rw [hv49]; decide
-    · rw [h6, noteBit, if_neg (by decide), if_neg (by decide), if_neg (by decide), if_neg (by decide),
-        if_neg (by decide)]
+    · rw [h6, noteBit, ite_eq_right (by decide), ite_eq_right (by decide), ite_eq_right (by decide), ite_eq_right (by decide),
+        ite_eq_right (by decide)]
       rfl
   sym_close hk'
 

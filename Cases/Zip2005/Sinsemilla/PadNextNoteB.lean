@@ -123,7 +123,7 @@ theorem pad_next_note_b_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
     | (exfalso; rw [hv129] at hbr130; exact absurd (by decide) hbr130)
     | skip)
   -- the stepped pointer is not null either
-  all_goals (have hv134 : v134 = sp + 18446744073709551440#64 + BitVec.ofNat 64 ((m + 1) / 8) := by rw [← v134_def, ← v133_def, ← v131_def, ← v94_def, extractByte_zext8 _ _ (by decide), if_pos rfl, ← hhK, ptr8Step' _ (Nat.mod_lt _ (by decide)), hv117, ptr8Next])
+  all_goals (have hv134 : v134 = sp + 18446744073709551440#64 + BitVec.ofNat 64 ((m + 1) / 8) := by rw [← v134_def, ← v133_def, ← v131_def, ← v94_def, extractByte_zext8 _ _ (by decide), ite_eq_left rfl, ← hhK, ptr8Step' _ (Nat.mod_lt _ (by decide)), hv117, ptr8Next])
   all_goals (first
     | (exfalso; rw [hv134] at hbr135; simp only [beq_iff_eq] at hbr135; have := congrArg BitVec.toNat hbr135; rw [BitVec.toNat_add, BitVec.toNat_add, Bn.toNat_ofNat' ((m + 1) / 8)] at this; simp only [BitVec.toNat_ofNat] at this; omega)
     | skip)
@@ -151,7 +151,7 @@ theorem pad_next_note_b_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
         interval_cases i
         all_goals simp (disch := decide) only [noteW8, extractByte_replaceByte, extractByte_replaceByte_ne]
       · rw [← v152_def, ← v144_def, ← v143_def, ← v142_def, ← v136_def, ← v131_def, ← v94_def,
-          extractByte_zext8 _ _ (by decide), if_pos rfl, ← hhK, head8Next' _ (Nat.mod_lt _ (by decide)),
+          extractByte_zext8 _ _ (by decide), ite_eq_left rfl, ← hhK, head8Next' _ (Nat.mod_lt _ (by decide)),
           Nat.mod_add_mod, ← v137_def, ← v138_def, ← v139_def, hv134]
         apply word_ext
         intro i hi
@@ -160,7 +160,7 @@ theorem pad_next_note_b_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
           extractByte_replaceWord32_ne, extractByte_replaceWord32_in]
       · rw [← v30_def]; exact lenNext _
     · rw [h6, ← v8_def, ← v2_def, ← v0_def, ← v1_def, ← v131_def, ← v94_def, extractByte_zext8 _ _ (by decide),
-        if_pos rfl, ← hhK, noteBit, if_neg (by omega), if_pos (by omega), Nat.add_sub_cancel_left]
+        ite_eq_left rfl, ← hhK, noteBit, ite_eq_right (by omega), ite_eq_left (by omega), Nat.add_sub_cancel_left]
       exact bit8Next7' K m
   sym_close hk'
 

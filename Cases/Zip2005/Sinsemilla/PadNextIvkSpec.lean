@@ -44,25 +44,25 @@ def ivkState (sp : Word) (J : List Word) (j : Word) (k : Nat) : List Word :=
 
 theorem ivkState_0 (sp : Word) (J : List Word) (j : Word) :
     ivkState sp J j 0 = padIvkA sp J j 255#64 (ptrA sp) 0#8 1#64 0#64 := by
-  rw [ivkState, if_pos (by decide), if_pos rfl, show (8 * (0 / 64) : Nat) = 0 from rfl, BitVec.add_zero]
+  rw [ivkState, ite_eq_left (by decide), ite_eq_left rfl, show (8 * (0 / 64) : Nat) = 0 from rfl, BitVec.add_zero]
 
 theorem ivkState_A (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk1 : 1 ≤ k) (hk : k ≤ 255) :
     ivkState sp J j k = padIvkA sp J j (BitVec.ofNat 64 (255 - k)) (ptrA sp + BitVec.ofNat 64 (8 * (k / 64)))
       (BitVec.ofNat 8 (k % 64)) 0#64 (BitVec.ofNat 64 k) := by
-  rw [ivkState, if_pos hk, if_neg (by omega)]
+  rw [ivkState, ite_eq_left hk, ite_eq_right (by omega)]
 
 theorem ivkState_B (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk : 256 ≤ k) (hk' : k ≤ 510) :
     ivkState sp J j k = padIvkB sp J j (BitVec.ofNat 64 (255 - (k - 255)))
       (ptrB sp + BitVec.ofNat 64 (8 * ((k - 255) / 64))) (BitVec.ofNat 8 ((k - 255) % 64))
       (BitVec.ofNat 64 k) := by
-  rw [ivkState, if_neg (by omega), if_pos hk']
+  rw [ivkState, ite_eq_right (by omega), ite_eq_left hk']
 
 theorem ivkState_end (sp : Word) (J : List Word) (j : Word) (k : Nat) (hk : 511 ≤ k) :
     ivkState sp J j k =
       [1#64, 0#64, 0#64, ptrB sp + 24#64, replaceByte (ivkEndB sp J) 0 63#8, ivkEndB2 sp J,
        0#64, ptrA sp + 24#64, replaceByte (ivkEndA sp J) 0 63#8, ivkEndA2 sp J,
        replaceByte J[8]! 0 (BitVec.truncate 8 2#64), 510#64] := by
-  rw [ivkState, if_neg (by omega), if_neg (by omega)]
+  rw [ivkState, ite_eq_right (by omega), ite_eq_right (by omega)]
 
 /-- The inner end word with its head byte written as `0`: the block's own word. -/
 theorem ivkEndA_head_zero (sp : Word) (J : List Word) :
@@ -121,7 +121,7 @@ theorem pad_next_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
     · rw [ivkState_A _ _ _ 1 (by decide) (by decide), show (8 * (1 / 64) : Nat) = 0 from rfl,
         BitVec.add_zero]
       exact h5
-    · rw [h6, if_pos (by decide), ivkBit, if_pos (by decide)]
+    · rw [h6, ite_eq_left (by decide), ivkBit, ite_eq_left (by decide)]
   rcases Nat.lt_or_ge k 255 with h255 | h255
   · -- phase A
     rw [ivkState_A _ _ _ k hk1 (by omega)] at hI
@@ -132,7 +132,7 @@ theorem pad_next_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [ivkState_A _ _ _ (k + 1) (by omega) (by omega)]
       exact h5
-    · rw [h6, if_pos (by omega), ivkBit, if_pos h255]
+    · rw [h6, ite_eq_left (by omega), ivkBit, ite_eq_left h255]
   rcases Nat.eq_or_lt_of_le h255 with h255' | h256
   · -- the phase change
     subst h255'
@@ -144,7 +144,7 @@ theorem pad_next_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
     · rw [ivkState_B _ _ _ (255 + 1) (by decide) (by decide),
         show (8 * ((255 + 1 - 255) / 64) : Nat) = 0 from rfl, BitVec.add_zero]
       exact h5
-    · rw [h6, if_pos (by decide), ivkBit, if_neg (by decide), Nat.sub_self]
+    · rw [h6, ite_eq_left (by decide), ivkBit, ite_eq_right (by decide), Nat.sub_self]
   rcases Nat.lt_or_ge k 510 with h510 | h510
   · -- phase B
     obtain ⟨m, rfl⟩ : ∃ m, k = 255 + m := ⟨k - 255, by omega⟩
@@ -156,7 +156,7 @@ theorem pad_next_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [ivkState_B _ _ _ (255 + m + 1) (by omega) (by omega), show 255 + m + 1 - 255 = m + 1 by omega]
       exact h5
-    · rw [h6, if_pos (by omega), ivkBit, if_neg (by omega), Nat.add_sub_cancel_left]
+    · rw [h6, ite_eq_left (by omega), ivkBit, ite_eq_right (by omega), Nat.add_sub_cancel_left]
   · -- the end
     have hk510' : k = 510 := by omega
     subst hk510'
@@ -167,7 +167,7 @@ theorem pad_next_ivk_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : 
     refine hk t h1 h2 h3 h4 ?_ ?_
     · rw [ivkState_end _ _ _ (510 + 1) (by decide)]
       exact h5
-    · rw [h6, if_neg (by decide)]
+    · rw [h6, ite_eq_right (by decide)]
 
 /-- The calls that yield a bit: `k < 510`. -/
 theorem pad_next_ivk_lt_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L : List (Word × Nat)} (s : MachineState) (ra spn sp iter : Word) (J A B : List Word)
@@ -197,7 +197,7 @@ theorem pad_next_ivk_lt_spec {G : MachineState → Prop} {n : Nat} {P : Prop} {L
   refine pad_next_ivk_spec s ra spn sp iter J A B hAl hBl j k (by omega) hpc hcode hcw hro hheap hra hra1 hsp hstk
     hsp_lo hsp_hi ha0 hI hokI hiter hAr hokA hBr hokB hdjI hdjI' hdjS hdjSA hdjSB hdjAB hunwrap_opt ?_
   intro t h1 h2 h3 h4 h5 h6
-  exact hk t h1 h2 h3 h4 h5 (by rw [h6, if_pos hk510])
+  exact hk t h1 h2 h3 h4 h5 (by rw [h6, ite_eq_left hk510])
 
 /-- The same, with the block as a list variable related to the model (the form the executor
     matches at a call inside `from_iter`'s loop). -/
@@ -299,6 +299,6 @@ theorem pad_next_ivk_end_cells_spec {G : MachineState → Prop} {n : Nat} {P : P
     hsp hstk hsp_lo hsp_hi ha0 hI hokI hiter hAr hokA hBr hokB hdjI hdjI' hdjS hdjSA hdjSB hdjAB hunwrap_opt ?_
   intro t h1 h2 h3 h4 h5 h6
   rw [list12_cells _ (ivkState_length sp J j 511)] at h5
-  exact hk t _ _ _ _ _ _ _ _ _ _ _ _ h1 h2 h3 h4 rfl h5 (by rw [h6, if_neg (by decide)])
+  exact hk t _ _ _ _ _ _ _ _ _ _ _ _ h1 h2 h3 h4 rfl h5 (by rw [h6, ite_eq_right (by decide)])
 
 end Cases.Zip2005

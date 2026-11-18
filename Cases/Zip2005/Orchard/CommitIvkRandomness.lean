@@ -60,7 +60,7 @@ theorem commit_ivk_randomness_from_bytes_spec {G : MachineState → Prop} {n : N
     sym_close (hk _ _ _)
     all_goals first
       | rfl
-      | exact (if_neg (fun h => hlen h.1)).symm
+      | exact (ite_eq_right (fun h => hlen h.1)).symm
       | (intro h; exact absurd h hlen)
   all_goals
     have hlen : len = 32#64 := by
@@ -100,7 +100,7 @@ theorem commit_ivk_randomness_from_bytes_spec {G : MachineState → Prop} {n : N
     sym_close (hk _ _ _)
     all_goals first
       | rfl
-      | exact (if_pos ⟨rfl, hc⟩).symm
+      | exact (ite_eq_left ⟨rfl, hc⟩).symm
       | (intro _ _
          rw [← v113_def, ← v114_def, ← v115_def, ← v116_def, ← v112_def,
            show -(BitVec.zeroExtend 64 1#8) = 18446744073709551615#64 by decide, and_allOnes', and_allOnes',

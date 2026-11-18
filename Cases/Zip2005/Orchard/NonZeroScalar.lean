@@ -91,17 +91,17 @@ theorem nz_flag (x : Nat) (f v107 v108 v109 v110 v111 v112 v113 v114 v115 v129 v
   unfold nzScalarFlag
   by_cases hx : x < Fq.q
   · have hm : Fq.mul x Fq.R2 < 2 ^ 256 := lt_trans (Fq.mul_lt _ _) Fq.q_lt
-    simp only [nzScalarW, hx, if_true, natToLeLimbs_cells4, List.cons.injEq, and_true] at hc
+    simp only [nzScalarW, hx, ite_true, natToLeLimbs_cells4, List.cons.injEq, and_true] at hc
     obtain ⟨e112, e113, e114, e115⟩ := hc
     subst hf
-    rw [if_pos hx, e112, e113, e114, e115]
+    rw [ite_eq_left hx, e112, e113, e114, e115]
     by_cases hz : Fq.mul x Fq.R2 = 0
-    · rw [if_neg (fun h => h.2 hz), decide_eq_true ((cells4_eq_zero_iff _ hm).mpr hz)]
+    · rw [ite_eq_right (fun h => h.2 hz), decide_eq_true ((cells4_eq_zero_iff _ hm).mpr hz)]
       rfl
-    · rw [if_pos ⟨hx, hz⟩, decide_eq_false (fun h => hz ((cells4_eq_zero_iff _ hm).mp h))]
+    · rw [ite_eq_left ⟨hx, hz⟩, decide_eq_false (fun h => hz ((cells4_eq_zero_iff _ hm).mp h))]
       rfl
   · subst hf
-    rw [if_neg hx, if_neg (fun h => hx h.1)]
+    rw [ite_eq_right hx, ite_eq_right (fun h => hx h.1)]
     simp only [BitVec.zero_and]
     rfl
 

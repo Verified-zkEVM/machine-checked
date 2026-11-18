@@ -55,7 +55,7 @@ theorem setReg (h : ProtOk y) (r : Reg) (v : Word) : ProtOk (y.setReg r v) := fu
 
 theorem setMem (h : ProtOk y) {w : Word} (hw : ¬ Contract.env.InProt w) (v : Word) :
     ProtOk (y.setMem w v) := fun a ha hp => by
-  rw [getMem_setMem, if_neg (fun e => hw (by rw [← e]; exact hp))]
+  rw [getMem_setMem, ite_eq_right (fun e => hw (by rw [← e]; exact hp))]
   exact h a ha hp
 
 theorem setByte (h : ProtOk y) {w : Word} (hw : ¬ Contract.env.InProt (alignToDword w))
@@ -357,7 +357,7 @@ theorem holds : iface.Holds Owned.env C := by
   iterate 9 xstep code
   xa
   simp only [MachineState.getMem_setReg, MachineState.getMem_setPC]
-  repeat (rw [getMem_setMem, if_neg (SysWrite.frame_ne ht (by simp <;> omega) (by decide))])
+  repeat (rw [getMem_setMem, ite_eq_right (SysWrite.frame_ne ht (by simp <;> omega) (by decide))])
   simp only [MachineState.getMem_setReg, htag]
   iterate 3 xstep code
   · simp at hb

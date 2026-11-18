@@ -189,7 +189,7 @@ theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} 
     have hX256 : acc17_0 < 2 ^ 256 := lt_trans hXq Fq.q_lt
     -- the representation `try_from` read is `askR`
     have hr : natToLeLimbs 4 acc4_0 = askR neg s0 s1 s2 s3 := by
-      rw [← acc4_0_def, MachineChecked.RiscV.Sym.cells4', leLimbsToNat_natToLeLimbs 4 _ hX256, askR, askK, if_pos hn0, hX]
+      rw [← acc4_0_def, MachineChecked.RiscV.Sym.cells4', leLimbsToNat_natToLeLimbs 4 _ hX256, askR, askK, ite_eq_left hn0, hX]
     rw [MachineChecked.RiscV.Sym.cells4'] at acc9_0_def post9_16
     have hcan' : leLimbsToNat (natToLeLimbs 4 acc4_0) < Fq.q := by
       rw [hr, askR, leLimbsToNat_natToLeLimbs 4 _ (lt_trans (Nat.mod_lt _ Fq.q_pos) Fq.q_lt)]
@@ -199,7 +199,7 @@ theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} 
     have hRo : Region out (askW neg s0 s1 s2 s3 [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11]) s_30 := by
       rw [← acc9_0_def] at hR1
       unfold tryFromW at hR1
-      rw [if_pos (by rw [← hr]; exact hcan')] at hR1
+      rw [ite_eq_left (by rw [← hr]; exact hcan')] at hR1
       simp only [List.getElem!_cons_succ] at hR1
       rw [askW, MachineChecked.RiscV.Sym.List.eq_map_range (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3)) ++
         ptBytesW (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3))) ++ skW (askR neg s0 s1 s2 s3)) (n := 20)
@@ -232,7 +232,7 @@ theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} 
       rw [← acc4_0_def]; exact unsplice_splice _ _ _ _ _
     have hr : [unsplice2 acc4_0[0]! acc4_0[1]!, unsplice2 acc4_0[1]! acc4_0[2]!,
         unsplice2 acc4_0[2]! acc4_0[3]!, unsplice2 acc4_0[3]! acc4_0[4]!] = askR neg s0 s1 s2 s3 := by
-      rw [hu, post4_8, hneg, askR, askK, if_neg hn0, hX]
+      rw [hu, post4_8, hneg, askR, askK, ite_eq_right hn0, hX]
     have hcan' : leLimbsToNat [unsplice2 acc4_0[0]! acc4_0[1]!, unsplice2 acc4_0[1]! acc4_0[2]!,
         unsplice2 acc4_0[2]! acc4_0[3]!, unsplice2 acc4_0[3]! acc4_0[4]!] < Fq.q := by
       rw [hr, askR, leLimbsToNat_natToLeLimbs 4 _ (lt_trans (Nat.mod_lt _ Fq.q_pos) Fq.q_lt)]
@@ -242,7 +242,7 @@ theorem derive_unchecked_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} 
     have hRo : Region out (askW neg s0 s1 s2 s3 [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11]) s_30 := by
       rw [← acc9_0_def] at hR0
       unfold tryFromW at hR0
-      rw [if_pos (by rw [← hr]; exact hcan')] at hR0
+      rw [ite_eq_left (by rw [← hr]; exact hcan')] at hR0
       simp only [List.getElem!_cons_succ] at hR0
       rw [askW, MachineChecked.RiscV.Sym.List.eq_map_range (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3)) ++
         ptBytesW (mulW [post9_0, post9_1, post9_2, post9_3, post9_4, post9_5, post9_6, post9_7, post9_8, post9_9, post9_10, post9_11] (skW (askR neg s0 s1 s2 s3))) ++ skW (askR neg s0 s1 s2 s3)) (n := 20)

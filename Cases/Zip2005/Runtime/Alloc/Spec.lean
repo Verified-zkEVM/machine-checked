@@ -88,13 +88,13 @@ theorem entrySeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 : MachineS
       xregs
       rw [hs.align] at hb ⊢
       simp only [BitVec.ult_iff_lt] at hb
-      rw [if_pos hb]
+      rw [ite_eq_left hb]
     · xstep code
       refine mid _ (by xstm) rfl ?_
       xregs
       rw [hs.align] at hb
       simp only [BitVec.ult_iff_lt] at hb
-      rw [if_neg hb]
+      rw [ite_eq_right hb]
   rw [← setPC_self hpc]
   iterate 11 xstep code
   xstep Entry.dumpF_code
@@ -107,10 +107,10 @@ theorem entrySeg {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 : MachineS
   · simp only [untouched, List.mem_cons, List.mem_nil_iff, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> xregs
   all_goals simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
-    off_eq_iff, BitVec.reduceEq, if_true, if_false]
+    off_eq_iff, BitVec.reduceEq, ite_true, ite_false]
   simp only [hn 0xfffffffffffffff8#64 (by decide) a ha, hn 0xfffffffffffffff0#64 (by decide) a ha,
     hn 0xffffffffffffffe8#64 (by decide) a ha, hn 0xffffffffffffffe0#64 (by decide) a ha,
-    hn 0xffffffffffffffd8#64 (by decide) a ha, if_false]
+    hn 0xffffffffffffffd8#64 (by decide) a ha, ite_false]
 
 /-! ## Arithmetic of the placement -/
 
@@ -190,9 +190,9 @@ theorem popMem_other {self f s nx a : Word} {m : Word → Word} (h1 : a ≠ Tlsf
     Tlsf.popMem self m f s nx a = m a := by
   unfold Tlsf.popMem
   by_cases hz : nx = 0#64
-  · simp only [if_pos hz]
-    split <;> simp only [Tlsf.upd, if_neg h1, if_neg h2, if_neg h3]
-  · simp only [if_neg hz, Tlsf.upd, if_neg h1, if_neg (h4 hz)]
+  · simp only [ite_eq_left hz]
+    split <;> simp only [Tlsf.upd, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3]
+  · simp only [ite_eq_right hz, Tlsf.upd, ite_eq_right h1, ite_eq_right (h4 hz)]
 
 theorem splitPre_other {self x S N a : Word} {m : Word → Word}
     (d1 : a ≠ x + S + 8#64)
@@ -209,10 +209,10 @@ theorem splitPre_other {self x S N a : Word} {m : Word → Word}
   generalize Tlsf.upd m (x + S + 8#64) (x + N)
     (Tlsf.headAddr self (Tlsf.flOf (S - N)) (Tlsf.slOf (S - N))) = h2 at *
   by_cases hz : h2 = 0#64
-  · simp only [if_pos hz, Tlsf.upd, if_neg d1, if_neg d2, if_neg d3, if_neg d4, if_neg d5,
-      if_neg d6, if_neg d8, if_neg d9]
-  · simp only [if_neg hz, Tlsf.upd, if_neg d1, if_neg d2, if_neg d3, if_neg d4, if_neg d5,
-      if_neg d6, if_neg (d7 hz), if_neg d8, if_neg d9]
+  · simp only [ite_eq_left hz, Tlsf.upd, ite_eq_right d1, ite_eq_right d2, ite_eq_right d3, ite_eq_right d4, ite_eq_right d5,
+      ite_eq_right d6, ite_eq_right d8, ite_eq_right d9]
+  · simp only [ite_eq_right hz, Tlsf.upd, ite_eq_right d1, ite_eq_right d2, ite_eq_right d3, ite_eq_right d4, ite_eq_right d5,
+      ite_eq_right d6, ite_eq_right (d7 hz), ite_eq_right d8, ite_eq_right d9]
 
 /-- The lock is none of the shape's doublewords. -/
 theorem key_ne_self {self base : Word} {m : Word → Word} {bs : List Tlsf.Blk}
@@ -280,7 +280,7 @@ theorem chain_next {m : Word → Word} {pre post : List Tlsf.Blk} {x S : Word} {
     ∃ c post', post = c :: post' ∧ c.a = x + S := by
   obtain ⟨a', p', _, hc⟩ := (Tlsf.chain_append (List.cons_ne_nil _ _)).mp h
   obtain ⟨h1, _, _, _, _, h6⟩ := hc
-  simp only [Bool.false_eq_true, if_false] at h1 h6
+  simp only [Bool.false_eq_true, ite_false] at h1 h6
   subst h1
   cases post with
   | nil => exact h6.elim
@@ -514,7 +514,7 @@ theorem afterFound {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Mach
       exact this _ hal
     obtain ⟨h1, _⟩ := hpb _ hptrN hN2 hal
     simp only [finMem]
-    rw [Tlsf.upd_ne (Tlsf.ne_nat (by omega)), if_neg hn, Tlsf.upd_same]
+    rw [Tlsf.upd_ne (Tlsf.ne_nat (by omega)), ite_eq_right hn, Tlsf.upd_same]
   rcases hcase with ⟨rfl, hNeq⟩ | ⟨rfl, hlt⟩
   · -- Exact fit: the block is used whole.
     have hshF := hsh2.mark hbs'

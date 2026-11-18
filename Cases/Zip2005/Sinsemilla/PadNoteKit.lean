@@ -32,8 +32,8 @@ theorem ptr8Next (sp c : Word) (k : Nat) :
   rw [BitVec.add_assoc, BitVec.add_assoc, BitVec.add_assoc]
   congr 2
   by_cases h : k % 8 = 7
-  · rw [if_pos h, ← BitVec.ofNat_add, show k / 8 + 1 = (k + 1) / 8 by omega]
-  · rw [if_neg h, BitVec.add_zero, show k / 8 = (k + 1) / 8 by omega]
+  · rw [ite_eq_left h, ← BitVec.ofNat_add, show k / 8 + 1 = (k + 1) / 8 by omega]
+  · rw [ite_eq_right h, BitVec.add_zero, show k / 8 = (k + 1) / 8 by omega]
 
 /-- The shift amount `srl` takes from the head byte. -/
 theorem shift8Amt (r : Nat) (hr : r < 8) :
@@ -196,12 +196,12 @@ theorem getLsbD_replaceHalfword (w : Word) (pos : Nat) (hw : BitVec 16) (i : Nat
   simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_shiftLeft,
     BitVec.zeroExtend_eq_setWidth, BitVec.getLsbD_setWidth, hi, decide_true, Bool.true_and]
   by_cases h : pos * 16 ≤ i ∧ i < pos * 16 + 16
-  · rw [if_pos h, ff _ (by omega)]
+  · rw [ite_eq_left h, ff _ (by omega)]
     have h1 : ¬ i < pos * 16 := by omega
     have h2 : i - pos * 16 < 16 := by omega
     have h3 : i - pos * 16 < 64 := by omega
     simp [h1, h2, h3]
-  · rw [if_neg h]
+  · rw [ite_eq_right h]
     by_cases h1 : i < pos * 16
     · simp [h1]
     · have h2 : ¬ i - pos * 16 < 16 := by omega
@@ -216,12 +216,12 @@ theorem getLsbD_replaceWord32 (w : Word) (pos : Nat) (v : BitVec 32) (i : Nat) (
   simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_shiftLeft,
     BitVec.zeroExtend_eq_setWidth, BitVec.getLsbD_setWidth, hi, decide_true, Bool.true_and]
   by_cases h : pos * 32 ≤ i ∧ i < pos * 32 + 32
-  · rw [if_pos h, ff _ (by omega)]
+  · rw [ite_eq_left h, ff _ (by omega)]
     have h1 : ¬ i < pos * 32 := by omega
     have h2 : i - pos * 32 < 32 := by omega
     have h3 : i - pos * 32 < 64 := by omega
     simp [h1, h2, h3]
-  · rw [if_neg h]
+  · rw [ite_eq_right h]
     by_cases h1 : i < pos * 32
     · simp [h1]
     · have h2 : ¬ i - pos * 32 < 32 := by omega
@@ -234,7 +234,7 @@ theorem extractByte_replaceHalfword_ne (w : Word) (j k : Nat) (h : BitVec 16) (h
   intro i hi
   simp only [extractByte, BitVec.truncate_eq_setWidth, BitVec.getLsbD_setWidth,
     BitVec.getLsbD_ushiftRight, hi, decide_true, Bool.true_and]
-  rw [getLsbD_replaceHalfword _ _ _ _ (by omega), if_neg (by omega)]
+  rw [getLsbD_replaceHalfword _ _ _ _ (by omega), ite_eq_right (by omega)]
 
 theorem extractByte_replaceWord32_ne (w : Word) (j k : Nat) (h : BitVec 32) (hk : k < 8)
     (hne : k / 4 ≠ j) : extractByte (replaceWord32 w j h) k = extractByte w k := by
@@ -242,7 +242,7 @@ theorem extractByte_replaceWord32_ne (w : Word) (j k : Nat) (h : BitVec 32) (hk 
   intro i hi
   simp only [extractByte, BitVec.truncate_eq_setWidth, BitVec.getLsbD_setWidth,
     BitVec.getLsbD_ushiftRight, hi, decide_true, Bool.true_and]
-  rw [getLsbD_replaceWord32 _ _ _ _ (by omega), if_neg (by omega)]
+  rw [getLsbD_replaceWord32 _ _ _ _ (by omega), ite_eq_right (by omega)]
 
 /-! ## Branch refutations -/
 
@@ -263,7 +263,7 @@ theorem eq_of_xor_eq_zero {p e : Word} (h : p ^^^ e = 0#64) : p = e := by
 /-- `seqz` of a cursor compared with its end, the heads equal: `0` when the pointers differ. -/
 theorem seqz_xor0 (p e : Word) (hpe : p ≠ e) :
     (if ((p ^^^ e) ||| 0#64).ult 1#64 = true then 1#64 else 0#64) = 0#64 := by
-  rw [BitVec.or_zero, if_neg]
+  rw [BitVec.or_zero, ite_eq_right]
   intro h
   have h1 := BitVec.lt_def.mp (BitVec.ult_iff_lt.mp h)
   simp only [BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod] at h1
@@ -277,7 +277,7 @@ theorem extractByte_replaceHalfword_in (w : Word) (j k : Nat) (hw : BitVec 16) (
   intro i hi
   simp only [extractByte, BitVec.truncate_eq_setWidth, BitVec.getLsbD_setWidth,
     BitVec.getLsbD_ushiftRight, hi, decide_true, Bool.true_and]
-  rw [getLsbD_replaceHalfword _ _ _ _ (by omega), if_pos (by omega)]
+  rw [getLsbD_replaceHalfword _ _ _ _ (by omega), ite_eq_left (by omega)]
   simp only [show (k - 2 * j) * 8 + i < 64 by omega, decide_true, Bool.true_and]
   congr 1; omega
 
@@ -289,7 +289,7 @@ theorem extractByte_replaceWord32_in (w : Word) (j k : Nat) (v : BitVec 32) (hk8
   intro i hi
   simp only [extractByte, BitVec.truncate_eq_setWidth, BitVec.getLsbD_setWidth,
     BitVec.getLsbD_ushiftRight, hi, decide_true, Bool.true_and]
-  rw [getLsbD_replaceWord32 _ _ _ _ (by omega), if_pos (by omega)]
+  rw [getLsbD_replaceWord32 _ _ _ _ (by omega), ite_eq_left (by omega)]
   simp only [show (k - 4 * j) * 8 + i < 64 by omega, decide_true, Bool.true_and]
   congr 1; omega
 

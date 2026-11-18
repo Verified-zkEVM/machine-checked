@@ -31,8 +31,8 @@ theorem and_notmask (c : Word) (a : Bool) :
     (bw a + 18446744073709551615#64) &&& c = if a then 0#64 else c := by
   rw [bw_add_ones]
   cases a
-  · simp only [Bool.false_eq_true, if_false]; rw [BitVec.and_comm]; exact and_allOnes' c
-  · simp only [if_true]; exact BitVec.zero_and
+  · simp only [Bool.false_eq_true, ite_false]; rw [BitVec.and_comm]; exact and_allOnes' c
+  · simp only [ite_true]; exact BitVec.zero_and
 
 theorem zext_byte01 {f : BitVec 8} (h : f = 1#8 ∨ f = 0#8) :
     BitVec.zeroExtend 64 f = bw (decide (f = 1#8)) := by
@@ -54,7 +54,7 @@ theorem fbu_post {b0 b1 b2 b3 x0 x1 x2 x3 y0 y1 y2 y3 : Word} {f : BitVec 8} {c 
       (leLimbsToNat [if c then y0 else 0#64, if c then y1 else 0#64, if c then y2 else 0#64,
         if c then y3 else 0#64]) f := by
   cases c
-  · simp only [Bool.false_eq_true, if_false]
+  · simp only [Bool.false_eq_true, ite_false]
     have hf : f = 0#8 := by
       rcases hpost.flag01 with h | h
       · exact absurd (decide_eq_true h) (by rw [hc]; decide)
@@ -65,7 +65,7 @@ theorem fbu_post {b0 b1 b2 b3 x0 x1 x2 x3 y0 y1 y2 y3 : Word} {f : BitVec 8} {c 
     rcases hpost.2.2 with ⟨h1, _⟩ | ⟨h0, hr⟩
     · exact absurd h1 (by rw [hf]; decide)
     · exact Or.inr ⟨h0, hr⟩
-  · simp only [if_true]; exact hpost
+  · simp only [ite_true]; exact hpost
 
 /-- `to_curve`: `z = R`, or `0` at the affine identity `(0, 0)`. -/
 theorem fbu_z {x0 x1 x2 x3 y0 y1 y2 y3 : Word} {xz yz : Bool}
@@ -83,14 +83,14 @@ theorem fbu_z {x0 x1 x2 x3 y0 y1 y2 y3 : Word} {xz yz : Bool}
     rw [limbs_zero4, ← hyz]; simp only [Bool.and_eq_true, beq_iff_eq]
     exact ⟨fun ⟨a, b, c, d⟩ => ⟨d, c, b, a⟩, fun ⟨a, b, c, d⟩ => ⟨d, c, b, a⟩⟩
   cases xz <;> cases yz
-  · simp only [Bool.and_false, Bool.false_eq_true, if_false]
-    rw [if_neg (fun hh => Bool.false_ne_true (ex.mp hh.1))]; exact Fp.limbs_R
-  · simp only [Bool.and_false, Bool.false_eq_true, if_false]
-    rw [if_neg (fun hh => Bool.false_ne_true (ex.mp hh.1))]; exact Fp.limbs_R
-  · simp only [Bool.false_and, Bool.false_eq_true, if_false]
-    rw [if_neg (fun hh => Bool.false_ne_true (ey.mp hh.2))]; exact Fp.limbs_R
-  · simp only [Bool.and_self, if_true]
-    rw [if_pos ⟨ex.mpr rfl, ey.mpr rfl⟩]; rfl
+  · simp only [Bool.and_false, Bool.false_eq_true, ite_false]
+    rw [ite_eq_right (fun hh => Bool.false_ne_true (ex.mp hh.1))]; exact Fp.limbs_R
+  · simp only [Bool.and_false, Bool.false_eq_true, ite_false]
+    rw [ite_eq_right (fun hh => Bool.false_ne_true (ex.mp hh.1))]; exact Fp.limbs_R
+  · simp only [Bool.false_and, Bool.false_eq_true, ite_false]
+    rw [ite_eq_right (fun hh => Bool.false_ne_true (ey.mp hh.2))]; exact Fp.limbs_R
+  · simp only [Bool.and_self, ite_true]
+    rw [ite_eq_left ⟨ex.mpr rfl, ey.mpr rfl⟩]; rfl
 
 set_option maxHeartbeats 400000000 in
 set_option maxRecDepth 20000 in

@@ -19,7 +19,7 @@ theorem pow_seg18 {G : MachineState → Prop} {n : Nat} {P : Prop} (s0 : Machine
       Region a0 (natToLeLimbs 4 (Fp.powRun [T0, T1, T2, T3] Fp.powOps18 A)) u → SafeN G n P u) :
     SafeN G n P t := by
   obtain ⟨w0, w1, t00, t01, t02, t03, t10, t11, t12, t13, t20, t21, t22, t23, t30, t31, t32, t33, d0, d1, d2, d3, b0, b1, b2, b3, hpc, hcode, hcA, hcM, hcw, hok, hU0, hx2, hx3, hx4, hx8, hx9, hx10, hx11, hx18, hx19, hx20, hx21, hx22, hx23, hx24, hx25, hx27, hB0, hX1, hB1, hX2, hB2, hC, hD1, hD2, hE, hS, eT0, eT1, eT2, eT3, eA, eB⟩ := h
-  rw [if_pos rfl] at hx23
+  rw [ite_eq_left rfl] at hx23
   clear hx25
   obtain ⟨X1, hX1l, hX1⟩ := hX1
   obtain ⟨B1, hB1l, hB1⟩ := hB1

@@ -78,10 +78,10 @@ theorem sel_bit (x y : Word) (b : Bool) :
     (x &&& -(if b then 1#64 else 0#64) ||| y &&& ((if b then 1#64 else 0#64) + 18446744073709551615#64)) =
       if b then x else y := by
   cases b
-  · simp only [Bool.false_eq_true, if_false]
+  · simp only [Bool.false_eq_true, ite_false]
     rw [show -(0#64) = 0#64 from rfl, BitVec.and_zero, BitVec.zero_or, BitVec.zero_add,
       show (18446744073709551615#64 : Word) = BitVec.allOnes 64 by decide, BitVec.and_allOnes]
-  · simp only [if_true]
+  · simp only [ite_true]
     rw [show -(1#64) = BitVec.allOnes 64 by decide, BitVec.and_allOnes,
       show (1#64 : Word) + 18446744073709551615#64 = 0#64 by decide, BitVec.and_zero, BitVec.or_zero]
 theorem acc_step (a0 a1 a2 a3 a4 a5 a6 a7 a8 : Word) {base : List Word} (hbl : base.length = 9)
@@ -98,7 +98,7 @@ theorem acc_step (a0 a1 a2 a3 a4 a5 a6 a7 a8 : Word) {base : List Word} (hbl : b
   have hT := length_completeAddW (p := [a0, a1, a2, a3, a4, a5, a6, a7, a8]) rfl hbl
   cases b
   · rfl
-  · simp only [mulStep, if_true, drop1_9 hT]
+  · simp only [mulStep, ite_true, drop1_9 hT]
 
 theorem base_step {base : List Word} (hbl : base.length = 9) (b : Bool) (acc : List Word) :
     [(doubleW base)[0]!, (doubleW base)[1]!, (doubleW base)[2]!, (doubleW base)[3]!,

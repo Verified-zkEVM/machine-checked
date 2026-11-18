@@ -53,9 +53,9 @@ theorem cmSel_Z_lt (Q R B k : List Word) :
   have h := leLimbsToNat_natToLeLimbs 4 (jZ (commitJ Q R B k)) (lt_trans hz Fp.p_lt)
   unfold cmSel
   cases (commitFold Q B).isSome
-  · simp only [cond_false, List.getElem!_cons_succ, List.getElem!_cons_zero]
+  · simp only [Bool.cond_false, List.getElem!_cons_succ, List.getElem!_cons_zero]
     exact lt_of_eq_of_lt (by decide) Fp.p_pos
-  · simp only [cond_true, commitW, natToLeLimbs_four, List.cons_append, List.nil_append,
+  · simp only [Bool.cond_true, commitW, natToLeLimbs_four, List.cons_append, List.nil_append,
       List.getElem!_cons_succ, List.getElem!_cons_zero] at h ⊢
     rw [h]; exact hz
 

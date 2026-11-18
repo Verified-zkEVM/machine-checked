@@ -32,7 +32,7 @@ theorem flag_of_br (cf v : Word) (hv : BitVec.zeroExtend 64 (extractByte cf 0) =
 theorem ct_of_br (c : Prop) [Decidable c] (v : Word) (hv : bw (decide c) &&& 255#64 = v)
     (h : ¬(v != 1#64) = true) : c := by
   by_contra hc
-  simp only [hc, decide_false, bw, Bool.false_eq_true, if_false] at hv
+  simp only [hc, decide_false, bw, Bool.false_eq_true, ite_false] at hv
   subst hv
   exact h (by decide)
 
@@ -68,7 +68,7 @@ theorem ct_of_beq (c : Prop) [Decidable c] (v : Word) (hv : bw (decide c) &&& 25
 theorem ct_false_of_br (c : Prop) [Decidable c] (v : Word) (hv : bw (decide c) &&& 255#64 = v)
     (h : ¬(v != 0#64) = true) : ¬c := by
   intro hc
-  simp only [hc, decide_true, bw, if_true] at hv
+  simp only [hc, decide_true, bw, ite_true] at hv
   subst hv
   exact h (by decide)
 

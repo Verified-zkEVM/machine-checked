@@ -88,8 +88,8 @@ theorem guestAccepts_main (I : List (BitVec 8)) (L L1 : Word)
       rw [getElem!_pos _ _ (by simp; omega), getElem!_pos _ _ (by simp; omega), List.getElem_map, List.getElem_map,
         List.getElem_range, List.getElem_range]
       by_cases hb : i < (hintWords (List.take L1.toNat (List.drop 8 (List.drop (8 + L.toNat) I)))).length
-      · simp only [hb, if_true]
-      · simp only [hb, if_false]
+      · simp only [hb, ite_true]
+      · simp only [hb, ite_false]
         rw [getElem!_pos JL2 i (by omega), getElem!_pos (JL2.take 174) i (by simp; omega), List.getElem_take]
   rw [hW2] at hV hokc
   generalize List.take L1.toNat (List.drop 8 (List.drop (8 + L.toNat) I)) = r2 at hI2 hr2l hV hokc

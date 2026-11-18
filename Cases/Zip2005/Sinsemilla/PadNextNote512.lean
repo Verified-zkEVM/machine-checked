@@ -166,8 +166,8 @@ theorem pad_next_note_512_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop}
         all_goals simp (disch := decide) only [noteW11, extractByte_replaceByte, extractByte_replaceByte_ne,
           extractByte_replaceHalfword_ne, extractByte_replaceHalfword_in]
         all_goals rfl
-    · rw [h6, ← v8_def, ← v2_def, ← v0_def, BitVec.ushiftRight_zero, noteBit, if_neg (by decide),
-        if_neg (by decide), if_pos (by decide), Nat.sub_self, BitVec.ushiftRight_zero]
+    · rw [h6, ← v8_def, ← v2_def, ← v0_def, BitVec.ushiftRight_zero, noteBit, ite_eq_right (by decide),
+        ite_eq_right (by decide), ite_eq_left (by decide), Nat.sub_self, BitVec.ushiftRight_zero]
       rw [show BitVec.zeroExtend 64 (extractByte v 0) &&& 1#64 = v &&& 1#64 from by
         have := byteBit v 0 0 (by decide); simpa using this]
       exact bitVal _

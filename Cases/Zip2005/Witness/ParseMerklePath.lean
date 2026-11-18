@@ -50,12 +50,12 @@ def merklePathW (O H : List Word) (pw : Word) : List Word :=
 /-- A canonicity flag read back as a word: not `1` means not canonical. -/
 theorem flag_ne_one {c : Prop} [Decidable c] {v : Word}
     (hv : BitVec.zeroExtend 64 (if c then 1#8 else 0#8) = v) (h : (v != 1#64) = true) : ¬ c := by
-  intro hc; rw [if_pos hc] at hv; subst hv; exact absurd h (by decide)
+  intro hc; rw [ite_eq_left hc] at hv; subst hv; exact absurd h (by decide)
 
 /-- A canonicity flag read back as a word: `1` means canonical. -/
 theorem flag_eq_one {c : Prop} [Decidable c] {v : Word}
     (hv : BitVec.zeroExtend 64 (if c then 1#8 else 0#8) = v) (h : ¬ (v != 1#64) = true) : c := by
-  by_contra hc; rw [if_neg hc] at hv; subst hv; exact h (by decide)
+  by_contra hc; rw [ite_eq_right hc] at hv; subst hv; exact h (by decide)
 
 /-- The position: `lw` then `sw` of its low word. -/
 theorem trunc32_sext_w32 (w : Word) :
@@ -77,8 +77,8 @@ theorem mpCells_eq (H : List Word) (h : mpOk H) : (List.range 128).map (mpCell H
   simp only [List.map_cons, List.map_nil, mpCell]
   rw [show 4 * i / 4 = i by omega, show (4 * i + 1) / 4 = i by omega, show (4 * i + 2) / 4 = i by omega,
     show (4 * i + 3) / 4 = i by omega, show 4 * i % 4 = 0 by omega, show (4 * i + 1) % 4 = 1 by omega,
-    show (4 * i + 2) % 4 = 2 by omega, show (4 * i + 3) % 4 = 3 by omega, if_pos (h i hi'),
-    if_pos (h i hi'), if_pos (h i hi'), if_pos (h i hi'), natToLeLimbs_cells4]
+    show (4 * i + 2) % 4 = 2 by omega, show (4 * i + 3) % 4 = 3 by omega, ite_eq_left (h i hi'),
+    ite_eq_left (h i hi'), ite_eq_left (h i hi'), ite_eq_left (h i hi'), natToLeLimbs_cells4]
   rfl
 
 set_option maxHeartbeats 1000000000 in
@@ -242,193 +242,193 @@ theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop}
   · have hc := flag_ne_one v15_def hbr17
     have hno : ¬ mpOk H := fun hall => hc (hall 0 (by decide))
     have hRo : Region out (merklePathW O H pw) s_30 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v57_def hbr58
     have hno : ¬ mpOk H := fun hall => hc (hall 1 (by decide))
     have hRo : Region out (merklePathW O H pw) s_80 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v88_def hbr89
     have hno : ¬ mpOk H := fun hall => hc (hall 2 (by decide))
     have hRo : Region out (merklePathW O H pw) s_111 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v119_def hbr120
     have hno : ¬ mpOk H := fun hall => hc (hall 3 (by decide))
     have hRo : Region out (merklePathW O H pw) s_142 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v150_def hbr151
     have hno : ¬ mpOk H := fun hall => hc (hall 4 (by decide))
     have hRo : Region out (merklePathW O H pw) s_173 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v188_def hbr189
     have hno : ¬ mpOk H := fun hall => hc (hall 5 (by decide))
     have hRo : Region out (merklePathW O H pw) s_211 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v219_def hbr220
     have hno : ¬ mpOk H := fun hall => hc (hall 6 (by decide))
     have hRo : Region out (merklePathW O H pw) s_242 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v250_def hbr251
     have hno : ¬ mpOk H := fun hall => hc (hall 7 (by decide))
     have hRo : Region out (merklePathW O H pw) s_273 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v281_def hbr282
     have hno : ¬ mpOk H := fun hall => hc (hall 8 (by decide))
     have hRo : Region out (merklePathW O H pw) s_304 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v319_def hbr320
     have hno : ¬ mpOk H := fun hall => hc (hall 9 (by decide))
     have hRo : Region out (merklePathW O H pw) s_342 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v350_def hbr351
     have hno : ¬ mpOk H := fun hall => hc (hall 10 (by decide))
     have hRo : Region out (merklePathW O H pw) s_373 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v381_def hbr382
     have hno : ¬ mpOk H := fun hall => hc (hall 11 (by decide))
     have hRo : Region out (merklePathW O H pw) s_404 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v412_def hbr413
     have hno : ¬ mpOk H := fun hall => hc (hall 12 (by decide))
     have hRo : Region out (merklePathW O H pw) s_435 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v443_def hbr444
     have hno : ¬ mpOk H := fun hall => hc (hall 13 (by decide))
     have hRo : Region out (merklePathW O H pw) s_466 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v474_def hbr475
     have hno : ¬ mpOk H := fun hall => hc (hall 14 (by decide))
     have hRo : Region out (merklePathW O H pw) s_497 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v505_def hbr506
     have hno : ¬ mpOk H := fun hall => hc (hall 15 (by decide))
     have hRo : Region out (merklePathW O H pw) s_528 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v536_def hbr537
     have hno : ¬ mpOk H := fun hall => hc (hall 16 (by decide))
     have hRo : Region out (merklePathW O H pw) s_559 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v574_def hbr575
     have hno : ¬ mpOk H := fun hall => hc (hall 17 (by decide))
     have hRo : Region out (merklePathW O H pw) s_597 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v605_def hbr606
     have hno : ¬ mpOk H := fun hall => hc (hall 18 (by decide))
     have hRo : Region out (merklePathW O H pw) s_628 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v636_def hbr637
     have hno : ¬ mpOk H := fun hall => hc (hall 19 (by decide))
     have hRo : Region out (merklePathW O H pw) s_659 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v667_def hbr668
     have hno : ¬ mpOk H := fun hall => hc (hall 20 (by decide))
     have hRo : Region out (merklePathW O H pw) s_690 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v698_def hbr699
     have hno : ¬ mpOk H := fun hall => hc (hall 21 (by decide))
     have hRo : Region out (merklePathW O H pw) s_721 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v729_def hbr730
     have hno : ¬ mpOk H := fun hall => hc (hall 22 (by decide))
     have hRo : Region out (merklePathW O H pw) s_752 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v760_def hbr761
     have hno : ¬ mpOk H := fun hall => hc (hall 23 (by decide))
     have hRo : Region out (merklePathW O H pw) s_783 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v791_def hbr792
     have hno : ¬ mpOk H := fun hall => hc (hall 24 (by decide))
     have hRo : Region out (merklePathW O H pw) s_814 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v822_def hbr823
     have hno : ¬ mpOk H := fun hall => hc (hall 25 (by decide))
     have hRo : Region out (merklePathW O H pw) s_845 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v853_def hbr854
     have hno : ¬ mpOk H := fun hall => hc (hall 26 (by decide))
     have hRo : Region out (merklePathW O H pw) s_876 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v884_def hbr885
     have hno : ¬ mpOk H := fun hall => hc (hall 27 (by decide))
     have hRo : Region out (merklePathW O H pw) s_907 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v915_def hbr916
     have hno : ¬ mpOk H := fun hall => hc (hall 28 (by decide))
     have hRo : Region out (merklePathW O H pw) s_938 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v946_def hbr947
     have hno : ¬ mpOk H := fun hall => hc (hall 29 (by decide))
     have hRo : Region out (merklePathW O H pw) s_969 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v977_def hbr978
     have hno : ¬ mpOk H := fun hall => hc (hall 30 (by decide))
     have hRo : Region out (merklePathW O H pw) s_1000 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · have hc := flag_ne_one v1008_def hbr1009
     have hno : ¬ mpOk H := fun hall => hc (hall 31 (by decide))
     have hRo : Region out (merklePathW O H pw) s_1031 := by
-      unfold merklePathW; rw [if_neg hno]; exact hR1
+      unfold merklePathW; rw [ite_eq_right hno]; exact hR1
     clear hR1
     sym_close hk
   · -- `Some`: every encoding canonical
@@ -469,7 +469,7 @@ theorem parse_merkle_path_spec {G : MachineState → Prop} {nb : Nat} {P : Prop}
       · exact flag_eq_one v1008_def hbr1009
     subst v15_def v18_def v19_def v20_def v21_def v57_def v59_def v60_def v61_def v62_def v88_def v90_def v91_def v92_def v93_def v119_def v121_def v122_def v123_def v124_def v150_def v152_def v153_def v154_def v155_def acc166_1_def v188_def v190_def v191_def v192_def v193_def v219_def v221_def v222_def v223_def v224_def v250_def v252_def v253_def v254_def v255_def v281_def v283_def v284_def v285_def v286_def acc297_1_def v319_def v321_def v322_def v323_def v324_def v350_def v352_def v353_def v354_def v355_def v381_def v383_def v384_def v385_def v386_def v412_def v414_def v415_def v416_def v417_def v443_def v445_def v446_def v447_def v448_def v474_def v476_def v477_def v478_def v479_def v505_def v507_def v508_def v509_def v510_def v536_def v538_def v539_def v540_def v541_def acc552_1_def v574_def v576_def v577_def v578_def v579_def v605_def v607_def v608_def v609_def v610_def v636_def v638_def v639_def v640_def v641_def v667_def v669_def v670_def v671_def v672_def v698_def v700_def v701_def v702_def v703_def v729_def v731_def v732_def v733_def v734_def v760_def v762_def v763_def v764_def v765_def v791_def v793_def v794_def v795_def v796_def v822_def v824_def v825_def v826_def v827_def v853_def v855_def v856_def v857_def v858_def v884_def v886_def v887_def v888_def v889_def v915_def v917_def v918_def v919_def v920_def v946_def v948_def v949_def v950_def v951_def v977_def v979_def v980_def v981_def v982_def v1008_def v1010_def v1011_def v1012_def v1013_def v1039_def v1040_def v1041_def v1055_def v1065_def
     have hRo : Region out (merklePathW O H pw) s_1079 := by
-      rw [merklePathW, if_pos hall, show List.range 128 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127] from rfl]
+      rw [merklePathW, ite_eq_left hall, show List.range 128 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127] from rfl]
       simp only [List.map_cons, List.map_nil, mpCell, mpEnc, List.cons_append, List.nil_append,
         List.getElem!_cons_succ, List.getElem!_cons_zero, Nat.reduceDiv, Nat.reduceMod, Nat.reduceMul,
         Nat.reduceAdd, trunc32_sext_w32] at hR1 ⊢

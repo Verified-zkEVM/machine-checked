@@ -138,8 +138,8 @@ theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Pro
   have hxm : (if canon then Fp.mul X Fp.R2 else 0) = xm := by
     rw [← hxm_def, ← h208, ← h209, ← h210, ← h211]
     cases canon
-    · simp only [Bool.false_eq_true, if_false]; rfl
-    · simp only [if_true]; rw [hXc, hXm]
+    · simp only [Bool.false_eq_true, ite_false]; rfl
+    · simp only [ite_true]; rw [hXc, hXm]
   -- `x.is_zero()`
   obtain ⟨zero, hzero_def⟩ :
     ∃ z, (v211 == 0#64 && (v210 == 0#64 && (v209 == 0#64 && v208 == 0#64))) = z := ⟨_, rfl⟩
@@ -225,12 +225,12 @@ theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Pro
     rw [← hY_def, ← v13_def, ← v14_def, ← v15_def, ← v16_def, ← v12_def, ← hv7, and_negbw, and_negbw,
       and_negbw, and_negbw]
     cases sq
-    · simp only [Bool.false_eq_true, if_false]; rfl
-    · simp only [if_true]; exact hR_def
+    · simp only [Bool.false_eq_true, ite_false]; rfl
+    · simp only [ite_true]; exact hR_def
   have hYlt : Y < Fp.p := by
     rw [hY]; cases sq
-    · simp only [Bool.false_eq_true, if_false]; exact Fp.p_pos
-    · simp only [if_true]; exact post6_10
+    · simp only [Bool.false_eq_true, ite_false]; exact Fp.p_pos
+    · simp only [ite_true]; exact post6_10
   -- `y.is_odd()`
   have hpar : bw (decide (Fp.fromMont Y % 2 = 1)) = v27 := by
     rw [← v27_def, ← v26_def, ← acc25_0_def, low_bit, hY_def]; rfl
@@ -252,8 +252,8 @@ theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Pro
   have hYf : leLimbsToNat [v66, v69, v72, v75] = if flip then Fp.sub 0 Y else Y := by
     rw [← hy0, ← hy1, ← hy2, ← hy3]
     cases flip
-    · simp only [Bool.false_eq_true, if_false]; exact hY_def
-    · simp only [if_true]; exact hneg
+    · simp only [Bool.false_eq_true, ite_false]; exact hY_def
+    · simp only [ite_true]; exact hneg
   -- the `CtOption` masks and the final flag
   have hv80 : bw sq = v80 := by rw [← v80_def, ← hv7, and1_bw]
   have hv86 : -(bw (!ident)) = v86 := by rw [← v86_def, ← v85_def, ← h262, and255_bw]
@@ -278,14 +278,14 @@ theorem ep_affine_from_bytes_spec {G : MachineState → Prop} {n : Nat} {P : Pro
   have hxout : leLimbsToNat [if !ident then v208 else 0#64, if !ident then v209 else 0#64,
       if !ident then v210 else 0#64, if !ident then v211 else 0#64] = if !ident then xm else 0 := by
     cases ident
-    · simp only [Bool.not_false, if_true]; exact hxm_def
-    · simp only [Bool.not_true, Bool.false_eq_true, if_false]; rfl
+    · simp only [Bool.not_false, ite_true]; exact hxm_def
+    · simp only [Bool.not_true, Bool.false_eq_true, ite_false]; rfl
   have hyout : leLimbsToNat [if !ident then v66 else 0#64, if !ident then v69 else 0#64,
       if !ident then v72 else 0#64, if !ident then v75 else 0#64] =
       if !ident then (if flip then Fp.sub 0 Y else Y) else 0 := by
     cases ident
-    · simp only [Bool.not_false, if_true]; exact hYf
-    · simp only [Bool.not_true, Bool.false_eq_true, if_false]; rfl
+    · simp only [Bool.not_false, ite_true]; exact hYf
+    · simp only [Bool.not_true, Bool.false_eq_true, ite_false]; rfl
   rw [← hx0, ← hx1, ← hx2, ← hx3, ← hy0', ← hy1', ← hy2', ← hy3', hxout, hyout]
   exact fb_post hX hcanon hxm hzero hident_def post6_10 hsq_def post6_12 hY hflip_def
 

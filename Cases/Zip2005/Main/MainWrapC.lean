@@ -47,7 +47,7 @@ theorem parse_rho_ok_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : 
       Region a0 [1#64, r0, r1, r2, r3] t → SafeN G n P t) :
     SafeN G n P s :=
   parse_rho_spec s ra sp a0 a1 b0 b1 b2 b3 O hOl hpc hcode hcodeRho hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hok_a1 hO hok0 hd0 hd_a1 he_a1 (fun t tag L h1 h2 h3 h4 htag _ hLeq hR => by
-    rw [if_pos hc] at htag; subst htag
+    rw [ite_eq_left hc] at htag; subst htag
     have e := hLeq hc; subst e
     have hX := leLimbsToNat_natToLeLimbs 4 (Fp.mul (leLimbsToNat [b0, b1, b2, b3]) Fp.R2) (lt_trans (Fp.mul_lt _ _) Fp.p_lt)
     rw [natToLeLimbs_four] at hR hX
@@ -75,7 +75,7 @@ theorem parse_rho_bad_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s :
       Region a0 (0#64 :: L) t → SafeN G n P t) :
     SafeN G n P s :=
   parse_rho_spec s ra sp a0 a1 b0 b1 b2 b3 O hOl hpc hcode hcodeRho hcodeR hcodeM hcodeB hcw hro hra hra1 hsp hstk ha0 ha1 hB hok_a1 hO hok0 hd0 hd_a1 he_a1 (fun t tag L h1 h2 h3 h4 htag hL _ hR => by
-    rw [if_neg hc] at htag; subst htag; exact hk t L h1 h2 h3 h4 hL hR)
+    rw [ite_eq_right hc] at htag; subst htag; exact hk t L h1 h2 h3 h4 hL hR)
 
 /-- `psi_spec` with the output limbs named (their value and canonicity as facts) and its frame's
 prior contents taken as junk, so a caller need not hold regions below its stack pointer. -/
@@ -526,7 +526,7 @@ theorem nip_one_of {f : BitVec 8} {a b c d v : Word}
   split
   · rfl
   · rename_i hc
-    rw [if_neg hc] at h1
+    rw [ite_eq_right hc] at h1
     subst h1
     exact (h2 (by decide)).elim
 

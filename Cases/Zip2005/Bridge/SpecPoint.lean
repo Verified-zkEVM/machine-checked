@@ -41,8 +41,8 @@ theorem onCurve_iff_sw (x y : ℕ) :
 theorem pointOf_eq_grp (x y : ℕ) : (pointOf x y : G) = grp ⟨(x : Fp), (y : Fp)⟩ := by
   unfold pointOf grp ShortWeierstrass.toPt Point.coords
   by_cases h : OnCurve x y
-  · rw [dif_pos h, dif_pos ((onCurve_iff_sw x y).mp h)]; rfl
-  · rw [dif_neg h, dif_neg (fun h' => h ((onCurve_iff_sw x y).mpr h'))]; rfl
+  · rw [dite_eq_left h, dite_eq_left ((onCurve_iff_sw x y).mp h)]; rfl
+  · rw [dite_eq_right h, dite_eq_right (fun h' => h ((onCurve_iff_sw x y).mpr h'))]; rfl
 
 theorem jacPt_eq_grp (m : List Word) : (jacPt m : G) = grp (specPt m) := pointOf_eq_grp _ _
 
@@ -88,13 +88,13 @@ theorem mulW_valid (pt k : List Word) (hb : ptZ pt ≠ 0 → ValidA (mulBase pt)
     (specPt (mulW pt k)).Valid := by
   apply specPt_valid
   by_cases hz : ptZ pt = 0
-  · right; rw [mulW, if_pos hz]; exact jacXY_of_Z ptZ_replicate
+  · right; rw [mulW, ite_eq_left hz]; exact jacXY_of_Z ptZ_replicate
   obtain ⟨hok, hcan⟩ := hf hz
   obtain ⟨hSv, -⟩ := mulSum_spec pt k (hb hz) hok
-  rw [mulW, if_neg hz]
+  rw [mulW, ite_eq_right hz]
   by_cases h0 : (mulSum pt k)[0]! = 0
-  · right; rw [if_pos h0]; exact jacXY_of_Z ptZ_replicate
-  rw [if_neg h0]
+  · right; rw [ite_eq_left h0]; exact jacXY_of_Z ptZ_replicate
+  rw [ite_eq_right h0]
   left
   obtain ⟨hxl, hyl⟩ := hcan h0
   obtain ⟨ht, hd⟩ := drop1_take4 hSv.1
@@ -106,7 +106,7 @@ theorem mulW_valid (pt k : List Word) (hb : ptZ pt ≠ 0 → ValidA (mulBase pt)
     (lt_trans Fp.R_lt Fp.p_lt)
   have hc := (hSv.2 h0).2
   unfold jacXY
-  rw [cx, cy, cz, Fp.toAffine, if_pos rfl]
+  rw [cx, cy, cz, Fp.toAffine, ite_eq_left rfl]
   simp only
   rw [mont_in_out _ hxl, mont_in_out _ hyl]
   rw [xOf, yOf, ht, hd] at hc

@@ -159,7 +159,7 @@ theorem pad_next_note_a_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
           extractByte_replaceHalfword_ne, extractByte_replaceHalfword_in]
       · rw [← v30_def]; exact lenNext k
     · rw [h6, ← v8_def, ← v2_def, ← v0_def, ← v1_def, ← v154_def, ← v139_def, ← hhG, noteBit,
-        if_pos (by omega)]
+        ite_eq_left (by omega)]
       exact bit8Next7 G k
   sym_close hk'
 

@@ -19,12 +19,12 @@ theorem getLsbD_replaceByte (w : Word) (pos : Nat) (b : BitVec 8) (i : Nat) (hi 
   simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_shiftLeft,
     BitVec.zeroExtend_eq_setWidth, BitVec.getLsbD_setWidth, hi, decide_true, Bool.true_and]
   by_cases h : pos * 8 ≤ i ∧ i < pos * 8 + 8
-  · rw [if_pos h, ff _ (by omega)]
+  · rw [ite_eq_left h, ff _ (by omega)]
     have h1 : ¬ i < pos * 8 := by omega
     have h2 : i - pos * 8 < 8 := by omega
     have h3 : i - pos * 8 < 64 := by omega
     simp [h1, h2, h3]
-  · rw [if_neg h]
+  · rw [ite_eq_right h]
     by_cases h1 : i < pos * 8
     · simp [h1]
     · have h2 : ¬ i - pos * 8 < 8 := by omega
@@ -53,7 +53,7 @@ theorem extractByte_replaceByte (w : Word) (k : Nat) (hk : k < 8) (b : BitVec 8)
   unfold extractByte
   simp only [BitVec.truncate_eq_setWidth, BitVec.getLsbD_setWidth, BitVec.getLsbD_ushiftRight, hi,
     decide_true, Bool.true_and]
-  rw [getLsbD_replaceByte _ _ _ _ (by omega), if_pos (by omega)]
+  rw [getLsbD_replaceByte _ _ _ _ (by omega), ite_eq_left (by omega)]
   congr 1; omega
 
 /-- A byte through `lbu`/`sb`: zero-extended, then truncated. -/

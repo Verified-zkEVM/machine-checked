@@ -122,21 +122,21 @@ theorem note_chunks (gx gy kx ky rho psi : ℕ) (v : Word) (hgx : gx < 2 ^ 255) 
     ring
   rw [e, Nat.testBit_two_pow_mul_add _ hG, noteBit]
   by_cases h1 : i < 256
-  · rw [if_pos h1, if_pos h1]; exact wordsBit_natToLeLimbs _ _ h1
-  rw [if_neg h1, if_neg h1, Nat.testBit_two_pow_mul_add _ hK]
+  · rw [ite_eq_left h1, ite_eq_left h1]; exact wordsBit_natToLeLimbs _ _ h1
+  rw [ite_eq_right h1, ite_eq_right h1, Nat.testBit_two_pow_mul_add _ hK]
   by_cases h2 : i < 512
-  · rw [if_pos h2, if_pos (by omega : i - 256 < 256)]; exact wordsBit_natToLeLimbs _ _ (by omega)
-  rw [if_neg h2, if_neg (by omega : ¬ i - 256 < 256), Nat.testBit_two_pow_mul_add _ hv]
+  · rw [ite_eq_left h2, ite_eq_left (by omega : i - 256 < 256)]; exact wordsBit_natToLeLimbs _ _ (by omega)
+  rw [ite_eq_right h2, ite_eq_right (by omega : ¬ i - 256 < 256), Nat.testBit_two_pow_mul_add _ hv]
   by_cases h3 : i < 576
-  · rw [if_pos h3, if_pos (by omega : i - 256 - 256 < 64), wbit, show i - 256 - 256 = i - 512 by omega]
-  rw [if_neg h3, if_neg (by omega : ¬ i - 256 - 256 < 64), Nat.testBit_two_pow_mul_add _ hr]
+  · rw [ite_eq_left h3, ite_eq_left (by omega : i - 256 - 256 < 64), wbit, show i - 256 - 256 = i - 512 by omega]
+  rw [ite_eq_right h3, ite_eq_right (by omega : ¬ i - 256 - 256 < 64), Nat.testBit_two_pow_mul_add _ hr]
   by_cases h4 : i < 831
-  · rw [if_pos h4, if_pos (by omega : i - 256 - 256 - 64 < 255), show i - 256 - 256 - 64 = i - 576 by omega]
+  · rw [ite_eq_left h4, ite_eq_left (by omega : i - 256 - 256 - 64 < 255), show i - 256 - 256 - 64 = i - 576 by omega]
     exact wordsBit_natToLeLimbs _ _ (by omega)
-  rw [if_neg h4, if_neg (by omega : ¬ i - 256 - 256 - 64 < 255)]
+  rw [ite_eq_right h4, ite_eq_right (by omega : ¬ i - 256 - 256 - 64 < 255)]
   by_cases h5 : i < 1086
-  · rw [if_pos h5, show i - 256 - 256 - 64 - 255 = i - 831 by omega]
+  · rw [ite_eq_left h5, show i - 256 - 256 - 64 - 255 = i - 831 by omega]
     exact wordsBit_natToLeLimbs _ _ (by omega)
-  · rw [if_neg h5, testBit_lt_two_pow hp _ (by omega)]
+  · rw [ite_eq_right h5, testBit_lt_two_pow hp _ (by omega)]
 
 end Cases.Zip2005.SpecMul

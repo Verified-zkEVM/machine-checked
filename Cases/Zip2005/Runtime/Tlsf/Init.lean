@@ -86,7 +86,7 @@ theorem rep_init {m : Word → Word} (hm : ∀ a, m a = initMem a) : Rep self0 b
     obtain ⟨h1, h2, h3, h4⟩ := slBm_range hf
     by_cases h : f = 31#64
     · subst h; rw [hm]; rfl
-    · rw [if_neg h, hm]
+    · rw [ite_eq_right h, hm]
       refine initMem_ctl' (by bv_decide) (by bv_decide) h3 ?_
       simp only [ctlKeys, List.mem_cons, List.mem_nil_iff, or_false, not_or]
       refine ⟨by bv_decide, by bv_decide, fun he => h (h4.mp he), by bv_decide⟩
@@ -131,7 +131,7 @@ theorem rep_init {m : Word → Word} (hm : ∀ a, m a = initMem a) : Rep self0 b
     unfold L0
     by_cases h : f = 31#64
     · subst h
-      simp only [if_true, true_and]
+      simp only [ite_true, true_and]
       rw [show (0x400000000000#64) = BitVec.ofNat 64 (2 ^ 46) from rfl, BitVec.getLsbD_ofNat,
         testBit_pow]
       have hs' : s.toNat < 64 := by rw [BitVec.lt_def] at hs; simpa using hs

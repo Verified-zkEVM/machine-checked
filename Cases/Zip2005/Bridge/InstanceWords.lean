@@ -58,7 +58,7 @@ theorem byteAt_instW (O W : List Word) (p : ℕ) (hp : p < 128) (hp0 : 0 < p) :
   rw [instW_get O W (p / 8) (by omega), extractByte_word8_fn (instByte W) (8 * (p / 8)) (p % 8) (Nat.mod_lt _ (by decide)),
     Nat.div_add_mod p 8]
   unfold instByte
-  rw [if_neg (by omega)]
+  rw [ite_eq_right (by omega)]
 
 theorem byteAt_overlay (r : List (BitVec 8)) (JL : List Word) (p : ℕ) (hp : p < r.length) (hJ : p / 8 < JL.length) :
     byteAt (overlay (hintWords r) JL) p = r[p]! := by
@@ -78,11 +78,11 @@ theorem inst_chain_byte (r : List (BitVec 8)) (JL O D27 D56 A27 A34 A56 : List W
     (h56 : mcpyW D56 ((List.range 15).map fun i => A34[i]!) 7 0 113 15 = A56)
     (p : ℕ) (hp : 24 ≤ p) (hp' : p < 88) :
     byteAt A56 p = r[p + 8]! := by
-  rw [← h56, byteAt_mcpyW _ _ _ _ _ _ _ (by omega), if_pos (by omega), byteAt_range_map _ _ _ (by omega)]
+  rw [← h56, byteAt_mcpyW _ _ _ _ _ _ _ (by omega), ite_eq_left (by omega), byteAt_range_map _ _ _ (by omega)]
   change byteAt A34 (p - 7 + 0) = _
-  rw [← h34, byteAt_mcpyW _ _ _ _ _ _ _ (by omega), if_pos (by omega), byteAt_range_map _ _ _ (by omega)]
+  rw [← h34, byteAt_mcpyW _ _ _ _ _ _ _ (by omega), ite_eq_left (by omega), byteAt_range_map _ _ _ (by omega)]
   change byteAt A27 (p - 7 + 0 - 0 + 0) = _
-  rw [← h27, byteAt_mcpyW _ _ _ _ _ _ _ (by omega), if_pos (by omega), byteAt_range_map _ _ _ (by omega)]
+  rw [← h27, byteAt_mcpyW _ _ _ _ _ _ _ (by omega), ite_eq_left (by omega), byteAt_range_map _ _ _ (by omega)]
   rw [show (p - 7 + 0 - 0 + 0 - 0 + 0) / 8 + 2 = (p + 9) / 8 by omega,
     show (p - 7 + 0 - 0 + 0 - 0 + 0) % 8 = (p + 9) % 8 by omega]
   change byteAt (instW O _) (p + 9) = _

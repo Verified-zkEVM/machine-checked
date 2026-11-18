@@ -121,8 +121,8 @@ theorem pad_next_note_f_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
     refine hk t h1 h2 h3 h4 (Region.of_eq h5 ?_) ?_
     · simp only [noteBlkP, List.cons.injEq, and_true, true_and]
       rw [← v17_def]; exact decNext l hl1 (by omega)
-    · rw [h6, noteBit, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-        if_neg (by omega)]
+    · rw [h6, noteBit, ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega),
+        ite_eq_right (by omega)]
       rfl
   sym_close hk'
 

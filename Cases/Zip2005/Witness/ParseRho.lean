@@ -63,7 +63,7 @@ theorem parse_rho_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
     sym_close (hk _ _ _)
     all_goals first
       | rfl
-      | exact (if_pos hc).symm
+      | exact (ite_eq_left hc).symm
       | (intro _; rw [← v12_def, ← v13_def, ← v14_def, ← v15_def]
          simp only [hc, ↓reduceIte, natToLeLimbs_four, Nat.shiftRight_zero])
 

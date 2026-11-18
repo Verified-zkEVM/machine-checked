@@ -49,9 +49,9 @@ theorem pos_own : env.InOwn posKey := ⟨(posKey, 8), by simp [env], Or.inl (by 
 /-- The invariant of a memory, through the owned keys. -/
 theorem inv_iff {m : Word → Word} : env.Inv m ↔ HasherOk m := by
   have ht : env.ownPart m tagKey = m tagKey := by
-    simp only [Env.ownPart]; rw [if_pos ⟨by unfold Aligned; decide, tag_own⟩]
+    simp only [Env.ownPart]; rw [ite_eq_left ⟨by unfold Aligned; decide, tag_own⟩]
   have hp : env.ownPart m posKey = m posKey := by
-    simp only [Env.ownPart]; rw [if_pos ⟨by unfold Aligned; decide, pos_own⟩]
+    simp only [Env.ownPart]; rw [ite_eq_left ⟨by unfold Aligned; decide, pos_own⟩]
   show HasherOk (env.ownPart m) ↔ HasherOk m
   simp only [HasherOk, ht, hp]
 

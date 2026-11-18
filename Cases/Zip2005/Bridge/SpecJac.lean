@@ -32,8 +32,8 @@ theorem D_sqmul (x a : Nat) (b : Bool) :
     D (Fp.sqmul x a b) = D a ^ 2 * D x ^ (if b then 1 else 0) := by
   unfold Fp.sqmul
   cases b
-  · simp only [Bool.false_eq_true, if_false, D_mul, pow_zero, mul_one]; ring
-  · simp only [if_true, D_mul, pow_one]; ring
+  · simp only [Bool.false_eq_true, ite_false, D_mul, pow_zero, mul_one]; ring
+  · simp only [ite_true, D_mul, pow_one]; ring
 
 theorem mod_two_pow_succ' (e i : Nat) :
     e % 2 ^ (i + 1) = (if e.testBit i then 1 else 0) * 2 ^ i + e % 2 ^ i := by
@@ -57,13 +57,13 @@ theorem D_powBitsV (x e : Nat) : ∀ i a f, (f = false → D a = 1) →
   | i + 1, a, false, h => by
     have ha := h rfl
     by_cases hb : e.testBit i = true
-    · rw [Fp.powBitsV_set a false hb, Fp.powBitsV_true, Fp.powBits, Fp.sqmul, if_pos hb]
-      simp only [Bool.false_eq_true, if_false]
+    · rw [Fp.powBitsV_set a false hb, Fp.powBitsV_true, Fp.powBits, Fp.sqmul, ite_eq_left hb]
+      simp only [Bool.false_eq_true, ite_false]
       rw [D_powBits, D_powBits, D_mul, D_mul, D_mul, ha]
       ring
     · have hb' : e.testBit i = false := by simpa using hb
-      rw [Fp.powBitsV_clear a false hb', Fp.powBits, Fp.sqmul, if_neg hb]
-      simp only [Bool.false_eq_true, if_false]
+      rw [Fp.powBitsV_clear a false hb', Fp.powBits, Fp.sqmul, ite_eq_right hb]
+      simp only [Bool.false_eq_true, ite_false]
       rw [D_powBitsV x e i a false (fun _ => ha), D_powBits, D_powBits, D_mul, ha]
       ring
 
@@ -128,29 +128,29 @@ theorem affD_dblJ {X Y Z : ℕ} (hZ : Z < Fp.p)
       ShortWeierstrass.add 0 (affD X Y Z) (affD X Y Z) := by
   by_cases hz : D Z = 0
   · have hz0 := Z_eq_zero_of_D hZ hz
-    have e : affD X Y Z = (0, 0) := by unfold affD; rw [if_pos hz]
+    have e : affD X Y Z = (0, 0) := by unfold affD; rw [ite_eq_left hz]
     rw [e, ShortWeierstrass.zero_add]
-    simp only [Fp.dblJ, if_pos hz0]
-    unfold affD; rw [D_zero, if_pos rfl]
+    simp only [Fp.dblJ, ite_eq_left hz0]
+    unfold affD; rw [D_zero, ite_eq_left rfl]
   have hz0 : Z ≠ 0 := fun h => hz (by rw [h, D_zero])
   have hon := hc hz
   have hy : D Y / D Z ^ 3 ≠ 0 := y_ne_zero_of_onCurve hon
   have hY : D Y ≠ 0 := fun h => hy (by rw [h, zero_div])
-  have e : affD X Y Z = (D X / D Z ^ 2, D Y / D Z ^ 3) := by unfold affD; rw [if_neg hz]
+  have e : affD X Y Z = (D X / D Z ^ 2, D Y / D Z ^ 3) := by unfold affD; rw [ite_eq_right hz]
   rw [e]
   unfold ShortWeierstrass.add
   have hne : (D X / D Z ^ 2, D Y / D Z ^ 3) ≠ ((0 : F), (0 : F)) := by
     intro h; exact hy (Prod.mk.inj h).2
-  rw [if_neg hne, if_neg hne, if_pos rfl, if_neg (by
+  rw [ite_eq_right hne, ite_eq_right hne, ite_eq_left rfl, ite_eq_right (by
     intro h; apply hy; have : (2 : F) * (D Y / D Z ^ 3) = 0 := by linear_combination h
     exact (mul_eq_zero.mp this).resolve_left two_ne_zero_F)]
-  simp only [Fp.dblJ, if_neg hz0]
+  simp only [Fp.dblJ, ite_eq_right hz0]
   unfold affD
   simp only [D_mul, D_add, D_sub _ _ (Fp.mul_lt _ _), D_sub _ _ (Fp.add_lt _ _),
     D_sub _ _ (Fp.sub_lt _ _)]
   have hZ3 : D Z * D Y + D Z * D Y ≠ 0 := by
     rw [← two_mul]; exact mul_ne_zero two_ne_zero_F (mul_ne_zero hz hY)
-  rw [if_neg hZ3]
+  rw [ite_eq_right hZ3]
   have h2 : (2 : F) ≠ 0 := two_ne_zero_F
   have h4 : (4 : F) ≠ 0 := by decide
   have h8 : (8 : F) ≠ 0 := by decide
@@ -214,18 +214,18 @@ theorem affD_addJ {X1 Y1 Z1 X2 Y2 Z2 : ℕ} (hZ1 : Z1 < Fp.p) (hZ2 : Z2 < Fp.p)
       ShortWeierstrass.add 0 (affD X1 Y1 Z1) (affD X2 Y2 Z2) := by
   by_cases hz1 : Z1 = 0
   · rw [Fp.addJ_z1_zero hz1]
-    have e : affD X1 Y1 Z1 = (0, 0) := by unfold affD; rw [hz1, D_zero, if_pos rfl]
+    have e : affD X1 Y1 Z1 = (0, 0) := by unfold affD; rw [hz1, D_zero, ite_eq_left rfl]
     rw [e, ShortWeierstrass.zero_add]
   by_cases hz2 : Z2 = 0
   · rw [Fp.addJ_z2_zero hz1 hz2]
-    have e : affD X2 Y2 Z2 = (0, 0) := by unfold affD; rw [hz2, D_zero, if_pos rfl]
+    have e : affD X2 Y2 Z2 = (0, 0) := by unfold affD; rw [hz2, D_zero, ite_eq_left rfl]
     rw [e, ShortWeierstrass.add_zero]
   have d1 : D Z1 ≠ 0 := D_ne_zero_of hZ1 hz1
   have d2 : D Z2 ≠ 0 := D_ne_zero_of hZ2 hz2
   have on1 := hc1 d1
   have on2 := hc2 d2
-  have e1 : affD X1 Y1 Z1 = (D X1 / D Z1 ^ 2, D Y1 / D Z1 ^ 3) := by unfold affD; rw [if_neg d1]
-  have e2 : affD X2 Y2 Z2 = (D X2 / D Z2 ^ 2, D Y2 / D Z2 ^ 3) := by unfold affD; rw [if_neg d2]
+  have e1 : affD X1 Y1 Z1 = (D X1 / D Z1 ^ 2, D Y1 / D Z1 ^ 3) := by unfold affD; rw [ite_eq_right d1]
+  have e2 : affD X2 Y2 Z2 = (D X2 / D Z2 ^ 2, D Y2 / D Z2 ^ 3) := by unfold affD; rw [ite_eq_right d2]
   have y1 : D Y1 / D Z1 ^ 3 ≠ 0 := y_ne_zero_of_onCurve on1
   have y2 : D Y2 / D Z2 ^ 3 ≠ 0 := y_ne_zero_of_onCurve on2
   have n1 : (D X1 / D Z1 ^ 2, D Y1 / D Z1 ^ 3) ≠ ((0 : F), (0 : F)) := fun h => y1 (Prod.mk.inj h).2
@@ -266,18 +266,18 @@ theorem affD_addJ {X1 Y1 Z1 X2 Y2 Z2 : ℕ} (hZ1 : Z1 < Fp.p) (hZ2 : Z2 < Fp.p)
       have hxe := hu.mp hx
       have hye : D Y1 / D Z1 ^ 3 ≠ D Y2 / D Z2 ^ 3 := fun h => hy (hs.mpr h)
       unfold ShortWeierstrass.add
-      rw [if_neg n1, if_neg n2, if_pos hxe]
+      rw [ite_eq_right n1, ite_eq_right n2, ite_eq_left hxe]
       have hsum : D Y1 / D Z1 ^ 3 + D Y2 / D Z2 ^ 3 = 0 := by
         have hsq : (D Y1 / D Z1 ^ 3) ^ 2 = (D Y2 / D Z2 ^ 3) ^ 2 := by rw [on1, on2, hxe]
         have hm : (D Y1 / D Z1 ^ 3 - D Y2 / D Z2 ^ 3) * (D Y1 / D Z1 ^ 3 + D Y2 / D Z2 ^ 3) = 0 := by
           linear_combination hsq
         exact (mul_eq_zero.mp hm).resolve_left (sub_ne_zero.mpr hye)
-      rw [if_pos hsum]
-      unfold affD; rw [D_zero, if_pos rfl]
+      rw [ite_eq_left hsum]
+      unfold affD; rw [D_zero, ite_eq_left rfl]
   · rw [Fp.addJ_general hz1 hz2 hx]
     have hxe : D X1 / D Z1 ^ 2 ≠ D X2 / D Z2 ^ 2 := fun h => hx (hu.mpr h)
     unfold ShortWeierstrass.add
-    rw [if_neg n1, if_neg n2, if_neg hxe]
+    rw [ite_eq_right n1, ite_eq_right n2, ite_eq_right hxe]
     unfold Fp.addJ_main affD
     simp only [D_mul, D_add, D_sub _ _ (Fp.mul_lt _ _), D_sub _ _ (Fp.add_lt _ _),
       D_sub _ _ (Fp.sub_lt _ _)]
@@ -289,7 +289,7 @@ theorem affD_addJ {X1 Y1 Z1 X2 Y2 Z2 : ℕ} (hZ1 : Z1 < Fp.p) (hZ2 : Z2 < Fp.p)
       rw [this]
       refine mul_ne_zero (mul_ne_zero (mul_ne_zero two_ne_zero_F d1) d2) ?_
       convert hdx using 1; ring
-    rw [if_neg hZ3]
+    rw [ite_eq_right hZ3]
     obtain ⟨hX3, hY3⟩ := add2007bl (D X1) (D Y1) (D Z1) (D X2) (D Y2) (D Z2) d1 d2 hdx two_ne_zero_F
     simp only [Prod.mk.injEq]
     exact ⟨hX3, hY3⟩
@@ -305,14 +305,14 @@ theorem D_toAffine (X Y : ℕ) {Z : ℕ} (hZ : Z < Fp.p) :
     (D (Fp.toAffine X Y Z).1, D (Fp.toAffine X Y Z).2) = affD X Y Z := by
   unfold Fp.toAffine affD
   by_cases hR : Z = Fp.R
-  · rw [if_pos hR, hR, D_R, if_neg one_ne_zero, one_pow, one_pow, div_one, div_one]
-  rw [if_neg hR]
+  · rw [ite_eq_left hR, hR, D_R, ite_eq_right one_ne_zero, one_pow, one_pow, div_one, div_one]
+  rw [ite_eq_right hR]
   by_cases hz : Z = 0
-  · rw [if_pos hz, if_pos rfl, hz, D_zero, if_pos rfl]
+  · rw [ite_eq_left hz, ite_eq_left rfl, hz, D_zero, ite_eq_left rfl]
   have hinv := D_invert Z
   have hne := D_invert_ne_zero hZ hz
   generalize Fp.invert Z = zi at hinv hne ⊢
-  simp only [if_neg hz, if_neg hne, if_neg (D_ne_zero_of hZ hz), D_mul, hinv, Prod.mk.injEq]
+  simp only [ite_eq_right hz, ite_eq_right hne, ite_eq_right (D_ne_zero_of hZ hz), D_mul, hinv, Prod.mk.injEq]
   constructor <;> field_simp
 
 end Cases.Zip2005.Poseidon

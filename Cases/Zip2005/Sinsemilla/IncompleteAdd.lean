@@ -71,14 +71,14 @@ theorem incomplete_add_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s 
     sym_close (hk _ _ _)
     all_goals first
       | rfl
-      | exact (if_pos (Or.inl h1)).symm
+      | exact (ite_eq_left (Or.inl h1)).symm
       | (intro h; exact absurd h1 h)
   · -- `Q` invalid
     have h3 := beq_iff_eq.mp hbr3
     sym_close (hk _ _ _)
     all_goals first
       | rfl
-      | exact (if_pos (Or.inr (Or.inl h3))).symm
+      | exact (ite_eq_left (Or.inr (Or.inl h3))).symm
       | (intro _ h; exact absurd h3 h)
   · -- the `x` coordinates agree
     rw [sext32_add_zero _ post49_5] at v50_def
@@ -86,7 +86,7 @@ theorem incomplete_add_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s 
     sym_close (hk _ _ _)
     all_goals first
       | rfl
-      | exact (if_pos (Or.inr (Or.inr hx))).symm
+      | exact (ite_eq_left (Or.inr (Or.inr hx))).symm
       | (intro _ _ h; exact absurd hx h)
   · -- the accelerated addition
     rw [sext32_add_zero _ post49_5] at v50_def
@@ -98,7 +98,7 @@ theorem incomplete_add_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s 
     sym_close (hk _ _ _)
     all_goals first
       | rfl
-      | exact (if_neg (fun h => h.elim h1 (fun h' => h'.elim h3 hx))).symm
+      | exact (ite_eq_right (fun h => h.elim h1 (fun h' => h'.elim h3 hx))).symm
       | (intro _ _ _
          rw [← v107_def, ← v108_def, ← v109_def, ← v110_def, ← v115_def, ← v116_def, ← v117_def, ← v118_def,
            acc99_0_def]

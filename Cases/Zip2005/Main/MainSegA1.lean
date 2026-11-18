@@ -534,10 +534,10 @@ theorem main_seg_a1_spec {G : MachineState → Prop} {nb : Nat} {P : Prop} {L : 
     hpaf, hpanic, hunwrap, hpb, hpp, hprz, hhandle_rv, hunwrap_opt, hpaf_nf] 2000
   all_goals (sym_close hk)
   all_goals first
-    | (by_contra h; rw [if_neg h] at v20_def; subst v20_def; exact ‹¬(0#64 == 0#64) = true› (by decide))
-    | (have hxb : Accel.leLimbsToNat [V[128]!, V[129]!, V[130]!, V[131]!] < Fq.q := (by by_contra h; rw [if_neg h] at v20_def; subst v20_def; exact ‹¬(0#64 == 0#64) = true› (by decide)); have he : [v22, v23, v24, v25] = Accel.natToLeLimbs 4 (Fq.mul (Accel.leLimbsToNat [V[128]!, V[129]!, V[130]!, V[131]!]) Fq.R2) := (by rw [← v22_def, ← v23_def, ← v24_def, ← v25_def, post19_8 hxb]; rfl); rw [← he, v0_def]; exact post34_20)
-    | (by_contra h; rw [if_neg h] at v26_def; subst v26_def; exact ‹¬(0#64 == 0#64) = true› (by decide))
-    | (have hxb : Accel.leLimbsToNat [V[128]!, V[129]!, V[130]!, V[131]!] < Fq.q := (by by_contra h; rw [if_neg h] at v26_def; subst v26_def; exact ‹¬(0#64 == 0#64) = true› (by decide)); have he : [v28, v29, v30, v31] = Accel.natToLeLimbs 4 (Fq.mul (Accel.leLimbsToNat [V[128]!, V[129]!, V[130]!, V[131]!]) Fq.R2) := (by rw [← v28_def, ← v29_def, ← v30_def, ← v31_def, post25_8 hxb]; rfl); rw [← he, v0_def]; exact post40_20)
+    | (by_contra h; rw [ite_eq_right h] at v20_def; subst v20_def; exact ‹¬(0#64 == 0#64) = true› (by decide))
+    | (have hxb : Accel.leLimbsToNat [V[128]!, V[129]!, V[130]!, V[131]!] < Fq.q := (by by_contra h; rw [ite_eq_right h] at v20_def; subst v20_def; exact ‹¬(0#64 == 0#64) = true› (by decide)); have he : [v22, v23, v24, v25] = Accel.natToLeLimbs 4 (Fq.mul (Accel.leLimbsToNat [V[128]!, V[129]!, V[130]!, V[131]!]) Fq.R2) := (by rw [← v22_def, ← v23_def, ← v24_def, ← v25_def, post19_8 hxb]; rfl); rw [← he, v0_def]; exact post34_20)
+    | (by_contra h; rw [ite_eq_right h] at v26_def; subst v26_def; exact ‹¬(0#64 == 0#64) = true› (by decide))
+    | (have hxb : Accel.leLimbsToNat [V[128]!, V[129]!, V[130]!, V[131]!] < Fq.q := (by by_contra h; rw [ite_eq_right h] at v26_def; subst v26_def; exact ‹¬(0#64 == 0#64) = true› (by decide)); have he : [v28, v29, v30, v31] = Accel.natToLeLimbs 4 (Fq.mul (Accel.leLimbsToNat [V[128]!, V[129]!, V[130]!, V[131]!]) Fq.R2) := (by rw [← v28_def, ← v29_def, ← v30_def, ← v31_def, post25_8 hxb]; rfl); rw [← he, v0_def]; exact post40_20)
     | (intro h; rw [h] at v0_def; subst v0_def; exact ‹¬(BitVec.zeroExtend 64 2#8 == 2#64) = true› (by decide))
 
 

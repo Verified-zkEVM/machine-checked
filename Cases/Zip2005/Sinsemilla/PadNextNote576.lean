@@ -139,8 +139,8 @@ theorem pad_next_note_576_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop}
         interval_cases i
         all_goals simp (disch := decide) only [noteW6, extractByte_replaceByte, extractByte_replaceByte_ne]
         all_goals rfl
-    · rw [h6, ← v163_def, ← v157_def, ← v156_def, ← v152_def, BitVec.ushiftRight_zero, noteBit, if_neg (by decide),
-        if_neg (by decide), if_neg (by decide), if_pos (by decide), Nat.sub_self, wordsBit, Nat.zero_div, Nat.zero_mod,
+    · rw [h6, ← v163_def, ← v157_def, ← v156_def, ← v152_def, BitVec.ushiftRight_zero, noteBit, ite_eq_right (by decide),
+        ite_eq_right (by decide), ite_eq_right (by decide), ite_eq_left (by decide), Nat.sub_self, wordsBit, Nat.zero_div, Nat.zero_mod,
         BitVec.ushiftRight_zero, BitVec.and_assoc, show 255#64 &&& 1#64 = 1#64 from rfl]
       exact bitVal _
   sym_close hk'

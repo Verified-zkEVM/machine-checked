@@ -30,7 +30,7 @@ theorem Fp.add_comm (a b : Nat) : Fp.add a b = Fp.add b a := by
 theorem bwm1_and (c : Bool) (w : Word) :
     bw c + 18446744073709551615#64 &&& w = if c then 0#64 else w := by
   cases c
-  · simp only [bw, Bool.false_eq_true, if_false, BitVec.zero_add]
+  · simp only [bw, Bool.false_eq_true, ite_false, BitVec.zero_add]
     rw [show (18446744073709551615#64 : Word) = BitVec.allOnes 64 from rfl, BitVec.allOnes_and]
   · simp [bw]
 
@@ -162,8 +162,8 @@ theorem ep_double_spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : Mac
     ← v1018_def, ← v1020_def, ← v1022_def, ← v1024_def, ← v1026_def, hv1008]
   simp only [bwm1_and, decide_eq_true_eq]
   by_cases hz : leLimbsToNat [z0, z1, z2, z3] = 0
-  · simp only [if_pos hz]; rfl
-  · simp only [if_neg hz, e700, e957, e609]
+  · simp only [ite_eq_left hz]; rfl
+  · simp only [ite_eq_right hz, e700, e957, e609]
     rfl
 
 end Cases.Zip2005

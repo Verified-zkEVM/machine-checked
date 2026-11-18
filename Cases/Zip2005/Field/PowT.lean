@@ -32,13 +32,13 @@ theorem Fp.powRun_append (T l₁ l₂ : List Nat) (a : Nat) :
     Fp.powRun T (l₁ ++ l₂) a = Fp.powRun T l₂ (Fp.powRun T l₁ a) := List.foldl_append ..
 
 theorem Fp.powStep_sq (T : List Nat) (a : Nat) : Fp.powStep T a 4 = Fp.mul a a := by
-  unfold Fp.powStep; rw [if_neg (by decide)]
+  unfold Fp.powStep; rw [ite_eq_right (by decide)]
 
 theorem Fp.powStep_tbl (T0 T1 T2 T3 a : Nat) :
     Fp.powStep [T0, T1, T2, T3] a 0 = Fp.mul a T0 ∧ Fp.powStep [T0, T1, T2, T3] a 1 = Fp.mul a T1 ∧
       Fp.powStep [T0, T1, T2, T3] a 2 = Fp.mul a T2 ∧ Fp.powStep [T0, T1, T2, T3] a 3 = Fp.mul a T3 := by
   unfold Fp.powStep
-  refine ⟨?_, ?_, ?_, ?_⟩ <;> rw [if_pos (by decide)] <;> rfl
+  refine ⟨?_, ?_, ?_, ?_⟩ <;> rw [ite_eq_left (by decide)] <;> rfl
 
 theorem Fp.powRun_sqr (T : List Nat) (n : Nat) (os : List Nat) (a : Nat) :
     Fp.powRun T (List.replicate n 4 ++ os) a = Fp.powRun T os (Fp.sqrN a n) := by
@@ -364,7 +364,7 @@ theorem pow_seg8 {G : MachineState → Prop} {n : Nat} {P : Prop} (s0 : MachineS
     (hk : ∀ u, PowCut true s0 sp a0 0x7802c124#64 T0 T1 T2 T3 (Fp.powRun [T0, T1, T2, T3] Fp.powOps8 A) u →
       SafeN G n P u) : SafeN G n P t := by
   obtain ⟨w0, w1, t00, t01, t02, t03, t10, t11, t12, t13, t20, t21, t22, t23, t30, t31, t32, t33, d0, d1, d2, d3, b0, b1, b2, b3, hpc, hcode, hcA, hcM, hcw, hok, hU0, hx2, hx3, hx4, hx8, hx9, hx10, hx11, hx18, hx19, hx20, hx21, hx22, hx23, hx24, hx25, hx27, hB0, hX1, hB1, hX2, hB2, hC, hD1, hD2, hE, hS, eT0, eT1, eT2, eT3, eA, eB⟩ := h
-  rw [if_pos rfl] at hx23
+  rw [ite_eq_left rfl] at hx23
   clear hx25
   obtain ⟨X1, hX1l, hX1⟩ := hX1
   obtain ⟨B1, hB1l, hB1⟩ := hB1
@@ -423,7 +423,7 @@ theorem pow_seg8 {G : MachineState → Prop} {n : Nat} {P : Prop} (s0 : MachineS
       [b0', b1', b2', b3'] = [d0', d1', d2', d3'] →
       SafeN G n P u := by
     intro u w0' w1' t00' t01' t02' t03' t10' t11' t12' t13' t20' t21' t22' t23' t30' t31' t32' t33' d0' d1' d2' d3' b0' b1' b2' b3' upc ucode ucA ucM ucw rx2 rx3 rx4 rx8 rx9 rx10 rx11 rx18 rx19 rx20 rx21 rx22 rx23 rx24 rx27 uU uB0 uX1 uB1 uX2 uB2 uC uD1 uD2 uE uS f0 f1 f2 f3 fA hbd
-    exact hk u ⟨w0', w1', t00', t01', t02', t03', t10', t11', t12', t13', t20', t21', t22', t23', t30', t31', t32', t33', d0', d1', d2', d3', b0', b1', b2', b3', upc, ucode.trans hcode, ucA, ucM, ucw, hok, hU0.trans uU, rx2, rx3.trans hx3, rx4.trans hx4, rx8, rx9, rx10, rx11, rx18, rx19, rx20, rx21, rx22, (by rw [if_pos rfl]; exact rx23), rx24, (fun h => absurd h (by decide)), rx27.trans hx27, uB0, uX1, uB1, uX2, uB2, uC, uD1, uD2, uE, uS, f0, f1, f2, f3, fA, by rw [hbd]; exact fA⟩
+    exact hk u ⟨w0', w1', t00', t01', t02', t03', t10', t11', t12', t13', t20', t21', t22', t23', t30', t31', t32', t33', d0', d1', d2', d3', b0', b1', b2', b3', upc, ucode.trans hcode, ucA, ucM, ucw, hok, hU0.trans uU, rx2, rx3.trans hx3, rx4.trans hx4, rx8, rx9, rx10, rx11, rx18, rx19, rx20, rx21, rx22, (by rw [ite_eq_left rfl]; exact rx23), rx24, (fun h => absurd h (by decide)), rx27.trans hx27, uB0, uX1, uB1, uX2, uB2, uC, uD1, uD2, uE, uS, f0, f1, f2, f3, fA, by rw [hbd]; exact fA⟩
   sym_exec [uint256_mulmod_spec] stop [0x7802c124]
   sym_close hk' _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
   have M_acc15_0 : acc15_0 = Fp.mul A A :=

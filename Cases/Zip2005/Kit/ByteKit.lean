@@ -29,7 +29,7 @@ theorem extractByte_replaceByte_ne (w : Word) (j k : Nat) (b : BitVec 8) (hk : k
   intro i hi
   simp only [extractByte, BitVec.truncate_eq_setWidth, BitVec.getLsbD_setWidth,
     BitVec.getLsbD_ushiftRight, hi, decide_true, Bool.true_and]
-  rw [getLsbD_replaceByte _ _ _ _ (by omega), if_neg (by omega)]
+  rw [getLsbD_replaceByte _ _ _ _ (by omega), ite_eq_right (by omega)]
 
 theorem extractByte_zero (k : Nat) : extractByte 0#64 k = 0#8 := by
   simp [extractByte]

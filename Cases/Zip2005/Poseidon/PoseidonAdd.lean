@@ -39,7 +39,7 @@ theorem ult_flag {a b v : Word} (h : (if a.ult b = true then 1#64 else 0#64) = v
     (v.toNat = 1 ∧ a.toNat < b.toNat) ∨ (v.toNat = 0 ∧ b.toNat ≤ a.toNat) := by
   subst h
   by_cases hab : a.ult b = true
-  · left; simp only [hab, if_true]; exact ⟨rfl, by simpa [BitVec.ult] using hab⟩
+  · left; simp only [hab, ite_true]; exact ⟨rfl, by simpa [BitVec.ult] using hab⟩
   · right; simp only [hab]
     exact ⟨rfl, by simpa [BitVec.ult] using hab⟩
 

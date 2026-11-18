@@ -138,9 +138,9 @@ theorem Poseidon.hash2_lt (a b : Nat) : Poseidon.hash2 a b < Fp.p := by
 theorem Fp.dblJ_lt (X Y Z : Nat) :
     (Fp.dblJ X Y Z).1 < 2 ^ 256 ∧ (Fp.dblJ X Y Z).2.1 < 2 ^ 256 ∧ (Fp.dblJ X Y Z).2.2 < 2 ^ 256 := by
   by_cases hZ : Z = 0
-  · simp only [Fp.dblJ, hZ, if_true]
+  · simp only [Fp.dblJ, hZ, ite_true]
     exact ⟨Nat.two_pow_pos _, Nat.two_pow_pos _, Nat.two_pow_pos _⟩
-  · simp only [Fp.dblJ, hZ, if_false]
+  · simp only [Fp.dblJ, hZ, ite_false]
     exact ⟨lt_trans (Fp.sub_lt _ _) Fp.p_lt, lt_trans (Fp.sub_lt _ _) Fp.p_lt,
       lt_trans (Fp.add_lt _ _) Fp.p_lt⟩
 
@@ -248,7 +248,7 @@ theorem kOrchard_cells {v50 v51 v52 v53 v42 v43 v44 v45 : Word}
       v44 = 0#64 ∧ v45 = 0#64) := fun h => kOrchard_x0_ne (h50.trans h.1)
   subst h50 h51 h52 h53 h42 h43 h44 h45
   simp only [Nat.shiftRight_zero] at hne ⊢
-  simp only [hne, if_false, kOrchardW, natToLeLimbs_cells4, List.cons_append, List.nil_append,
+  simp only [hne, ite_false, kOrchardW, natToLeLimbs_cells4, List.cons_append, List.nil_append,
     Nat.reduceMul, Nat.shiftRight_zero]
 
 
@@ -299,7 +299,7 @@ theorem mask_cells (x0 x1 x2 x3 : Word) (c : Prop) [Decidable c]
   by_cases h : c
   · obtain ⟨rfl, rfl, rfl, rfl⟩ := hc h
     simp only [ite_self]
-  · simp only [h, if_false]
+  · simp only [h, ite_false]
 
 set_option maxHeartbeats 1000000000 in
 set_option maxRecDepth 200000 in

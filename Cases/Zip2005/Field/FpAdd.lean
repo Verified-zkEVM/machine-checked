@@ -66,9 +66,9 @@ theorem carry_swap {x y c v w : Word} (hv : x + (c + y) = v)
   have hz := z.isLt; have hy := y.isLt
   simp only [BitVec.ult, BitVec.toNat_add, decide_eq_true_eq]
   by_cases hc : z.toNat + y.toNat < 2 ^ 64
-  · rw [Nat.mod_eq_of_lt hc, if_neg (by omega), if_neg (by omega)]
+  · rw [Nat.mod_eq_of_lt hc, ite_eq_right (by omega), ite_eq_right (by omega)]
   · rw [show (z.toNat + y.toNat) % 2 ^ 64 = z.toNat + y.toNat - 2 ^ 64 by omega,
-      if_pos (by omega), if_pos (by omega)]
+      ite_eq_left (by omega), ite_eq_left (by omega)]
 
 end Bn
 

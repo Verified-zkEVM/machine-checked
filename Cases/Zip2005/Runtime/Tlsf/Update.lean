@@ -167,12 +167,12 @@ theorem mark (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post :
     refine (chain_append (List.cons_ne_nil _ _)).mpr ⟨a', p', hseg.congr fun c hc =>
       keep c (mem_of_pre hbs hc) (h.ne_of_pre hbs hc), ?_⟩
     obtain ⟨h1, _, h3, h4, h5, h6⟩ := hc
-    simp only [Bool.false_eq_true, if_false] at h1 h4 h5 h6
+    simp only [Bool.false_eq_true, ite_false] at h1 h4 h5 h6
     subst h1
     refine ⟨rfl, ?_, ?_, h4, h5, ?_⟩
     · rw [upd_same]; exact hdr_used h4
     · rw [upd_ne (by bv_omega)]; exact h3
-    · simp only [Bool.false_eq_true, if_false]
+    · simp only [Bool.false_eq_true, ite_false]
       exact h6.congr fun c hc => keep c (mem_of_post hbs hc) (h.ne_of_post hbs hc)
   · rcases hnew c hc with rfl | ⟨hc, _⟩
     · exact h.layout.2.2 ⟨x, S, false, false⟩ hb
@@ -242,7 +242,7 @@ theorem split (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post 
   rw [hbs] at hch
   obtain ⟨a', p', hseg, hcb⟩ := (chain_append (List.cons_ne_nil _ _)).mp hch
   obtain ⟨h1, _, hx8, _, _, hrest⟩ := hcb
-  simp only [Bool.false_eq_true, if_false] at h1 hrest
+  simp only [Bool.false_eq_true, ite_false] at h1 hrest
   subst h1
   cases post with
   | nil => exact hrest.elim
@@ -277,59 +277,59 @@ theorem split (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post 
     intro a d1 d2 d3 d4 d5 d6 d7 d8 d9 d10
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
+    · rw [ite_eq_left hz]; uev
     · have d7 := d7 hz
-      rw [if_neg hz]; uev
+      rw [ite_eq_right hz]; uev
   have e1 : splitMem self m x S N (x + S + 8#64) = x + N := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e2 : splitMem self m x S N (headAddr self f2 s2) = x + N := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e3 : splitMem self m x S N (x + N) = S - N := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e4 : splitMem self m x S N (x + N + 8#64) = x := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e5 : splitMem self m x S N (x + N + 0x10#64) = h2 := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e6 : splitMem self m x S N (x + N + 0x18#64) = 0#64 := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e8 : splitMem self m x S N (flBm self) = m (flBm self) ||| 1#64 <<< f2.toNat := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e9 : splitMem self m x S N (slBm self f2) = m (slBm self f2) ||| 1#64 <<< s2.toNat := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e10 : splitMem self m x S N (x) = N + 1#64 := by
     simp only [splitMem, hf2e, hs2e, hread]
     by_cases hz : h2 = 0#64
-    · rw [if_pos hz]; uev
-    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [if_neg hz]; uev
+    · rw [ite_eq_left hz]; uev
+    · obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; rw [ite_eq_right hz]; uev
   have e7 : h2 ≠ 0#64 → splitMem self m x S N (h2 + 0x18#64) = x + N := by
     intro hz
     obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz
     simp only [splitMem, hf2e, hs2e, hread]
-    rw [if_neg hz]; uev
+    rw [ite_eq_right hz]; uev
   generalize splitMem self m x S N = m2 at e_other e1 e2 e3 e4 e5 e6 e7 e8 e9 e10
   have hxm := A32.mod hbA.1
   have hSm := A32.mod hS31
@@ -410,10 +410,10 @@ theorem split (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post 
       · rw [e10]; exact hdr_used hN
       · (rw [e_other (x + 8#64)]; any_goals (first | kd | (intro hz; obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; have := A32.mod (hh2n hz).2.2.2.1; kd)))
         try exact hx8
-      · simp only [Bool.false_eq_true, if_false]
+      · simp only [Bool.false_eq_true, ite_false]
         refine ⟨rfl, ?_, e4, hR31, hRok, ?_⟩
         · rw [e3]; exact hdr_free
-        · simp only [Bool.false_eq_true, if_false]
+        · simp only [Bool.false_eq_true, ite_false]
           rw [add_sub_cancel']
           refine ⟨hc1, ?_, e1, hc4, hc5, ?_⟩
           · (rw [e_other (x + S)]; any_goals (first | kd | (intro hz; obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; have := A32.mod (hh2n hz).2.2.2.1; kd)))
@@ -421,8 +421,8 @@ theorem split (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post 
           · have hsorted := h.around (pre := pre ++ [⟨x, S, false, false⟩]) (post := post') (b := c)
               (by rw [hbs]; simp)
             by_cases hl : c.last = true
-            · rw [if_pos hl] at hc6 ⊢; exact hc6
-            · rw [if_neg hl] at hc6 ⊢
+            · rw [ite_eq_left hl] at hc6 ⊢; exact hc6
+            · rw [ite_eq_right hl] at hc6 ⊢
               refine hc6.congr fun d hd => ?_
               have hdb : d ∈ bs := by
                 rw [hbs]; exact List.mem_append_right _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ hd))
@@ -439,8 +439,8 @@ theorem split (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post 
   · -- heads
     unfold Lset
     by_cases he : f = f2 ∧ s = s2
-    · rw [if_pos he, he.1, he.2, e2]; rfl
-    · rw [if_neg he]
+    · rw [ite_eq_left he, he.1, he.2, e2]; rfl
+    · rw [ite_eq_right he]
       have tH' := headAddr_toNat hc hf hs
       have := lt64 hf; have := lt64 hs
       have : f.toNat ≠ f2.toNat ∨ s.toNat ≠ s2.toNat := by
@@ -452,7 +452,7 @@ theorem split (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post 
   · -- links
     unfold Lset
     by_cases he : f = f2 ∧ s = s2
-    · rw [if_pos he]
+    · rw [ite_eq_left he]
       refine ⟨e6, by rw [e5]; exact hh2e.symm, ?_⟩
       cases hl : L f2 s2 with
       | nil => trivial
@@ -477,7 +477,7 @@ theorem split (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post 
           obtain ⟨d, _, hdw, _, _, _, _, _, _, _⟩ := nodeF _ _ _ hwL
           subst hdw
           exact ⟨by (rw [e_other (d.a + 0x10#64)]; any_goals (first | kd | (intro hz; obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; have := A32.mod (hh2n hz).2.2.2.1; kd))), by (rw [e_other (d.a + 0x18#64)]; any_goals (first | kd | (intro hz; obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; have := A32.mod (hh2n hz).2.2.2.1; kd)))⟩
-    · rw [if_neg he]
+    · rw [ite_eq_right he]
       refine (h.links f s).congr fun w hw => ?_
       have hwh : h2 ≠ 0#64 → w.toNat ≠ h2.toNat := by
         intro hz e
@@ -527,11 +527,11 @@ theorem split (h : Shape self base m bs L (fun a => False ∨ a = x)) {pre post 
       by_cases hss : s = s2
       · subst hss; simp
       · have : s.toNat ≠ s2.toNat := fun e => hss (BitVec.eq_of_toNat_eq e)
-        rw [if_neg (fun e => hss e.2), h.slbm f s hf hs]; simp [this]
+        rw [ite_eq_right (fun e => hss e.2), h.slbm f s hf hs]; simp [this]
     · have tSL' := slBm_toNat hc hf
       have := lt64 hf
       have : f.toNat ≠ f2.toNat := fun e => he (BitVec.eq_of_toNat_eq e)
-      rw [if_neg (fun e => he e.1)]
+      rw [ite_eq_right (fun e => he e.1)]
       (rw [e_other (slBm self f)]; any_goals (first | kd | (intro hz; obtain ⟨-, _, _, _, _⟩ := hh2n hz; have := t7 hz; have := A32.mod (hh2n hz).2.2.2.1; kd)))
       exact h.slbm f s hf hs
   · -- first-level bitmap

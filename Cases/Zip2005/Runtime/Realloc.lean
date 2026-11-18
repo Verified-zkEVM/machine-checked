@@ -282,7 +282,7 @@ theorem afterCopy {G : MachineState → Prop} {P : Prop} {n : Nat} {s0 y : Machi
   have oc := hout.code
   clear hout
   simp only [getReg_setReg, MachineState.getReg_setPC, reduceCtorEq, ne_eq, not_false_eq_true,
-    and_true, if_true, if_false, MachineState.getMem_setReg, MachineState.getMem_setPC]
+    and_true, ite_true, ite_false, MachineState.getMem_setReg, MachineState.getMem_setPC]
     at om op osv oc hrep' hfr
   rw [show (2013529632#64 : Word) = HEAP from rfl] at hrep' hfr
   rw [hs.sp] at om
@@ -462,14 +462,14 @@ theorem spec (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
       simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
         hn 0xfffffffffffffff8#64 (by decide), hn 0xfffffffffffffff0#64 (by decide),
         hn 0xffffffffffffffe8#64 (by decide), hn 0xffffffffffffffe0#64 (by decide),
-        hn 0xffffffffffffffd8#64 (by decide), hn 0xffffffffffffffd0#64 (by decide), if_false])
+        hn 0xffffffffffffffd8#64 (by decide), hn 0xffffffffffffffd0#64 (by decide), ite_false])
     (by
       refine ro_congr hro fun a h1 h2 => ?_
       have hn := hpm a (.inr (.inl (by omega)))
       simp only [MachineState.getMem_setReg, MachineState.getMem_setPC, getMem_setMem,
         hn 0xfffffffffffffff8#64 (by decide), hn 0xfffffffffffffff0#64 (by decide),
         hn 0xffffffffffffffe8#64 (by decide), hn 0xffffffffffffffe0#64 (by decide),
-        hn 0xffffffffffffffd8#64 (by decide), hn 0xffffffffffffffd0#64 (by decide), if_false])
+        hn 0xffffffffffffffd8#64 (by decide), hn 0xffffffffffffffd0#64 (by decide), ite_false])
     (by xregs; rw [BitVec.toNat_add]; simp; omega) (by xregs; rw [BitVec.toNat_add]; simp; omega)
     (by xregs; decide) (by xregs; exact hp) (by xregs; exact hp0) ?_
   intro t1 hd1
@@ -481,7 +481,7 @@ theorem spec (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
   have ores := hout1.res
   clear hout1
   simp only [getReg_setReg, MachineState.getReg_setPC, reduceCtorEq, ne_eq, not_false_eq_true,
-    and_true, if_true, if_false, MachineState.getMem_setReg, MachineState.getMem_setPC,
+    and_true, ite_true, ite_false, MachineState.getMem_setReg, MachineState.getMem_setPC,
     Lprog.RiscV.Machine.getReg_setMem] at om op osv oc hrep1 hfr1 hgr
   rw [show (2013529632#64 : Word) = HEAP from rfl] at hrep1 hfr1
   have hsp1 : (s0.getReg .x2 + 0xffffffffffffffd0#64).toNat = (s0.getReg .x2).toNat - 0x30 := by
@@ -496,7 +496,7 @@ theorem spec (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
     simp only [getMem_setMem, MachineState.getMem_setReg, hn 0xfffffffffffffff8#64 (by decide),
       hn 0xfffffffffffffff0#64 (by decide), hn 0xffffffffffffffe8#64 (by decide),
       hn 0xffffffffffffffe0#64 (by decide), hn 0xffffffffffffffd8#64 (by decide),
-      hn 0xffffffffffffffd0#64 (by decide), if_false]
+      hn 0xffffffffffffffd0#64 (by decide), ite_false]
   -- The frame slots after the call.
   have hslot : ∀ c : Word, 2 ^ 64 - 0x30 ≤ c.toNat → t1.getMem (s0.getReg .x2 + c) =
       (((((((s0.setReg .x2 (s0.getReg .x2 + 0xffffffffffffffd0#64)).setMem
@@ -636,7 +636,7 @@ theorem spec (env : Env) (hok : env.Ok) (hinit : env.init = Layout.image.memAt)
     have hsv : ∀ q ∈ savedRegs, q ≠ .x1 → q ≠ .x10 → q ≠ .x11 → q ≠ .x12 →
         t.getReg q = y.getReg q := fun q hq h1 h2 h3 h4 => by
       rw [hsvm q hq]; simp only [getReg_setReg, MachineState.getReg_setPC, h1, h2, h3, h4, false_and,
-        if_false]
+        ite_false]
     have hlowS : ∀ a, a.toNat < (s0.getReg .x2).toNat → ¬ env.InOwn a := fun a ha ho => by
       have := hEnvS a (.inl ho); omega
     have hbase : (s0.getReg .x2).toNat < base.toNat := by omega

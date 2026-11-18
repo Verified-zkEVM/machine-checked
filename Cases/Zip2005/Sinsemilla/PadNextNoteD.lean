@@ -144,8 +144,8 @@ theorem pad_next_note_d_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
           headNext (m % 64) (Nat.mod_lt _ (by decide)), Nat.mod_add_mod]
       · rw [← v30_def]; exact lenNext _
     · rw [h6, ← v92_def, ← v86_def, ← v85_def, ← v81_def, ← v75_def, ← v35_def, ← hhR,
-        show 8 * (m / 64) / 8 = m / 64 by omega, noteBit, if_neg (by omega), if_neg (by omega), if_neg (by omega),
-        if_pos (by omega), Nat.add_sub_cancel_left, BitVec.and_assoc, show 255#64 &&& 1#64 = 1#64 from rfl]
+        show 8 * (m / 64) / 8 = m / 64 by omega, noteBit, ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega),
+        ite_eq_left (by omega), Nat.add_sub_cancel_left, BitVec.and_assoc, show 255#64 &&& 1#64 = 1#64 from rfl]
       exact bitNext R m
   sym_close hk'
 

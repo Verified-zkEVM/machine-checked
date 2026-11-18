@@ -122,7 +122,7 @@ theorem pad_next_note_c_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
     | (exfalso; rw [hv109] at hbr110; exact absurd (by decide) hbr110)
     | skip)
   -- the stepped pointer is not null either
-  all_goals (have hv114 : v114 = sp + 18446744073709551472#64 + BitVec.ofNat 64 ((m + 1) / 8) := by rw [← v114_def, ← v113_def, ← v111_def, ← v64_def, extractByte_zext8 _ _ (by decide), if_pos rfl, ← hhV, ptr8Step' _ (Nat.mod_lt _ (by decide)), hv91, ptr8Next])
+  all_goals (have hv114 : v114 = sp + 18446744073709551472#64 + BitVec.ofNat 64 ((m + 1) / 8) := by rw [← v114_def, ← v113_def, ← v111_def, ← v64_def, extractByte_zext8 _ _ (by decide), ite_eq_left rfl, ← hhV, ptr8Step' _ (Nat.mod_lt _ (by decide)), hv91, ptr8Next])
   all_goals (first
     | (exfalso; rw [hv114] at hbr115; simp only [beq_iff_eq] at hbr115; have := congrArg BitVec.toNat hbr115; rw [BitVec.toNat_add, BitVec.toNat_add, Bn.toNat_ofNat' ((m + 1) / 8)] at this; simp only [BitVec.toNat_ofNat] at this; omega)
     | skip)
@@ -150,7 +150,7 @@ theorem pad_next_note_c_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
         all_goals simp (disch := decide) only [noteW10, extractByte_replaceByte, extractByte_replaceByte_ne,
           extractByte_replaceWord32_in]
       · rw [← v132_def, ← v131_def, ← v124_def, ← v123_def, ← v122_def, ← v121_def, ← v116_def,
-          ← v111_def, ← v64_def, extractByte_zext8 _ _ (by decide), if_pos rfl, ← hhV,
+          ← v111_def, ← v64_def, extractByte_zext8 _ _ (by decide), ite_eq_left rfl, ← hhV,
           head8Next' _ (Nat.mod_lt _ (by decide)), Nat.mod_add_mod, ← v117_def, ← v118_def, ← v119_def,
           ← v120_def, ← v125_def, hv114]
         apply word_ext
@@ -160,9 +160,9 @@ theorem pad_next_note_c_spec {Gd : MachineState → Prop} {n : Nat} {P : Prop} (
           extractByte_replaceHalfword_ne, extractByte_replaceHalfword_in]
       · rw [← v30_def]; exact lenNext _
     · rw [h6, ← v8_def, ← v2_def, ← v0_def, ← v1_def, ← v111_def, ← v64_def, extractByte_zext8 _ _ (by decide),
-        if_pos rfl, ← hhV, shift8Amt7' _ (Nat.mod_lt _ (by decide)), show m / 8 / 8 = 0 by omega,
-        show ([v] : List Word)[0]! = v from rfl, noteBit, if_neg (by omega), if_neg (by omega),
-        if_pos (by omega), Nat.add_sub_cancel_left, byteBit _ _ _ (Nat.mod_lt _ (by decide)),
+        ite_eq_left rfl, ← hhV, shift8Amt7' _ (Nat.mod_lt _ (by decide)), show m / 8 / 8 = 0 by omega,
+        show ([v] : List Word)[0]! = v from rfl, noteBit, ite_eq_right (by omega), ite_eq_right (by omega),
+        ite_eq_left (by omega), Nat.add_sub_cancel_left, byteBit _ _ _ (Nat.mod_lt _ (by decide)),
         show 8 * (m / 8 % 8) + m % 8 = m by omega]
       exact bitVal _
   sym_close hk'

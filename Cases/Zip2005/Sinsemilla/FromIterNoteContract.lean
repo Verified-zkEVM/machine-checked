@@ -32,7 +32,7 @@ theorem frame_nc_sub (sp : Word) : sp - 0xe0#64 - 0x180#64 = sp - 0x260#64 := by
 
 theorem byteAt_take {Bv : List Word} {n o : Nat} (h : o / 8 < n) : byteAt (Bv.take n) o = byteAt Bv o := by
   unfold byteAt
-  simp only [List.getElem!_eq_getElem?_getD, List.getElem?_take, if_pos h]
+  simp only [List.getElem!_eq_getElem?_getD, List.getElem?_take, ite_eq_left h]
 
 set_option maxHeartbeats 4000000 in
 theorem from_iter_nc_contract {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)

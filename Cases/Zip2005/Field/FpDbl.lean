@@ -28,9 +28,9 @@ theorem carry_either {x y v w : Word} (hv : x + y = v)
   have hx := x.isLt; have hy := y.isLt
   simp only [BitVec.ult, BitVec.toNat_add, decide_eq_true_eq]
   by_cases hc : x.toNat + y.toNat < 2 ^ 64
-  · rw [Nat.mod_eq_of_lt hc, if_neg (by omega), if_neg (by omega)]
+  · rw [Nat.mod_eq_of_lt hc, ite_eq_right (by omega), ite_eq_right (by omega)]
   · rw [show (x.toNat + y.toNat) % 2 ^ 64 = x.toNat + y.toNat - 2 ^ 64 by omega,
-      if_pos (by omega), if_pos (by omega)]
+      ite_eq_left (by omega), ite_eq_left (by omega)]
 
 /-- `a <<< 1` and `b >>> 63` share no bit. -/
 theorem shl1_and_shr63 (a b : Word) : a <<< 1 &&& b >>> 63 = 0#64 := by

@@ -101,7 +101,7 @@ theorem spec {s0 : MachineState} (hpc : s0.pc = 0x7801beb0#64) (hcode : s0.code 
     generalize hp : s0.getMem 0x78040618#64 = p
     iterate 9 xstep code
     all_goals generalize hc : (v + 7#64 &&& 18446744073709551608#64) = cap at *
-    · rw [if_pos (by
+    · rw [ite_eq_left (by
         have : ∀ x : BitVec 64, (1#64 <<< (37#6).toNat).ult (0 - 1 ||| x) = true := by intro x; bv_decide
         exact this _)]
       iterate 7 xstep code
@@ -140,7 +140,7 @@ theorem spec {s0 : MachineState} (hpc : s0.pc = 0x7801beb0#64) (hcode : s0.code 
         simp only [gm_setReg, gm_setPC, gm_setMem, MachineState.privateInput_setReg,
           MachineState.privateInput_setMem, MachineState.privateInput_setPC] at ymem yin
         simp only [getReg_setReg, MachineState.getReg_setPC, Lprog.RiscV.Machine.getReg_setMem,
-          reduceCtorEq, ne_eq, not_false_eq_true, and_true, if_true, if_false, BitVec.zero_or] at ymem
+          reduceCtorEq, ne_eq, not_false_eq_true, and_true, ite_true, ite_false, BitVec.zero_or] at ymem
         refine hk _ ⟨by simp, fun q hq => ?_, by simp [hcode, hcode0], .inr ⟨n, hn, hv1,
           bound _ _ hb hlim, by simp [yin], ?_⟩⟩
         · simp only [savedRegs, List.mem_cons, List.mem_nil_iff, or_false] at hq

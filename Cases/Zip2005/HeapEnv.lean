@@ -145,7 +145,7 @@ theorem key_not_hasher {a : Word} (ha : Aligned a)
     all it reads. -/
 theorem heapOk_ownPart {m : Word → Word} : HeapOk (env.ownPart m) ↔ HeapOk m := by
   have hown : ∀ a, Aligned a → env.InOwn a → env.ownPart m a = m a := fun a ha ho => by
-    simp only [Env.ownPart]; rw [if_pos ⟨ha, ho⟩]
+    simp only [Env.ownPart]; rw [ite_eq_left ⟨ha, ho⟩]
   constructor
   · rintro ⟨bs, L, h⟩
     obtain ⟨hl, hs⟩ := Tlsf.rep_iff.mp h
@@ -161,9 +161,9 @@ theorem heapOk_ownPart {m : Word → Word} : HeapOk (env.ownPart m) ↔ HeapOk m
 /-- The invariant of a memory, through the owned keys. -/
 theorem inv_iff {m : Word → Word} : env.Inv m ↔ Owned.HasherOk m ∧ HeapOk m := by
   have ht : env.ownPart m Owned.tagKey = m Owned.tagKey := by
-    simp only [Env.ownPart]; rw [if_pos ⟨by unfold Aligned; decide, tag_own⟩]
+    simp only [Env.ownPart]; rw [ite_eq_left ⟨by unfold Aligned; decide, tag_own⟩]
   have hp : env.ownPart m Owned.posKey = m Owned.posKey := by
-    simp only [Env.ownPart]; rw [if_pos ⟨by unfold Aligned; decide, pos_own⟩]
+    simp only [Env.ownPart]; rw [ite_eq_left ⟨by unfold Aligned; decide, pos_own⟩]
   unfold Env.Inv
   rw [env_inv, heapOk_ownPart]
   simp only [Owned.HasherOk, ht, hp]
