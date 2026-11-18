@@ -254,7 +254,7 @@ theorem toCall {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {
   · simp [lsym_simp]
   · simp [lsym_simp]
   · simp [lsym_simp]
-  · simp [lsym_simp, slli4 hn]
+  · simp [lsym_simp]
   · simp [lsym_simp, lsym_addr]
   · simp [lsym_simp, lsym_addr]
   · simp [lsym_simp, lsym_addr]
@@ -294,7 +294,7 @@ theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
     ((hret.cs .x2 (by decide)).trans (by simp [lsym_simp, a2]))
     ((hret.cs .x9 (by decide)).trans (by simp [lsym_simp, a9]))
     (saved_after_call (uB := ofParts (updReg (updReg rA .x1 _) rvIsa.link _) mA) hfr hat.saved
-      (fun r hr => by simp [lsym_simp, hr]) (fun _ => rfl) rfl (scwRet_top hret (by simp [lsym_simp, a2])))
+      (fun r hr => by simp [lsym_simp, hr]) (fun _ => rfl) rfl (scwRet_top hret (by simp [lsym_simp])))
     hrv htop hdone
 
 end Cases.Zip2005.WriteVectoredLsym

@@ -255,6 +255,17 @@ theorem label {kd : LabelKind} {l : LLabel} (hf : p[fn]? = some fd)
     I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ :=
   of_one hf hi nofun (fun _ ho => ho) h
 
+/-- A label, spending one unit of the budget: the rule for a loop that need not end (`j .`, a
+    function that never returns). Its proof is by induction on the budget, the body stepped from
+    the label at `n + 1` back to it at `n`. -/
+theorem label_spend {kd : LabelKind} {l : LLabel} (hf : p[fn]? = some fd)
+    (hi : fd.body[pc]? = some (.Llabel kd l))
+    (h : I.SafeN p c G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, regs, m⟩) :
+    I.SafeN p c G (n + 1) Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ :=
+  Ascent.SafeN.step (not_accept hf hi nofun)
+    (Ascent.erase_eq_ok fun o ho => by
+      have := (step_eq hf hi o).1 ho; simpa [Frame.at, Isa.stepI] using this) h
+
 theorem opn {op : I.Op} (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Lopn op))
     {r' : I.Reg → BitVec 64} {m' : I.M} (he : I.opn op regs m = some (r', m'))
     (h : I.SafeN p c G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩) :
