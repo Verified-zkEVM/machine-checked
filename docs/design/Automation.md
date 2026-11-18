@@ -119,9 +119,9 @@ differs):
   | a raised `maxHeartbeats` | 6 | none |
   | time to check | 4.2 s | 4.2 s |
 
-  `lsym` itself raises `maxRecDepth`, to 16384, while it runs (`Lprog/Tactic.lean`): a body
-  larger than that allows still stops it as a whole, since `try … catch` does not catch the
-  limit.
+  `lsym` itself raises `maxRecDepth`, to 16384, while it runs (`Lprog/Tactic.lean`). (A step
+  that still ran out of depth stopped `lsym` as a whole, since `try … catch` does not catch
+  the limit; since the fourth round it leaves its goal.)
 
   What is left: the loop's invariant, the frame (which cells the prologue writes, that other
   memory is unchanged), the postconditions, and the facts about addresses as `simp` writes
@@ -185,6 +185,45 @@ differs):
   SP1, with the transfer theorem), so the test runs over a model of its memory (doublewords by
   address). A machine-backed instance for x86-64 or AArch64, with a theorem like RISC-V's
   `transfer`, is what would make such proofs about the binary.
+
+## Fourth round: `lsym` made sturdier
+
+From the review of the first three rounds:
+
+- **No goal for a memory check.** `SafeN.opn'` asked that an operation give a result
+  (`isSome`), so every load or store whose check `simp` could not close left a goal. An
+  operation that gives none traps, and a trap is safe (`SafeN.fault`): the rule now asks
+  nothing, and the check stays only as the hypothesis `hm`. A condition that gives no value is
+  `wrong`, not a trap, so `SafeN.cond'` keeps its side condition. Both case studies build
+  unchanged, and faster: `MemcmpLsym` in 1.9 s (was 5 s), `WriteVectoredLsym` in 2.1 s.
+- **A step that runs out of depth leaves its goal**, instead of failing `lsym` as a whole
+  (`try … catch` does not catch the limit; `tryCatchRuntimeEx` does). Heartbeats are the
+  declaration's, not a step's: once they are spent every later step fails too, so `lsym` stops
+  with an error that names the program counter it was stepping from.
+- **A loop is found without `stop`.** A path that comes back to a function's program counter
+  it has stepped from is left there, for an invariant (it ran until it was out of time).
+- **Why it stopped**, for each goal left: `set_option trace.lsym true` says whether it is a
+  stop, a loop's head, a step that does not apply (and the error of the last rule tried), a
+  step out of depth, a return (the postcondition), or a side condition.
+- **A frame whose size is not a numeral.** The address normal form had no lemma for `-n + n`:
+  `sp - n + n` became `sp + (-n + n)` and stayed. `BitVec.add_left_neg`, `add_right_neg` and
+  two lemmas for `-n + (n + c)` and `n + (-n + c)` are in `lsym_simp` and `lsym_addr` now.
+
+Straight-line code, a body of `addi`s and a return, the time `lsym` takes:
+
+| instructions | 100 | 200 | 400 |
+| --- | --- | --- | --- |
+| time | 7 s | 18 s | 63 s |
+
+(At the default `maxHeartbeats`, 200,000, 100 instructions check and 200 do not: they need about
+a million.)
+
+The depth is no longer what stops it (the first spike failed at about 100); the time grows with
+the square of the length, which is what `SafeN.block` is for.
+
+Not done: the hypotheses `lsym` adds are named `hc`, `hm`, `hret`, `r'`, `m'`, and a later one
+hides an earlier one of its name; proofs reach the earlier ones with `rename_i`. Names that do
+not hide each other would change what the existing proofs refer to.
 
 Next: a contract form for external calls (the system call above); `SafeN.block` for long
 blocks, with atoms; machine-backed instances for x86-64 and AArch64; and the rest of item 6, a
