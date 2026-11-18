@@ -46,11 +46,13 @@ jobs:
           fi
 
       # The case studies are not built on pull requests for now (see `Cases/README.md`); the
-      # on-demand `full` job builds them.
+      # on-demand `full` job builds them. The two proved with `lsym` are, since they check the
+      # tactic on real code, and take seconds.
       - name: Build the framework and the tools
         run: |
           set -eo pipefail
-          lake build MachineChecked Tools 2>&1 | tee build.log
+          lake build MachineChecked Tools \
+            Cases.Zip2005.Runtime.MemcmpLsym Cases.Zip2005.Runtime.WriteVectoredLsym 2>&1 | tee build.log
           # Lean's diagnostics, not Lake's notices (e.g. a dependency built from source).
           if grep -E '^warning: .*\.lean:' build.log; then
             echo "::error::the build has warnings"; exit 1
