@@ -54,3 +54,28 @@ proofs already use (`Tlsf.Rep` for the control block at `0x78040620` and the are
 `0x78048980`, with the guest's live blocks as used blocks), and thread that invariant to
 every panic call site. No theorem has been weakened; the premises are restated before
 anything is built on them.
+
+## 3. `PanicPaths` is stated over states the run never reaches (open, 2026-11-18)
+
+**What.** Each of `PanicPaths`' 13 fields (`Top/Guest.lean`) says an entry never accepts from
+any state with the image's code, `StackOk Ro.layout 0 sp'`, `RoImage` and `Run.HeapAt`. The
+proofs that exist for two of those entries need more than that:
+`halt_invalid_hint_spec` (`Runtime/SyscallHalt.lean`) needs `StackOk Ro.layout 0x470 sp` and
+the hasher state at `0x78048830` as a `Region` whose last word is `0`;
+`empty_input_stream_halt_spec` (`Runtime/EmptyHalt.lean`) needs `StackOk Ro.layout 0x4b0 sp`,
+the same hasher region, and `hfmt`. So the fields cannot be discharged from them as stated.
+
+**Why it matters.** The fields quantify over states the guest never reaches (a stack pointer
+within 64 KiB of the bottom, any hasher state). That is the shape `CONTRIBUTING.md` rules
+out: a premise stronger than what the run needs may be false, and then `guest_run` is
+vacuous. Proving the fields as stated means reasoning about stack overflow and a corrupted
+hasher, which no proof here does.
+
+**Fix.** The restatement of `PLAN.md` F3 item 3: give each panic and halt contract the
+preconditions its proof needs (stack room per entry, `StaticsOk` with the hasher invariant,
+the heap invariant where it allocates), carry those invariants through `sym_exec` at the call
+sites, and get them at `main`'s entry from `Runtime.Entry`. The fields are threaded through
+`RunHyps` into about 45 files (`Main/`, `Sinsemilla/`, `Curve/`, `Field/`, `Orchard/`), so this
+is one rebuild of most of zip-2005. After it, `hhalt_hint` and `hhalt_empty` follow from the
+existing specs; the panic fields from D5's `..._neverAccepts`, leaving `pwhIface.Holds` (#2),
+the allocation-error hook and `hfmt` (`format_inner`) as the remaining proofs.

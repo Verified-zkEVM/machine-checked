@@ -10,6 +10,7 @@ import Cases.Zip2005.Runtime.WriteVectored
 import Cases.Zip2005.Runtime.MemcmpLsym
 import Cases.Zip2005.Runtime.WriteVectoredLsym
 import Cases.Zip2005.Runtime.BlackBox
+import Cases.Zip2005.Top.Guest
 
 -- the CatCrypt kernels
 #print axioms Cases.CatCrypt.Cswap.corres
@@ -26,3 +27,6 @@ import Cases.Zip2005.Runtime.BlackBox
 -- the same, with `lsym`
 #print axioms Cases.Zip2005.MemcmpLsym.contract
 #print axioms Cases.Zip2005.WriteVectoredLsym.contract
+
+-- zip-2005's end theorem (`Top/Guest.lean`), under its open premises `PanicPaths` and `hIfit`
+#print axioms Cases.Zip2005.guest_run
