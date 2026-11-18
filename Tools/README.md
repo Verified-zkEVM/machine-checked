@@ -66,7 +66,7 @@ The functions are the ELF's own text symbols (it must not be stripped). The rout
   system call as an FFI call. An RV64 ELF is taken as an SP1 guest (`RiscV/Sp1/`,
   `@ecall(t0, a0, a1, a2)`); an AArch64 or x86-64 ELF as a program without an operating
   system (`ARM/Bare.lean`, `X86/Bare.lean`, `@syscall(number, a, b, c)`);
-- the printer (`Logical/Pancake.lean`).
+- the printer (`pancake/Pancake/Print.lean`, in the package `pancake`).
 
 The Pancake text starts with comments that say what it is of: how many functions, and how
 many of them are not structured but a loop over their blocks; which Pancake function is
@@ -141,14 +141,27 @@ the function's statement. `Test/ToLean.lean` checks the second on a small progra
 `decompile --to lean GUEST.elf OUTDIR NS` writes the program `decompile --to lprog` gives, for
 RISC-V, AArch64 or x86-64, and `decompile --to lean --pancake GUEST.elf OUTDIR NS` the one
 `--to pancake` gives (`ToLean.lean`, "The other routes"). Neither lift is proved; the terms
-are checked against the lift, as for `--proved`.
+are checked against the lift, as for `--proved`, and what stays trusted is the same in kind:
+
+- **that the input is the ELF's.** `check_elf_input` reads the ELF when the module is built,
+  by the same reader as the tool (`Program.lean`'s `inputOf`, with its heuristics for the
+  addresses a computed jump may reach), from the path relative to where the module is built.
+  Lake does not track the ELF.
+- **that the modules are as the tool wrote them.** `program` is not written: `check_elf_input`
+  defines it, by the builder of the ELF's own instruction set, so a module cannot lift the code
+  as another one's. Check that `Code.lean` calls `check_elf_input`, that `Pancake.lean` states
+  `pancake_eq` by `kernel_eq` (`#print axioms NS.pancake_eq`), and `#print axioms` on the
+  theorems used.
+
+What a term says about the binary is only what its lift computes: these lifts have no theorem
+relating them to the machine.
 
 - `OUTDIR/NS/Code.lean`: the input of the lift as `Program.lean` reads it from the ELF (each
   function's name, address, bytes and the addresses a computed jump in it may reach; the entry;
   the memory), and `check_elf_input`, which reads the ELF when the module is built and adds
   `code_eq_elf`, `entry_eq_elf` and `memory_eq_elf` for the kernel to check. `program` is the
   program the instruction set builds from that input: the one the tool lifted, by the same
-  definitions (`riscvProgram`, `armProgram`, `x86Program`).
+  definitions (`riscvProgram`, `armProgram`, `x86Program`), chosen by the ELF's machine.
 - `OUTDIR/NS/F<i>.lean`: the `i`th function of `program.lift`, and `f<i>_eq`, as above.
 - With `--pancake`, `OUTDIR/NS/Pancake.lean` instead: the declarations of `program.toPancake`
   as terms of Flapjack's syntax, and `pancake_eq : program.toPancake = .ok (decls, notes)`.
@@ -166,8 +179,9 @@ are lists, so the decoding and the fixpoint of `dropDead` cost far more than the
 | --- | --- | --- |
 | blake2s (RISC-V) | `--to lean` | the input; 8 of 9 functions, the largest of them (38 KB of terms) in 30 s; the ninth (114 KB of terms) had not finished after 15 minutes |
 | `k_iter`, a bare AArch64 guest | `--to lean` | the input, in 6 s; 29 of 35 functions, up to 14 minutes each for 21 KB of terms; the six largest (30 to 125 KB) had not finished in 40 minutes |
-| blake2s (RISC-V) | `--to lean --pancake` | the terms elaborate, in 2 s; `pancake_eq`, lift 2 of the whole program, including that 114 KB function, had not finished after 15 minutes |
-| a function of two instructions, each instruction set | (`Test/ToLean.lean`) | each lift, a changed AArch64 term refuted, and lift 2 by `kernel_eq`, in seconds, in CI |
+| blake2s (RISC-V) | `--to lean --pancake` | the terms elaborate, in 2 s; `pancake_eq`, lift 2 of the whole program, including that 114 KB function, had not finished after 30 minutes (mostly system time: memory). Before lift 2's names were tested as a list (`names`), it could not have held at all: the kernel does not evaluate `String.all` |
+| a function of two instructions, each instruction set | (`Test/ToLean.lean`) | each lift, a changed AArch64 term refuted, lift 2 and its names by `kernel_eq`, and false equations `kernel_eq` refuses, in seconds, in CI |
+| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes (`scripts/to-lean-check/check.sh`) | every module written, built; a changed word, byte or note refused by the kernel; in CI |
 
 So for these routes the modules are right and the checks hold where they finish, but large
 functions need the kernel's work cut down: checking a certificate the tool writes (the labels,

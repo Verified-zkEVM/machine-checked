@@ -1,11 +1,12 @@
 /-
   Tools.ToLean
 
-  `decompile --to lean`: an ELF's `--proved` lift written as Lean modules, whose terms the
-  kernel checks against the lift (`docs/design/Packages.md` §2; what stays trusted is in
-  `Tools/README.md`, "As Lean").
+  `decompile --to lean`: an ELF's lift written as Lean modules, whose terms the kernel checks
+  against the lift (`docs/design/Packages.md` §2; what stays trusted is in `Tools/README.md`,
+  "As Lean"). The `--proved` route is described here; the lift of whole programs and Pancake
+  (`--to lean [--pancake]`) under "The other routes" below.
 
-  For an ELF the tool writes, under a namespace `NS`:
+  For an ELF the `--proved` route writes, under a namespace `NS`:
 
   * `NS/Words.lean`: each function's words (`w0`, `w1`, …), the list of them (`words`), the
     functions they decode to (`fns`), and `check_elf_words words "PATH"`, which reads the ELF
@@ -32,8 +33,10 @@
 
   * `functions`, `wordsOf`: the functions the `--proved` lift takes, and their words
   * `chunks`, `flatten_chunks`, `getElem?_eq_of_chunks`
-  * `check_elf_words`
-  * `emit`
+  * `check_elf_words`, `check_elf_input`: the checks of a written module against the ELF
+  * `kernel_eq`: an equation proved by `Eq.refl`, for the kernel to check
+  * `commentSafe`, `validNs`: what may go into a written module as text
+  * `emit` (`--proved`), `emitRoute` (the other routes)
 -/
 
 import Lean
@@ -281,6 +284,14 @@ def functionModule (ns : String) (n i : Nat) (fd : Lfundef (Op Reg) Reg) : Strin
   s := s ++ s!"theorem f{i}_eq : (liftProg fns)[{i}]? = some f{i} :=\n  getElem?_eq_of_chunks f{i}_head f{i}_parts rfl\n"
   return s ++ footer ns
 
+/-- Run `act`, which writes under `dir`, a directory it made; if it fails, remove `dir` before
+    passing the error on, so that a run that fails does not leave a directory the next run
+    refuses to write over. -/
+def removeOnError {α : Type} (dir : System.FilePath) (act : IO α) : IO α :=
+  try act catch e => do
+    try IO.FS.removeDirAll dir catch _ => pure ()
+    throw e
+
 /-- **Write the modules** for the ELF at `elfPath` (as the modules will name it, from where
     they are built) under `outDir`, in namespace `ns`. Gives the number of functions and of
     instructions, and the names of the functions left out, each with the reason. -/
@@ -296,14 +307,15 @@ def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String) := do
   if ← dir.pathExists then
     throw <| IO.userError s!"{dir} exists: remove it, or write to another OUTDIR or NAMESPACE"
   IO.FS.createDirAll dir
-  IO.FS.writeFile (dir / "Words.lean") (wordsModule ns elfPath ws)
-  let p := liftProg fs.toList
-  for h : i in [0 : p.length] do
-    IO.FS.writeFile (dir / s!"F{i}.lean") (functionModule ns fs.size i p[i])
-  IO.FS.writeFile (System.FilePath.mk outDir / s!"{ns}.lean")
-    (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it.\n-/\n\n" ++
-      String.join ((List.range p.length).map (s!"import {ns}.F{·}\n")))
-  return (fs.size, (fs.toList.map (·.prog.length)).sum, skipped)
+  removeOnError dir do
+    IO.FS.writeFile (dir / "Words.lean") (wordsModule ns elfPath ws)
+    let p := liftProg fs.toList
+    for h : i in [0 : p.length] do
+      IO.FS.writeFile (dir / s!"F{i}.lean") (functionModule ns fs.size i p[i])
+    IO.FS.writeFile (System.FilePath.mk outDir / s!"{ns}.lean")
+      (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it.\n-/\n\n" ++
+        String.join ((List.range p.length).map (s!"import {ns}.F{·}\n")))
+    return (fs.size, (fs.toList.map (·.prog.length)).sum, skipped)
 
 /-! ## The other routes: the lift of whole programs, and Pancake
 
@@ -332,7 +344,8 @@ syntax (name := kernelEq) "kernel_eq " ident " : " term : command
 def elabKernelEq : CommandElab := fun stx => do
   let name := (← getCurrNamespace) ++ stx[1].getId
   let (ty, lhs) ← liftTermElabM do
-    let ty ← instantiateMVars (← Term.elabType stx[3])
+    -- an error in the statement fails the command, not a theorem stated with `sorry`
+    let ty ← instantiateMVars (← Term.withoutErrToSorry (Term.elabType stx[3]))
     Term.synthesizeSyntheticMVarsNoPostponing
     let ty ← instantiateMVars ty
     let some (_, lhs, _) := ty.eq? | throwError "kernel_eq: {ty} is not an equation"
@@ -377,10 +390,18 @@ def pairsOf : List Nat → List (Nat × Nat)
   | a :: w :: rest => (a, w) :: pairsOf rest
   | _ => []
 
+/-- The builder of an instruction set's program (`Tools.Program`). -/
+def builderOf : Tools.Program.Machine → Name
+  | .riscv => ``Tools.Program.riscvProgram
+  | .arm => ``Tools.Program.armProgram
+  | .x86 => ``Tools.Program.x86Program
+
 /-- `check_elf_input code entry memory "PATH"` reads the ELF at `PATH` (from where the module
     is built), reads its input as `decompile` does (`Tools.Program.inputOf`), and adds
     `code_eq_elf`, `entry_eq_elf` and `memory_eq_elf`, the three constants equal to what it
-    finds (the memory flat, `flatMemory`), for the kernel to check. -/
+    finds (the memory flat, `flatMemory`), for the kernel to check. It then defines `program`,
+    beside `code`, by the builder of the ELF's own instruction set (`builderOf`): which
+    instruction set the program is of is the ELF's, not the written module's. -/
 syntax (name := checkElfInput) "check_elf_input " ident ppSpace ident ppSpace ident ppSpace str : command
 
 @[command_elab checkElfInput]
@@ -402,17 +423,21 @@ def elabCheckElfInput : CommandElab := fun stx => do
       name := d.getPrefix.str (d.getString! ++ "_eq_elf"), levelParams := []
       type := mkApp3 (mkConst ``Eq [1]) ty (mkConst d) e
       value := mkApp2 (mkConst ``Eq.refl [1]) ty (mkConst d) }
+  let prog := mkIdent (`_root_ ++ names[0]!.getPrefix.str "program")
+  let cmd ← `(command| def $prog:ident := $(mkIdent (builderOf i.machine)) $(mkIdent names[0]!)
+    $(mkIdent names[1]!) (Tools.ToLean.pairsOf $(mkIdent names[2]!)))
+  elabCommand cmd
 
-/-- What a written module of an instruction set opens, the name of its program's builder, and
-    the namespace of its registers, shortened in the terms. -/
-def machineInfo : Tools.Program.Machine → String × String × String
-  | .riscv => ("RiscvZkvm.Rv64", "riscvProgram", "RiscvZkvm.Rv64.Reg.")
-  | .arm => ("Lprog.ARM", "armProgram", "Lprog.ARM.Reg.")
-  | .x86 => ("Lprog.X86", "x86Program", "Lprog.X86.Reg.")
+/-- What a written module of an instruction set opens, and the namespace of its registers,
+    shortened in the terms. -/
+def machineInfo : Tools.Program.Machine → String × String
+  | .riscv => ("RiscvZkvm.Rv64", "RiscvZkvm.Rv64.Reg.")
+  | .arm => ("Lprog.ARM", "Lprog.ARM.Reg.")
+  | .x86 => ("Lprog.X86", "Lprog.X86.Reg.")
 
 /-- The header of a module of the other routes. -/
 def headerOf (m : Tools.Program.Machine) (ns what : String) (imports : List String) : String :=
-  let (opens, _, _) := machineInfo m
+  let (opens, _) := machineInfo m
   s!"/-\n  {ns}.{what}\n\n  Written by `decompile --to lean`. Do not edit: the theorems below check it.\n-/\n\n" ++
     String.join (imports.map (s!"import {·}\n")) ++
     s!"\nnamespace {ns}\n\nopen Lprog {opens} Tools.Program Tools.ToLean\n\n" ++
@@ -421,7 +446,6 @@ def headerOf (m : Tools.Program.Machine) (ns what : String) (imports : List Stri
 
 /-- The code module: the input, its check against the ELF, and the program. -/
 def codeModule (ns elfPath : String) (i : Tools.Program.Input) : String := Id.run do
-  let (_, builder, _) := machineInfo i.machine
   let mut s := headerOf i.machine ns "Code" ["Tools.ToLean"]
   for h : k in [0 : i.code.length] do
     let (_, _, bs, ts) := i.code[k]
@@ -431,10 +455,10 @@ def codeModule (ns elfPath : String) (i : Tools.Program.Input) : String := Id.ru
   s := s ++ "\ndef code : List (String × Nat × List Nat × List Nat) := [\n  " ++ ",\n  ".intercalate entries ++ "]\n\n"
   s := s ++ s!"def entry : Nat := {i.entry}\n\n"
   s := s ++ s!"def memory : List Nat :=\n    {chunked ((flatMemory i.memory).map toString)}\n\n"
-  s := s ++ "-- the input is the ELF's: `code_eq_elf`, `entry_eq_elf`, `memory_eq_elf`, checked when this module is built\n"
-  s := s ++ s!"check_elf_input code entry memory {repr elfPath}\n\n"
-  s := s ++ "/-- The program the input makes, as `decompile` lifts it. -/\n"
-  s := s ++ s!"def program := {builder} code entry (pairsOf memory)\n"
+  s := s ++ "-- the input is the ELF's: `code_eq_elf`, `entry_eq_elf`, `memory_eq_elf`, checked when this module\n"
+  s := s ++ "-- is built; and `program`, the program the input makes by the builder of the ELF's instruction\n"
+  s := s ++ "-- set, as `decompile` lifts it\n"
+  s := s ++ s!"check_elf_input code entry memory {repr elfPath}\n"
   return s ++ footer ns
 
 /-- The module of the `i`th function of `program.lift`, lifted to `fd`. Its parts are checked
@@ -443,7 +467,7 @@ def codeModule (ns elfPath : String) (i : Tools.Program.Input) : String := Id.ru
     evaluating the decision. -/
 def liftModule {Reg : Type} [Repr Reg] (m : Tools.Program.Machine) (ns : String) (n i : Nat)
     (fd : Lfundef (Op Reg) Reg) : String := Id.run do
-  let (_, _, regNs) := machineInfo m
+  let (_, regNs) := machineInfo m
   let short' (x : String) : String := (short x).replace regNs "Reg."
   let mut s := headerOf m ns s!"F{i}" [s!"{ns}.Code"]
   let parts := chunks chunk fd.body
@@ -514,27 +538,28 @@ def emitRoute (elfPath outDir ns : String) (pancake : Bool) : IO (Nat × Array S
   if ← dir.pathExists then
     throw <| IO.userError s!"{dir} exists: remove it, or write to another OUTDIR or NAMESPACE"
   IO.FS.createDirAll dir
-  IO.FS.writeFile (dir / "Code.lean") (codeModule ns elfPath i)
-  let mods ← if pancake then do
-      let r : Except String _ := match i.machine with
-        | .riscv => (Tools.Program.riscvProgram i.code i.entry i.memory).toPancake
-        | .arm => (Tools.Program.armProgram i.code i.entry i.memory).toPancake
-        | .x86 => (Tools.Program.x86Program i.code i.entry i.memory).toPancake
-      let (decls, notes) ← IO.ofExcept r
-      IO.FS.writeFile (dir / "Pancake.lean") (pancakeModule i.machine ns decls notes)
-      pure ["Pancake"]
-    else do
-      let write {Reg : Type} [Repr Reg] (p : Lprog.Lprog (Op Reg) Reg) : IO (List String) := do
-        for h : k in [0 : p.length] do
-          IO.FS.writeFile (dir / s!"F{k}.lean") (liftModule i.machine ns i.code.length k p[k])
-        pure ((List.range p.length).map (s!"F{·}"))
-      match i.machine with
-      | .riscv => write (Tools.Program.riscvProgram i.code i.entry i.memory).lift
-      | .arm => write (Tools.Program.armProgram i.code i.entry i.memory).lift
-      | .x86 => write (Tools.Program.x86Program i.code i.entry i.memory).lift
-  IO.FS.writeFile (System.FilePath.mk outDir / s!"{ns}.lean")
-    (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it.\n-/\n\n" ++
-      String.join (mods.map (s!"import {ns}.{·}\n")))
-  return (i.code.length, i.skipped)
+  removeOnError dir do
+    IO.FS.writeFile (dir / "Code.lean") (codeModule ns elfPath i)
+    let mods ← if pancake then do
+        let r : Except String _ := match i.machine with
+          | .riscv => (Tools.Program.riscvProgram i.code i.entry i.memory).toPancake
+          | .arm => (Tools.Program.armProgram i.code i.entry i.memory).toPancake
+          | .x86 => (Tools.Program.x86Program i.code i.entry i.memory).toPancake
+        let (decls, notes) ← IO.ofExcept r
+        IO.FS.writeFile (dir / "Pancake.lean") (pancakeModule i.machine ns decls notes)
+        pure ["Pancake"]
+      else do
+        let write {Reg : Type} [Repr Reg] (p : Lprog.Lprog (Op Reg) Reg) : IO (List String) := do
+          for h : k in [0 : p.length] do
+            IO.FS.writeFile (dir / s!"F{k}.lean") (liftModule i.machine ns i.code.length k p[k])
+          pure ((List.range p.length).map (s!"F{·}"))
+        match i.machine with
+        | .riscv => write (Tools.Program.riscvProgram i.code i.entry i.memory).lift
+        | .arm => write (Tools.Program.armProgram i.code i.entry i.memory).lift
+        | .x86 => write (Tools.Program.x86Program i.code i.entry i.memory).lift
+    IO.FS.writeFile (System.FilePath.mk outDir / s!"{ns}.lean")
+      (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it.\n-/\n\n" ++
+        String.join (mods.map (s!"import {ns}.{·}\n")))
+    return (i.code.length, i.skipped)
 
 end Tools.ToLean

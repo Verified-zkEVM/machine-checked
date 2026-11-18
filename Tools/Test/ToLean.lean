@@ -143,9 +143,43 @@ theorem armF_changed : (armProgram armCode 0x1000 []).lift[0]?.map (fun g => chu
 kernel_eq rv_pancake : (riscvProgram rvCode 0x1000 []).toPancake.toOption.map
     (fun (d, n) => (d.length, n.length)) = some (38, 3)
 
+-- the names lift 2 gives functions, evaluated by the kernel: a function named `f` is `f_f`
+kernel_eq rv_names : MachineChecked.Logical.names (riscvProgram rvCode 0x1000 []).lift = #["f_f"]
+
 -- the memory, flat and back
 #guard pairsOf (flatMemory [(8, 1), (16, 2)]) == [(8, 1), (16, 2)]
 
 end Routes
+
+/-! ## What `kernel_eq` refuses
+
+`#refused cmd` elaborates `cmd` with the kernel's check waited for (`Elab.async` off), fails
+unless it logs an error, and leaves the environment and the messages as they were: a
+declaration the kernel refuses is otherwise kept as an axiom of its own name, for what follows
+it to elaborate. -/
+
+open Lean Elab Command in
+elab "#refused " cmd:command : command => do
+  let env ← getEnv
+  let msgs := (← get).messages
+  modify fun s => { s with messages := {} }
+  withScope (fun sc => { sc with opts := Elab.async.set sc.opts false }) (elabCommand cmd)
+  let errs := (← get).messages.toList.filter (·.severity == .error)
+  setEnv env
+  modify fun s => { s with messages := msgs }
+  if errs.isEmpty then throwError "#refused: {cmd} was accepted"
+
+#refused kernel_eq bad_arith : 2 + 2 = 5
+-- a count off by one, of lift 2
+#refused kernel_eq bad_pancake : (Tools.Program.riscvProgram rvCode 0x1000 []).toPancake.toOption.map
+    (fun (d, n) => (d.length, n.length)) = some (38, 4)
+-- a changed term, as `--proved` checks a function's parts
+#refused kernel_eq bad_parts : (liftProg fns)[0]?.map (fun g => chunks chunk g.body) =
+    some [changed.body]
+-- not an equation, and an equation with a hole
+#refused kernel_eq not_eq : 2 + 2 ≠ 5
+#refused kernel_eq hole : 2 + 2 = _
+-- an unknown name: an error, not a theorem stated with `sorry`
+#refused kernel_eq unknown : noSuchConstant = 1
 
 end Tools.Test.ToLean

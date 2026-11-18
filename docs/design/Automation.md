@@ -1,6 +1,8 @@
 # Design note: proof automation at Lprog and Pancake
 
-**Status: proposed (2026-11-17); the first spike (items 1 and 2) a second round (calls, item 4, a real port) and a third (proofs that compose, on two instruction sets) done, below.** How to make proofs
+**Status: proposed (2026-11-17); a first spike of items 1 and 2, a second round (calls, item 4,
+a real port) and a third (proofs that compose, on two instruction sets), done, below**
+(`SafeN.block` proved but not yet used by `lsym`). How to make proofs
 about decompiled programs cheap: tactics and proof engineering that apply to every instruction
 set, since Lprog's operations are shared.
 
@@ -51,13 +53,14 @@ set, since Lprog's operations are shared.
 ## zip-2005, counted
 
 The `--proved` lift of zip-2005 (304 functions, 41,631 instructions), counted from its Lprog
-text (the default lift in brackets where it differs):
+text by `scripts/automation-stats.py` (which says how; the default lift in brackets where it
+differs):
 
 | what | count | for the plan |
 | --- | --- | --- |
-| straight-line code | 92% of the instructions; 83% of that in blocks of 8 or more; the longest block 3,988 (SHA-256, unrolled) | blocks are the largest lever (item 2); the longest needs atoms too, or the state grows without bound |
-| calls | 1,573, about 5 to a function | specifications at calls from the start (item 1) |
-| candidates of a computed call | all 304 functions, at each of 1,640 (the default lift gives 1,581 of them one candidate, and 76 are indirect) | item 4 is large and simple: the `--proved` lift can take the default lift's resolution |
+| straight-line code | 92% of the instructions; 84% of that in blocks of 8 or more; the longest block 3,988 (SHA-256, unrolled) | blocks are the largest lever (item 2); the longest needs atoms too, or the state grows without bound |
+| calls | 1,573, and 67 tail calls: about 5 to a function | specifications at calls from the start (item 1) |
+| candidates of a computed call | all 304 functions, at each of the 1,640 calls and tail calls: the `--proved` lift makes every call computed (the default lift has 1,657 computed calls and tail calls, 1,581 of them with one candidate and 76 with more) | item 4 is large and simple: the `--proved` lift can take the default lift's resolution |
 | loops (backward branches) | 324, about 1 to a function | an invariant to a loop, given by hand for now |
 | aborts | 2 (the default lift: 99 that control may reach, most after a call of a panic, which does not return) | mostly a specification that a function does not return (item 5) |
 | functions left out | 3, the panic machinery | small |
@@ -116,6 +119,10 @@ text (the default lift in brackets where it differs):
   | a raised `maxHeartbeats` | 6 | none |
   | time to check | 4.2 s | 4.2 s |
 
+  `lsym` itself raises `maxRecDepth`, to 16384, while it runs (`Lprog/Tactic.lean`): a body
+  larger than that allows still stops it as a whole, since `try … catch` does not catch the
+  limit.
+
   What is left: the loop's invariant, the frame (which cells the prologue writes, that other
   memory is unchanged), the postconditions, and the facts about addresses as `simp` writes
   them (`sp + 0xffffffffffffffd0#64 + 40#64`), proved by `bv_decide`. Calls and the system
@@ -131,8 +138,10 @@ text (the default lift in brackets where it differs):
   `decide +kernel`, which compares every field through `DecidableEq`: on zip-2005's three
   largest functions the check is about 2.5 times faster and the module 30 to 35% faster
   (16 s to 11 s for the largest). What is left is elaborating the term itself, about two
-  thirds of the time now. The other routes keep `decide`: there the kernel's unfolding of
-  `program.lift` to compare it with a term is far slower than evaluating the decision.
+  thirds of the time now. The route of whole programs keeps `decide`: there the kernel's
+  unfolding of `program.lift` to compare it with a term is far slower than evaluating the
+  decision. The Pancake route already used `kernel_eq`, since Flapjack's syntax has no
+  decidable equality.
 
 ## Third round: proofs that compose, on two instruction sets
 
