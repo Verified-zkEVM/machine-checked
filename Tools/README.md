@@ -87,7 +87,10 @@ nothing has a type or a name of its own. The text is about as long as the disass
 `--to lprog --proved` is the lift `liftProg`, the definition the theorems are about
 (`RiscV/Lift/Equiv.lean`: a machine that holds the functions and the lifted program are
 equivalent to an observer). It covers less: what it does not is an `abort`, and a function
-with a word riscv-zkvm does not decode is left out. In both forms the Lprog text is read
+with a word riscv-zkvm does not decode is left out, with the reason: in particular the nine
+32-bit operations of RV64IM riscv-zkvm's machine does not run (`addw`, `sllw`, `sraw`,
+`sraiw`, `mulw`, `divw`, `divuw`, `remw`, `remuw`), which clang emits for `int` arithmetic,
+are named with their address. In both forms the Lprog text is read
 back and compared with the program before it is written (`Lprog.parse_print` proves the
 step from tokens; the step from text is this check).
 
@@ -105,7 +108,8 @@ step from tokens; the step from text is this check).
   bound (`f<i>_head`) and its body in parts of 128 instructions (`f<i>_parts`) by evaluation
   (`kernel_eq`), and
   `getElem?_eq_of_chunks` gives the whole; in parts, no limit of the kernel needs raising.
-- `OUTDIR/NS.lean` imports them all.
+- `OUTDIR/NS.lean` imports them all, and lists each function's index (`f<i>`) with its symbol
+  and address: a proof names a function by its index.
 
 So the kernel checks that each term is the lift of `fns`, and that `words` is the literal
 `check_elf_words` put in `words_eq_elf`. How a term came to be written is not trusted. What is:
@@ -123,8 +127,11 @@ A misread word does not make a false theorem about the binary: `Equiv.lean`'s
 a proof about the machine must show it holds the words `fns` was built from. What a term says
 about the binary is what `liftProg`'s theorems say (`Equiv.lean`).
 
-`NS` is an ASCII letter in upper case followed by ASCII letters, digits and `_`, and
-`OUTDIR/NS` must not exist yet, so that no file of an earlier run is left among the new ones.
+`NS` is one or more components separated by `.`, each an ASCII letter in upper case followed
+by ASCII letters, digits and `_`. It is a module path under `OUTDIR` too: `A.B` is written as
+`OUTDIR/A/B.lean` and `OUTDIR/A/B/`, so that with `OUTDIR` a library's source root the modules
+are part of that library (`Cases/Hardening/` writes into `Cases.Hardening.Gen`). That
+directory must not exist yet, so that no file of an earlier run is left among the new ones.
 The modules are `noncomputable` (data for the kernel; the code generator does not take terms
 this large), and require this repository's root package, for `liftProg` and `Tools.ToLean`.
 

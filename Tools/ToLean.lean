@@ -53,6 +53,20 @@ open _root_.Lprog MachineChecked.RiscV.Lift Tools.Elf
 
 /-! ## The functions of an ELF -/
 
+/-- Why a function's words do not decode, said of the first that does not: one of the 32-bit
+    operations of RV64IM that riscv-zkvm's machine lacks (`Lift/Decode.lean`), which the
+    `--proved` lift cannot take since its theorems are about that machine, or a word that is no
+    instruction of RV64IM at all. -/
+def undecoded (base : Nat) (ws : List (BitVec 32)) : String :=
+  match (ws.zipIdx).find? (fun (w, _) => (decode w).isNone) with
+  | none => "a word does not decode"
+  | some (w, k) =>
+    let addr := s!"0x{String.ofList (Nat.toDigits 16 (base + 4 * k))}"
+    match wordOps w with
+    | some (name, _) => s!"`{name}` at {addr}, a 32-bit operation riscv-zkvm's machine does not \
+        run: the `--proved` lift does not take it (`--to lprog` without `--proved` does)"
+    | none => s!"the word 0x{String.ofList (Nat.toDigits 16 w.toNat)} at {addr} is no instruction of RV64IM"
+
 /-- The functions of an image the `--proved` lift takes, and the names of those it does not,
     each with the reason. -/
 def functions (img : Elf64Image) (syms : List Sym) : Array Fn × Array String := Id.run do
@@ -68,7 +82,7 @@ def functions (img : Elf64Image) (syms : List Sym) : Array Fn × Array String :=
       | .error e => skipped := skipped.push s!"{sym.name}: {e}"
       | .ok ws => match ws.mapM decode with
         | some prog => fs := fs.push { name := sym.name, base := BitVec.ofNat 64 sym.addr, prog }
-        | none => skipped := skipped.push s!"{sym.name}: a word does not decode"
+        | none => skipped := skipped.push s!"{sym.name}: {undecoded sym.addr ws}"
   return (fs, skipped)
 
 /-- The words of each function the `--proved` lift takes: its name, its address and its
@@ -234,14 +248,24 @@ def short (s : String) : String :=
 def commentSafe (s : String) : String :=
   ((reprStr s).replace "-/" "- /").replace "/-" "/ -"
 
-/-- Is `ns` a namespace `--to lean` may write: an ASCII letter in upper case, then ASCII
-    letters, digits and `_`? It is a directory, a module's root and a namespace at once, so it
-    has no `.` (the module would not be where its import looks), no `/` (it would be written
-    outside `OUTDIR`) and is no keyword (keywords are in lower case). -/
-def validNs (ns : String) : Bool :=
-  match ns.toList with
+/-- Is `c` a component of a namespace `--to lean` may write: an ASCII letter in upper case, then
+    ASCII letters, digits and `_`? It is a directory and a namespace at once, so it has no `/`
+    (it would be written outside `OUTDIR`) and is no keyword (keywords are in lower case). -/
+def validComponent (c : String) : Bool :=
+  match c.toList with
   | c :: cs => ('A' ≤ c && c ≤ 'Z') && cs.all fun c => c.isAlphanum && c.toNat < 128 || c == '_'
   | [] => false
+
+/-- Is `ns` a namespace `--to lean` may write: components separated by `.`, each
+    `validComponent`. It is a module's path under `OUTDIR` as well (`nsPath`), so that the
+    modules written can sit inside a library whose root is `OUTDIR`: `A.B` is written as
+    `OUTDIR/A/B.lean` and `OUTDIR/A/B/`. -/
+def validNs (ns : String) : Bool :=
+  (ns.splitOn ".").all validComponent
+
+/-- The path under `OUTDIR` of the namespace `ns`'s directory (and, with `.lean`, its module). -/
+def nsPath (outDir ns : String) : System.FilePath :=
+  (ns.splitOn ".").foldl (fun (d : System.FilePath) (c : String) => d / c) (System.FilePath.mk outDir)
 
 /-- The header every module written shares. -/
 def header (ns what : String) (imports : List String) : String :=
@@ -301,8 +325,8 @@ def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String) := do
   let (fs, skipped) := functions img (← IO.ofExcept (symbols bytes))
   let ws ← IO.ofExcept (wordsOf bytes)
   unless validNs ns do
-    throw <| IO.userError s!"the namespace {repr ns} is not an ASCII letter in upper case followed by ASCII letters, digits and `_`"
-  let dir := System.FilePath.mk outDir / ns
+    throw <| IO.userError s!"the namespace {repr ns} is not a namespace of components separated by `.`, each an ASCII letter in upper case followed by ASCII letters, digits and `_`"
+  let dir := nsPath outDir ns
   -- Files of an earlier run, of an ELF with more functions, would stay beside the new ones.
   if ← dir.pathExists then
     throw <| IO.userError s!"{dir} exists: remove it, or write to another OUTDIR or NAMESPACE"
@@ -312,8 +336,13 @@ def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String) := do
     let p := liftProg fs.toList
     for h : i in [0 : p.length] do
       IO.FS.writeFile (dir / s!"F{i}.lean") (functionModule ns fs.size i p[i])
-    IO.FS.writeFile (System.FilePath.mk outDir / s!"{ns}.lean")
-      (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it.\n-/\n\n" ++
+    -- which function is which index: a proof names a function by its index (`f<i>_eq`,
+    -- the frame `⟨i, 0, ret, top⟩`)
+    let table := String.join ((fs.toList.zipIdx).map fun (f, i) =>
+      s!"  * `F{i}`: {commentSafe f.name}, at 0x{String.ofList (Nat.toDigits 16 f.base.toNat)}\n")
+    IO.FS.writeFile (dir.addExtension "lean")
+      (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it. The functions, by \
+        index (`f<i>`, `f<i>_eq`):\n\n{table}-/\n\n" ++
         String.join ((List.range p.length).map (s!"import {ns}.F{·}\n")))
     return (fs.size, (fs.toList.map (·.prog.length)).sum, skipped)
 
@@ -533,8 +562,8 @@ def emitRoute (elfPath outDir ns : String) (pancake : Bool) : IO (Nat × Array S
   let bytes ← IO.FS.readBinFile elfPath
   let i ← IO.ofExcept (Tools.Program.inputOf bytes)
   unless validNs ns do
-    throw <| IO.userError s!"the namespace {repr ns} is not an ASCII letter in upper case followed by ASCII letters, digits and `_`"
-  let dir := System.FilePath.mk outDir / ns
+    throw <| IO.userError s!"the namespace {repr ns} is not a namespace of components separated by `.`, each an ASCII letter in upper case followed by ASCII letters, digits and `_`"
+  let dir := nsPath outDir ns
   if ← dir.pathExists then
     throw <| IO.userError s!"{dir} exists: remove it, or write to another OUTDIR or NAMESPACE"
   IO.FS.createDirAll dir
@@ -557,7 +586,7 @@ def emitRoute (elfPath outDir ns : String) (pancake : Bool) : IO (Nat × Array S
         | .riscv => write (Tools.Program.riscvProgram i.code i.entry i.memory).lift
         | .arm => write (Tools.Program.armProgram i.code i.entry i.memory).lift
         | .x86 => write (Tools.Program.x86Program i.code i.entry i.memory).lift
-    IO.FS.writeFile (System.FilePath.mk outDir / s!"{ns}.lean")
+    IO.FS.writeFile (dir.addExtension "lean")
       (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it.\n-/\n\n" ++
         String.join (mods.map (s!"import {ns}.{·}\n")))
     return (i.code.length, i.skipped)
