@@ -24,7 +24,8 @@
   It stops where it can do nothing: at a call without a specification, an external call, or a
   loop's head, which a proof meets with the function's specification or an invariant. A loop
   is found without `stop`: a path that comes back to a program counter it has stepped from is
-  left there. A step that runs out of recursion depth or heartbeats leaves its goal too.
+  left there. A step that runs out of recursion depth leaves its goal too; one that runs out of
+  heartbeats stops `lsym` with an error that says where.
   `set_option trace.lsym true` says, for each goal left, why. The
   instruction at `pc` is found by `rfl`, so the body should be a literal (`decompile --to
   lean` writes one, `f<i>`); a body to be computed is computed again at each step. `lsym`
@@ -276,6 +277,12 @@ def normPc (g : MVarId) : MetaM MVarId := g.withContext do
 
 initialize Lean.registerTraceClass `lsym
 
+open Lean in
+/-- Whether the declaration's heartbeats (`maxHeartbeats`) are spent. -/
+def heartbeatsOut : CoreM Bool := do
+  let ctx ← read
+  return ctx.maxHeartbeats != 0 && (← IO.getNumHeartbeats) - ctx.initHeartbeats > ctx.maxHeartbeats
+
 /-- **`lsym hf`**: step the body of the function `hf` names, on every branch, as far as
     `lstep` goes. `lsym hf stop [p, …]` leaves a goal where it comes to one of the program
     counters `p`, a loop's head, for its invariant (the goal it starts from is stepped even at
@@ -317,9 +324,17 @@ open Lean Elab Tactic Meta in
     -- a goal that is no `SafeN` at a program counter (a side condition) is left as it is
     let at? ← g.withContext (goalAt? g)
     match at? with
-    | none => left := left.push g
+    | none =>
+      if (← instantiateMVars (← g.getType)).consumeMData.isAppOf ``Isa.SafeN then
+        trace[lsym] "left: the function has returned (its frame is gone): what is left is \
+          the postcondition"
+      else
+        trace[lsym] "left: a side condition, not a step of the body: {← g.getType}"
+      left := left.push g
     | some (fn?, pc) =>
-      if stops.contains pc && !start.contains g then left := left.push g
+      if stops.contains pc && !start.contains g then
+        trace[lsym] "left at {pc}: a stop"
+        left := left.push g
       else if fn?.any (fun fn => seen.contains (fn, pc)) then
         trace[lsym] "left at {pc}: the path has stepped from it before, so it is a loop's head; \
           give `stop [{pc}]` and an invariant"
@@ -328,8 +343,8 @@ open Lean Elab Tactic Meta in
         setGoals [g]
         let saved ← saveState
         -- a lookup in the body by `rfl` recurses once per entry: a body of a few hundred
-        -- entries needs more than the default depth. A step that still runs out of depth or
-        -- heartbeats leaves its goal (`tryCatchRuntimeEx`: `try … catch` does not catch them)
+        -- entries needs more than the default depth. A step that still runs out of depth leaves
+        -- its goal (`tryCatchRuntimeEx`: `try … catch` does not catch the limit)
         let err? ← tryCatchRuntimeEx
           (do
             withTheReader Core.Context (fun c => { c with maxRecDepth := max c.maxRecDepth 16384 })
@@ -346,8 +361,22 @@ open Lean Elab Tactic Meta in
           todo := next ++ todo
         | some e =>
           saved.restore (restoreInfo := true)
-          trace[lsym] "left at {pc}: no step applies (a call without a specification, an external \
-            call, or a body that is not a literal): {e.toMessageData}"
+          -- the heartbeats are the declaration's, not the step's: once they are out, every step
+          -- after would fail too, so `lsym` stops, saying where (`simp` reports running out of
+          -- them as an error of its own, so the count is read, not the exception's kind)
+          if e.isMaxHeartbeat || (← heartbeatsOut) then
+            throwError "lsym: ran out of heartbeats stepping from program counter {pc} \
+              ({left.size} goals left before it); raise `maxHeartbeats`, or prove the rest from \
+              {pc} in a lemma of its own (`stop [{pc}]` here)"
+          if e.isMaxRecDepth then
+            trace[lsym] "left at {pc}: the step ran out of recursion depth \
+              (`maxRecDepth`, raised to 16384 while `lsym` runs)"
+          else
+            trace[lsym] "left at {pc}: no step applies (a call without a specification, an \
+              external call, or a body that is not a literal); the last rule tried failed with: \
+              {e.toMessageData}"
           left := left.push g
+  unless todo.isEmpty do
+    trace[lsym] "{todo.length} goals left unstepped: out of fuel (100000 steps)"
   setGoals (left.toList ++ todo.map (·.1))
 

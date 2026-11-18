@@ -196,11 +196,15 @@ From the review of the first three rounds:
   nothing, and the check stays only as the hypothesis `hm`. A condition that gives no value is
   `wrong`, not a trap, so `SafeN.cond'` keeps its side condition. Both case studies build
   unchanged, and faster: `MemcmpLsym` in 1.9 s (was 5 s), `WriteVectoredLsym` in 2.1 s.
-- **A step that runs out of depth or heartbeats leaves its goal**, instead of failing `lsym`
-  as a whole (`try … catch` does not catch these limits; `tryCatchRuntimeEx` does).
+- **A step that runs out of depth leaves its goal**, instead of failing `lsym` as a whole
+  (`try … catch` does not catch the limit; `tryCatchRuntimeEx` does). Heartbeats are the
+  declaration's, not a step's: once they are spent every later step fails too, so `lsym` stops
+  with an error that names the program counter it was stepping from.
 - **A loop is found without `stop`.** A path that comes back to a function's program counter
   it has stepped from is left there, for an invariant (it ran until it was out of time).
-- **Why it stopped**, for each goal left: `set_option trace.lsym true`.
+- **Why it stopped**, for each goal left: `set_option trace.lsym true` says whether it is a
+  stop, a loop's head, a step that does not apply (and the error of the last rule tried), a
+  step out of depth, a return (the postcondition), or a side condition.
 - **A frame whose size is not a numeral.** The address normal form had no lemma for `-n + n`:
   `sp - n + n` became `sp + (-n + n)` and stayed. `BitVec.add_left_neg`, `add_right_neg` and
   two lemmas for `-n + (n + c)` and `n + (-n + c)` are in `lsym_simp` and `lsym_addr` now.
@@ -210,6 +214,9 @@ Straight-line code, a body of `addi`s and a return, the time `lsym` takes:
 | instructions | 100 | 200 | 400 |
 | --- | --- | --- | --- |
 | time | 7 s | 18 s | 63 s |
+
+(At the default `maxHeartbeats`, 200,000, 100 instructions check and 200 do not: they need about
+a million.)
 
 The depth is no longer what stops it (the first spike failed at about 100); the time grows with
 the square of the length, which is what `SafeN.block` is for.

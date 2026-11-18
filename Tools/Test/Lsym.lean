@@ -124,6 +124,19 @@ theorem w_head {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {
   lsym hw
   exact hinv _
 
+-- `trace.lsym` says why a goal was left
+/--
+trace: [lsym] left at 0: the path has stepped from it before, so it is a loop's head; give `stop [0]` and an invariant
+-/
+#guard_msgs in
+set_option trace.lsym true in
+example {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
+    (hinv : ∀ r, LSafeN ws G N Q ⟨⟨0, 0, ret, top⟩ :: rest, r, m⟩) :
+    LSafeN ws G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  lsym hw
+  exact hinv _
+
 /-! ## A frame whose size is not a numeral
 
 The address normal form takes a size subtracted and added back away, numeral or not. -/
