@@ -1,8 +1,9 @@
 /-
   Cases.Zip2005.Runtime.MemcmpLsym
 
-  `memcmp(a, b, n)` at Lprog again, with `lsym` (`Lprog/Tactic.lean`): the same contract and
-  the same theorem over `stepSp1` as `MemcmpLprog.lean`, which steps each instruction by hand.
+  `memcmp(a, b, n)` at Lprog again, with `lsym` (`Lprog/Tactic.lean`): the same contract as
+  `MemcmpLprog.lean`, which steps each instruction by hand. The theorem over `stepSp1`
+  (`MemcmpLprog.safe`) is not restated: it follows from the contract the same way.
   `lsym` steps the body, computes each operation, and closes the memory checks of the loads
   and the conditions of the returns; what is left is what the function means: the loop's
   invariant at its head, and the postcondition at each return.
