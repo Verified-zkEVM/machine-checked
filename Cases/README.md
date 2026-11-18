@@ -7,7 +7,9 @@ case depends on the framework, and nothing in the framework depends on a case.
 > **Paused.** While the framework is reworked, the case studies are not rebuilt on pull
 > requests, and they have not been checked on the current toolchain (Lean v4.36.0-rc2): some
 > may not build. They were last built in full on Lean v4.33.1. CI's on-demand `full` job
-> builds them and runs their axiom check (`scripts/AxiomCheckCases.lean`).
+> builds them and runs their axiom check (`scripts/AxiomCheckCases.lean`). Two are built on
+> every pull request, since they test `lsym` on real code: `Zip2005/Runtime/MemcmpLsym.lean`
+> and `Zip2005/Runtime/WriteVectoredLsym.lean` (with what they import).
 
 | directory | binary | what is verified |
 | --- | --- | --- |

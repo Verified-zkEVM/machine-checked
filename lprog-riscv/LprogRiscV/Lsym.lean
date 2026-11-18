@@ -15,6 +15,9 @@ open RiscvZkvm.Rv64 Lprog.RiscV.Machine
 
 attribute [lsym_simp] rvIsa rv opnd se12 sh addr opOf rvMem signExtend12
 
+-- the machine state a register file builds, read: a contract's pre- and postcondition
+attribute [lsym_simp] getReg_ofParts getMem_ofParts
+
 /-! A memory access's check, in the form the lemmas about regions give it (`dwordOk`): a
   doubleword's as `isValidDwordAccessSp1`, a byte's as validity alone. -/
 
@@ -43,5 +46,22 @@ theorem frame_ofParts {S : List Reg} {regs r' : Reg → BitVec 64} {u0 : Machine
   by_cases h0 : r = .x0
   · subst h0; simp [getReg_x0]
   · rw [getReg_ofParts]; simp [h0, hw r hr h0, hkept r hr h0]
+
+/-- **A contract stated over a machine state, as a contract over the register file**
+    (`Isa.Contract`): a function's contract that holds from any machine state `u` the register
+    file agrees with holds from the one built from the register file (`Agree.refl`), with the
+    precondition and the postcondition read there. So a contract proved by stepping a machine
+    state is one `lsym … using` takes, without proving it again. -/
+theorem contract_of_agree {p : Lprog rvIsa.Op rvIsa.Reg} {E : Type} {c : Context rvIsa E} {f : Nat}
+    {Pre : BitVec 64 → BitVec 64 → MachineState → Prop}
+    {Post : BitVec 64 → BitVec 64 → MachineState → MachineState → Prop}
+    (h : ∀ (G : State rvIsa → Prop) (n : Nat) (Q : State rvIsa → Prop) (ret top : BitVec 64)
+      (rest : List Frame) (u : MachineState) (regs : Reg → BitVec 64) (m : MachineState),
+      Agree (ofParts regs m) u → Pre ret top u →
+      (∀ r' m', Post ret top u (ofParts r' m') → rvIsa.SafeN p c G n Q ⟨rest, r', m'⟩) →
+      rvIsa.SafeN p c G n Q ⟨⟨f, 0, ret, top⟩ :: rest, regs, m⟩) :
+    rvIsa.Contract p c f (fun ret top regs m => Pre ret top (ofParts regs m))
+      (fun ret top regs m r' m' => Post ret top (ofParts regs m) (ofParts r' m')) :=
+  fun G n Q ret top rest regs m hpre hk => h G n Q ret top rest _ regs m (Agree.refl _) hpre hk
 
 end Lprog.RiscV

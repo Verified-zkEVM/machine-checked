@@ -11,6 +11,7 @@ import Lprog.Ascent.Run
 import Lprog.Ascent.Safe
 import Lprog.Block
 import Lprog.Build
+import Lprog.Contract
 import Lprog.Dead
 import Lprog.Expr
 import Lprog.Linked

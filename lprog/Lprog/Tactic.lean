@@ -35,6 +35,7 @@
 
 import Lean
 import Lprog.Block
+import Lprog.Contract
 import Lprog.LsymAttr
 import Lprog.Op
 
@@ -79,13 +80,47 @@ theorem tail' {tgt : Target I.Reg} (hf : p[fn]? = some fd) (hi : fd.body[pc]? = 
     I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ :=
   tail hf hi hsp hc h
 
+/-- A call through a contract of the callee (`Isa.Contract`): the target reaches it, its
+    precondition holds, and every state it returns to by its postcondition is safe after the
+    call. -/
+theorem call_contract {ret : BitVec 64} {tgt : Target I.Reg} {f : Nat}
+    {Pre : BitVec 64 → BitVec 64 → (I.Reg → BitVec 64) → I.M → Prop}
+    {Post : BitVec 64 → BitVec 64 → (I.Reg → BitVec 64) → I.M → (I.Reg → BitVec 64) → I.M → Prop}
+    (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Lcall ret tgt)) (hcon : I.Contract p c f Pre Post)
+    (hc : I.callee p regs tgt = some f) (hpre : Pre ret (regs I.sp) (updReg regs I.link ret) m)
+    (hk : ∀ r' m', Post ret (regs I.sp) (updReg regs I.link ret) m r' m' →
+      I.SafeN p c G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩) :
+    I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ :=
+  call hf hi hc (hcon.run hpre hk)
+
+/-- A tail call through a contract of the callee: the stack pointer is back, and the callee
+    returns where the caller would. -/
+theorem tail_contract {tgt : Target I.Reg} {f : Nat}
+    {Pre : BitVec 64 → BitVec 64 → (I.Reg → BitVec 64) → I.M → Prop}
+    {Post : BitVec 64 → BitVec 64 → (I.Reg → BitVec 64) → I.M → (I.Reg → BitVec 64) → I.M → Prop}
+    (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Ltail tgt)) (hcon : I.Contract p c f Pre Post)
+    (hc : I.callee p regs tgt = some f) (hsp : regs I.sp = top) (hpre : Pre rv top regs m)
+    (hk : ∀ r' m', Post rv top regs m r' m' → I.SafeN p c G n Q ⟨rest, r', m'⟩) :
+    I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ :=
+  tail hf hi hsp hc (hcon.run hpre hk)
+
 end SafeN
 
-attribute [lsym_simp] Isa.ofOps Op.eval Expr.eval BinOp.eval UnOp.eval condEval operandVal cmpEval Width.bytes
-
--- a frame opened and closed: `sp - n + n` is `sp`
-attribute [lsym_simp] BitVec.sub_add_cancel BitVec.add_sub_cancel
+attribute [lsym_simp] Isa.ofOps Op.eval Expr.eval BinOp.eval UnOp.eval condEval operandVal cmpEval Width.bytes Width.bits
   updReg_apply
+
+-- addresses as a base plus one constant: a subtraction as the addition of its negation, sums
+-- to the right, constants folded (by `simp`'s own `BitVec` simprocs); a frame opened and closed,
+-- `sp - n + n`, is then `sp + 0`, which is `sp`
+attribute [lsym_simp, lsym_addr] BitVec.sub_eq_add_neg BitVec.add_assoc BitVec.add_zero
+attribute [lsym_addr] BitVec.reduceAdd BitVec.reduceNeg BitVec.reduceOfNat Nat.reduceMul Nat.reduceAdd
+
+/-- A product of numerals and an index, its numerals together: `8 * (2 * j)` is `16 * j`. -/
+theorem addr_mul_assoc (a b c : Nat) : a * (b * c) = a * b * c := (Nat.mul_assoc a b c).symm
+
+-- an index into a region, `base + BitVec.ofNat 64 (8 * (2 * j + 1))`, as `lsym` computes it,
+-- `base + (BitVec.ofNat 64 (16 * j) + 8#64)`: for facts about cells, by `simp only [lsym_addr]`
+attribute [lsym_addr] BitVec.ofNat_add Nat.mul_add Nat.mul_one addr_mul_assoc
 
 /-- One step of `lsym`, side conditions tried with `simp_all` and the given lemmas. -/
 syntax (name := lstep) "lstep " term (" with " "[" Lean.Parser.Tactic.simpLemma,* "]")?
@@ -126,12 +161,30 @@ macro_rules
         `(tactic| try (simp [$set:ident, $ls,*, Option.some.injEq, Prod.mk.injEq] at he; $eqs:tactic))
       | none =>
         `(tactic| try (simp [$set:ident, Option.some.injEq, Prod.mk.injEq] at he; $eqs:tactic))
-    -- a call or a tail call, through the first specification that applies: the callee is
-    -- computed (`rfl`), the specification applied to the state at its entry, and what it leaves
-    -- (its preconditions, and its continuation, which `lsym` takes up) tried with `simp_all`
+    -- a call or a tail call, through the first specification that applies. A contract
+    -- (`Isa.Contract`) names the callee: the call's target must be shown to reach it
+    -- (`callee`, by `rfl`, or by `simp` and `decide`), or the contract is not this call's; the
+    -- stack pointer and the precondition are closed by `simp` if they can be (not `rfl`, which
+    -- on the continuation can unfold `SafeN` past the depth allowed), and the
+    -- continuation is left for `lsym` to take up. Any other specification is applied as it
+    -- is, and what it leaves tried with `simp_all`.
+    let callee ← match lems with
+      | some ls => `(tactic| first | rfl | (focus (simp [Lprog.Isa.callee, $set:ident, $ls,*]; done)) |
+          (focus (simp [Lprog.Isa.callee, $set:ident, $ls,*]; decide)))
+      | none => `(tactic| first | rfl | (focus (simp [Lprog.Isa.callee, $set:ident]; done)) |
+          (focus (simp [Lprog.Isa.callee, $set:ident]; decide)))
+    let side ← match lems with
+      | some ls => `(tactic| all_goals (try (first | (focus (simp [Lprog.Isa.callee, $set:ident, $ls,*]; done)) |
+          (focus (simp [Lprog.Isa.callee, $set:ident, $ls,*]; decide)))))
+      | none => `(tactic| all_goals (try (first | (focus (simp [Lprog.Isa.callee, $set:ident]; done)) |
+          (focus (simp [Lprog.Isa.callee, $set:ident]; decide)))))
     let specs : Array (TSyntax `term) := match specs with | some ss => ss.getElems | none => #[]
     let mut calls : Array (TSyntax `tactic) := #[]
     for sp in specs do
+      -- through a contract: the callee, the stack pointer and the precondition closed if they
+      -- can be, the continuation left
+      calls := calls.push (← `(tactic| focus (refine Lprog.SafeN.call_contract $hf rfl $sp ?_ ?_ ?_; ($callee:tactic); ($side:tactic))))
+      calls := calls.push (← `(tactic| focus (refine Lprog.SafeN.tail_contract $hf rfl $sp ?_ ?_ ?_ ?_; ($callee:tactic); ($side:tactic))))
       calls := calls.push (← `(tactic| (refine Lprog.SafeN.call $hf rfl rfl ?_; apply $sp; all_goals ($close:tactic))))
       calls := calls.push (← `(tactic| (refine Lprog.SafeN.tail' $hf rfl rfl ?_ ?_; apply $sp; all_goals ($close:tactic))))
     let base ← `(tactic| first
@@ -186,6 +239,8 @@ def introCont (g : MVarId) : MetaM MVarId := g.withContext do
     let s ← whnfR s
     return if s.isAppOfArity ``State.mk 4 then xs.size else 0
   if n == 0 then return g
+  -- a contract's postcondition is a function applied: `hret` is stated as what it says
+  let g ← g.replaceTargetDefEq (← Core.betaReduce t)
   let names := [`r', `m', `hret] ++ (List.range n).map fun k => Name.mkSimple s!"h{k}"
   let (_, g') ← g.introN n (names.take n)
   return g'

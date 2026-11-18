@@ -217,7 +217,8 @@ manual, worked out by hand, not from the code under test.
 | `Elf.lean` | 55 | The ELF reader on a small file made by hand, and on truncated and malformed ones: each gives an error, none a crash. |
 | `Structure.lean` | 6 | The structure of control flow on small graphs: a switch is never a two-way choice or a way out. |
 | `ToLean.lean` | 22 | `decompile --to lean`: a body in parts, a function's theorem from its parts, a changed term refuted by the kernel, symbol names escaped in comments, and the namespaces it takes. |
-| `Lsym.lean` | 3 | `lsym` (`lprog/Lprog/Tactic.lean`) on small RISC-V functions: a branch, two paths, a return, proved with the postcondition alone; a call through the callee's specification, stepped on after the return. |
+| `Lsym.lean` | 5 | `lsym` (`lprog/Lprog/Tactic.lean`) on small RISC-V functions: a branch, two paths, a return, proved with the postcondition alone; a call through the callee's specification, stepped on after the return; the same through contracts over the register file (`Isa.Contract`). |
+| `LsymX86.lean` | 3 | `lsym` on x86-64: two functions lifted from their bytes (the terms checked against the lift), a call that pushes and pops its return address, proved through the callee's contract, over a model of x86-64's memory. |
 
 To test one file while working on it: `lake env lean Tools/Test/X86.lean` (no output is a
 pass).

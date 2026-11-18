@@ -66,4 +66,24 @@ theorem f_spec' {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} 
   lsym hf0 with [hra, hsp] using [g_spec]
   apply hpost; simp [lsym_simp, hret]
 
+/-! ## A call through a contract over the register file (`Isa.Contract`) -/
+
+/-- `g`'s contract as an `Isa.Contract`: from `ra = ret` and `sp = top`, it returns with `a0`
+    5 and every other register kept. -/
+theorem g_contract : rvIsa.Contract (liftProg fs') sp1Ctx 1
+    (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top)
+    (fun _ _ regs _ r' _ => r' .x10 = 5 ∧ ∀ r, r ≠ .x10 → r' r = regs r) := by
+  intro G N Q ret top rest regs m ⟨hra, hsp⟩ hk
+  lsym hf1 with [hra, hsp]
+  apply hk
+  exact ⟨by simp [lsym_simp], fun r h => by simp [lsym_simp, h]⟩
+
+/-- `f`'s contract, through `g`'s contract: the call is stepped with no rule by hand. -/
+theorem f_contract : rvIsa.Contract (liftProg fs') sp1Ctx 0
+    (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top)
+    (fun _ _ _ _ r' _ => r' .x10 = 6) := by
+  intro G N Q ret top rest regs m ⟨hra, hsp⟩ hk
+  lsym hf0 with [hra, hsp] using [g_contract]
+  apply hk; simp [lsym_simp, hret.1]
+
 end Tools.Test.Lsym
