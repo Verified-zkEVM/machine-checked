@@ -21,7 +21,7 @@ It assumes two things:
 Everything else is a theorem about the loaded image: the behaviour of every function the run executes, the
 entry state, the heap invariant and the allocator contracts. The axioms are `propext`,
 `Classical.choice`, `Quot.sound` and `bv_decide`'s certificates (`#print axioms guest_run`,
-recorded in [`PLAN.md`](PLAN.md); not yet in CI's axiom check); there is no `sorry` and no
+in `scripts/AxiomCheckCases.lean`, run by CI's `full` job); there is no `sorry` and no
 `native_decide`.
 
 Trusted besides that: riscv-zkvm's RV64IM semantics, decoder and SP1 step (`stepSp1`), and
