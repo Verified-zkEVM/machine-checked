@@ -119,9 +119,9 @@ differs):
   | a raised `maxHeartbeats` | 6 | none |
   | time to check | 4.2 s | 4.2 s |
 
-  `lsym` itself raises `maxRecDepth`, to 16384, while it runs (`Lprog/Tactic.lean`): a body
-  larger than that allows still stops it as a whole, since `try … catch` does not catch the
-  limit.
+  `lsym` itself raises `maxRecDepth`, to 16384, while it runs (`Lprog/Tactic.lean`). (A step
+  that still ran out of depth stopped `lsym` as a whole, since `try … catch` does not catch
+  the limit; since the fourth round it leaves its goal.)
 
   What is left: the loop's invariant, the frame (which cells the prologue writes, that other
   memory is unchanged), the postconditions, and the facts about addresses as `simp` writes
