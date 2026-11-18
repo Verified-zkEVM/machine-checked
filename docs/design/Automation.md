@@ -116,6 +116,10 @@ text (the default lift in brackets where it differs):
   | a raised `maxHeartbeats` | 6 | none |
   | time to check | 4.2 s | 4.2 s |
 
+  `lsym` itself raises `maxRecDepth`, to 16384, while it runs (`Lprog/Tactic.lean`): a body
+  larger than that allows still stops it as a whole, since `try … catch` does not catch the
+  limit.
+
   What is left: the loop's invariant, the frame (which cells the prologue writes, that other
   memory is unchanged), the postconditions, and the facts about addresses as `simp` writes
   them (`sp + 0xffffffffffffffd0#64 + 40#64`), proved by `bv_decide`. Calls and the system
@@ -131,8 +135,10 @@ text (the default lift in brackets where it differs):
   `decide +kernel`, which compares every field through `DecidableEq`: on zip-2005's three
   largest functions the check is about 2.5 times faster and the module 30 to 35% faster
   (16 s to 11 s for the largest). What is left is elaborating the term itself, about two
-  thirds of the time now. The other routes keep `decide`: there the kernel's unfolding of
-  `program.lift` to compare it with a term is far slower than evaluating the decision.
+  thirds of the time now. The route of whole programs keeps `decide`: there the kernel's
+  unfolding of `program.lift` to compare it with a term is far slower than evaluating the
+  decision. The Pancake route already used `kernel_eq`, since Flapjack's syntax has no
+  decidable equality.
 
 Next: contracts over the register file, so that `using` takes them; a normal form for
 addresses (base plus one constant), so that facts about them are stated once; `SafeN.block`
