@@ -66,7 +66,7 @@ the hasher state at `0x78048830` as a `Region` whose last word is `0`;
 the same hasher region, and `hfmt`. So the fields cannot be discharged from them as stated.
 
 **Why it matters.** The fields quantify over states the guest never reaches (a stack pointer
-within 64 KiB of the bottom, any hasher state). That is the shape `CONTRIBUTING.md` rules
+with no room for the entry's frame, any hasher state). That is the shape `CONTRIBUTING.md` rules
 out: a premise stronger than what the run needs may be false, and then `guest_run` is
 vacuous. Proving the fields as stated means reasoning about stack overflow and a corrupted
 hasher, which no proof here does.
