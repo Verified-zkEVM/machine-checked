@@ -145,4 +145,43 @@ example (sp n : BitVec 64) : sp - n + n = sp := by simp only [lsym_addr]
 example (sp n : BitVec 64) : sp - n + n + 8#64 = sp + 8#64 := by simp only [lsym_addr]
 example (sp n : BitVec 64) : sp + n - n = sp := by simp only [lsym_addr]
 
+/-! ## Hypotheses that do not hide each other
+
+`ld a0, 0(a1); ld a2, 8(a1); ret`: two loads, two checks. The earlier is `hm_1`, the later
+`hm`; neither hides the other. -/
+
+def L2 : Fn := ⟨"l2", 0x1000, [.LD .x10 .x11 0, .LD .x12 .x11 8, .JALR .x0 .x1 0], 0⟩
+
+def l2s : List Fn := [L2]
+
+theorem hl2 : (liftProg l2s)[0]? = some (liftFn l2s L2) := rfl
+
+theorem l2_safe {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
+    (hra : regs .x1 = ret) (hsp : regs .x2 = top)
+    (hpost : ∀ r' m', isValidDwordAccessSp1 (regs .x11) = true →
+      isValidDwordAccessSp1 (regs .x11 + 8#64) = true → LSafeN l2s G N Q ⟨rest, r', m'⟩) :
+    LSafeN l2s G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  lsym hl2 with [hra, hsp]
+  exact hpost _ _ hm_1 hm
+
+/-- A hypothesis of the proof's own whose name starts as `lsym`'s do (`hm_spec`) is neither
+    counted among them nor renamed: the earlier check is still `hm_1`. -/
+theorem l2_safe' {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
+    (hra : regs .x1 = ret) (hsp : regs .x2 = top) (hm_spec : True)
+    (hpost : ∀ r' m', isValidDwordAccessSp1 (regs .x11) = true →
+      isValidDwordAccessSp1 (regs .x11 + 8#64) = true → LSafeN l2s G N Q ⟨rest, r', m'⟩) :
+    LSafeN l2s G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  lsym hl2 with [hra, hsp]
+  have _ := hm_spec
+  exact hpost _ _ hm_1 hm
+
+#guard numbered `hm `hm_1
+#guard numbered `hret `hret_12
+#guard !numbered `hm `hm_spec
+#guard !numbered `hm `hm_
+#guard !numbered `hm `hm
+#guard !numbered `hret `hm_1
+
 end Tools.Test.Lsym

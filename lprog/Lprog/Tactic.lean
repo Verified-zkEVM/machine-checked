@@ -282,16 +282,36 @@ def introCont (g : MVarId) : MetaM MVarId := g.withContext do
   if n == 0 then return g
   -- a contract's postcondition is a function applied: `hret` is stated as what it says
   let g ← g.replaceTargetDefEq (← Core.betaReduce t)
-  -- an earlier call's `hret` keeps a name of its own, `hret_1`, `hret_2`, …, in the order of
-  -- the calls, so that what it says of the registers and memory it returned stays usable
-  let lctx ← getLCtx
-  let mut g := g
-  if let some d := lctx.findFromUserName? `hret then
-    let k := (lctx.foldl (fun k d => if d.userName.toString.startsWith "hret_" then k + 1 else k) 0) + 1
-    g ← g.rename d.fvarId (Name.mkSimple s!"hret_{k}")
   let names := [`r', `m', `hret] ++ (List.range n).map fun k => Name.mkSimple s!"h{k}"
   let (_, g') ← g.introN n (names.take n)
   return g'
+
+/-- Is `n` the name `nameApart` gives an earlier `base`: `base_k`, with `k` a number? A
+    hypothesis of the proof's own, `hret_spec` say, is not. -/
+def numbered (base n : Lean.Name) : Bool :=
+  match n with
+  | .str .anonymous s =>
+    let pre := base.toString ++ "_"
+    s.startsWith pre && (s.drop pre.length).toString.isNat
+  | _ => false
+
+open Lean Meta in
+/-- The hypotheses `lsym` adds, `hc`, `hm` and `hret`, each under a name of its own: where one
+    would hide an earlier one of its name, the earlier ones are `hc_1`, `hc_2`, …, in the order
+    they were added, and the latest keeps the plain name. -/
+def nameApart (g : MVarId) : MetaM MVarId := g.withContext do
+  let mut g := g
+  for base in [`hc, `hm, `hret] do
+    let lctx ← getLCtx
+    let same := lctx.foldl (init := #[]) fun acc d =>
+      if !d.isImplementationDetail && d.userName == base then acc.push d.fvarId else acc
+    if same.size ≤ 1 then continue
+    let mut k := lctx.foldl (init := 0) fun k d =>
+      if !d.isImplementationDetail && numbered base d.userName then k + 1 else k
+    for fv in same.pop do
+      k := k + 1
+      g ← g.rename fv (Name.mkSimple s!"{base}_{k}")
+  return g
 
 open Lean Meta in
 /-- The goal with each frame's program counter a literal: a step leaves `pc + 1`, and a jump the
@@ -343,7 +363,7 @@ open Lean Elab Tactic Meta in
   let stepFor (g : MVarId) : TacticM Syntax := g.withContext do
     let mut lems := lems
     for d in (← getLCtx) do
-      if !d.isImplementationDetail && (d.userName == `hret || d.userName.toString.startsWith "hret_") then
+      if !d.isImplementationDetail && (d.userName == `hret || numbered `hret d.userName) then
         lems := lems.push (← `(Lean.Parser.Tactic.simpLemma| $(mkIdent d.userName):ident))
     let ls : Syntax.TSepArray ``Lean.Parser.Tactic.simpLemma "," := lems
     match lems.isEmpty, specs.isEmpty with
@@ -408,7 +428,7 @@ open Lean Elab Tactic Meta in
                 try evalTactic (← `(tactic| simp [$(mkIdent `lsym_simp):ident, $ls,*] at $(mkIdent `hret):ident)) catch _ => pure ()
                 pure ((← getGoals).headD g'')
               else pure g''
-            next := next ++ [(← normPc g'', seen')]
+            next := next ++ [(← normPc (← nameApart g''), seen')]
           todo := next ++ todo
         | some e =>
           saved.restore (restoreInfo := true)

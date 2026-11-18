@@ -65,7 +65,14 @@ def undecoded (base : Nat) (ws : List (BitVec 32)) : String :=
     match wordOps w with
     | some (name, _) => s!"`{name}` at {addr}, a 32-bit operation riscv-zkvm's machine does not \
         run: the `--proved` lift does not take it (`--to lprog` without `--proved` does)"
-    | none => s!"the word 0x{String.ofList (Nat.toDigits 16 w.toNat)} at {addr} is no instruction of RV64IM"
+    | none =>
+      -- `unimp`, `csrrw zero, cycle, zero`: the illegal instruction a compiler writes for a trap
+      -- (Rust's `abort`, `unreachable!`)
+      if w == 0xc0001073#32 then
+        s!"`unimp` at {addr}, the illegal instruction a compiler writes for a trap: riscv-zkvm's \
+          decoder has no instruction for it, so the `--proved` lift does not take the function \
+          (`--to lprog` without `--proved` takes it, with `abort` there)"
+      else s!"the word 0x{String.ofList (Nat.toDigits 16 w.toNat)} at {addr} is no instruction of RV64IM"
 
 /-- The functions of an image the `--proved` lift takes, and the names of those it does not,
     each with the reason. -/

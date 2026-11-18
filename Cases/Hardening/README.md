@@ -17,6 +17,7 @@ code. What went wrong is in the table below, with what was done about it.
 | `Mem.lean` | loads of every width, signed and not; `swap`, with `a = b` allowed |
 | `Arith.lean` | division and remainder by zero and at `INT64_MIN / -1`, the high half of 128-bit products signed and not, a rotation, an absolute value without a branch: each against C |
 | `Calls.lean` | contracts: a call and a tail call with `ra` in a frame, a tail call through a register (`jr t1`) to a function passed as a value, four registers kept across a call, a function that never returns and a call of it |
+| `Guest.lean` | `__udivti3` of a Rust guest built for SP1 (`elf/k_u128.elf`), through an assumed contract of the function it calls: a far call (`auipc`, `jalr`), and the result returned through a pointer into its frame |
 | `Rec.lean` | `fib`, recursive: its contract by induction on the argument, through a loop around the recursive call, with a frame condition |
 
 Every function of `Gen/` builds (the kernel checks each lift), and every theorem is proved: no
@@ -42,8 +43,10 @@ the test that would have caught it.
 | 9 | friction | `simp only [lsym_simp]` left `if Reg.x2 = Reg.x10 then …` undecided (the simproc is in the default set only) | fixed: `reduceCtorEq`, `reduceIte` in `lsym_simp` |
 | 10 | friction | `bv_omega` inside a proof `lsym` has stepped hangs or fails where the same fact alone is instant: it takes every hypothesis, and `lsym` leaves many (each memory check, each `hret`) | open: state the arithmetic as lemmas of its own (`Rec.lean` does) |
 | 11 | upstream | plain `simp` on `(t + 18446744073709551584#64).toNat` (the normal form of `t - 32`) gives a proof the kernel times out on; `bv_omega` proves the same fact at once | open, Lean's: avoid `simp` on `toNat` of a sum with a large literal |
-| 12 | friction | the hypotheses `lsym` adds still hide each other: four loads give `hm✝²`, `hm✝¹`, `hm✝`, `hm` | open (#44 left it: renaming changes what existing proofs refer to) |
+| 12 | friction | the hypotheses `lsym` adds hid each other: four loads gave `hm✝²`, `hm✝¹`, `hm✝`, `hm` | fixed: the earlier ones are `hm_1`, `hm_2`, …, oldest first (and `hc_…`, `hret_…`); `memcmp`'s `rename_i` became `hc_1` (`Tools/Test/Lsym.lean`) |
 | 13 | scale | 290 straight-line instructions (`mix`) step in 45 s, with `maxHeartbeats` raised tenfold | open: `SafeN.block`, as planned |
+| 14 | gap | in rustc's output for SP1, the `--proved` lift leaves out every function with `unimp` (`0xc0001073`, the illegal instruction a compiler writes for a trap: Rust's `abort`, `unreachable!`): 142 of the 41 guests' 6,738 functions, among them the panic machinery of each, a `main`, and several `sort`s. It said "no instruction of RV64IM" | message fixed: it names `unimp`; the gap stays (riscv-zkvm's decoder has no instruction for it; the lift could take it as a trap, with `Equiv.lean` extended) |
+| 15 | friction | a hypothesis given to `lsym` with a literal written `0` does not close a side condition `simp` has put as `0#128`: the two spellings do not match as a rewrite | open: write `0#128` in a contract (`Guest.lean`) |
 
 What held up, tested and not found wanting: the lift's meaning of every operation checked
 against C (division by zero gives `-1` and remainder the dividend, as RISC-V says; the
@@ -52,6 +55,32 @@ load; read-back through stores, including two stores to one address; a tail call
 register to a function whose address was passed as a value, resolved through the contract
 with all candidates; `-O0` code with a frame pointer, closed by `lsym` and one `simp`; loops
 found without `stop`; and the trace saying why each goal was left.
+
+## Real compiler output: the Rust guests
+
+The 41 Rust guests of `scripts/decompile-check/rust/`, built for SP1 by rustc at `opt-level =
+3` (6,738 functions, 475,144 instructions lifted): the `--proved` lift takes 6,561 of the
+functions and leaves out 177, each with its reason:
+
+| why left out | functions |
+| --- | --- |
+| `unimp` (a trap) | 142: three of the runtime's panic machinery in each guest (123), and 19 others, among them a `main` and several `sort` instances |
+| `addw` | 20 |
+| `sraiw` | 5 |
+| `sllw`, `divuw` | 4 each |
+| `divw`, `remuw` | 1 each |
+
+`--to lean --proved` of six of them, every module built (the kernel checks each function's
+lift), eight at a time on an Apple M3 Max:
+
+| guest | functions | instructions | modules built | wall time | slowest function |
+| --- | --- | --- | --- | --- | --- |
+| `k_alloc` | 159 | 11,617 | all | 46 s | 22 s |
+| `k_btree` | 161 | 13,115 | all | 39 s | 13 s |
+| `k_dyn` | 168 | 11,169 | all | 37 s | 12 s |
+| `k_fmt` | 230 | 16,940 | all | 51 s | 13 s |
+| `k_i128` | 157 | 11,522 | all | 45 s | 19 s |
+| `k_sort` | 170 | 13,345 | all | 38 s | 13 s |
 
 ## The other instruction sets
 

@@ -62,7 +62,6 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         simp only [lsym_simp, hbyte, ↓reduceIte]
         exact sext32_sub_bytes _ _
     · -- the bytes agree and some are left: the back edge
-      rename_i hb
       have hlt : j + 1 < n := by
         rcases Nat.lt_or_ge (j + 1) n with h | hge
         · exact h
@@ -81,9 +80,8 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
       · intro i hi
         rcases Nat.lt_succ_iff_lt_or_eq.mp hi with h | rfl
         · exact hbytes i h
-        · rw [← hbyte, ← hbyte]; exact zeroExtend_byte_inj _ _ hb
+        · rw [← hbyte, ← hbyte]; exact zeroExtend_byte_inj _ _ hc_1
     · -- the bytes agree and none are left: the blocks are equal
-      rename_i hb
       have hz : n - (j + 1) = 0 := by
         rw [ofNat_add_neg_one (by omega)] at hc
         have := ofNat_eq_zero (by omega) hc; omega
@@ -95,7 +93,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         rcases Nat.lt_or_ge i j with h | h
         · exact hbytes i h
         · obtain rfl : i = j := by omega
-          rw [← hbyte, ← hbyte]; exact zeroExtend_byte_inj _ _ hb
+          rw [← hbyte, ← hbyte]; exact zeroExtend_byte_inj _ _ hc_1
       · simp [hmem]
       · exact hcode
       · exact frame_ofParts hkept (by lframe [clobbered]) _ r hr
