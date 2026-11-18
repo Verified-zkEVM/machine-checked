@@ -177,6 +177,38 @@ text (the default lift in brackets where it differs):
   address). A machine-backed instance for x86-64 or AArch64, with a theorem like RISC-V's
   `transfer`, is what would make such proofs about the binary.
 
+## Fourth round: `lsym` made sturdier
+
+From the review of the first three rounds:
+
+- **No goal for a memory check.** `SafeN.opn'` asked that an operation give a result
+  (`isSome`), so every load or store whose check `simp` could not close left a goal. An
+  operation that gives none traps, and a trap is safe (`SafeN.fault`): the rule now asks
+  nothing, and the check stays only as the hypothesis `hm`. A condition that gives no value is
+  `wrong`, not a trap, so `SafeN.cond'` keeps its side condition. Both case studies build
+  unchanged, and faster: `MemcmpLsym` in 1.9 s (was 5 s), `WriteVectoredLsym` in 2.1 s.
+- **A step that runs out of depth or heartbeats leaves its goal**, instead of failing `lsym`
+  as a whole (`try … catch` does not catch these limits; `tryCatchRuntimeEx` does).
+- **A loop is found without `stop`.** A path that comes back to a function's program counter
+  it has stepped from is left there, for an invariant (it ran until it was out of time).
+- **Why it stopped**, for each goal left: `set_option trace.lsym true`.
+- **A frame whose size is not a numeral.** The address normal form had no lemma for `-n + n`:
+  `sp - n + n` became `sp + (-n + n)` and stayed. `BitVec.add_left_neg`, `add_right_neg` and
+  two lemmas for `-n + (n + c)` and `n + (-n + c)` are in `lsym_simp` and `lsym_addr` now.
+
+Straight-line code, a body of `addi`s and a return, the time `lsym` takes:
+
+| instructions | 100 | 200 | 400 |
+| --- | --- | --- | --- |
+| time | 7 s | 18 s | 63 s |
+
+The depth is no longer what stops it (the first spike failed at about 100); the time grows with
+the square of the length, which is what `SafeN.block` is for.
+
+Not done: the hypotheses `lsym` adds are named `hc`, `hm`, `hret`, `r'`, `m'`, and a later one
+hides an earlier one of its name; proofs reach the earlier ones with `rename_i`. Names that do
+not hide each other would change what the existing proofs refer to.
+
 Next: a contract form for external calls (the system call above); `SafeN.block` for long
 blocks, with atoms; machine-backed instances for x86-64 and AArch64; and the rest of item 6, a
 shorter written term for `--to lean` (elaborating it now costs more than checking it), and

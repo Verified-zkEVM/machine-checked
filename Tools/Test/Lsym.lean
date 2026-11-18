@@ -86,4 +86,50 @@ theorem f_contract : rvIsa.Contract (liftProg fs') sp1Ctx 0
   lsym hf0 with [hra, hsp] using [g_contract]
   apply hk; simp [lsym_simp, hret.1]
 
+/-! ## A load with nothing known of its address
+
+`ld a0, 0(a1); ret`, with nothing known of `a1`: the load's check stays a hypothesis (`hm`) and
+is no goal, since a load whose check fails traps, and a trap is safe. The return's is the only
+goal left. -/
+
+def L : Fn := ⟨"l", 0x1000, [.LD .x10 .x11 0, .JALR .x0 .x1 0], 0⟩
+
+def ls : List Fn := [L]
+
+theorem hl : (liftProg ls)[0]? = some (liftFn ls L) := rfl
+
+theorem l_safe {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
+    (hra : regs .x1 = ret) (hsp : regs .x2 = top)
+    (hpost : ∀ r' m', LSafeN ls G N Q ⟨rest, r', m'⟩) :
+    LSafeN ls G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  lsym hl with [hra, hsp]
+  exact hpost _ _
+
+/-! ## A loop found without `stop`
+
+`loop: addi a0, a0, 1; j loop`: `lsym` comes back to the loop's head and leaves the goal there,
+where it would otherwise step the loop until it ran out of time. -/
+
+def W : Fn := ⟨"w", 0x1000, [.ADDI .x10 .x10 1, .JAL .x0 0x1ffffc], 0⟩
+
+def ws : List Fn := [W]
+
+theorem hw : (liftProg ws)[0]? = some (liftFn ws W) := rfl
+
+theorem w_head {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
+    (hinv : ∀ r, LSafeN ws G N Q ⟨⟨0, 0, ret, top⟩ :: rest, r, m⟩) :
+    LSafeN ws G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
+  lsym hw
+  exact hinv _
+
+/-! ## A frame whose size is not a numeral
+
+The address normal form takes a size subtracted and added back away, numeral or not. -/
+
+example (sp n : BitVec 64) : sp - n + n = sp := by simp only [lsym_addr]
+example (sp n : BitVec 64) : sp - n + n + 8#64 = sp + 8#64 := by simp only [lsym_addr]
+example (sp n : BitVec 64) : sp + n - n = sp := by simp only [lsym_addr]
+
 end Tools.Test.Lsym

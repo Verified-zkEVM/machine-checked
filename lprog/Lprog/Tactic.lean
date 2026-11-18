@@ -10,8 +10,9 @@
   * a label is stepped over;
   * an operation is stepped with its result computed by `simp` (the simp set `lsym_simp` and
     the lemmas given) and substituted. A load's or a store's check, behind the instruction
-    set's memory, is closed by `simp` if it can; if not, it stays, as the hypothesis `hm` of
-    what follows and as a goal of its own, and the result is computed all the same;
+    set's memory, is closed by `simp` if it can; if not, it stays as the hypothesis `hm` of
+    what follows, and the result is computed all the same. It is no goal: an operation whose
+    check fails traps, and the run stops safely;
   * a `goto` goes to its label;
   * an `Lcond` splits: one goal for each outcome, with the condition's value as the hypothesis
     `hc`, simplified;
@@ -21,7 +22,10 @@
     steps on after the return, with the postcondition as `hret`.
 
   It stops where it can do nothing: at a call without a specification, an external call, or a
-  loop's head, which a proof meets with the function's specification or an invariant. The
+  loop's head, which a proof meets with the function's specification or an invariant. A loop
+  is found without `stop`: a path that comes back to a program counter it has stepped from is
+  left there. A step that runs out of recursion depth or heartbeats leaves its goal too.
+  `set_option trace.lsym true` says, for each goal left, why. The
   instruction at `pc` is found by `rfl`, so the body should be a literal (`decompile --to
   lean` writes one, `f<i>`); a body to be computed is computed again at each step. `lsym`
   keeps program counters literals, and allows the depth a lookup in a body of a few hundred
@@ -47,18 +51,19 @@ variable {I : Isa} {p : Lprog I.Op I.Reg} {E : Type} {c : Context I E} {G : Stat
   {Q : State I → Prop} {rest : List Frame} {regs : I.Reg → BitVec 64} {m : I.M}
   {fd : Lfundef I.Op I.Reg} {fn pc : Nat} {rv top : BitVec 64}
 
-/-- An operation, for every result it may give: safe if it gives one, and every state after it
-    is safe. -/
+/-- An operation, for every result it may give: every state after it is safe. Nothing need
+    be shown of an operation that gives none (a load or a store whose check fails): it traps,
+    and the run stops, safely (`fault`). -/
 theorem opn' {op : I.Op} (hf : p[fn]? = some fd) (hi : fd.body[pc]? = some (.Lopn op))
     (h : ∀ r' m', I.opn op regs m = some (r', m') →
-      I.SafeN p c G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩)
-    (hs : (I.opn op regs m).isSome) :
+      I.SafeN p c G n Q ⟨⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩) :
     I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ := by
   cases he : I.opn op regs m with
-  | none => simp [he] at hs
+  | none => exact fault hf hi he
   | some rm => exact opn hf hi he (h rm.1 rm.2 he)
 
-/-- A branch, for each value its condition may have. -/
+/-- A branch, for each value its condition may have. Unlike an operation's, a condition that
+    gives no value is `wrong`, so that it gives one is a goal. -/
 theorem cond' {cnd : LOperand I.Reg} {l : LLabel} (hf : p[fn]? = some fd)
     (hi : fd.body[pc]? = some (.Lcond cnd l)) {j : Nat} (hl : labelIdx fd.body l = some j)
     (hs : (I.cond cnd regs m).isSome)
@@ -113,6 +118,16 @@ attribute [lsym_simp] Isa.ofOps Op.eval Expr.eval BinOp.eval UnOp.eval condEval 
 -- to the right, constants folded (by `simp`'s own `BitVec` simprocs); a frame opened and closed,
 -- `sp - n + n`, is then `sp + 0`, which is `sp`
 attribute [lsym_simp, lsym_addr] BitVec.sub_eq_add_neg BitVec.add_assoc BitVec.add_zero
+  BitVec.add_left_neg BitVec.add_right_neg
+
+/-- A size subtracted and added back, `-n + (n + c)`, as the normal form leaves `sp - n + n + c`:
+    for a frame whose size is not a numeral. -/
+@[lsym_simp, lsym_addr] theorem addr_neg_add_cancel {w : Nat} (a b : BitVec w) : -a + (a + b) = b := by
+  rw [← BitVec.add_assoc, BitVec.add_left_neg, BitVec.zero_add]
+
+/-- The same, the other way: `n + (-n + c)`. -/
+@[lsym_simp, lsym_addr] theorem addr_add_neg_cancel {w : Nat} (a b : BitVec w) : a + (-a + b) = b := by
+  rw [← BitVec.add_assoc, BitVec.add_right_neg, BitVec.zero_add]
 attribute [lsym_addr] BitVec.reduceAdd BitVec.reduceNeg BitVec.reduceOfNat Nat.reduceMul Nat.reduceAdd
 
 /-- A product of numerals and an index, its numerals together: `8 * (2 * j)` is `16 * j`. -/
@@ -139,15 +154,11 @@ macro_rules
     let close ← match lems with
       | some ls => `(tactic| try (first | rfl | (focus (simp_all [$set:ident, $ls,*]; done))))
       | none => `(tactic| try (first | rfl | (focus (simp_all [$set:ident]; done))))
-    -- an operation's check: closed by `simp` with the lemmas given, or left as it states it
-    -- (not `simp_all`, which in a large context can loop)
-    let check ← match lems with
-      | some ls => `(tactic| first | (focus (simp [$set:ident, $ls,*]; done)) | simp [$set:ident, $ls,*] | skip)
-      | none => `(tactic| first | (focus (simp [$set:ident]; done)) | simp [$set:ident] | skip)
     -- an operation's result, computed and substituted, so that what follows sees its value
     -- (`subst`, not the pattern `rfl`, which the quotation's hygiene would make a name). A
     -- load's or a store's check that `simp` cannot decide stays, as the hypothesis `hm` of what
-    -- follows and as a goal of its own, and the result is substituted all the same.
+    -- follows, and the result is substituted all the same; nothing need be shown of it, since
+    -- an operation whose check fails traps (`SafeN.opn'`).
     let hm := mkIdent `hm
     -- (the memory's equation first: `subst` of a check, not an equation, can evaluate it)
     let eqs ← `(tactic| first
@@ -189,7 +200,7 @@ macro_rules
       calls := calls.push (← `(tactic| (refine Lprog.SafeN.tail' $hf rfl rfl ?_ ?_; apply $sp; all_goals ($close:tactic))))
     let base ← `(tactic| first
       | refine Lprog.SafeN.label $hf rfl ?_
-      | (refine Lprog.SafeN.opn' $hf rfl (fun r' m' he => ?_) ?_; $subst; rotate_left 1; $check)
+      | (refine Lprog.SafeN.opn' $hf rfl (fun r' m' he => ?_); $subst)
       | refine Lprog.SafeN.goto $hf rfl rfl ?_
       | (refine Lprog.SafeN.cond' $hf rfl rfl ?_ (fun $hc:ident => ?_) (fun $hc:ident => ?_); $close; $simpHc)
       | (refine Lprog.SafeN.ret $hf rfl ?_ ?_ ?_
@@ -213,9 +224,10 @@ macro_rules
     | none => `(tactic| (intro r hr _h0; simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr; simp [$set:ident, hr]))
 
 open Lean Elab Tactic Meta in
-/-- The program counter of a goal `… ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩`, if it is a
-    numeral (or a sum of numerals, as the steps leave it). -/
-def goalPc? (g : MVarId) : MetaM (Option Nat) := do
+/-- The function and the program counter of a goal `… ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩`,
+    the program counter if it is a numeral (or a sum of numerals, as the steps leave it), the
+    function if it is one too. -/
+def goalAt? (g : MVarId) : MetaM (Option (Option Nat × Nat)) := do
   -- the type may be under metadata (`have` and other steps leave it)
   let t := (← instantiateMVars (← g.getType)).consumeMData
   let some s := t.getAppArgs.back? | return none
@@ -225,7 +237,8 @@ def goalPc? (g : MVarId) : MetaM (Option Nat) := do
   unless stack.isAppOfArity ``List.cons 3 do return none
   let fr ← whnfR stack.getAppArgs[1]!
   unless fr.isAppOfArity ``Frame.mk 4 do return none
-  evalNat fr.getAppArgs[1]!
+  let some pc ← evalNat fr.getAppArgs[1]! | return none
+  return some (← evalNat fr.getAppArgs[0]!, pc)
 
 open Lean Meta in
 /-- A goal `∀ r' m', Post … → SafeN … s`, a specification's continuation, with its binders
@@ -261,6 +274,8 @@ def normPc (g : MVarId) : MetaM MVarId := g.withContext do
   if t' == t then return g
   g.replaceTargetDefEq t'
 
+initialize Lean.registerTraceClass `lsym
+
 /-- **`lsym hf`**: step the body of the function `hf` names, on every branch, as far as
     `lstep` goes. `lsym hf stop [p, …]` leaves a goal where it comes to one of the program
     counters `p`, a loop's head, for its invariant (the goal it starts from is stepped even at
@@ -287,37 +302,52 @@ open Lean Elab Tactic Meta in
     | false, true => `(tactic| lstep $hf with [$ls,*])
     | true, false => `(tactic| lstep $hf using [$ss,*])
     | false, false => `(tactic| lstep $hf with [$ls,*] using [$ss,*])
-  let mut todo ← (← getGoals).mapM fun g => liftMetaM (normPc g)
+  -- each goal with the program counters its path has stepped from, to find a loop
+  let mut todo : List (MVarId × List (Nat × Nat)) ←
+    (← getGoals).mapM fun g => return (← liftMetaM (normPc g), [])
   -- the goals it starts from are stepped even at a stop: a stop is for coming back to
-  let start := todo
+  let start := todo.map (·.1)
   let mut left : Array MVarId := #[]
   let mut fuel := 100000
   while !todo.isEmpty && fuel > 0 do
     fuel := fuel - 1
-    let g := todo.head!
+    let (g, seen) := todo.head!
     todo := todo.tail!
     if ← g.isAssigned then continue
     -- a goal that is no `SafeN` at a program counter (a side condition) is left as it is
-    let pc? ← g.withContext (goalPc? g)
-    match pc? with
+    let at? ← g.withContext (goalAt? g)
+    match at? with
     | none => left := left.push g
-    | some pc =>
+    | some (fn?, pc) =>
       if stops.contains pc && !start.contains g then left := left.push g
+      else if fn?.any (fun fn => seen.contains (fn, pc)) then
+        trace[lsym] "left at {pc}: the path has stepped from it before, so it is a loop's head; \
+          give `stop [{pc}]` and an invariant"
+        left := left.push g
       else
         setGoals [g]
+        let saved ← saveState
         -- a lookup in the body by `rfl` recurses once per entry: a body of a few hundred
-        -- entries needs more than the default depth
-        let ok ← try
+        -- entries needs more than the default depth. A step that still runs out of depth or
+        -- heartbeats leaves its goal (`tryCatchRuntimeEx`: `try … catch` does not catch them)
+        let err? ← tryCatchRuntimeEx
+          (do
             withTheReader Core.Context (fun c => { c with maxRecDepth := max c.maxRecDepth 16384 })
               (evalTactic step)
-            pure true
-          catch _ => pure false
-        if ok then
+            pure none)
+          (fun e => pure (some e))
+        match err? with
+        | none =>
           -- a specification's continuation, `∀ r' m', Post … → SafeN …`, taken up after the call
-          let mut next : List MVarId := []
+          let seen' := match fn? with | some fn => (fn, pc) :: seen | none => seen
+          let mut next : List (MVarId × List (Nat × Nat)) := []
           for g' in (← getGoals) do
-            next := next ++ [← normPc (← introCont g')]
+            next := next ++ [(← normPc (← introCont g'), seen')]
           todo := next ++ todo
-        else left := left.push g
-  setGoals (left.toList ++ todo)
+        | some e =>
+          saved.restore (restoreInfo := true)
+          trace[lsym] "left at {pc}: no step applies (a call without a specification, an external \
+            call, or a body that is not a literal): {e.toMessageData}"
+          left := left.push g
+  setGoals (left.toList ++ todo.map (·.1))
 
