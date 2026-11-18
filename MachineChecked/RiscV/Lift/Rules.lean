@@ -78,33 +78,33 @@ theorem lsafe_ret (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts regs
   SafeN.ret hf hb (by rw [← hra]; exact regs_of_agree hag (by decide))
     (by rw [← hsp]; exact regs_of_agree hag (by decide)) h
 
-/-- An indirect tail call: to the function at the address `jalr` computes, with the stack
-    pointer back. -/
+/-- An indirect tail call: to the function at the address `jalr` computes, one of the
+    candidates `cs`, with the stack pointer back. -/
 theorem lsafe_tail (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts regs m) u)
-    {rs : Reg} {off : BitVec 12}
-    (hb : fd.body[pc]? = some (.Ltail (.indirect (jalrTgt rs off) (List.range fs.length))))
-    (hsp : u.getReg .x2 = top) {g : Nat} {tf : Fn} (hg : fs[g]? = some tf)
+    {rs : Reg} {off : BitVec 12} {cs : List Nat}
+    (hb : fd.body[pc]? = some (.Ltail (.indirect (jalrTgt rs off) cs)))
+    (hsp : u.getReg .x2 = top) {g : Nat} {tf : Fn} (hg : fs[g]? = some tf) (hm : g ∈ cs)
     (haddr : tf.base = (u.getReg rs + signExtend12 off) &&& ~~~1#64)
     (h : ∀ g' fn', fs[g']? = some fn' → fn'.base = tf.base →
       LSafeN fs G n Q ⟨⟨g', 0, rv, top⟩ :: rest, regs, m⟩) :
     LSafeN fs G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ := by
-  obtain ⟨g', hc⟩ := callee_indirect_of hg (haddr.trans (jalrTgt_eval hag rs off).symm)
+  obtain ⟨g', hc⟩ := callee_indirect_of hg (haddr.trans (jalrTgt_eval hag rs off).symm) hm
   obtain ⟨fn', hfn', hbase⟩ := callee_indirect hc
   exact SafeN.tail hf hb (by rw [← hsp]; exact regs_of_agree hag (by decide)) hc
     (h g' fn' hfn' (hbase.trans ((jalrTgt_eval hag rs off).trans haddr.symm)))
 
-/-- An indirect call: to the function at the address `jalr` computes, with the return value
-    `ret` in `ra`. -/
+/-- An indirect call: to the function at the address `jalr` computes, one of the candidates
+    `cs`, with the return value `ret` in `ra`. -/
 theorem lsafe_call (hf : (liftProg fs)[fn]? = some fd) (hag : Agree (ofParts regs m) u)
-    {ret : Word} {rs : Reg} {off : BitVec 12}
-    (hb : fd.body[pc]? = some (.Lcall ret (.indirect (jalrTgt rs off) (List.range fs.length))))
-    {g : Nat} {tf : Fn} (hg : fs[g]? = some tf)
+    {ret : Word} {rs : Reg} {off : BitVec 12} {cs : List Nat}
+    (hb : fd.body[pc]? = some (.Lcall ret (.indirect (jalrTgt rs off) cs)))
+    {g : Nat} {tf : Fn} (hg : fs[g]? = some tf) (hm : g ∈ cs)
     (haddr : tf.base = (u.getReg rs + signExtend12 off) &&& ~~~1#64)
     (h : ∀ g' fn', fs[g']? = some fn' → fn'.base = tf.base → ∀ r' m',
       Agree (ofParts r' m') ((u.setReg .x1 ret).setPC tf.base) →
       LSafeN fs G n Q ⟨⟨g', 0, ret, u.getReg .x2⟩ :: ⟨fn, pc + 1, rv, top⟩ :: rest, r', m'⟩) :
     LSafeN fs G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩ := by
-  obtain ⟨g', hc⟩ := callee_indirect_of hg (haddr.trans (jalrTgt_eval hag rs off).symm)
+  obtain ⟨g', hc⟩ := callee_indirect_of hg (haddr.trans (jalrTgt_eval hag rs off).symm) hm
   obtain ⟨fn', hfn', hbase⟩ := callee_indirect hc
   refine SafeN.call hf hb hc ?_
   have := h g' fn' hfn' (hbase.trans ((jalrTgt_eval hag rs off).trans haddr.symm)) _ _

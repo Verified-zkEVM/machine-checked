@@ -1,7 +1,7 @@
 # Design note: proof automation at Lprog and Pancake
 
-**Status: proposed (2026-11-17); a first spike of items 1 and 2 done, below** (`lsym`, and
-`SafeN.block` proved but not yet used by it; calls through specifications not yet). How to make proofs
+**Status: proposed (2026-11-17); a first spike of items 1 and 2, and a second round (calls, item
+4, a real port), done, below** (`SafeN.block` proved but not yet used by `lsym`). How to make proofs
 about decompiled programs cheap: tactics and proof engineering that apply to every instruction
 set, since Lprog's operations are shared.
 
@@ -89,7 +89,60 @@ differs):
   postcondition at each return, the frame (every register not clobbered keeps its value)
   written out three times.
 
-Next, in order: a postcondition helper for the frame, memory and code; calls through a
-specification in `lsym` (and `SafeN.block` used for long blocks, with atoms); then item 4,
-which the count shows is the cheapest large win; then `write_vectored` (904 lines by hand) as
-the first real port.
+## Second round: done
+
+- **The frame, once.** `lframe` proves that a register file `lsym` leaves agrees with the one
+  it started from outside the registers written; `frame_ofParts` (`LprogRiscV/Lsym.lean`)
+  turns that into a postcondition's frame over the machine state.
+- **Calls through specifications.** `lsym … using [spec, …]` applies a callee's specification
+  at a call or a tail call, names what it gives back (`r'`, `m'`, `hret`, …) and steps on
+  after the return (`Tools/Test/Lsym.lean`).
+- **Memory.** A load or a store is computed even when its check is not closed: the check is a
+  hypothesis (`hm`) of what follows and a goal of its own, in the form the region lemmas give
+  it (`isValidDwordAccessSp1 a`, and `noCodeAt m a 8` for a store), and a load reads back
+  through the stores before it. Program counters are kept literals, so bodies of a few hundred
+  entries step.
+- **Item 4, the simple half.** The `--proved` lift gives a `jalr` whose previous instruction is
+  an `auipc` of its register (`call`, `tail`) the one function at the address they compute
+  (`jalrCands`), and every function otherwise. Any list is sound (`callee_indirect`): a target
+  outside it is `wrong`, which a proof of safety excludes. On zip-2005, 1,570 of the 1,640
+  computed calls now have one candidate instead of 304; 70 keep all.
+- **`write_vectored`** with it (`Cases/Zip2005/Runtime/WriteVectoredLsym.lean`): three
+  functions, a loop, a call, a tail call, a system call, stores and loads of a frame, the same
+  contracts as `WriteVectored.lean`:
+
+  | | by hand | with `lsym` |
+  | --- | --- | --- |
+  | the seven theorems | 480 lines | 270 lines |
+  | address lemmas | 64 lines (36 lemmas) | none |
+  | a raised `maxHeartbeats` | 6 | none |
+  | time to check | 4.2 s | 4.2 s |
+
+  `lsym` itself raises `maxRecDepth`, to 16384, while it runs (`Lprog/Tactic.lean`): a body
+  larger than that allows still stops it as a whole, since `try … catch` does not catch the
+  limit.
+
+  What is left: the loop's invariant, the frame (which cells the prologue writes, that other
+  memory is unchanged), the postconditions, and the facts about addresses as `simp` writes
+  them (`sp + 0xffffffffffffffd0#64 + 40#64`), proved by `bv_decide`. Calls and the system
+  call still go through the machine-level rules (`lsafe_call`, `lsafe_tail`, `lsafe_write`),
+  whose contracts are stated over a machine state; `using` wants contracts over the register
+  file.
+
+- **Item 6, first step.** The lift of an instruction is now local: `liftFrom` hands each
+  instruction the one before it, so its lift depends on the instruction, its predecessor, its
+  index and `entryOf`, not on decoding the function again (finding the predecessor through
+  the program had made `--to lean` quadratic in a function's size). And `--to lean --proved`
+  checks a function's parts by `kernel_eq` (`Eq.refl`, evaluated by the kernel) instead of
+  `decide +kernel`, which compares every field through `DecidableEq`: on zip-2005's three
+  largest functions the check is about 2.5 times faster and the module 30 to 35% faster
+  (16 s to 11 s for the largest). What is left is elaborating the term itself, about two
+  thirds of the time now. The route of whole programs keeps `decide`: there the kernel's
+  unfolding of `program.lift` to compare it with a term is far slower than evaluating the
+  decision. The Pancake route already used `kernel_eq`, since Flapjack's syntax has no
+  decidable equality.
+
+Next: contracts over the register file, so that `using` takes them; a normal form for
+addresses (base plus one constant), so that facts about them are stated once; `SafeN.block`
+for long blocks, with atoms; then the rest of item 6: a shorter written term (elaborating it now costs more than
+checking it), and per-instruction checks.

@@ -259,17 +259,17 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {rv
       (c := u3.getReg .x9 == u3.getReg .x0) (by simp [cmpEval]) (j := 14) (by decide)
     · -- an empty slice: round again
       intro hc
-      simp only [e, getReg_x0, beq_iff_eq, reduceCtorEq, if_false, if_true] at hc
+      simp only [e, getReg_x0, beq_iff_eq, reduceCtorEq, ite_false, ite_true] at hc
       refine ih (j + 1) r3 m3 u3 (by omega) hjn hag3 (by simp [e, h2]) (by simp [e, h8])
         (by simp [e]) (by simp [e]) ?_ hreg3 hs3
-      rw [← hfl, firstLen_drop (j := j) (by omega), if_pos hc, show 2 * (j + 1) = 2 * j + 2 by omega]
+      rw [← hfl, firstLen_drop (j := j) (by omega), ite_eq_left hc, show 2 * (j + 1) = 2 * j + 2 by omega]
     · -- the first non-empty slice: load its pointer and go to the call
       intro hc
-      simp only [e, getReg_x0, beq_eq_false_iff_ne, ne_eq, reduceCtorEq, if_false, if_true] at hc
+      simp only [e, getReg_x0, beq_eq_false_iff_ne, ne_eq, reduceCtorEq, ite_false, ite_true] at hc
       apply SafeN.label hf0 (kd := .internal) (l := 12) (by decide)
       apply lsafe_opn hf0 hag3 (i := .LD .x11 .x11 0) (by decide) rfl
         (memOk_LD (by
-          rw [e]; simp only [reduceCtorEq, if_false, if_true]
+          rw [e]; simp only [reduceCtorEq, ite_false, ite_true]
           rw [se_0, BitVec.add_zero, addr_ptr]
           exact dwordOk hok (by omega)))
       intro r4 m4 hag4
@@ -277,7 +277,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {rv
       apply SafeN.goto hf0 (l := 16) (by decide) (j := 32) (by decide)
       refine tail s0 sp xs hcall r4 m4 _ hag4 (by simp [execInstrBr, getReg_setReg, e, h2])
         (by simp [execInstrBr, getReg_setReg, e, h8]) ?_ ?_
-      · rw [← hfl, firstLen_drop (j := j) (by omega), if_neg hc]
+      · rw [← hfl, firstLen_drop (j := j) (by omega), ite_eq_right hc]
         simp [execInstrBr, getReg_setReg, e]
       · refine hs3.step (fun a => by simp [execInstrBr]) (by simp [execInstrBr]) fun r hr => ?_
         obtain ⟨-, -, -, -, -, h11, -⟩ := kept_ne hr
@@ -777,9 +777,10 @@ theorem sw_contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Pr
     (v := F_7801bfa4.base + BitVec.ofNat 64 (4 * 0) + auipcOff 0xfffff#20) (by decide)
   intro r1 m1 hag1
   apply SafeN.label hf1 (kd := .internal) (l := 1) (by decide)
-  apply lsafe_tail hf1 hag1 (rs := .x6) (off := 0x40c) (by decide)
+  apply lsafe_tail hf1 hag1 (rs := .x6) (off := 0x40c) (cs := [2]) (by decide)
     (by simp [getReg_setReg, hsp]) (g := 2) (tf := ⟨"syscall_write", F_7801b3b0.base, scwProg, 0x30⟩) rfl
-    (by rw [getReg_setReg, if_pos ⟨rfl, by decide⟩]; decide)
+    (by simp)
+    (by rw [getReg_setReg, ite_eq_left ⟨rfl, by decide⟩]; decide)
   intro g' fn' hg' hb
   obtain ⟨rfl, rfl⟩ := at_scw hg' hb
   exact scw_contract _ sp fd r1 m1 hag1 (cw_of_code hcw (by cases u; rfl))
@@ -831,8 +832,9 @@ theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
   intro rB mB hagB
   apply SafeN.label hf0 (kd := .internal) (l := 19) (by decide)
   apply lsafe_call hf0 hagB (ret := F_7803c684.base + BitVec.ofNat 64 (4 * 19) + 4) (rs := .x1)
-    (off := 0x8d8) (by decide) (g := 1) (tf := ⟨"sys_write", F_7801bfa4.base, swProg, 0⟩) rfl
-    (by rw [getReg_setReg, if_pos ⟨rfl, by decide⟩]; decide)
+    (off := 0x8d8) (cs := [1]) (by decide) (g := 1) (tf := ⟨"sys_write", F_7801bfa4.base, swProg, 0⟩) rfl
+    (by simp)
+    (by rw [getReg_setReg, ite_eq_left ⟨rfl, by decide⟩]; decide)
   intro g' fn' hg' hb rC mC hagC
   obtain ⟨rfl, rfl⟩ := at_sw hg' hb
   have hA : ∀ r, r ≠ .x1 →

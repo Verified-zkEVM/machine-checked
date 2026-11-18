@@ -5,10 +5,10 @@
   parts, the theorem of a function from its parts, and that a changed term fails the check a
   written module makes of it.
 
-  A written module checks its function `f<i>` by `decide +kernel` on two statements
-  (`f<i>_head`, `f<i>_parts`). Here the same statements are made of a small program: of its
-  own lift they are proved, and of the lift with one instruction changed the kernel proves
-  them false.
+  A written module checks its function `f<i>` by `kernel_eq` on two statements (`f<i>_head`,
+  `f<i>_parts`): the kernel checks `Eq.refl` by evaluation. Here the same statements are made
+  of a small program: of its own lift they are proved, and of the lift with one instruction
+  changed the kernel proves them false.
 
   For the other routes (the lift of whole programs, and Pancake), a written module checks its
   terms against `program.lift` or `program.toPancake`, the program an instruction set builds
@@ -57,12 +57,10 @@ def changed : Lfundef (Op Reg) Reg :=
 #guard f.body[3]? != changed.body[3]?
 
 -- the two statements a written module makes, and the theorem from them
-theorem f_head : (liftProg fns)[0]?.map (fun g => (g.name, g.addr, g.depth)) =
-    some (f.name, f.addr, f.depth) := by
-  decide +kernel
+kernel_eq f_head : (liftProg fns)[0]?.map (fun g => (g.name, g.addr, g.depth)) =
+    some (f.name, f.addr, f.depth)
 
-theorem f_parts : (liftProg fns)[0]?.map (fun g => chunks chunk g.body) = some [f.body] := by
-  decide +kernel
+kernel_eq f_parts : (liftProg fns)[0]?.map (fun g => chunks chunk g.body) = some [f.body]
 
 theorem f_eq : (liftProg fns)[0]? = some f :=
   getElem?_eq_of_chunks f_head f_parts (by simp [f])

@@ -57,14 +57,9 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         · intro h; exact absurd (congrArg _ (h j hj)) hc
       · simp [hmem]
       · exact hcode
-      · by_cases h0 : r = .x0
-        · subst h0; simp [getReg_x0]
-        · rw [getReg_ofParts_ne h0]
-          simp only [clobbered, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-          obtain ⟨h10', h11', h12', h13, h14⟩ := hr
-          simp [lsym_simp, h10', h13, h14, hkept r (by simp [clobbered, *]) h0]
+      · exact frame_ofParts hkept (by lframe [clobbered]) _ r hr
       · rw [getReg_ofParts_ne (by decide)]
-        simp only [lsym_simp, hbyte, ↓reduceIte, reduceCtorEq]
+        simp only [lsym_simp, hbyte, ↓reduceIte]
         rw [BitVec.sub_eq_add_neg]; exact sext32_sub_bytes _ _
     · -- the bytes agree and some are left: the back edge
       rename_i hb
@@ -73,17 +68,16 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         · exact h
         · rw [ofNat_add_neg_one (by omega), show n - j - 1 = 0 by omega] at hc; exact absurd rfl hc
       apply ih (j + 1) _ m (by omega) hlt
-      · simp [lsym_simp, h10, BitVec.add_assoc, ofNat_succ]
-      · simp [lsym_simp, h11, BitVec.add_assoc, ofNat_succ]
-      · simp [lsym_simp, h12, ofNat_add_neg_one (show 0 < n - j by omega), show n - j - 1 = n - (j + 1) by omega]
+      · simp [lsym_simp, BitVec.add_assoc, ofNat_succ]
+      · simp [lsym_simp, BitVec.add_assoc, ofNat_succ]
+      · simp [lsym_simp, ofNat_add_neg_one (show 0 < n - j by omega), show n - j - 1 = n - (j + 1) by omega]
       · simp [lsym_simp, hra]
       · simp [lsym_simp, hsp]
       · exact hmem
       · exact hcode
       · intro r hr h0
-        simp only [clobbered, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-        obtain ⟨h10', h11', h12', h13, h14⟩ := hr
-        simp [lsym_simp, h10', h11', h12', h13, h14, hkept r (by simp [clobbered, *]) h0]
+        rw [← hkept r hr h0]
+        revert r; lframe [clobbered]
       · intro i hi
         rcases Nat.lt_succ_iff_lt_or_eq.mp hi with h | rfl
         · exact hbytes i h
@@ -104,14 +98,9 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
           rw [← hbyte, ← hbyte]; exact zeroExtend_byte_inj _ _ hb
       · simp [hmem]
       · exact hcode
-      · by_cases h0 : r = .x0
-        · subst h0; simp [getReg_x0]
-        · rw [getReg_ofParts_ne h0]
-          simp only [clobbered, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-          obtain ⟨h10', h11', h12', h13, h14⟩ := hr
-          simp [lsym_simp, h10', h11', h12', h13, h14, hkept r (by simp [clobbered, *]) h0]
+      · exact frame_ofParts hkept (by lframe [clobbered]) _ r hr
       · rw [getReg_ofParts_ne (by decide)]
-        simp [lsym_simp, signExtend12]
+        simp [lsym_simp]
 
 /-- **`memcmp`'s contract at Lprog**, as in `MemcmpLprog.contract`. -/
 theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
@@ -140,12 +129,8 @@ theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
     · rw [getReg_ofParts_ne (by decide)]; simp [lsym_simp]
     · simp [hmem]
     · exact hcode
-    · by_cases h0 : r = .x0
-      · subst h0; simp [getReg_x0]
-      · rw [getReg_ofParts_ne h0]
-        have h10' : r ≠ .x10 := fun h => hr' (by simp [clobbered, h])
-        simp [lsym_simp, h10', hr r h0]
-    · rw [getReg_ofParts_ne (by decide)]; simp [lsym_simp, signExtend12]
+    · exact frame_ofParts (fun r _ h0 => hr r h0) (by lframe [clobbered]) _ r hr'
+    · rw [getReg_ofParts_ne (by decide)]; simp [lsym_simp]
   · -- some bytes: the loop
     have hpos : 0 < n := by
       rcases Nat.eq_zero_or_pos n with h | h

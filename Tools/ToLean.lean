@@ -16,10 +16,11 @@
     `f<i>_eq : (liftProg fns)[i]? = some f<i>`;
   * `NS.lean`, which imports them all.
 
-  The theorem of a function is checked in parts: the kernel decides that the lift's name,
+  The theorem of a function is checked in parts: the kernel checks that the lift's name,
   address and stack bound (`f<i>_head`) and its body in parts of `chunk` instructions
-  (`f<i>_parts`, by `chunks`) are the term's, by `decide +kernel`, and
-  `getElem?_eq_of_chunks` gives the whole. A whole
+  (`f<i>_parts`, by `chunks`) are the term's, by `kernel_eq` (`Eq.refl`, checked by evaluation
+  in the kernel alone: faster than deciding the equation, which compares every field through
+  `DecidableEq`), and `getElem?_eq_of_chunks` gives the whole. A whole
   body at once would go deeper than the kernel allows by default on a function of thousands of
   instructions; in parts, nothing needs a limit raised.
 
@@ -275,10 +276,10 @@ def functionModule (ns : String) (n i : Nat) (fd : Lfundef (Op Reg) Reg) : Strin
   let names := (List.range parts.length).map (s!"f{i}_{·}")
   s := s ++ s!"/-- The function {commentSafe fd.name}, lifted. -/\n"
   s := s ++ s!"def f{i} : Lfundef (Op Reg) Reg :=\n  \{ name := {repr fd.name}, addr := {fd.addr.toNat}, depth := {fd.depth},\n    body := List.flatten [{", ".intercalate names}] }\n\n"
-  s := s ++ s!"theorem f{i}_head : (liftProg fns)[{i}]?.map (fun g => (g.name, g.addr, g.depth)) =\n" ++
-    s!"    some (f{i}.name, f{i}.addr, f{i}.depth) := by\n  decide +kernel\n\n"
-  s := s ++ s!"theorem f{i}_parts : (liftProg fns)[{i}]?.map (fun g => chunks chunk g.body) =\n" ++
-    s!"    some [{", ".intercalate names}] := by\n  decide +kernel\n\n"
+  s := s ++ s!"kernel_eq f{i}_head : (liftProg fns)[{i}]?.map (fun g => (g.name, g.addr, g.depth)) =\n" ++
+    s!"    some (f{i}.name, f{i}.addr, f{i}.depth)\n\n"
+  s := s ++ s!"kernel_eq f{i}_parts : (liftProg fns)[{i}]?.map (fun g => chunks chunk g.body) =\n" ++
+    s!"    some [{", ".intercalate names}]\n\n"
   s := s ++ s!"/-- **`f{i}` is the lift of the ELF's words.** -/\n"
   s := s ++ s!"theorem f{i}_eq : (liftProg fns)[{i}]? = some f{i} :=\n  getElem?_eq_of_chunks f{i}_head f{i}_parts rfl\n"
   return s ++ footer ns
@@ -460,7 +461,10 @@ def codeModule (ns elfPath : String) (i : Tools.Program.Input) : String := Id.ru
   s := s ++ s!"check_elf_input code entry memory {repr elfPath}\n"
   return s ++ footer ns
 
-/-- The module of the `i`th function of `program.lift`, lifted to `fd`. -/
+/-- The module of the `i`th function of `program.lift`, lifted to `fd`. Its parts are checked
+    by `decide +kernel`, not `kernel_eq` as the `--proved` lift's are: the kernel's unfolding of
+    `program.lift` (its tree maps) to compare it with a term can take far longer than
+    evaluating the decision. -/
 def liftModule {Reg : Type} [Repr Reg] (m : Tools.Program.Machine) (ns : String) (n i : Nat)
     (fd : Lfundef (Op Reg) Reg) : String := Id.run do
   let (_, regNs) := machineInfo m

@@ -152,9 +152,9 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
       simp only [Post]
       refine ⟨?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
       · rw [hag3.regs]
-        simp only [e, if_true, bne_iff_ne, ne_eq, reduceCtorEq, if_false] at hne
+        simp only [e, ite_true, bne_iff_ne, ne_eq, reduceCtorEq, ite_false] at hne
         simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, e, reduceCtorEq,
-          if_true, if_false, and_self, ne_eq, not_false_eq_true]
+          ite_true, ite_false, and_self, ne_eq, not_false_eq_true]
         constructor
         · intro h; exact absurd (by bv_omega) hne
         · intro h; exact absurd (congrArg _ (h j hj)) hne
@@ -163,13 +163,13 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
       · rw [hag3.regs]; exact hx r hr
       · rw [hag3.regs]
         simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, e, reduceCtorEq,
-          if_true, if_false, and_self, ne_eq, not_false_eq_true]
+          ite_true, ite_false, and_self, ne_eq, not_false_eq_true]
         rw [BitVec.sub_eq_add_neg]
         exact sext32_sub_bytes _ _
     · -- the bytes agree: step the pointers and the count
       intro heq
       have hbyte : u0.getByte (a + BitVec.ofNat 64 j) = u0.getByte (b + BitVec.ofNat 64 j) := by
-        simp only [e, if_true, bne_eq_false_iff_eq, reduceCtorEq, if_false] at heq
+        simp only [e, ite_true, bne_eq_false_iff_eq, reduceCtorEq, ite_false] at heq
         exact zeroExtend_byte_inj _ _ heq
       apply SafeN.label hf (kd := .internal) (l := 4) (by decide)
       apply lsafe_opn hf hag2 (i := .ADDI .x11 .x11 1) (by decide) rfl rfl
@@ -202,7 +202,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         simp only [clobbered, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr'
         obtain ⟨h0, h1, h2, h3, h4⟩ := hr'
         rw [e5, e]
-        simp only [h0, h1, h2, h3, h4, if_false]
+        simp only [h0, h1, h2, h3, h4, ite_false]
         exact hkept r hr
       apply SafeN.label hf (kd := .internal) (l := 7) (by decide)
       apply lsafe_cond hf hag5 (op := "ne") (a := .x12) (b := .x0) (l := 1) (by decide)
@@ -221,7 +221,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
       · -- the last byte agrees: the blocks are equal
         intro hc
         have hz : n - (j + 1) = 0 := by
-          simp only [e5, reduceCtorEq, if_false, if_true, getReg_x0, bne_eq_false_iff_eq] at hc
+          simp only [e5, reduceCtorEq, ite_false, ite_true, getReg_x0, bne_eq_false_iff_eq] at hc
           exact ofNat_eq_zero (by omega) hc
         apply SafeN.label hf (kd := .internal) (l := 8) (by decide)
         apply lsafe_opn hf hag5 (i := .ADDI .x10 .x0 0) (by decide) rfl rfl
@@ -238,7 +238,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         refine ⟨?_, fun addr => ?_, ?_, fun r hr => ?_, ?_⟩
         · rw [hag6.regs]
           simp only [execInstrBr, MachineState.getReg_setPC, getReg_setReg, reduceCtorEq,
-            if_true, and_self, ne_eq, not_false_eq_true, getReg_x0]
+            ite_true, and_self, ne_eq, not_false_eq_true, getReg_x0]
           refine ⟨fun _ i hi => ?_, fun _ => by simp [signExtend12]⟩
           rcases Nat.lt_or_ge i j with h | h
           · exact hbytes i h
