@@ -16,12 +16,15 @@
 
   ## Main definitions
 
-  * `trap`, `syscall`, `ecall`, `mark`, `halt`, `scratch`
+  * `main`, `trap`, `syscall`, `ecall`, `mark`, `halt`, `scratch`
 -/
 
 import Pancake.Basic
 
 namespace Pancake
+
+/-- The function the program starts at. -/
+def main : String := "main"
 
 /-- The foreign call that says where the program gave up. -/
 def trap : String := "trap"
