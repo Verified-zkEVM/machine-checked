@@ -505,7 +505,7 @@ symbolisation) whose output is then checked in Lean:
   semantics library underneath McSema, and the subject of §5.3.
 - **angr** (UCSB; S&P 2016) and **BAP/BIL** (CMU; CAV 2011): binary analysis platforms with
   their own IRs (VEX, BIL).
-- **Borrow:** candidate lists for `Ligoto` (roadmap step 1) and indirect calls (`CfiOk`) can
+- **Borrow:** candidate lists for `Ligoto` (the computed jumps of the RISC-V lift) and indirect calls (`CfiOk`) can
   come from any of these, provided Lean checks the premise.
 
 ---

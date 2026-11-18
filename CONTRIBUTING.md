@@ -66,9 +66,10 @@ These hold for every change. A pull request that breaks one is not merged.
 - **Trusted models are named.** An instruction-set model may be trusted only if it is listed
   on the trust ladder (`docs/ELF.md` §4). Every model is to be verified against its canonical
   specification (`docs/ISA.md`) in the end.
-- **One judgement.** Function specifications are stated as `SafeN` in continuation form
-  (`MachineChecked/RiscV/Safe.lean`), so that results proved by different tools compose
-  through the contract table.
+- **One judgement.** Function specifications are stated as `SafeN` in continuation form: at
+  the machine (`MachineChecked/RiscV/Safe.lean`), and at Lprog as `Isa.Contract`
+  (`lprog/Lprog/Contract.lean`), carried down by `SafeN.of_contract`. Results proved by
+  different tools compose through the contract table.
 - **One of each concept.** One notion of a run (`lprog/Lprog/Ascent/Run.lean`), one
   correspondence (`lprog/Lprog/Ascent/Corres.lean`), one logical machine per layer, and one
   route from an ISA up to it (its lift). Do not add a second version of a data structure or
@@ -97,7 +98,8 @@ lake env lean path/to/File.lean           # check one file
 
 Continuous integration (`.github/workflows/ci.yml`) runs on every pull request:
 
-- a search of the sources for `sorry`, `axiom` and `native_decide`;
+- a search of the sources (outside the vendored `Cases/Zip2005/Spec`) for `sorry`, `axiom` and
+  `native_decide`;
 - `lake build` of the framework, the tools, the case studies proved with `lsym`
   (`MemcmpLsym`, `WriteVectoredLsym`) and `Cases.Hardening`, failing on any warning;
 - `python3 scripts/decompile-check/check.py limits`: the instruction tables in each
@@ -106,14 +108,15 @@ Continuous integration (`.github/workflows/ci.yml`) runs on every pull request:
 - `scripts/AxiomCheck.lean`: the listed theorems use only the standard axioms and `bv_decide`
   certificates.
 
-The other case studies are built by the on-demand `full` job ([`Cases/README.md`](Cases/README.md)).
+The other case studies are built by the on-demand `full` job ([`Cases/README.md`](Cases/README.md)),
+which also runs `scripts/AxiomCheckCases.lean`.
 
 Before opening a pull request:
 1. Build every module you touched and every module that imports it. A change to a widely
    imported file means a full `lake build`.
 2. Confirm the warning count has not gone up.
 3. Run `#print axioms` on the theorems you added or changed, and add the main ones to
-   `scripts/AxiomCheck.lean`.
+   `scripts/AxiomCheck.lean` (framework) or `scripts/AxiomCheckCases.lean` (case studies).
 4. If you changed a lift, run `check.py limits`; if you changed `Tools/ToLean.lean`, run
    `scripts/to-lean-check/check.sh`.
 
@@ -152,7 +155,7 @@ Keep commits buildable where you can.
 ## Adding a case study
 
 1. Pin the binary: commit it, or record how it was built and its digest.
-2. Lift it: `lake exe decompile --to lean --proved BINARY . Cases.<Name>.Gen` writes the
+2. Lift it (RISC-V only: the AArch64 and x86-64 lifts are not proved): `lake exe decompile --to lean --proved BINARY . Cases.<Name>.Gen` writes the
    lifted functions, checked against the ELF ([`Tools/README.md`](Tools/README.md)).
    `Cases/Hardening/build.sh` is an example. For a whole-program theorem from the loaded
    image, also generate the image with `lake exe gen-image` and prove its facts in

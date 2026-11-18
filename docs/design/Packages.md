@@ -11,7 +11,7 @@ upstream dependencies.
 | 1 | `lprog/` and `lprog-riscv/` as packages | done |
 | 2 | `decompile --to lean` for the `--proved` route, checked against the ELF | done |
 | 3 | `--to lean` for the other routes, and for Pancake | first form done; Flapjack images not covered |
-| 3a | certificates for large functions | not started |
+| 3a | certificates for large functions | first step done: the lift is local, and parts are checked by `kernel_eq` ([`Automation.md`](Automation.md), item 6); certificates not started |
 | 4 | `pancake/` on Flapjack's semantics | first form (syntax, conventions, printer); semantics waits on Flapjack |
 | 5 | Ascent moved into a package shared with catcrypt-compiler (#16); pins kept up by CI | not started |
 | 6 | an installer | not started |
@@ -108,7 +108,7 @@ in the kernel is affordable; getting large terms through the elaborator took the
 - **Words per function, as `Nat`.** One list of every word exceeded the elaborator's limits; a
   `BitVec 32` literal costs an instance search each.
 - **Long lists as `List.flatten` of short ones.** A literal of thousands of elements, or a long
-  chain of `++`, is too deep for the elaborator (zip-2005's `compress256` is 9,333 instructions).
+  chain of `++`, is too deep for the elaborator (zip-2005's `compress256` is 4,039 instructions).
 - **No long literal inside one instruction.** A candidate list of every function is written
   `List.range 304`, not `[0, 1, …, 303]`.
 - **Split each function's theorem.** The kernel checks the header and the body in parts of 128

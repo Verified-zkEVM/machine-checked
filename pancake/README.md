@@ -7,7 +7,7 @@ Flapjack's syntax (`Flapjack.Pancake.PanLang`). See
 | module | namespace | contents |
 | --- | --- | --- |
 | `Pancake.Basic` | `Pancake` | The word type (`W`) and a program (`Program`, a list of Flapjack declarations). |
-| `Pancake.Env` | `Pancake` | What a decompiled program assumes of its environment: it starts at `main`, ends by raising `halt`, gives up via the foreign call `trap`, makes system calls via `syscall` (bare) or `ecall` (SP1), and finds a call's results at `scratch`. Lift 2 writes its programs with these. |
+| `Pancake.Env` | `Pancake` | What a decompiled program assumes of its environment: it starts at `main`, ends by raising `halt` (printed `l_halt`), gives up via the foreign call `trap`, makes system calls via `syscall` (bare) or `ecall` (SP1), and finds a call's results at `scratch`. Lift 2 writes its programs with these. |
 | `Pancake.Print` | `Pancake` | A program as the source text Flapjack reads (`print`). Flapjack has a parser but no printer. |
 
 `import Pancake` imports everything. A program written by `decompile --to lean --pancake` has

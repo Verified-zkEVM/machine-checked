@@ -182,7 +182,7 @@ ISA model removes the compiler and assembler from the trusted base [R]. What rem
    semantics; for AArch64, the trusted package of DeepMind's arm64-semantics. Each is a
    dependency used unmodified at its pinned commit. Kraken and arm64-semantics are trusted as
    the canonical specifications of their ISAs.
-2. **The Lean kernel**, plus whatever `decide` or `native_decide` brings in. CI's axiom check
+2. **The Lean kernel**, plus whatever `decide` brings in (`native_decide` is refused). CI's axiom check
    (`scripts/AxiomCheck.lean`) allows only `propext`, `Classical.choice`, `Quot.sound` and
    the certificate axioms `bv_decide` adds.
 3. **The import**: that the bytes and load addresses in Lean are the ones the zkVM runs. For

@@ -61,7 +61,7 @@ The toolchain is pinned in `lean-toolchain` and installed by [elan](https://gith
 ```sh
 lake exe cache get              # Mathlib's prebuilt oleans
 lake build                      # the framework and the tools (minutes)
-lake build Cases.Hardening      # one case study; each has a root module
+lake build Cases.Hardening      # one case study (each case's README names its module)
 lake env lean path/to/File.lean # check one file
 ```
 
@@ -80,7 +80,9 @@ lake exe decompile --to lprog --proved guest.elf           # RISC-V: the lift th
 ```
 
 Code the lift does not cover becomes an explicit trap (`l_trap(n)` / `abort`) rather than
-being dropped, so the output either behaves like the binary or says where it stops. What each
+being dropped, so the output either behaves like the binary or says where it stops. The
+`--proved` lift is stricter: a function with an instruction it cannot take is left out whole,
+and the output says which instruction and why. What each
 instruction set does not cover is listed in its `LIMITS.md`
 ([RISC-V](MachineChecked/RiscV/LIMITS.md), [AArch64](MachineChecked/ARM/LIMITS.md),
 [x86-64](MachineChecked/X86/LIMITS.md)).
@@ -99,8 +101,9 @@ This writes `MyProject/Gen.lean` and `MyProject/Gen/`:
   checked by the kernel.
 - `Gen.lean`: imports everything, and lists which index is which symbol.
 
-The ELF path is read relative to where the module is built, and the output directory must not
-already exist. See [`Tools/README.md`](Tools/README.md) for the other routes and what each one
+The modules import this repository (`Tools.ToLean`, `MachineChecked`), so the project they go
+into must `require` it in its Lake file. The ELF path is read relative to where the module is
+built, and the namespace's directory (`MyProject/Gen/`) must not already exist. See [`Tools/README.md`](Tools/README.md) for the other routes and what each one
 trusts.
 
 ### 3. Prove a function's contract
@@ -137,7 +140,8 @@ turns a contract at Lprog into a theorem about riscv-zkvm's machine running the 
 ```
 
 Only `propext`, `Classical.choice`, `Quot.sound`, and `bv_decide` certificates are expected.
-The repository has no `sorry`, `axiom` or `native_decide`; CI enforces this.
+The repository has no `sorry`, `axiom` or `native_decide` outside the vendored specifications
+under `Cases/Zip2005/Spec` (which have their own census); CI enforces this.
 
 ## Repository map
 

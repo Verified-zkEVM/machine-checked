@@ -8,7 +8,7 @@ Pancake program (layer 1). They are layer -1 of the [roadmap](../ROADMAP.md) and
 | file | command | what it does |
 | --- | --- | --- |
 | `GenImage.lean` | `lake exe gen-image ELF NM OUTDIR MODPREFIX [STACKTOP]` | Writes the ELF as Lean data: one module per function (its words and their decoding), the data chunks and the layout. |
-| `Infer.lean` | `lake exe infer-contracts ELF NM OUT.tsv STACKTOP PROTLO PROTHI` | For every function, bottom-up over the call graph, infers an interface (`Check.Iface`) and a certificate, emitted as Lean for the checker to re-check. |
+| `Infer.lean` | `lake exe infer-contracts ELF NM OUT.tsv STACKTOP PROTLO PROTHI [LEANDIR MODPREFIX IMGPREFIX LAYOUT [REGISTRY [CFI [STATICS]]]]` | For every function, bottom-up over the call graph, infers an interface (`Check.Iface`) and a certificate; with `LEANDIR`, emits them as Lean for the checker to re-check. |
 | `FrameSweep.lean` | `lake exe frame-sweep ELF NM OUT.tsv` | Runs the frame analysis on every function and reports which annotations check, and why the others do not. |
 | `Decompile.lean` | `lake exe decompile …` | The decompiler. See [below](#decompile). |
 | `ToLean.lean` | library; commands `check_elf_words`, `check_elf_input`, `kernel_eq` | Implements `decompile --to lean`: the modules it writes, the lemmas their theorems rest on, and the check of their input against the ELF. |
@@ -38,7 +38,7 @@ lake exe decompile --to lprog --proved GUEST.elf [OUT.lprog]      # RISC-V: the 
 lake exe decompile --to lean --proved GUEST.elf OUTDIR NAMESPACE   # the same, as Lean modules
 lake exe decompile --to lean GUEST.elf OUTDIR NAMESPACE            # the --to lprog program, as Lean
 lake exe decompile --to lean --pancake GUEST.elf OUTDIR NAMESPACE  # the --to pancake program, as Lean
-lake exe decompile --to pancake IMAGE.fjimg [OUT.pnk]              # a Flapjack image
+lake exe decompile --to lprog|pancake IMAGE.fjimg [OUT]            # a Flapjack image
 lake exe decompile --table riscv|aarch64|x86-64 [KINDS]            # the instruction table of a LIMITS.md
 lake exe decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS       # write a KINDS file from a run's instructions
 lake exe decompile --listing GUEST.elf                             # x86-64: what the decoder reads
@@ -119,8 +119,10 @@ The kernel checks that each term is the lift of `fns`. How the term was produced
 trusted. What remains trusted:
 
 - **The words literal is the ELF's.** The kernel cannot read files, so `check_elf_words` reads
-  the ELF at build time with the tool's own reader (`Elf.lean`: `functions`, `wordsOf`). The
-  path is resolved relative to where the module is built. Lake does not track the ELF: if it
+  the ELF at build time with the tool's own reader (`Elf.lean`'s `symbols`, and `ToLean.lean`'s
+  `functions` and `wordsOf`). The path is written as given on the command line and resolved
+  from where the module is built, so give it relative to that directory (the repository root,
+  for `lake build`). Lake does not track the ELF: if it
   changes, rebuild the words module by hand.
 - **The modules are as the tool wrote them.** Check that `Words.lean` defines `fns` from
   `words` and calls `check_elf_words`, and run `#print axioms NS.f<i>_eq`. Symbol names appear
@@ -133,14 +135,17 @@ so a proof about the machine must show the machine holds the words `fns` was bui
 **Namespace.** `NS` is one or more `.`-separated components, each an ASCII upper-case letter
 followed by ASCII letters, digits and `_`. It is also a module path under `OUTDIR`: `A.B` is
 written as `OUTDIR/A/B.lean` and `OUTDIR/A/B/`. With `OUTDIR` a library's source root, the
-modules become part of that library (`Cases/Hardening/` writes `Cases.Hardening.Gen`). The
+modules become part of that library (`Cases/Hardening/build.sh` uses `OUTDIR` `.` and `NS` `Cases.Hardening.Gen.Arith`, and so on). The
 target directory must not already exist. The modules are `noncomputable` (the code generator
 cannot handle terms this large) and require this repository's root package.
 
 | binary | functions | instructions | Lean written | build of all modules, 8 jobs |
 | --- | --- | --- | --- | --- |
 | `experiments/leanvm/out/blake2s.elf` | 6 | 702 | 148 KB | 8 s CPU |
-| `experiments/zip-2005/out/baseline.elf` | 304 | 41,631 | 8.3 MB | 74 s wall (495 s CPU), Apple M3 Max; longest function 11 s |
+| `experiments/zip-2005/out/baseline.elf` | 304 | 41,631 | 8.3 MB | 74 s wall (495 s CPU) on an Apple M3 Max, measured when the parts were checked by `decide`; with `kernel_eq` the longest function takes 11 s (16 s before) |
+
+The two binaries are local builds (`experiments/` is not committed): zip-2005's guest, and the
+leanVM guest of [`Cases/LeanVM`](../Cases/LeanVM/README.md).
 
 A one-bit change to a word or a term fails: the words module does not build, or the kernel
 rejects the function's statement. `Test/ToLean.lean` checks the latter on a small program.
@@ -167,7 +172,7 @@ no theorem relating these lifts to the machine.
 
 **Large functions do not finish.** Here the kernel re-evaluates the whole-program lift (label
 maps, and for AArch64 and x86-64 `dropDead`). The lifts use `Std.TreeMap`, which the kernel can
-reduce, rather than `Std.HashMap`. The kernel represents arrays as lists, so cost grows much
+reduce, rather than `Std.HashMap` (the output is the same, byte for byte, on every test binary). The kernel represents arrays as lists, so cost grows much
 faster than function size:
 
 | program | route | result |
@@ -196,16 +201,16 @@ The decompiled image gets half the original heap and half the stack.
 instruction set's manual, worked out by hand, not from the code under test. To run one file:
 `lake env lean Tools/Test/X86.lean` (no output means it passed).
 
-| file | `#guard`s | what |
-| --- | --- | --- |
-| `Run.lean` | | Helper: runs one instruction's lift on concrete registers and byte memory, and reports how it ends (next instruction, branch target, give up, `wrong`, or leaving the function). |
-| `RiscV.lean` | 218 | `decodeWord` and the whole-program RV64IM lift: each `*w` instruction, division by zero and overflow, loads and stores of each width, `x0`, branches, calls and far calls (`auipc` + `jalr`), computed jumps, and the `--proved` lift's call candidates (`jalrCands`). |
-| `Arm.lean` | 342 | The AArch64 lift from instruction words: flags through the conditions that read them, logical immediates, bitfields, conditional select and compare, loads and stores with writeback, branches. |
-| `X86.lean` | 392 | The x86-64 decoder and lift from bytes: prefixes and addressing forms, flags at every size, partial register writes, shifts, division, the stack, string instructions with `rep`. |
-| `Dead.lean` | 45 | Dropping unread flag writes: what is dropped and kept, and that a body runs the same before and after. |
-| `Text.lean` | 55 | The Lprog text format: each instruction kind parsed back from its text; malformed text rejected. |
-| `Elf.lean` | 55 | The ELF reader on a small hand-made file and on truncated and malformed ones: each gives an error, none crashes. |
-| `Structure.lean` | 6 | Control-flow structuring on small graphs: a switch is never a two-way choice or an exit. |
-| `ToLean.lean` | 29 | `decompile --to lean`: a body checked in parts, a function's theorem from its parts, a changed term refuted by the kernel, symbol names escaped in comments, accepted namespaces; the other routes on one small function per instruction set. |
-| `Lsym.lean` | 7 | `lsym` on small RISC-V functions: a branch, two paths, a return; a call through the callee's specification and through a contract (`Isa.Contract`); the address normal form; the names of the hypotheses it adds. |
-| `LsymX86.lean` | | `lsym` on x86-64: two functions lifted from bytes (checked against the lift), a call that pushes and pops its return address, proved through the callee's contract over a model of x86-64 memory. |
+| file | `#guard`s | theorems and examples | what |
+| --- | --- | --- | --- |
+| `Run.lean` | | | Helper: runs one instruction's lift on concrete registers and byte memory, and reports how it ends (next instruction, branch target, give up, `wrong`, or leaving the function). |
+| `RiscV.lean` | 218 | | `decodeWord` and the whole-program RV64IM lift: each `*w` instruction, division by zero and overflow, loads and stores of each width, `x0`, branches, calls and far calls (`auipc` + `jalr`), computed jumps, and the `--proved` lift's call candidates (`jalrCands`). |
+| `Arm.lean` | 342 | | The AArch64 lift from instruction words: flags through the conditions that read them, logical immediates, bitfields, conditional select and compare, loads and stores with writeback, branches. |
+| `X86.lean` | 392 | | The x86-64 decoder and lift from bytes: prefixes and addressing forms, flags at every size, partial register writes, shifts, division, the stack, string instructions with `rep`. |
+| `Dead.lean` | 45 | | Dropping unread flag writes: what is dropped and kept, and that a body runs the same before and after. |
+| `Text.lean` | 55 | | The Lprog text format: each instruction kind parsed back from its text; malformed text rejected. |
+| `Elf.lean` | 55 | | The ELF reader on a small hand-made file and on truncated and malformed ones: each gives an error, none crashes. |
+| `Structure.lean` | 6 | | Control-flow structuring on small graphs: a switch is never a two-way choice or an exit. |
+| `ToLean.lean` | 29 | 10 | `decompile --to lean`: a body checked in parts, a function's theorem from its parts, a changed term refuted by the kernel, symbol names escaped in comments, accepted namespaces; the other routes on one small function per instruction set. |
+| `Lsym.lean` | 6, and one `#guard_msgs` | 19 | `lsym` (`lprog/Lprog/Tactic.lean`) on small RISC-V functions: a branch, two paths, a return; a call through the callee's specification and through a contract (`Isa.Contract`); the address normal form; the names of the hypotheses it adds. |
+| `LsymX86.lean` | | 5 | `lsym` on x86-64: two functions lifted from bytes (checked against the lift), a call that pushes and pops its return address, proved through the callee's contract over a model of x86-64 memory. |

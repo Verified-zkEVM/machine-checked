@@ -5,10 +5,10 @@ case depends on the framework; nothing in the framework depends on a case.
 
 | directory | binary | what is verified | build |
 | --- | --- | --- | --- |
-| [`Zip2005/`](Zip2005/README.md) | An SP1 guest, compiled from Rust, that checks a Zcash Orchard statement (ZIP 2005) | The whole guest, from the loaded ELF to its high-level statement, assuming the panic paths never accept | `lake build Cases.Zip2005.Top.Guest` |
-| [`CatCrypt/`](CatCrypt/README.md) | RV64 field and point kernels emitted by catcrypt-compiler | Four kernels, at their encoded bytes, through the lift to Lprog | `lake build Cases.CatCrypt` |
+| [`Zip2005/`](Zip2005/README.md) | An SP1 guest, compiled from Rust, that checks a Zcash Orchard statement (ZIP 2005) | The whole guest, from the loaded ELF to its high-level statement, under thirteen premises on the panic and formatting paths that are not yet discharged or shown satisfiable | `lake build Cases.Zip2005.Top.Guest` |
+| [`CatCrypt/`](CatCrypt/README.md) | RV64 field and point kernels emitted by catcrypt-compiler | Four kernels, at their encoded bytes, over the machine as straight-line blocks (`corres_block`) | `lake build Cases.CatCrypt` |
 | [`LeanVM/`](LeanVM/README.md) | A leanVM guest computing BLAKE2s | The loaded image only; the start of a second target | `lake build Cases.LeanVM.Blake2s.Loaded` |
-| [`Hardening/`](Hardening/README.md) | Small C programs compiled by clang, chosen to break the tools | `decompile --to lean` and `lsym` on each, with proofs against the C; a list of what broke | `lake build Cases.Hardening` |
+| [`Hardening/`](Hardening/README.md) | Small C programs compiled by clang, chosen to break the tools | `decompile --to lean` on each, and `lsym` proofs against the C for most functions of six of them; a list of what broke | `lake build Cases.Hardening` |
 
 `lake build Cases` builds every case study. It takes a few hours.
 

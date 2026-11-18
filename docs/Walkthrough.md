@@ -85,8 +85,9 @@ translation of an operation is proved once for every instruction, against riscv-
 
 An Lprog state is a stack of activations, a register file and a memory. `Lret` is defined only
 when `ra` holds the value the call put there and `sp` is back where it was at the call.
-Otherwise the step goes `wrong`, and the judgement at Lprog (`LSafeN`, an instance of
-`Isa.SafeN` in `lprog/Lprog/Sem.lean`) excludes `wrong`. So a proof at Lprog also proves that
+Otherwise the step goes `wrong`, and the judgement at Lprog excludes `wrong`. That judgement
+is `LSafeN` (`MachineChecked/RiscV/Lift/Lift.lean`): the generic `Isa.SafeN` of
+`lprog/Lprog/Sem.lean`, at the lifted program under SP1. So a proof at Lprog also proves that
 the function returns to its caller.
 
 The contract is stated in continuation form, at Lprog:
@@ -163,7 +164,8 @@ was found.
   `lsym`: [`Cases/Hardening/`](../Cases/Hardening/README.md).
 - Straight-line kernels proved directly over the machine: [`Cases/CatCrypt/`](../Cases/CatCrypt/README.md)
   and `MachineChecked/RiscV/Lift/Block.lean`.
-- The older route, symbolic execution over the machine: `Cases/Zip2005/Runtime/Memcmp.lean`
-  proves `memcmp` that way for blocks of 32 and 64 bytes.
+- Using the result: `Cases/Zip2005/Runtime/Memcmp.lean` specialises `MemcmpLprog.safe` to
+  doubleword-aligned blocks of `8k` bytes (`memcmp_blocks_spec`, and 64 and 32 bytes in
+  `memcmp8_spec`, `memcmp4_spec`).
 - What the lift does not cover yet, and what comes after layer 0.5:
   [`ROADMAP.md`](../ROADMAP.md) and [`MachineChecked/RiscV/LIMITS.md`](../MachineChecked/RiscV/LIMITS.md).

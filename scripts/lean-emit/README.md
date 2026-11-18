@@ -11,8 +11,9 @@ scripts/lean-emit/compile.sh /tmp/emit Guest 8     # OUT NS [JOBS], default 8 jo
 ```
 
 It builds the data module first (`Words` for `--proved`, `Code` otherwise), then the `F<i>` and
-`Pancake` modules, and prints the five slowest, the number that failed, and the total time.
-Logs go to `OUT/log/`.
+`Pancake` modules in parallel, and prints the five slowest, how many of those failed, and the
+sum of their times (not wall time; the data module is not counted). Logs go to `OUT/log/`.
+`NS` must be a single component, and the root module `OUT/NS.lean` is not built.
 
 - It runs `lean` from the repository root, so the ELF path in `Words.lean` or `Code.lean` is
   resolved from there.

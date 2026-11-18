@@ -40,6 +40,7 @@ How it differs from RISC-V:
   Lean v4.35.0; this repository uses v4.36.0-rc2.
 
 `MachineChecked/X86/Kraken.lean` imports `Kraken.X64.Semantics` and nothing else from Kraken.
+It replaces the transcription of Jasmin's x86 semantics used before.
 
 ## AArch64: DeepMind's arm64-semantics
 
@@ -74,4 +75,5 @@ Limits and requirements:
 - **Toolchain:** it pins Lean v4.34.0 and builds without warnings on v4.36.0-rc2 (checked
   2026-11-12). It uses the module system.
 
-`MachineChecked/ARM/Arm64.lean` imports `Arm64.Trusted`.
+`MachineChecked/ARM/Arm64.lean` imports `Arm64.Trusted`. It replaces the hand-written model
+ported from catcrypt-compiler used before.

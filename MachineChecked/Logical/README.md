@@ -11,7 +11,7 @@ produces it from Lprog. The language is Pancake, using Flapjack's syntax
 | `Lift.lean` | **Lift 2** (`lift`): an Lprog program as a Pancake program. Each function becomes a Pancake function and each call a call, checked as Lprog checks it. Bodies use `if` and `while` where the control flow is structured, and a loop over basic blocks otherwise. The execution environment is a parameter (`Env`): installation, each external call, and what to do when the program goes `wrong`. |
 | `Guest.lean` | Shared by whole-program environments: functions that write a program's memory at its own addresses, `l_trap`, system calls as FFI calls with results read back, and `bare`, the environment for a program without an operating system. |
 
-Printing Pancake as source text (`Pancake.print`) and the conventions lift 2 writes with
+Printing Pancake as source text (`Pancake.print`; Flapjack has a parser but no printer) and the conventions lift 2 writes with
 (`Pancake.Env`) are in the package [`pancake`](../../pancake/README.md).
 
 ## Status

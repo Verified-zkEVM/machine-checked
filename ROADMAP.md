@@ -47,7 +47,8 @@ comes with a theorem that anything proved of the lifted program holds of the mac
 the binary. The final theorem is always stated here, even though the proving happens higher up.
 
 **Layer -1: the ELF and its context.** How an ELF is loaded, which depends on the execution
-context (riscv-zkvm, for example, has SP1 and Zisk backends). A context also fixes the system
+context (riscv-zkvm, for example, has SP1 and Zisk backends; in the long run each ISA should
+support several, see [this slide](https://derekhsorensen.com/slides/verso/cambridge-2026/#/5/2)). A context also fixes the system
 calls, how a run halts and what counts as accepting, the memory regions, and the calling
 convention. It is a parameter carried through every layer: a system call is a step at layer 0
 and an external call with a specification above.
@@ -66,19 +67,21 @@ commutes:
   two programs' runs.
 - **Commuting** means the routes agree: transpiling A to B and then decompiling gives the same
   layer-0.5 program, up to behavioural equivalence with the ABI mapped, as decompiling from A.
+  Likewise A to B then B to C agrees with A to C.
 
 Then a property proved once at layer 0.5 holds on every ISA the program reaches.
 
 **Compiling back down.** Two verified compilers in Lean go the other way, so a transpiler can be
 our decompiler followed by one of them: **Flapjack** (Pancake to RISC-V, AArch64, x86-64) and
-**catcrypt-compiler** (through a Jasmin dialect and a linear form close to layer 0.5). First
+**catcrypt-compiler** (through a Jasmin dialect and a linear form close to layer 0.5); Jasmin
+itself is a third. First
 use: decompile, recompile, and compare behaviour on tests. Later: a round-trip refinement
 theorem in the shape of [flapjack-flip](https://github.com/dhsorens/flapjack-flip)'s
 `DecompilerSound`. That needs each compiler's correctness stated over this repository's ISA
 semantics rather than its own.
 
 Open: whether some transpilers are better built directly; what to do with features one ISA
-lacks (flags, instructions without a counterpart, different syscalls); and which observations
+lacks (flags, which RISC-V has none of; instructions without a counterpart; different syscalls); and which observations
 the equivalence keeps (outputs, memory, leakage).
 
 ## Current state
@@ -89,7 +92,7 @@ the equivalence keeps (outputs, memory, leakage).
 | 1 | `MachineChecked/Logical`: Pancake, and lift 2 from Lprog with structured control flow where it can be found. Not proved; checked by recompiling with Flapjack and comparing runs ([`scripts/decompile-check`](scripts/decompile-check/README.md)) for RISC-V, AArch64 and x86-64. [`docs/LogicalMachine.md`](docs/LogicalMachine.md) sketches the program logics. |
 | 0.5 | The package [`lprog`](lprog/README.md): Lprog's syntax and semantics, independent of any ISA, with calls, tail calls, returns and external calls; the judgement `SafeN`; contracts (`Isa.Contract`); the symbolic-execution tactic `lsym`. Design: [`docs/design/Lprog.md`](docs/design/Lprog.md), [`docs/design/Automation.md`](docs/design/Automation.md). |
 | 0 → 0.5 | **RISC-V** (`MachineChecked/RiscV/Lift`): whole programs lift, and the transfer theorem carries `SafeN` at Lprog down to `stepSp1`, with SP1's system calls as the context. **AArch64, x86-64** (`MachineChecked/ARM/Lift`, `X86/Lift`): lifts of linked programs for `decompile`, tested but not proved; limits in each `LIMITS.md`. |
-| 0 | **RISC-V:** riscv-zkvm, tied to Sail, with the judgement `SafeN` over `stepSp1`, and the layer-0 proof tools (`RiscV/Check`, `Sym`, `Frame`, `Exec`). **x86-64:** Kraken's x64 semantics; no judgement over it yet. **AArch64:** DeepMind's arm64-semantics; no judgement over it yet. |
+| 0 | **RISC-V:** riscv-zkvm, tied to Sail, with the judgement `SafeN` over `stepSp1`, and the layer-0 proof tools (`RiscV/Check`, `Sym`, `Frame`, `Exec`). **x86-64:** Kraken's x64 semantics (`MachineChecked/X86/Kraken.lean`); no judgement over it yet. **AArch64:** DeepMind's arm64-semantics (`MachineChecked/ARM/Arm64.lean`); no judgement over it yet. |
 | -1 | RISC-V on SP1 only: the loader, SP1's acceptance and system calls. The context is not yet a parameter. |
 | all | `lprog/Lprog/Ascent`: one notion of a run and one correspondence, for any step function. |
 
@@ -103,8 +106,8 @@ Chosen to exercise the framework in different ways, so that practice drives the 
 
 | target | ISA | exercises | status |
 | --- | --- | --- | --- |
-| [zip-2005](Cases/Zip2005/README.md): an SP1 guest checking a Zcash Orchard statement | RISC-V | a whole Rust binary: runtime, allocator, panics, cryptography, `main` | mostly proved with the layer-0 tools; some runtime functions through the lift |
-| [CatCrypt kernels](Cases/CatCrypt/README.md): field and point arithmetic from catcrypt-compiler | RISC-V | straight-line constant-time code, carry chains | `cswap`, `addp256`, `feAdd`, `feSub` proved through the lift; `feMul121666` open |
+| [zip-2005](Cases/Zip2005/README.md): an SP1 guest checking a Zcash Orchard statement | RISC-V | a whole Rust binary: runtime, allocator, panics, cryptography, `main` | mostly proved with the layer-0 tools; `black_box`, `memcmp` and `write_vectored` also through the lift |
+| [CatCrypt kernels](Cases/CatCrypt/README.md): field and point arithmetic from catcrypt-compiler | RISC-V | straight-line constant-time code, carry chains | `cswap`, `addp256`, `feAdd`, `feSub` proved over the machine as straight-line blocks (`corres_block`); `feMul121666` open |
 | [leanVM BLAKE2s](Cases/LeanVM/README.md) | RISC-V | a second execution context; a hash against [hash-specs](https://github.com/dhsorens/hash-specs) | image and loading only |
 | [Hardening](Cases/Hardening/README.md): small C programs written to break the tools | RISC-V | every function proved with `lsym` against what C says | done; findings tracked in its README |
 | the sig.golf verifier | to be chosen | signature verification end to end | not started |
@@ -115,9 +118,9 @@ and what its specification would be.
 
 ## Next steps
 
-1. **Finish automation at Lprog.** Lprog programs, contracts and the RISC-V transfer theorem
-   are done (milestone A of [`docs/design/Lprog.md`](docs/design/Lprog.md)), and the symbolic
-   executor `lsym` works on real code ([`docs/design/Automation.md`](docs/design/Automation.md)).
+1. **Finish automation at Lprog.** Lprog programs and the RISC-V transfer theorem are done
+   (milestone A of [`docs/design/Lprog.md`](docs/design/Lprog.md)), contracts (`Isa.Contract`)
+   are stated, and the symbolic executor `lsym` works on real code ([`docs/design/Automation.md`](docs/design/Automation.md)).
    Next: `lsym` stepping straight-line blocks at once (`SafeN.block`), milestone B's
    benchmarks re-proved with it, and the contract table at Lprog (milestone C).
 2. **Move zip-2005 onto the lift.** Re-prove its function specifications at Lprog, so the end

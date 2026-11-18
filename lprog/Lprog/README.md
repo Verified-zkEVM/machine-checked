@@ -8,7 +8,7 @@ are only names; RISC-V's depend on riscv-zkvm and are in
 
 ## The language
 
-Lprog is linear Jasmin. A body is a list of instructions: operations, labels, gotos,
+Lprog is modelled on Jasmin's linear language (`Linear.lcmd`, as ported in catcrypt-compiler). A body is a list of instructions: operations, labels, gotos,
 conditional jumps, calls, tail calls, returns and external calls. Labels replace addresses and
 control flow is explicit, but there are still registers and flat memory.
 
@@ -47,8 +47,8 @@ result transfers to the machine.
 | ISA | instance | lift | simulation |
 | --- | --- | --- | --- |
 | RISC-V | [`lprog-riscv`](../../lprog-riscv/README.md) | [`MachineChecked/RiscV/Lift`](../../MachineChecked/RiscV/Lift/README.md) | yes |
-| AArch64 | `ARM/Reg.lean` | [`MachineChecked/ARM/Lift`](../../MachineChecked/ARM/README.md) | no |
-| x86-64 | `X86/Reg.lean` | [`MachineChecked/X86/Lift`](../../MachineChecked/X86/README.md) | no |
+| AArch64 | `ARM/Reg.lean` | [`MachineChecked/ARM`](../../MachineChecked/ARM/README.md) | no |
+| x86-64 | `X86/Reg.lean` | [`MachineChecked/X86`](../../MachineChecked/X86/README.md) | no |
 
 ## Worked examples (RISC-V)
 

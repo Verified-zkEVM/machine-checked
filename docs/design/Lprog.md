@@ -2,7 +2,7 @@
 
 The design that makes Lprog (`lprog/Lprog`, layer 0.5) the layer where proofs about programs
 happen: whole programs, calls, external calls, contracts and automation. It covers milestones
-A–D of [`ROADMAP.md`](../../ROADMAP.md) steps 1–3 (issues #2–#5). Accepted 2026-10-22.
+A–D of [`ROADMAP.md`](../../ROADMAP.md) steps 1–2 (issues #2–#5). Accepted 2026-10-22.
 
 ## Status
 
@@ -125,8 +125,8 @@ def SafeN (step : σ → Outcome σ → Prop) (accept : σ → Prop)
 - RISC-V's `SafeN` is the instance at `stepSp1` (deterministic, never `wrong`) and `Accepted`,
   keeping its name and every lemma's name.
 - Lprog's judgement is the instance at `Isa.step` and the context's `accept`.
-- The rules (`step`, `of_step`, `steps`, `assume`, `loop`, `loop_measure`, `cases`) are proved
-  once, generically.
+- The rules (`step`, `of_step`, `assume`, `stuck`, `loop`, `loop_measure`, `budget_induction`,
+  `of_reaches`) are proved once, generically (`lprog/Lprog/Ascent/Safe.lean`).
 - **Contracts** are in continuation form with the budget:
   `∀ G n P s, Pre s → (∀ t, Post s t → SafeN … G n P t) → SafeN … G n P s`.
 - **Correspondence is a contract.** `Ascent.Corres` is restated in this form:
@@ -134,7 +134,7 @@ def SafeN (step : σ → Outcome σ → Prop) (accept : σ → Prop)
   machine (Lprog with external calls) every run, not some run, must reach a related state or
   stop safely. The older form over `Reaches` (total correctness) implies it on a deterministic
   machine, by `SafeN.of_reaches`, so the CatCrypt kernels' statements remain valid and give
-  contracts directly (`SafeN.of_corres`).
+  contracts directly (RISC-V's `SafeN.of_corres`).
 - **Composition** is a generic `table_sound`, by strong induction on the budget over a family of
   contracts (the shape of `Check/Sound/Act.lean`'s `table_sound`). At an `Lcall` the callee's
   contract is used at a smaller budget, which is what makes recursion compose. Not yet built at
@@ -239,6 +239,9 @@ not change and the end theorem stays green throughout. `PanicPaths`, the open pr
 ## As built (milestone A)
 
 Milestone A follows §1–§5, §7 and §8 with these departures:
+
+- **Registers are a function**, `Reg → BitVec 64`, read by application and written by `updReg`
+  (`lprog/Lprog/Sem.lean`), not behind the `get`/`set` interface above.
 
 - **External calls are numbered, and SP1's are not restated per call.** `Lext n` takes a
   number. SP1's context (`sp1Ctx`, `lprog-riscv/LprogRiscV/Sp1Ctx.lean`) has as its

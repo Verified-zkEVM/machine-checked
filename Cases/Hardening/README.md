@@ -24,6 +24,12 @@ which CI runs on every pull request.
 | `Guest.lean` | `__udivti3` from a Rust guest built for SP1 (`elf/k_u128.elf`), through an assumed contract of its callee: a far call (`auipc`, `jalr`), with the result returned through a pointer into its frame. |
 | `Rec.lean` | Recursive `fib`: its contract, by induction on the argument, through a loop around the recursive call, with a frame condition. |
 
+Not every lifted function has a theorem. `Gen/` also holds `popcount` (`arith.c`); `set_bytes`,
+`copy_bytes`, `str_len`, `store_widths` and `read_le32` (`mem.c`); and `fact` (`calls.c`). No proof
+here covers them, nor any of `switch.c`, `big.c`, `basics_o0.c` or `calls_o0.c` (those are
+generated only). The four functions of `arith.c` that use 32-bit operations (`add32`,
+`shl32`, `sra32`, `div32`) are not lifted at all (finding 2).
+
 ## Findings
 
 In the order they were found. "Fixed" entries name the test that now covers them.

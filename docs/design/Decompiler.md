@@ -10,8 +10,9 @@ everything above their own lift. How to use the tool is in
 
 The tool runs on RISC-V, AArch64 and x86-64 ELFs and on Flapjack images, and is tested by
 recompiling and running ([`scripts/decompile-check`](../../scripts/decompile-check/README.md)).
-Of the proofs, only phase 0 is done: nothing above lift 1 is proved, and only RISC-V's
-`--proved` lift 1 is.
+Proved so far: phase 0, the equivalence of RISC-V's `--proved` lift 1 (`liftProg`) with the
+machine, and phase 1's round trip of the Lprog text (`parse_print`). No other lift 1, and
+nothing above lift 1, is proved.
 
 | phase | what | status |
 | --- | --- | --- |

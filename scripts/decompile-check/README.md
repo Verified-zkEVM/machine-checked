@@ -18,7 +18,7 @@ Each kind of input has its own notion of observable behaviour and its own refere
 Two binaries agree on a test when their behaviour is identical on each of five inputs.
 
 Whatever the original instruction set, the Pancake is compiled by Flapjack to RISC-V and run
-on the interpreters here. Neither the compiler nor the reference is this repository's. The
+on the interpreters here, so that only the decompiler is under test. Neither the compiler nor the reference is this repository's. The
 interpreters are fast, and each is compared with its reference on every test: with
 flapjack-flip's machine output for output and step for step, and with SP1's executor on the
 public values, exit code and instruction count. Bare guests are run by Unicorn directly.
@@ -29,14 +29,14 @@ public values, exit code and instruction count. Bare guests are run by Unicorn d
 | --- | --- |
 | `check.py` | The driver: `build`, `rust`, `reference`, `sp1-reference`, `self-test`, `run`, `mutants`, `limits`. `check.py --help` describes each. |
 | `rv64.py` | A plain RV64IM interpreter, shared by the two runners. |
-| `fjrun.py` | Runs a Flapjack image on the test inputs and prints its behaviour in `flip-check run`'s format. Much faster than riscv-zkvm, whose memory is a function. |
+| `fjrun.py` | Runs a Flapjack image on the test inputs and prints its behaviour in `flip-check run`'s format. A long run takes minutes on riscv-zkvm (whose memory is a function) and under a second here. |
 | `sp1run.py` | Runs an SP1 guest, or the image a decompiled guest (SP1 or bare) is recompiled to, with SP1's system calls as riscv-zkvm models them. |
 | `barerun.py` | Runs a bare AArch64 or x86-64 guest on Unicorn with the same system calls. Needs the Python package `unicorn`. |
 | `x86dis.py` | Compares `decompile`'s x86-64 decoder with `llvm-objdump` on every instruction of a guest: where each starts, and its mnemonic. |
-| `run/` | Per instruction set, the instruction kinds the tests run; `decompile --table` marks these as run in each `LIMITS.md`. Written by `decompile --kinds` from `sp1run.py` or `barerun.py --coverage --instructions`. |
+| `run/` | Per instruction set, the instruction kinds the tests run; `decompile --table` marks these as run in each `LIMITS.md`. Written by `decompile --kinds` from the output of `sp1run.py --coverage --instructions` or `barerun.py --coverage --instructions`. |
 | `sp1ref/` | `sp1ref GUEST.elf ...`: SP1's executor (`sp1-sdk`) on the same inputs. A separate Rust project. |
 | `fjc/` | `fjc SOURCE.pnk`: Flapjack's `RiscV.NativeSource.compile` as a command. A separate Lean project on Flapjack's toolchain; the first `lake build` (after `lake exe cache get`) is slow. |
-| `rust/` | 41 hand-written guests, each testing one thing: sorting, hashing, trait objects, function pointers, jump tables, 128-bit and floating-point arithmetic, formatting, collections, recursion and tail calls, panics, and inline assembly for instructions and control flow rustc does not emit (`k_asm_*` for RISC-V, `k_arm`, `k_x86`). One source tree for three machines: `src/lib.rs` is shared, on SP1's library for SP1 and on `src/bare.rs` (start-up, stack, allocator, system calls, panic handler, linked by `bare.x`) for bare targets. Files starting with `// SP1 only` (RISC-V assembly, `HashMap`) are not built for bare targets. |
+| `rust/` | 41 hand-written guests, each testing one thing: sorting, hashing, trait objects, function pointers, jump tables, 128-bit and floating-point arithmetic, formatting, collections, recursion and tail calls, panics, and inline assembly for instructions and control flow rustc does not emit (`k_asm_*` for RISC-V, `k_arm`, `k_x86`). One source tree for three machines: `src/lib.rs` is shared, on SP1's library for SP1 and on `src/bare.rs` (start-up, stack, allocator, system calls, panic handler, linked by `bare.x`) for bare targets. Files starting with `// SP1 only` (RISC-V assembly, `HashMap`) are not built for bare targets; `k_arm` and `k_x86` run their assembly on their own machine and the same function in Rust on the others. |
 | `gen_rust.py` | Random Rust guests: typed arithmetic at every width, loops, `match`, functions, arrays, calls through pointers and trait objects, occasional panics. |
 | `gen_asm.py` | Test images of hand-assembled code: every instruction the lift covers with edge-case operands, and compiler-style control flow that follows the calling convention. With `w32`, every 32-bit instruction. |
 | `gen_pancake.py` | Random Pancake programs using the whole language: globals, pairs, exceptions, recursion, tail calls, `break`/`continue`, every memory width, distant memory, several FFI names. |

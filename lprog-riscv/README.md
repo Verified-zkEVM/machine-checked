@@ -1,8 +1,9 @@
 # lprog-riscv
 
 A Lake package of this repository containing **RISC-V at Lprog**, over riscv-zkvm's machine.
-Together with [`lprog`](../lprog/README.md), it is all a proof about a decompiled RISC-V
-program needs. The lift itself and its proofs are in the root package
+Together with [`lprog`](../lprog/README.md), it holds the RISC-V definitions a proof about a
+decompiled program reasons with. The lift itself (`liftProg`), its proofs, and the modules
+`decompile --to lean` writes need the root package
 ([`MachineChecked/RiscV/Lift`](../MachineChecked/RiscV/Lift/README.md)). See
 [`docs/design/Packages.md`](../docs/design/Packages.md).
 
