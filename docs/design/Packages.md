@@ -1,6 +1,6 @@
 # Design note: what this repository exports
 
-**Status: steps 1 and 2 done (2026-11-17); the rest proposed (2026-11-16).** It plans how the decompiler of
+**Status: steps 1 and 2 done; steps 3 and 4 in their first form (2026-11-17); the rest proposed (2026-11-16).** It plans how the decompiler of
 [`Decompiler.md`](Decompiler.md) and the logic for reasoning about its output reach people
 outside this repository.
 
@@ -30,8 +30,8 @@ arm64-semantics, and Flapjack for ZirenDet.
 | --- | --- | --- | --- | --- |
 | [`lprog/`](../../lprog/README.md) | `Lprog.*` | `Lprog`, `Lprog.Ascent`, `Lprog.ARM`, `Lprog.X86` | `Ascent` (runs, `SafeN`, `Refines`, `Equivalent`, `Corres`), Lprog (syntax, semantics, the rules of `SafeN`, the text format, what lifts are built from), AArch64's and x86-64's registers at Lprog | nothing (Lean's `Std`) |
 | [`lprog-riscv/`](../../lprog-riscv/README.md) | `LprogRiscV.*` | `Lprog.RiscV`, `Lprog.RiscV.Machine` | RISC-V at Lprog: the facts about riscv-zkvm's machine it rests on, RISC-V's instance of Lprog (`rvIsa`, `opOf_spec`, `Agree`), SP1's execution context (`sp1Ctx`) and `sp1Ecall_agree` | `lprog/`, riscv-zkvm |
-| `pancake/` (not yet) | | | the environments the decompiler's Pancake assumes (SP1's, bare guests'), and lemmas for reasoning about programs in them | Flapjack's semantics |
-| the root | `MachineChecked.*`, `Tools.*`, `Cases.*` | `MachineChecked`, … | `decompile` and the other tools, the machine models and the lifts (`MachineChecked/<ISA>/Lift`), the theorems that relate them (`Equiv.lean`), the layer-0 proof tools, `Tools/Test`, the case studies | `lprog/`, `lprog-riscv/` by path; riscv-zkvm, Kraken, arm64-semantics, Flapjack, Mathlib |
+| [`pancake/`](../../pancake/README.md) | `Pancake.*` | `Pancake` | a program over Flapjack's syntax, the environment the decompiler's Pancake assumes, and the printer; Flapjack's semantics and lemmas when it builds here | Flapjack |
+| the root | `MachineChecked.*`, `Tools.*`, `Cases.*` | `MachineChecked`, … | `decompile` and the other tools, the machine models and the lifts (`MachineChecked/<ISA>/Lift`), the theorems that relate them (`Equiv.lean`), the layer-0 proof tools, `Tools/Test`, the case studies | `lprog/`, `lprog-riscv/`, `pancake/` by path; riscv-zkvm, Kraken, arm64-semantics, Flapjack, Mathlib |
 
 The proof libraries are three, not one: their requirements differ (nothing; riscv-zkvm;
 Flapjack), and so do their users. A proof about Lprog never needs Flapjack, and one about an
@@ -59,8 +59,10 @@ before: inside a namespace ending in `Lprog`, `Lprog` would mean that namespace 
 package.
 
 Flapjack's Pancake semantics imports no Mathlib, but the Flapjack package requires Mathlib and
-ZirenDet; until its semantics is a package of its own (a request upstream), `pancake/` is as
-heavy as Flapjack.
+ZirenDet, and at the commit pinned its semantics does not build on this repository's Lean
+version (v4.36): the branch pinned ports Flapjack's syntax only. So `pancake/` has the syntax
+and the conventions, and gets the semantics when Flapjack's builds here. Until its semantics is
+a package of its own (a request upstream), `pancake/` is as heavy as Flapjack.
 
 ## 2. From the decompiler to Lean, checked by the kernel
 
@@ -82,6 +84,11 @@ modules must also be as the tool wrote them; a symbol's name is escaped where it
 word misread does not give a false theorem about the binary: the equivalence takes the code at
 each function's address as a hypothesis (`CodeAt` in `equivalent_of_entry`), which then does
 not hold of the machine. The details are in `Tools/README.md`, "As Lean".
+
+The other routes (step 3) trust the same in kind: `check_elf_input` and the reader it shares
+with the tool (`Tools.Program.inputOf`, with its heuristics for where a computed jump may go),
+and the modules being as written. Which instruction set's builder makes `program` is not
+written: the command defines `program` from the ELF's own machine.
 
 **What the theorem buys depends on the lift.** It says the term is what the lift computes.
 That says something about the binary only where the lift has a theorem of its own: today
@@ -168,8 +175,9 @@ catcrypt-compiler, moved together; Flapjack is not party to #16, and is to be as
 | --- | --- | --- |
 | 1 | `lprog/` as a package: `Ascent`, Lprog, AArch64's and x86-64's registers; `lprog-riscv/`: RISC-V's instance and SP1's context, moved; the root requires both by path | done: the root builds as before, no theorem changes its statement, and a project outside this repository that requires `lprog/` alone builds and fetches nothing else |
 | 2 | `decompile --to lean` (RISC-V, `--proved` route first), with the check against the ELF | done: blake2s and zip-2005 build completely, and a changed word or term fails. This replaces "the zip-2005 modules build in CI's time": the ELFs are not in the repository, so these runs are local, and CI checks a changed term on a small program (`Tools/Test/ToLean.lean`) |
-| 3 | `--to lean` for the other routes, and for Pancake as Flapjack's syntax | each route's terms checked against its lift |
-| 4 | `pancake/`, on Flapjack's semantics; ask Flapjack for a semantics package and a syntax entry point | a proof about a decompiled guest's Pancake imports `pancake/` only |
+| 3 | `--to lean` for the other routes, and for Pancake as Flapjack's syntax | first form: `decompile --to lean [--pancake]` for RISC-V, AArch64 and x86-64, each term checked against its lift (`Tools/README.md`, "The other routes"); the kernel checks small and medium functions, and needs certificates for large ones. Flapjack images are not covered |
+| 3a | the kernel's work on large functions: check certificates the tool writes (labels, live flags) instead of evaluating the lift again | the largest function of a bare guest checks in seconds |
+| 4 | `pancake/`, on Flapjack's semantics; ask Flapjack for a semantics package and a syntax entry point | first form: `pancake/` with Flapjack's syntax, the environment's conventions (lift 2 takes them from it) and the printer. Its semantics waits on Flapjack: at the commit pinned, Flapjack's semantics does not build on Lean v4.36 (its branch ports the syntax only). A written `Pancake.lean` still imports the root's `Tools.ToLean` (for `program` and `kernel_eq`), so a proof about it does not yet need `pancake/` only |
 | 5 | Ascent's port into `lprog/` with catcrypt-compiler (#16), and the pins kept up by CI | catcrypt-compiler requires `lprog/` |
 | 6 | an installer: release binaries of `decompile` from CI | |
 

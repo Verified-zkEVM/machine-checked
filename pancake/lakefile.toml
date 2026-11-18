@@ -1,0 +1,25 @@
+# Pancake as the decompiler writes it, on Flapjack's semantics: a program, running it, and the
+# environment it assumes. See `docs/design/Packages.md`.
+name = "pancake"
+version = "0.1.0"
+defaultTargets = ["Pancake"]
+moreLeanArgs = ["--tstack=400000"]
+
+# The same commit as the root's (`../lakefile.toml`). Flapjack's semantics imports no Mathlib,
+# but the Flapjack package requires Mathlib and ZirenDet, so this package is as heavy as it.
+[[require]]
+name = "Flapjack"
+git = "https://github.com/pirapira/flapjack"
+rev = "af5c59c5ba5d6a9bc52658d429f24a117c9cbaee"
+
+# Mathlib at the tag matching `lean-toolchain`, as the root pins it, and last, so that its
+# versions of the packages it shares with Flapjack win. Otherwise Lake resolves the Mathlib
+# Flapjack's branch names (v4.33.1), with its batteries, aesop and Qq, on our v4.36.
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.36.0-rc2"
+
+[[lean_lib]]
+name = "Pancake"
+globs = ["Pancake", "Pancake.+"]

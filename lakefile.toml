@@ -13,6 +13,10 @@ path = "lprog"
 name = "lprog-riscv"
 path = "lprog-riscv"
 
+[[require]]
+name = "pancake"
+path = "pancake"
+
 # The three instruction-set semantics (`docs/ISA.md`), each used unmodified at a pinned commit.
 
 # RISC-V: the RV64IM machine model, its decoder and ELF loader. Pinned to riscv-zkvm's Lean

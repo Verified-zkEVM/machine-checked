@@ -41,7 +41,7 @@ jobs:
           # specification libraries under Cases/Zip2005/Spec are upstream code and are checked
           # by their own axiom census (Spec/Zip2005.lean) instead.
           if grep -rnE '^\s*(private |protected )?axiom\s|^\s*(by\s+)?native_decide\b|:=\s*by\s+native_decide\b|<;>\s*native_decide\b|\bsorry\b\s*$|:=\s*sorry\b|by\s+sorry\b' \
-              --include='*.lean' --exclude-dir=Spec --exclude-dir=.lake MachineChecked lprog lprog-riscv Cases Tools scripts; then
+              --include='*.lean' --exclude-dir=Spec --exclude-dir=.lake MachineChecked lprog lprog-riscv pancake Cases Tools scripts; then
             echo "::error::found sorry, axiom or native_decide"; exit 1
           fi
 
@@ -62,6 +62,9 @@ jobs:
         run: |
           lake build decompile
           python3 scripts/decompile-check/check.py limits
+
+      - name: decompile --to lean, end to end, on a small ELF
+        run: scripts/to-lean-check/check.sh
 
       - name: Axiom check
         run: |

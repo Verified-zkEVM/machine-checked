@@ -28,7 +28,7 @@ import MachineChecked.RiscV.Sp1.Pancake
 import MachineChecked.RiscV.Lift.Rules
 import MachineChecked.RiscV.Lift.Block
 import Lprog
-import MachineChecked.Logical.Pancake
+import Pancake
 import MachineChecked.Logical.Lift
 import MachineChecked.Logical.Ops
 import MachineChecked.Logical.Structure

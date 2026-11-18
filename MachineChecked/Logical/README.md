@@ -6,7 +6,7 @@ decompiled to this layer can be compiled again.
 
 | file | contents |
 | --- | --- |
-| `Pancake.lean` | Pancake programs as source text (`Pancake.print`). Flapjack has a parser and no printer. |
+| (`Pancake.Print`, in the package [`pancake`](../../pancake/README.md)) | Pancake programs as source text (`Pancake.print`). Flapjack has a parser and no printer. The conventions lift 2 writes its programs with (`Pancake.Env`) are there too. |
 | `Ops.lean` | The shared operations of Lprog as Pancake statements. A register is a global variable. What Pancake lacks (shifts by a register, the high halves of a product, division) is a function written in Pancake. |
 | `Structure.lean` | From a control-flow graph to structured control flow (`structure`), by Ramsey's method over the dominator tree: sequences, choices, blocks and loops. It works on the reducible graphs and says so of the others. It knows nothing of Pancake. |
 | `Lift.lean` | **Lift 2** (`lift`): an Lprog program as a Pancake program. Each function is a Pancake function; a call is a call, checked as Lprog checks it; the body is `if` and `while` where the function's control flow has a structure, and a loop over its blocks otherwise. The execution environment is a parameter (`Env`): the installation, each external call, and what to do where the program goes `wrong`. |

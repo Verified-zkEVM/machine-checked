@@ -33,7 +33,7 @@
 -/
 
 import Lprog.Op
-import Std.Data.HashMap
+import Std.Data.TreeMap
 
 namespace Lprog.Linked
 
@@ -95,12 +95,12 @@ def liftProgram (liftI : Cx → Option (At I) → At I → Lcmd (Op Reg) Reg)
     (fns : List (Fun I))
     (parts : List (Fun I) → Fun I → List (List (At I)) := fun _ f => [f.code])
     (extra : List (At I) → List (BitVec 64) := fun _ => []) : Lprog (Op Reg) Reg :=
-  let entries : Std.HashMap (BitVec 64) Nat :=
-    Std.HashMap.ofList (fns.zipIdx.reverse.map fun (f, k) => (f.addr, k))
+  let entries : Std.TreeMap (BitVec 64) Nat :=
+    Std.TreeMap.ofList (fns.zipIdx.reverse.map fun (f, k) => (f.addr, k))
   fns.map fun f =>
     let ps := parts fns f
-    let labels : Std.HashMap (BitVec 64) Nat :=
-      Std.HashMap.ofList (ps.flatten.zipIdx.reverse.map fun (a, k) => (a.addr, k))
+    let labels : Std.TreeMap (BitVec 64) Nat :=
+      Std.TreeMap.ofList (ps.flatten.zipIdx.reverse.map fun (a, k) => (a.addr, k))
     let cx : Cx :=
       { label := (labels[·]?), entry := (entries[·]?), all := List.range fns.length
         abort := ps.flatten.length

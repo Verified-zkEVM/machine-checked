@@ -43,6 +43,9 @@
 
 import MachineChecked.Logical.Ops
 import MachineChecked.Logical.Structure
+import Pancake.Env
+import Std.Data.TreeMap
+import Std.Data.TreeSet
 
 namespace MachineChecked.Logical
 
@@ -148,7 +151,7 @@ def lpc : String := "lpc"
 def lia : String := "lia"
 def lbr : String := "lbr"
 def top : String := "top"
-def halt : String := "l_halt"
+def halt : String := _root_.Pancake.halt
 
 /-- What lifting a function needs of the program. -/
 structure Cx (Reg : Type) where
@@ -194,7 +197,7 @@ def callee (cx : Cx Reg) (known : List (String × BitVec 64)) :
 def blocks (cx : Cx Reg) (name : String) (body : Lcmd (Op Reg) Reg) : ExceptT String M (List Block) := do
   let .Llabel _ entry :: _ := body | throw "a function does not start at a label"
   let ts := targets body
-  let isLeader : Std.HashSet Nat := (Std.HashSet.ofList ts).insert entry
+  let isLeader : Std.TreeSet Nat := (Std.TreeSet.ofList ts).insert entry
   let link := RegText.name cx.link
   let sp := RegText.name cx.sp
   let stop : Prog W := .raise halt (num 0)
@@ -511,7 +514,7 @@ def function (cx : Cx Reg) (name : String) (fd : Lfundef (Op Reg) Reg) :
   let (bs, runFns) := outline name (← blocks cx name fd.body)
   let wrong ← liftM (m := M) (trap cx.env s!"{name}: a jump to an address that is none of its candidates")
   let sp := RegText.name cx.sp
-  let index : Std.HashMap Nat Nat := Std.HashMap.ofList (bs.zipIdx.map fun (b, k) => (b.id, k))
+  let index : Std.TreeMap Nat Nat := Std.TreeMap.ofList (bs.zipIdx.map fun (b, k) => (b.id, k))
   let arr := bs.toArray
   let succs := arr.map fun b => b.succs.map fun l => (index[l]?).getD arr.size
   let small := fd.body.length ≤ 2 * big && bs.all fun b => match b.term with
@@ -539,9 +542,11 @@ end Lift
 
 open Lift in
 /-- The Pancake name of each function: `f_` and its own name where that is a short
-    identifier no other function has, `f` and its index otherwise. -/
+    identifier no other function has, `f` and its index otherwise. Its characters are tested
+    as a list (`toList.all`, the same test as `String.all`), which the kernel can evaluate when
+    it checks a written Pancake module (`Tools/ToLean.lean`); `String.all` it cannot. -/
 def names {Op Reg : Type} (p : Lprog Op Reg) : Array String :=
-  let ok (s : String) : Bool := !s.isEmpty && s.length ≤ 40 && s.all fun c => c.isAlphanum || c == '_'
+  let ok (s : String) : Bool := !s.isEmpty && s.length ≤ 40 && s.toList.all fun c => c.isAlphanum || c == '_'
   let all := p.map (·.name)
   (p.zipIdx.map fun (fd, i) =>
     if ok fd.name && (all.filter (· == fd.name)).length == 1 then s!"f_{fd.name}" else s!"f{i}").toArray
@@ -570,7 +575,7 @@ def lift {Reg : Type} [RegText Reg] (env : Env) (regs : List Reg) (link sp : Reg
   let globals := (regs.map RegText.name ++ env.regs).eraseDups ++
     (List.range st.maxTemps).map temp ++ [lia, lpc]
   let r := "r"
-  let main := fn "main" [] <| seq <|
+  let main := fn _root_.Pancake.main [] <| seq <|
     env.init ++
     [.dec r .one (num 0) <| seq
       [.call (some (some (.local, r), some (halt, r, .return (num 0)))) start [],
