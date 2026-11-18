@@ -47,12 +47,14 @@ jobs:
 
       # The case studies are not built on pull requests for now (see `Cases/README.md`); the
       # on-demand `full` job builds them. The two proved with `lsym` are, since they check the
-      # tactic on real code, and take seconds.
+      # tactic on real code, and take seconds; so are the hardening examples (`Cases/Hardening`),
+      # which check it and `--to lean` on code written to break them.
       - name: Build the framework and the tools
         run: |
           set -eo pipefail
           lake build MachineChecked Tools \
-            Cases.Zip2005.Runtime.MemcmpLsym Cases.Zip2005.Runtime.WriteVectoredLsym 2>&1 | tee build.log
+            Cases.Zip2005.Runtime.MemcmpLsym Cases.Zip2005.Runtime.WriteVectoredLsym \
+            Cases.Hardening 2>&1 | tee build.log
           # Lean's diagnostics, not Lake's notices (e.g. a dependency built from source).
           if grep -E '^warning: .*\.lean:' build.log; then
             echo "::error::the build has warnings"; exit 1
