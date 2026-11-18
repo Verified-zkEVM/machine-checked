@@ -10,18 +10,18 @@ start work, please reach out to the maintainer, Derek Sorensen, for example on t
 [Lean Zulip](https://leanprover.zulipchat.com). A short conversation about what you have in mind
 and where it fits saves work on both sides.
 
-- [`ROADMAP.md`](ROADMAP.md) describes the layers of the framework, where the code stands,
-  the targets and what is next. It is the best place to see where a contribution fits.
-- [`README.md`](README.md) explains the idea and the layout, and
-  [`MachineChecked/README.md`](MachineChecked/README.md) walks through the framework, with the
-  layer each directory belongs to. Every directory has a `README.md`.
-- [`docs/Architecture.md`](docs/Architecture.md) explains the judgement and the contract table.
-- [`docs/ELF.md`](docs/ELF.md) §4 lists what is trusted.
-- [`AGENTS.md`](AGENTS.md) is the entry point for AI agents working in the repository.
+- [`ROADMAP.md`](ROADMAP.md): the layers, where the code stands, and what is next. The best
+  place to see where a contribution fits.
+- [`README.md`](README.md): the idea, how to use the tools, and the layout.
+  [`MachineChecked/README.md`](MachineChecked/README.md) goes through the framework directory
+  by directory.
+- [`docs/Walkthrough.md`](docs/Walkthrough.md): one complete proof (`memcmp`) done the
+  intended way: lifted to Lprog, proved there, and carried down to the machine.
+- [`docs/Architecture.md`](docs/Architecture.md): the judgement and the contract table.
+- [`docs/ELF.md`](docs/ELF.md) §4: what is trusted.
+- [`AGENTS.md`](AGENTS.md): the entry point for AI agents.
 
-[`docs/Walkthrough.md`](docs/Walkthrough.md) follows a short, complete example
-(`Cases/Zip2005/Runtime/MemcmpLprog.lean`) of the intended way to prove a function: lifted to
-the low logical program, run there, and carried down to the machine. Issues tagged `good first issue` or `help wanted` are good places to begin. If you are unsure
+Issues tagged `good first issue` or `help wanted` are good places to begin. If you are unsure
 where to start, open an issue and ask.
 
 ### Larger contributions
@@ -66,9 +66,10 @@ These hold for every change. A pull request that breaks one is not merged.
 - **Trusted models are named.** An instruction-set model may be trusted only if it is listed
   on the trust ladder (`docs/ELF.md` §4). Every model is to be verified against its canonical
   specification (`docs/ISA.md`) in the end.
-- **One judgement.** Function specifications are stated as `SafeN` in continuation form
-  (`MachineChecked/RiscV/Safe.lean`), so that results proved by different tools compose
-  through the contract table.
+- **One judgement.** Function specifications are stated as `SafeN` in continuation form: at
+  the machine (`MachineChecked/RiscV/Safe.lean`), and at Lprog as `Isa.Contract`
+  (`lprog/Lprog/Contract.lean`), carried down by `SafeN.of_contract`. Results proved by
+  different tools compose through the contract table.
 - **One of each concept.** One notion of a run (`lprog/Lprog/Ascent/Run.lean`), one
   correspondence (`lprog/Lprog/Ascent/Corres.lean`), one logical machine per layer, and one
   route from an ISA up to it (its lift). Do not add a second version of a data structure or
@@ -95,16 +96,29 @@ lake build Cases                          # every case study (a few hours)
 lake env lean path/to/File.lean           # check one file
 ```
 
-Continuous integration (`.github/workflows/ci.yml`) builds the framework and the tools on
-every pull request, and fails on a warning, `sorry`, `axiom` or `native_decide`. For now the
-case studies are not built on pull requests (`Cases/README.md`); the full build of them runs on
-demand.
+Continuous integration (`.github/workflows/ci.yml`) runs on every pull request:
+
+- a search of the sources (outside the vendored `Cases/Zip2005/Spec`) for `sorry`, `axiom` and
+  `native_decide`;
+- `lake build` of the framework, the tools, the case studies proved with `lsym`
+  (`MemcmpLsym`, `WriteVectoredLsym`) and `Cases.Hardening`, failing on any warning;
+- `python3 scripts/decompile-check/check.py limits`: the instruction tables in each
+  `LIMITS.md` match what `decompile --table` generates;
+- `scripts/to-lean-check/check.sh`: `decompile --to lean` end to end on a small ELF;
+- `scripts/AxiomCheck.lean`: the listed theorems use only the standard axioms and `bv_decide`
+  certificates.
+
+The other case studies are built by the on-demand `full` job ([`Cases/README.md`](Cases/README.md)),
+which also runs `scripts/AxiomCheckCases.lean`.
 
 Before opening a pull request:
 1. Build every module you touched and every module that imports it. A change to a widely
    imported file means a full `lake build`.
 2. Confirm the warning count has not gone up.
-3. Run `#print axioms` on the theorems you added or changed.
+3. Run `#print axioms` on the theorems you added or changed, and add the main ones to
+   `scripts/AxiomCheck.lean` (framework) or `scripts/AxiomCheckCases.lean` (case studies).
+4. If you changed a lift, run `check.py limits`; if you changed `Tools/ToLean.lean`, run
+   `scripts/to-lean-check/check.sh`.
 
 ### Pull requests
 
@@ -140,15 +154,18 @@ Keep commits buildable where you can.
 
 ## Adding a case study
 
-1. Pin the binary: record how it was built and its digest.
-2. Generate its image with `lake exe gen-image` into `Cases/<Name>/Image/`.
-3. Prove the image facts in `Cases/<Name>/Loaded.lean`, from the image, not as hypotheses.
-4. Write and prove function specifications, one module per function or family, through the
-   lift where it covers the code (`MachineChecked/RiscV/Lift`). Reuse the runtime
-   specifications where the code is shared.
-5. Compose them through the contract table into a theorem about the binary's accepting runs.
-6. Add `Cases/<Name>/README.md`, saying where the binary came from and under what licence
-   its code is, and a row to `Cases/README.md`.
+1. Pin the binary: commit it, or record how it was built and its digest.
+2. Lift it (RISC-V only: the AArch64 and x86-64 lifts are not proved): `lake exe decompile --to lean --proved BINARY . Cases.<Name>.Gen` writes the
+   lifted functions, checked against the ELF ([`Tools/README.md`](Tools/README.md)).
+   `Cases/Hardening/build.sh` is an example. For a whole-program theorem from the loaded
+   image, also generate the image with `lake exe gen-image` and prove its facts in
+   `Cases/<Name>/Loaded.lean` (as zip-2005 does).
+3. Prove function contracts at Lprog with `lsym`, one module per function or family. Reuse
+   the runtime specifications where the code is shared.
+4. Carry them to the machine (`SafeN.of_contract`) and compose them into a theorem about the
+   binary's accepting runs.
+5. Add `Cases/<Name>/README.md`, saying where the binary came from and under what licence its
+   code is, and a row to `Cases/README.md`.
 
 ## Style
 

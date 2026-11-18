@@ -1,32 +1,39 @@
 # Logical
 
-**Layer 1 of the [roadmap](../../ROADMAP.md): the structured logical program.** It is
-Pancake, with Flapjack's syntax (`Flapjack.Pancake.PanLang`, a dependency), so that what is
-decompiled to this layer can be compiled again.
+Layer 1 of the [roadmap](../../ROADMAP.md): the structured logical program, and lift 2, which
+produces it from Lprog. The language is Pancake, using Flapjack's syntax
+(`Flapjack.Pancake.PanLang`, a dependency), so that decompiled output can be compiled again.
 
 | file | contents |
 | --- | --- |
-| (`Pancake.Print`, in the package [`pancake`](../../pancake/README.md)) | Pancake programs as source text (`Pancake.print`). Flapjack has a parser and no printer. The conventions lift 2 writes its programs with (`Pancake.Env`) are there too. |
-| `Ops.lean` | The shared operations of Lprog as Pancake statements. A register is a global variable. What Pancake lacks (shifts by a register, the high halves of a product, division) is a function written in Pancake. |
-| `Structure.lean` | From a control-flow graph to structured control flow (`structure`), by Ramsey's method over the dominator tree: sequences, choices, blocks and loops. It works on the reducible graphs and says so of the others. It knows nothing of Pancake. |
-| `Lift.lean` | **Lift 2** (`lift`): an Lprog program as a Pancake program. Each function is a Pancake function; a call is a call, checked as Lprog checks it; the body is `if` and `while` where the function's control flow has a structure, and a loop over its blocks otherwise. The execution environment is a parameter (`Env`): the installation, each external call, and what to do where the program goes `wrong`. |
-| `Guest.lean` | What the environments of whole programs share: the functions that write a program's memory at its own addresses, `l_trap`, a system call as an FFI call with its results read back, and `bare`, the environment of a program without an operating system. |
+| `Ops.lean` | Lprog's shared operations as Pancake statements. Registers are global variables. Operations Pancake lacks (shift by a register, high half of a product, division) are Pancake functions. |
+| `Structure.lean` | Structured control flow from a control-flow graph (`structure`), using Ramsey's method over the dominator tree: sequences, choices, blocks and loops. Handles reducible graphs and reports the others. Independent of Pancake. |
+| `Lift.lean` | **Lift 2** (`lift`): an Lprog program as a Pancake program. Each function becomes a Pancake function and each call a call, checked as Lprog checks it. Bodies use `if` and `while` where the control flow is structured, and a loop over basic blocks otherwise. The execution environment is a parameter (`Env`): installation, each external call, and what to do when the program goes `wrong`. |
+| `Guest.lean` | Shared by whole-program environments: functions that write a program's memory at its own addresses, `l_trap`, system calls as FFI calls with results read back, and `bare`, the environment for a program without an operating system. |
 
-**Where this stands.** Lift 2 takes whole programs: its users are a Flapjack image
-([`../RiscV/Flapjack`](../RiscV/Flapjack/README.md)), an SP1 guest
-([`../RiscV/Sp1`](../RiscV/Sp1/README.md)), and a program without an operating system for
-AArch64 ([`../ARM/Bare.lean`](../ARM/README.md)) or x86-64
-([`../X86/Bare.lean`](../X86/README.md)). Nothing is proved of it; it is checked by running
-([`scripts/decompile-check`](../../scripts/decompile-check/README.md)).
+Printing Pancake as source text (`Pancake.print`; Flapjack has a parser but no printer) and the conventions lift 2 writes with
+(`Pancake.Env`) are in the package [`pancake`](../../pancake/README.md).
 
-What it recovers is functions and control flow. Registers stay registers (global
-variables), the stack stays memory, and nothing has a type. A function whose control flow is
-not reducible, or that is too long or too deeply nested for Flapjack to compile in
-reasonable time, is a loop over its blocks; `decompile` says how many are.
+## Status
 
-What is meant to be here is more: registers as variables, stack frames as locals, each pass
-with a proof
-([`docs/design/Decompiler.md`](../../docs/design/Decompiler.md), phases 4 and 5), and the
-program logics over the result ([`docs/LogicalMachine.md`](../../docs/LogicalMachine.md)).
-Contributions are welcome: open an issue first to agree on the key definitions (see
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md), "Larger contributions").
+Lift 2 takes whole programs. Its users are Flapjack images
+([`../RiscV/Flapjack`](../RiscV/Flapjack/README.md)), SP1 guests
+([`../RiscV/Sp1`](../RiscV/Sp1/README.md)), and programs without an operating system for
+AArch64 ([`../ARM/Bare.lean`](../ARM/README.md)) and x86-64
+([`../X86/Bare.lean`](../X86/README.md)).
+
+- **Nothing is proved.** The output is tested by recompiling and running
+  ([`scripts/decompile-check`](../../scripts/decompile-check/README.md)).
+- **Only functions and control flow are recovered.** Registers stay global variables, the
+  stack stays memory, and nothing has a type.
+- A function whose control flow is irreducible, or that is too long or too deeply nested for
+  Flapjack to compile in reasonable time, becomes a loop over its blocks. `decompile` reports
+  how many functions this affects.
+
+## Not done
+
+Registers as variables, stack frames as locals, a proof for each pass
+([`docs/design/Decompiler.md`](../../docs/design/Decompiler.md), phases 4 and 5), and program
+logics over the result ([`docs/LogicalMachine.md`](../../docs/LogicalMachine.md)). To
+contribute, open an issue first to agree on the key definitions
+([`CONTRIBUTING.md`](../../CONTRIBUTING.md)).

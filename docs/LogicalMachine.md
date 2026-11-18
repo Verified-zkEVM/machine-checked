@@ -1,118 +1,72 @@
 # The structured logical program: a design sketch
 
-> **Status (2026-10-21): a sketch of layer 1, not implemented.** In
-> [`ROADMAP.md`](../ROADMAP.md)'s terms this is the *structured logical program* (layer 1):
-> variables, structured control flow, function contracts. What exists is the layer below it,
-> the *low logical program* (layer 0.5): `lprog/Lprog`, CatCrypt's linear Jasmin
-> (`Lprog`) with operations shared by every instruction set (`Lprog/Op.lean`). RISC-V lifts
-> into it (`MachineChecked/RiscV/Lift`). The lift from layer 0.5 into the structured program
-> sketched here is decompilation, per function and possibly partial. The home for this layer
-> is `MachineChecked/Logical/`.
+A design sketch, not implemented. It describes what layer 1 of [`ROADMAP.md`](../ROADMAP.md)
+should eventually provide: an ISA-independent program with typed variables and structured
+control flow, over which program logics are proved.
 
-## LogicalProgram: an ISA-independent logical machine
+**What exists today.** Layer 1 is Pancake, with Flapjack's syntax, in `MachineChecked/Logical`
+([README](../MachineChecked/Logical/README.md)). Lift 2 takes an Lprog program (layer 0.5,
+`lprog/Lprog`) to a Pancake program with recovered functions and structured control flow.
+Nothing about lift 2 is proved yet, and it does not recover variables or types: registers stay
+global variables and the stack stays memory. The sketch below is the target for that layer:
+variables, typed state, and program logics on top. The name `LogicalProgram` and the
+pseudocode are illustrative; no such definitions exist in the code.
 
-Introduce a small, ISA-independent intermediate machine (`LogicalProgram`) between concrete ISA semantics and higher-level program reasoning.
+## Purpose
 
-### Purpose
-
-`LogicalProgram` is the target of **logical decompilation**. It removes irrelevant architectural details (register allocation, PCs, instruction sequences, stack offsets, etc.) while preserving the computational structure and effects needed for verification.
-
-For example, RISC-V code manipulating `x5`, `x6`, and concrete memory addresses might be logically decompiled into a state containing meaningful variables such as:
+`LogicalProgram` is the target of logical decompilation. It removes architectural detail
+(register allocation, program counters, instruction sequences, stack offsets) and keeps the
+computation and the effects needed for verification. For example, RISC-V code that uses `x5`,
+`x6` and concrete addresses might become a state with variables such as:
 
 - `i : Nat`
 - `acc : BitVec 32`
 - `hashState : Vector (BitVec 32) 8`
 - `inputPtr : Addr`
 
-### Core design
+## What it contains
 
-A `LogicalProgram` should provide:
+- Typed logical state, chosen per program rather than a fixed register file.
+- Control flow: basic blocks, branches, loops, calls and returns.
+- Pure computation, with first-class bitvector operations.
+- Explicit effects: loads and stores, later atomics, fences and external interactions.
+- Optional observations: memory accesses, branches, instruction or cycle costs.
 
-- **Typed logical state**, chosen per program rather than a fixed register file.
-- **Control flow**: basic blocks, branches, loops, calls/returns.
-- **Pure computation**: especially first-class bitvector operations.
-- **Explicit effects**: loads, stores, and eventually atomics/fences/external interactions.
-- **Optional observations/traces**: memory accesses, branches, instruction/cycle costs, etc.
+It does not contain ISA-specific concepts (`x0..x31`, `jal`, encodings), a particular program
+logic (Hoare, separation logic, Iris), or application-specific specifications (SHA-256,
+XMSS).
 
-It should *not* contain:
+## Relation to the ascent
 
-- RISC-V-specific concepts such as `x0..x31`, `jal`, instruction encodings, etc.
-- A particular program logic (Hoare logic, separation logic, Iris, etc.).
-- Application-specific specifications such as SHA-256 or XMSS.
-
-### Relationship to ASCENT-style logical decompilation
-
-ASCENT-style reasoning sits **below `LogicalProgram`**.
-
-Its job is to construct/prove an abstraction relation between concrete machine states and logical states:
+The ascent (`lprog/Lprog/Ascent`: runs and correspondences for any step function) sits below
+`LogicalProgram`. Decompilation constructs an abstraction relation between machine states and
+logical states,
 
     Rep : RiscV.State -> LogicalState -> Prop
 
-and establish a simulation/refinement theorem roughly of the form:
+and proves a refinement, roughly `RISC-V program ⊑ LogicalProgram`. For example:
 
-    RISC-V program ⊑ LogicalProgram
-
-For example:
-
-    RISC-V:
-      x5 = base + 4*x6
-      lw x7, 0(x5)
-      add x8, x8, x7
-      addi x6, x6, 1
+    RISC-V:                         LogicalProgram:
+      x5 = base + 4*x6                while i < n:
+      lw x7, 0(x5)                      x   := load32(base + 4*i)
+      add x8, x8, x7                    acc := acc + x
+      addi x6, x6, 1                    i   := i + 1
       ...
 
-                │
-                │ ASCENT-style logical decompilation
-                ▼
+The decompiler's internal symbolic states are proof infrastructure and need not be part of
+the public `LogicalProgram` interface.
 
-    LogicalProgram:
-      while i < n:
-        x   := load32(base + 4*i)
-        acc := acc + x
-        i   := i + 1
+## The intended proof chain
 
-The internal symbolic states used by ASCENT are decompiler/proof infrastructure; they need not be part of the public `LogicalProgram` abstraction.
+    Binary ⊑ LogicalProgram ⊑ algorithmic specification
 
-### Overall verification stack
+The first refinement is the decompilation problem; the second is the program-correctness
+problem. Keeping them separate makes the logical layer reusable across ISAs, and lets
+different program logics (functional correctness, separation logic, constant time and
+noninterference, cost, later concurrency) work over the same decompiled program without
+changing the decompilation interface.
 
-    Cryptographic / mathematical specification
-                    ▲
-                    │ correctness / refinement
-                    │
-             Program logic(s)
-       Hoare / separation / relational /
-          cost / concurrency / etc.
-                    ▲
-                    │
-              LogicalProgram
-        ISA-independent logical machine
-                    ▲
-                    │
-        ASCENT-style logical decompilation
-          + simulation/refinement proof
-                    │
-             ISA semantics
-       RISC-V initially; x86/ARM later
-                    ▲
-                    │
-               ELF loading
-                    ▲
-                    │
-                  Binary
-
-The intended proof chain is therefore:
-
-    Binary / RISC-V
-          ⊑
-    LogicalProgram
-          ⊑
-    Algorithmic specification
-
-The first refinement is the **logical decompilation problem**; the second is the **program correctness problem**.
-
-This separation makes the logical layer reusable across ISAs and allows different program logics to operate over the same decompiled program. In particular, functional correctness, separation logic, constant-time/noninterference, cost reasoning, and eventually concurrency can be added without changing the fundamental decompilation interface.
-
-## Rough Lean Pseudocode
+## Pseudocode
 
 ```
 /-- Observable effects a logical program may perform. -/
@@ -120,10 +74,7 @@ inductive Effect where
   | load   (addr : Expr) (width : Width)
   | store  (addr : Expr) (width : Width) (value : Expr)
   | event  (e : ObsEvent)
-  -- perhaps later:
-  | atomic ...
-  | fence ...
-  | external ...
+  -- later: atomic, fence, external
 
 /-- Terminator of a basic block. -/
 inductive Terminator where
@@ -135,7 +86,7 @@ inductive Terminator where
 inductive Stmt where
   | assign (x : Var) (e : Expr)
   | effect (x : Option Var) (e : Effect)
-  | assert (p : Expr)          -- optional, useful for proof structure
+  | assert (p : Expr)          -- optional, for proof structure
 
 structure Block where
   params : List Var
