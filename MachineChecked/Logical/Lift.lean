@@ -542,9 +542,11 @@ end Lift
 
 open Lift in
 /-- The Pancake name of each function: `f_` and its own name where that is a short
-    identifier no other function has, `f` and its index otherwise. -/
+    identifier no other function has, `f` and its index otherwise. Its characters are tested
+    as a list (`toList.all`, the same test as `String.all`), which the kernel can evaluate when
+    it checks a written Pancake module (`Tools/ToLean.lean`); `String.all` it cannot. -/
 def names {Op Reg : Type} (p : Lprog Op Reg) : Array String :=
-  let ok (s : String) : Bool := !s.isEmpty && s.length ≤ 40 && s.all fun c => c.isAlphanum || c == '_'
+  let ok (s : String) : Bool := !s.isEmpty && s.length ≤ 40 && s.toList.all fun c => c.isAlphanum || c == '_'
   let all := p.map (·.name)
   (p.zipIdx.map fun (fd, i) =>
     if ok fd.name && (all.filter (· == fd.name)).length == 1 then s!"f_{fd.name}" else s!"f{i}").toArray
@@ -573,7 +575,7 @@ def lift {Reg : Type} [RegText Reg] (env : Env) (regs : List Reg) (link sp : Reg
   let globals := (regs.map RegText.name ++ env.regs).eraseDups ++
     (List.range st.maxTemps).map temp ++ [lia, lpc]
   let r := "r"
-  let main := fn "main" [] <| seq <|
+  let main := fn _root_.Pancake.main [] <| seq <|
     env.init ++
     [.dec r .one (num 0) <| seq
       [.call (some (some (.local, r), some (halt, r, .return (num 0)))) start [],
