@@ -127,7 +127,7 @@ def elfProved (elfPath : String) (out? : Option String) : IO UInt32 := do
 def toLean (elfPath outDir ns : String) : IO UInt32 := do
   try
     let (n, k, skipped) ← Tools.ToLean.emit elfPath outDir ns
-    IO.println s!"decompile: {n} functions, {k} instructions, {skipped.size} functions left out, as {outDir}/{ns}.lean and {outDir}/{ns}/"
+    IO.println s!"decompile: {n} functions, {k} instructions, {skipped.size} functions left out, as {(Tools.ToLean.nsPath outDir ns).addExtension "lean"} and {Tools.ToLean.nsPath outDir ns}/"
     for r in skipped do IO.println s!"  left out: {r}"
     return 0
   catch e => IO.eprintln s!"decompile: {e}"; return 1
@@ -138,7 +138,7 @@ def toLean (elfPath outDir ns : String) : IO UInt32 := do
 def toLeanRoute (elfPath outDir ns : String) (pancake : Bool) : IO UInt32 := do
   try
     let (n, skipped) ← Tools.ToLean.emitRoute elfPath outDir ns pancake
-    IO.println s!"decompile: {n} functions, {skipped.size} symbols left out, as {outDir}/{ns}.lean and {outDir}/{ns}/"
+    IO.println s!"decompile: {n} functions, {skipped.size} symbols left out, as {(Tools.ToLean.nsPath outDir ns).addExtension "lean"} and {Tools.ToLean.nsPath outDir ns}/"
     for r in skipped do IO.println s!"  left out: {r}"
     return 0
   catch e => IO.eprintln s!"decompile: {e}"; return 1

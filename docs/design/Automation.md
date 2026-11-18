@@ -1,7 +1,8 @@
 # Design note: proof automation at Lprog and Pancake
 
 **Status: proposed (2026-11-17); a first spike of items 1 and 2, a second round (calls, item 4,
-a real port) and a third (proofs that compose, on two instruction sets), done, below**
+a real port), a third (proofs that compose, on two instruction sets), a fourth (`lsym` made
+sturdier) and a fifth (examples written to break the tools), done, below**
 (`SafeN.block` proved but not yet used by `lsym`). How to make proofs
 about decompiled programs cheap: tactics and proof engineering that apply to every instruction
 set, since Lprog's operations are shared.
@@ -224,6 +225,33 @@ the square of the length, which is what `SafeN.block` is for.
 Not done: the hypotheses `lsym` adds are named `hc`, `hm`, `hret`, `r'`, `m'`, and a later one
 hides an earlier one of its name; proofs reach the earlier ones with `rename_i`. Names that do
 not hide each other would change what the existing proofs refer to.
+
+## Fifth round: the tools on code written to break them
+
+`Cases/Hardening/` (its README has the full table): small C programs compiled by clang, through
+`decompile --to lean --proved` and `lsym`, each function proved against what C says it
+computes. Thirteen findings; the ones in `lsym` and Lprog:
+
+- **`hret` was not used.** After a call through a contract, `lsym` named the callee's
+  postcondition and went on without it, so a frame's `ra` read back after the call, or a tail
+  call's precondition, were left open. Each step on a path past a call now uses what its
+  callees' postconditions say (`hret`, and the earlier ones as `hret_1`, …), unfolded by the
+  lemmas given in `with` when a postcondition is a definition.
+- **A loop that never ends** could not be proved safe: every step rule keeps the budget.
+  `SafeN.label_spend` spends a unit at a label; a function that never returns is proved by
+  induction on the budget (`Calls.lean`'s `stop_contract`), and a call of it ends its path.
+- **Recursion** needs nothing new when it is on a smaller argument: the contract by induction
+  on the argument, the recursive call through the induction hypothesis (`Rec.lean`'s `fib`).
+  Recursion that need not end would need the budget at calls (`budget_induction`).
+- **The normal forms** missed an index scaled by a shift (`addr_ofNat_shl`), an unsigned
+  comparison (`ult_iff_lt`), and a register file read after a write under `simp only`
+  (`reduceCtorEq`).
+- **Open:** `bv_omega` in a context `lsym` has filled is slow or fails where the same fact
+  alone is instant; `simp` on `toNat` of a sum with a large literal (an address below `sp`)
+  gives a proof the kernel times out on (Lean's); hypotheses that hide each other (`hm✝`).
+
+The lift itself held: every operation's meaning matched C at its edges (division by zero and
+its overflow, the high half of products), and every load's extension.
 
 Next: a contract form for external calls (the system call above); `SafeN.block` for long
 blocks, with atoms; machine-backed instances for x86-64 and AArch64; and the rest of item 6, a

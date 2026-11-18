@@ -12,6 +12,7 @@ import Tools.ToLean
 import LprogRiscV.Lsym
 import Tools.Test.Lsym
 import Tools.Test.LsymX86
+import Cases.Hardening
 
 -- the lift
 #print axioms Lprog.parse_print
@@ -37,6 +38,10 @@ import Tools.Test.LsymX86
 #print axioms Lprog.SafeN.cond'
 #print axioms Lprog.addr_neg_add_cancel
 #print axioms Lprog.addr_add_neg_cancel
+#print axioms Lprog.SafeN.label_spend
+#print axioms Lprog.ult_eq_false
+#print axioms Lprog.ule_eq_false
+#print axioms Lprog.addr_ofNat_shl
 #print axioms Lprog.SafeN.call_contract
 #print axioms Lprog.SafeN.tail_contract
 
@@ -46,3 +51,14 @@ import Tools.Test.LsymX86
 #print axioms Tools.Test.Lsym.f_contract
 #print axioms Tools.Test.LsymX86.p_eq
 #print axioms Tools.Test.LsymX86.f_contract
+
+-- the hardening examples (`Cases/Hardening`)
+#print axioms Cases.Hardening.Basics.sum_spec
+#print axioms Cases.Hardening.Basics.count_down_spec
+#print axioms Cases.Hardening.Mem.swap_spec
+#print axioms Cases.Hardening.Arith.sdiv_spec
+#print axioms Cases.Hardening.Arith.smulhi_spec
+#print axioms Cases.Hardening.Calls.keep_contract
+#print axioms Cases.Hardening.Calls.stop_contract
+#print axioms Cases.Hardening.Calls.apply_inc_contract
+#print axioms Cases.Hardening.Rec.fib_contract

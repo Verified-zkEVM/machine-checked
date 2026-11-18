@@ -64,7 +64,7 @@ theorem f_spec' {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} 
     (hpost : ∀ r' m', r' .x10 = 6 → LSafeN fs' G N Q ⟨rest, r', m'⟩) :
     LSafeN fs' G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩ := by
   lsym hf0 with [hra, hsp] using [g_spec]
-  apply hpost; simp [lsym_simp, hret]
+  apply hpost; simp [lsym_simp]
 
 /-! ## A call through a contract over the register file (`Isa.Contract`) -/
 
@@ -84,7 +84,7 @@ theorem f_contract : rvIsa.Contract (liftProg fs') sp1Ctx 0
     (fun _ _ _ _ r' _ => r' .x10 = 6) := by
   intro G N Q ret top rest regs m ⟨hra, hsp⟩ hk
   lsym hf0 with [hra, hsp] using [g_contract]
-  apply hk; simp [lsym_simp, hret.1]
+  apply hk; simp [lsym_simp]
 
 /-! ## A load with nothing known of its address
 

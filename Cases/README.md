@@ -5,17 +5,18 @@ case depends on the framework, and nothing in the framework depends on a case.
 
 > [!NOTE]
 > **Paused.** While the framework is reworked, the case studies are not rebuilt on pull
-> requests, and they have not been checked on the current toolchain (Lean v4.36.0-rc2): some
-> may not build. They were last built in full on Lean v4.33.1. CI's on-demand `full` job
-> builds them and runs their axiom check (`scripts/AxiomCheckCases.lean`). Two are built on
-> every pull request, since they test `lsym` on real code: `Zip2005/Runtime/MemcmpLsym.lean`
-> and `Zip2005/Runtime/WriteVectoredLsym.lean` (with what they import).
+> requests. CI's on-demand `full` job builds them and runs their axiom check
+> (`scripts/AxiomCheckCases.lean`); on 2026-11-18, on Lean v4.36.0-rc2, all of them built, with
+> deprecation warnings in zip-2005. Some are built on every pull request, since they test
+> `lsym` on real code: `Zip2005/Runtime/MemcmpLsym.lean` and
+> `Zip2005/Runtime/WriteVectoredLsym.lean` (with what they import), and `Hardening/`.
 
 | directory | binary | what is verified |
 | --- | --- | --- |
 | [`Zip2005/`](Zip2005/README.md) | An SP1 guest compiled from Rust that checks a Zcash Orchard statement (ZIP 2005) | The whole guest, from its loaded ELF to its high-level statement: runtime, allocator, cryptography and `main`, composed through the contract table. |
 | [`CatCrypt/`](CatCrypt/README.md) | RV64 kernels emitted by catcrypt-compiler | Field and point kernels at their encoded bytes, through the lift to Lprog. |
 | [`LeanVM/`](LeanVM/README.md) | A leanVM guest (BLAKE2s) | Loading and the image; the start of a second target. |
+| [`Hardening/`](Hardening/README.md) | Small C programs compiled by clang, chosen to break the tools | `decompile --to lean` and `lsym` on each, every function proved against C; what broke, and what was fixed. Built on every pull request. |
 
 ## Anatomy of a case
 

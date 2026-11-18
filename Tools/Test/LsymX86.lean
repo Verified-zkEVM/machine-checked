@@ -82,6 +82,6 @@ theorem f_contract : x86Isa.Contract p ctx 0
     (fun _ _ _ _ r' _ => r' .rax = 6) := by
   intro G N Q ret top rest regs m ⟨hsp, hm⟩ hk
   lsym hf0 with [hsp, hm] using [g_contract]
-  apply hk; simp [lsym_simp, hret.1]
+  apply hk; simp [lsym_simp]
 
 end Tools.Test.LsymX86

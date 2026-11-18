@@ -115,6 +115,22 @@ end SafeN
 attribute [lsym_simp] Isa.ofOps Op.eval Expr.eval BinOp.eval UnOp.eval condEval operandVal cmpEval Width.bytes Width.bits
   updReg_apply
 
+-- an unsigned comparison as `<` and `≤`, as a specification states it (`cmpEval` gives
+-- `BitVec.ult`, which `simp` does not otherwise relate to `<`); a signed one stays `slt`
+attribute [lsym_simp] BitVec.ult_iff_lt BitVec.ule_iff_le
+
+theorem ult_eq_false {w : Nat} {x y : BitVec w} : x.ult y = false ↔ ¬x < y := by
+  rw [← BitVec.ult_iff_lt]; simp
+
+theorem ule_eq_false {w : Nat} {x y : BitVec w} : x.ule y = false ↔ ¬x ≤ y := by
+  rw [← BitVec.ule_iff_le]; simp
+
+attribute [lsym_simp] ult_eq_false ule_eq_false
+
+-- a register file read at a register after a write is a choice on two registers' equality
+-- (`updReg_apply`): `simp only [lsym_simp]` decides it, as `simp` does, without the default set
+attribute [lsym_simp] reduceCtorEq reduceIte ite_true ite_false
+
 -- addresses as a base plus one constant: a subtraction as the addition of its negation, sums
 -- to the right, constants folded (by `simp`'s own `BitVec` simprocs); a frame opened and closed,
 -- `sp - n + n`, is then `sp + 0`, which is `sp`
@@ -137,6 +153,17 @@ theorem addr_mul_assoc (a b c : Nat) : a * (b * c) = a * b * c := (Nat.mul_assoc
 -- an index into a region, `base + BitVec.ofNat 64 (8 * (2 * j + 1))`, as `lsym` computes it,
 -- `base + (BitVec.ofNat 64 (16 * j) + 8#64)`: for facts about cells, by `simp only [lsym_addr]`
 attribute [lsym_addr] BitVec.ofNat_add Nat.mul_add Nat.mul_one addr_mul_assoc
+
+/-- An index scaled by a shift, as a compiler scales it (`slli a1, a1, 3`), is the index scaled
+    by a product: `BitVec.ofNat 64 n <<< 3` is `BitVec.ofNat 64 (8 * n)`, the form of a region
+    lemma's index. -/
+theorem addr_ofNat_shl {w : Nat} (n k : Nat) :
+    BitVec.ofNat w n <<< k = BitVec.ofNat w (2 ^ k * n) := by
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.mul_comm, Nat.mod_mod_of_dvd, Nat.mul_mod]
+
+attribute [lsym_simp, lsym_addr] addr_ofNat_shl
+attribute [lsym_addr] Nat.reducePow
 
 /-- One step of `lsym`, side conditions tried with `simp_all` and the given lemmas. -/
 syntax (name := lstep) "lstep " term (" with " "[" Lean.Parser.Tactic.simpLemma,* "]")?
@@ -255,6 +282,13 @@ def introCont (g : MVarId) : MetaM MVarId := g.withContext do
   if n == 0 then return g
   -- a contract's postcondition is a function applied: `hret` is stated as what it says
   let g ← g.replaceTargetDefEq (← Core.betaReduce t)
+  -- an earlier call's `hret` keeps a name of its own, `hret_1`, `hret_2`, …, in the order of
+  -- the calls, so that what it says of the registers and memory it returned stays usable
+  let lctx ← getLCtx
+  let mut g := g
+  if let some d := lctx.findFromUserName? `hret then
+    let k := (lctx.foldl (fun k d => if d.userName.toString.startsWith "hret_" then k + 1 else k) 0) + 1
+    g ← g.rename d.fvarId (Name.mkSimple s!"hret_{k}")
   let names := [`r', `m', `hret] ++ (List.range n).map fun k => Name.mkSimple s!"h{k}"
   let (_, g') ← g.introN n (names.take n)
   return g'
@@ -300,11 +334,19 @@ open Lean Elab Tactic Meta in
     (stx[2][2].getSepArgs.toList.filterMap fun n => n.isNatLit?)
   let lems : Array (TSyntax ``Lean.Parser.Tactic.simpLemma) := if stx[3].isNone then #[] else
     stx[3][2].getSepArgs.map fun t => ⟨t⟩
-  let ls : Syntax.TSepArray ``Lean.Parser.Tactic.simpLemma "," := lems
   let specs : Array (TSyntax `term) := if stx[4].isNone then #[] else
     stx[4][2].getSepArgs.map fun t => ⟨t⟩
   let ss : Syntax.TSepArray `term "," := specs
-  let step ← match lems.isEmpty, specs.isEmpty with
+  -- a step, with the lemmas given and, on a path past a call through a contract, what each
+  -- callee's postcondition says (`hret`, `hret_1`, …): the registers and the memory after the
+  -- call are then those the postcondition gives, for what follows to compute with
+  let stepFor (g : MVarId) : TacticM Syntax := g.withContext do
+    let mut lems := lems
+    for d in (← getLCtx) do
+      if !d.isImplementationDetail && (d.userName == `hret || d.userName.toString.startsWith "hret_") then
+        lems := lems.push (← `(Lean.Parser.Tactic.simpLemma| $(mkIdent d.userName):ident))
+    let ls : Syntax.TSepArray ``Lean.Parser.Tactic.simpLemma "," := lems
+    match lems.isEmpty, specs.isEmpty with
     | true, true => `(tactic| lstep $hf)
     | false, true => `(tactic| lstep $hf with [$ls,*])
     | true, false => `(tactic| lstep $hf using [$ss,*])
@@ -348,7 +390,7 @@ open Lean Elab Tactic Meta in
         let err? ← tryCatchRuntimeEx
           (do
             withTheReader Core.Context (fun c => { c with maxRecDepth := max c.maxRecDepth 16384 })
-              (evalTactic step)
+              (evalTactic (← stepFor g))
             pure none)
           (fun e => pure (some e))
         match err? with
@@ -357,7 +399,16 @@ open Lean Elab Tactic Meta in
           let seen' := match fn? with | some fn => (fn, pc) :: seen | none => seen
           let mut next : List (MVarId × List (Nat × Nat)) := []
           for g' in (← getGoals) do
-            next := next ++ [(← normPc (← introCont g'), seen')]
+            let g'' ← introCont g'
+            -- a postcondition stated by a definition (`Post …`) is unfolded by the lemmas given,
+            -- so that what it says is usable by what follows (`hret` as a lemma of each step)
+            let g'' ← if g'' != g' && !lems.isEmpty then do
+                setGoals [g'']
+                let ls : Syntax.TSepArray ``Lean.Parser.Tactic.simpLemma "," := lems
+                try evalTactic (← `(tactic| simp [$(mkIdent `lsym_simp):ident, $ls,*] at $(mkIdent `hret):ident)) catch _ => pure ()
+                pure ((← getGoals).headD g'')
+              else pure g''
+            next := next ++ [(← normPc g'', seen')]
           todo := next ++ todo
         | some e =>
           saved.restore (restoreInfo := true)
