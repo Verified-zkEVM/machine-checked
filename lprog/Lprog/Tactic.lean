@@ -286,6 +286,15 @@ def introCont (g : MVarId) : MetaM MVarId := g.withContext do
   let (_, g') ← g.introN n (names.take n)
   return g'
 
+/-- Is `n` the name `nameApart` gives an earlier `base`: `base_k`, with `k` a number? A
+    hypothesis of the proof's own, `hret_spec` say, is not. -/
+def numbered (base n : Lean.Name) : Bool :=
+  match n with
+  | .str .anonymous s =>
+    let pre := base.toString ++ "_"
+    s.startsWith pre && (s.drop pre.length).toString.isNat
+  | _ => false
+
 open Lean Meta in
 /-- The hypotheses `lsym` adds, `hc`, `hm` and `hret`, each under a name of its own: where one
     would hide an earlier one of its name, the earlier ones are `hc_1`, `hc_2`, …, in the order
@@ -297,9 +306,8 @@ def nameApart (g : MVarId) : MetaM MVarId := g.withContext do
     let same := lctx.foldl (init := #[]) fun acc d =>
       if !d.isImplementationDetail && d.userName == base then acc.push d.fvarId else acc
     if same.size ≤ 1 then continue
-    let pre := base.toString ++ "_"
     let mut k := lctx.foldl (init := 0) fun k d =>
-      if !d.isImplementationDetail && d.userName.toString.startsWith pre then k + 1 else k
+      if !d.isImplementationDetail && numbered base d.userName then k + 1 else k
     for fv in same.pop do
       k := k + 1
       g ← g.rename fv (Name.mkSimple s!"{base}_{k}")
@@ -355,7 +363,7 @@ open Lean Elab Tactic Meta in
   let stepFor (g : MVarId) : TacticM Syntax := g.withContext do
     let mut lems := lems
     for d in (← getLCtx) do
-      if !d.isImplementationDetail && (d.userName == `hret || d.userName.toString.startsWith "hret_") then
+      if !d.isImplementationDetail && (d.userName == `hret || numbered `hret d.userName) then
         lems := lems.push (← `(Lean.Parser.Tactic.simpLemma| $(mkIdent d.userName):ident))
     let ls : Syntax.TSepArray ``Lean.Parser.Tactic.simpLemma "," := lems
     match lems.isEmpty, specs.isEmpty with
