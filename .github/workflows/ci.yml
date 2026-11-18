@@ -65,6 +65,9 @@ jobs:
           lake build decompile
           python3 scripts/decompile-check/check.py limits
 
+      - name: decompile --to lean, end to end, on a small ELF
+        run: scripts/to-lean-check/check.sh
+
       - name: Axiom check
         run: |
           lake env lean scripts/AxiomCheck.lean 2>&1 | tee axioms.log
