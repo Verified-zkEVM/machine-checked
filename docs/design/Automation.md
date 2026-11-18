@@ -248,7 +248,13 @@ computes. Thirteen findings; the ones in `lsym` and Lprog:
   (`reduceCtorEq`).
 - **Open:** `bv_omega` in a context `lsym` has filled is slow or fails where the same fact
   alone is instant; `simp` on `toNat` of a sum with a large literal (an address below `sp`)
-  gives a proof the kernel times out on (Lean's); hypotheses that hide each other (`hm✝`).
+  gives a proof the kernel times out on (Lean's). Hypotheses that hid each other (`hm✝`) now
+  have names of their own (`hm_1`, …, oldest first).
+- **Real compiler output.** On the 41 Rust guests built for SP1, the `--proved` lift leaves out
+  177 of 6,738 functions: 142 for `unimp`, the illegal instruction rustc writes for a trap,
+  and 35 for the 32-bit operations riscv-zkvm's machine lacks. Taking `unimp` as a trap is the
+  larger gain. A guest's `__udivti3` composes with its callee's contract through a result
+  returned in memory, with nothing left to the proof but the contract.
 
 The lift itself held: every operation's meaning matched C at its edges (division by zero and
 its overflow, the high half of products), and every load's extension.
