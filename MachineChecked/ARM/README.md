@@ -1,32 +1,35 @@
 # ARM
 
-**AArch64, at layers 0 and 0.5 of the [roadmap](../../ROADMAP.md):** the machine model, and a
-lift into the low logical program for the decompiler. The counterpart of `RiscV/`, with less
-built and nothing proved.
-
-## Today
+AArch64 at layers 0 and 0.5 of the [roadmap](../../ROADMAP.md): the machine model, and a lift
+into Lprog used by the decompiler. This is the counterpart of [`../RiscV`](../RiscV/README.md),
+with less built and nothing proved.
 
 | file | contents |
 | --- | --- |
-| `Arm64.lean` | Imports the AArch64 semantics: the trusted package `arm64` of DeepMind's [arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) (`Arm64.Trusted`), a dependency used unmodified at the commit pinned in `lakefile.toml`. Its `Arm64.Step` fetches four bytes, decodes and executes them, over Linux user-mode state. **Trusted** (`docs/ISA.md`). |
-| `lprog/Lprog/ARM/Reg.lean` (package `lprog`, namespace `Lprog.ARM`) | The registers of AArch64 at Lprog: the general registers, the stack pointer, the four flags as registers that hold 0 or 1, and three of the lift's own. |
-| `Lift/Lift.lean` | The lift of AArch64 (`liftArm`): arm64-semantics' decoded instructions, the integer ones, in the lift of linked programs (`Lprog/Linked.lean` in the package `lprog`) over the shared operations. Nothing is proved of it. |
-| `Lift/Table.lean` | The instructions by kind, each with whether the lift takes it, said by the lift itself: the table of `LIMITS.md`. |
-| `Bare.lean` | An AArch64 program without an operating system as a Pancake program (`Guest.toPancake`): the lift, then lift 2 (`../Logical`), with `svc` as the system call. What `decompile --to pancake` runs on an AArch64 ELF. |
-| [`LIMITS.md`](LIMITS.md) | **What the decompiler does not do on AArch64**: what it takes, every instruction lifted or not, where it gives up, what it assumes, where its output differs from the processor, how far it is tested. |
+| `Arm64.lean` | Imports the AArch64 semantics: the trusted package `arm64` of DeepMind's [arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) (`Arm64.Trusted`), used unmodified at the commit pinned in `lakefile.toml`. `Arm64.Step` fetches, decodes and executes one instruction over Linux user-mode state. **Trusted** ([`docs/ISA.md`](../../docs/ISA.md)). |
+| `Lift/Lift.lean` | The AArch64 lift (`liftArm`): arm64-semantics' decoded integer instructions, lifted with the shared lift of linked programs (`Lprog/Linked.lean` in [`lprog`](../../lprog/README.md)). Not proved. |
+| `Lift/Table.lean` | Each kind of instruction and whether the lift takes it, computed from the lift. Generates the table in `LIMITS.md`. |
+| `Bare.lean` | An AArch64 program without an operating system as a Pancake program (`Guest.toPancake`): this lift, then lift 2 ([`../Logical`](../Logical/README.md)), with `svc` as the system call. Used by `decompile --to pancake` on an AArch64 ELF. |
+| [`LIMITS.md`](LIMITS.md) | What the decompiler accepts on AArch64, every instruction and whether it is lifted, where it gives up, what it assumes, how its output differs from the processor, and how far it is tested. |
 
-Nothing here states a judgement over `Arm64.Step` yet, and the lift is not proved against
-it: it is tested against another machine (`scripts/decompile-check`).
+The AArch64 registers at Lprog are in the `lprog` package: `lprog/Lprog/ARM/Reg.lean`
+(namespace `Lprog.ARM`).
 
-## Where it is going
+## Status
 
-AArch64 is meant to be a peer of RISC-V, with the same layers:
-- the image loader and the context (layer -1): arm64-semantics' loader and Linux system
-  calls, a context other than a zkVM;
-- the judgement over `Arm64.Step` (layer 0);
-- the simulation that carries a run of the lifted program down to `Arm64.Step`: the
-  counterpart of `../RiscV/Lift`'s, for the lift that is here;
-- the proof tools where they pay off.
+No judgement over `Arm64.Step` is stated yet, and the lift is not proved against it. The lift
+is tested against Unicorn ([`scripts/decompile-check`](../../scripts/decompile-check/README.md)).
+
+## Not done
+
+AArch64 is meant to have the same layers as RISC-V:
+
+- layer -1: an image loader and an execution context (arm64-semantics' loader and Linux
+  system calls, rather than a zkVM);
+- layer 0: a judgement over `Arm64.Step`;
+- a simulation that carries a run of the lifted program down to `Arm64.Step`, the
+  counterpart of [`../RiscV/Lift`](../RiscV/Lift/README.md);
+- proof tools where they pay off.
 
 Everything from layer 0.5 up is shared with RISC-V. The order of work is in
 [`ROADMAP.md`](../../ROADMAP.md).

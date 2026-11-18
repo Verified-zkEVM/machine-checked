@@ -1,265 +1,186 @@
 # Design note: proof automation at Lprog and Pancake
 
-**Status: proposed (2026-11-17); a first spike of items 1 and 2, a second round (calls, item 4,
-a real port), a third (proofs that compose, on two instruction sets), a fourth (`lsym` made
-sturdier) and a fifth (examples written to break the tools), done, below**
-(`SafeN.block` proved but not yet used by `lsym`). How to make proofs
-about decompiled programs cheap: tactics and proof engineering that apply to every instruction
-set, since Lprog's operations are shared.
+How to make proofs about decompiled programs cheap: tactics and proof engineering that work for
+every instruction set, since Lprog's operations are shared. The main piece today is `lsym`, a
+symbolic-execution tactic at Lprog.
 
-## Where proofs cost today
+**Status** (items refer to [the plan](#the-plan-by-leverage)):
 
-- **Machine level** has real automation: `RiscV/Sym`'s symbolic executor (`sym_exec`), which
-  keeps values in normal forms, names large terms as atoms, tracks memory regions, applies
-  function specifications at calls and splits at branches; riscv-zkvm adds separation-logic
-  tactics.
-- **Lprog** has a rule per instruction (`Lprog.Isa.SafeN.opn`, `.cond`, `.call`, …, and
-  RISC-V's `lsafe_*` over the machine state) and nothing that applies them. `memcmp` at Lprog
-  (`Cases/Zip2005/Runtime/MemcmpLprog.lean`) is 333 lines, `write_vectored` 904: most of it
-  a rule per instruction, register states written out by hand after each block, the frame
-  (every register but the clobbered keeps its value), and the postcondition at each return.
-- **Pancake** has nothing, and no proof yet connects it to Lprog.
-- **`decompile --to lean`** has the kernel evaluate the lift again to check a term, which is
-  slow on large functions (`Tools/README.md`).
+| item | what | status |
+| --- | --- | --- |
+| 1 | `lsym`, symbolic execution at Lprog | done, in use (`Cases/Zip2005/Runtime/*Lsym.lean`, `Cases/Hardening/`) |
+| 2 | straight-line blocks in one step | `SafeN.block` proved; `lsym` does not use it yet |
+| 3 | reflection for whole-function properties | not started |
+| 4 | fewer candidates at indirect calls | the simple half done (`jalrCands`) |
+| 5 | aborts and left-out functions | not started |
+| 6 | certificates instead of evaluation for `--to lean` | first step done (local lift, `kernel_eq`) |
+| 7 | a weakest-precondition tactic for Pancake | not started; waits on Flapjack's semantics building here |
+
+## Where proofs cost
+
+- **Machine level** has real automation: `RiscV/Sym`'s symbolic executor (`sym_exec`) keeps
+  values in normal forms, names large terms as atoms, tracks memory regions, applies function
+  specifications at calls and splits at branches. riscv-zkvm adds separation-logic tactics.
+- **Lprog** has one rule per instruction (`Lprog.Isa.SafeN.opn`, `.cond`, `.call`, …, and
+  RISC-V's `lsafe_*` over the machine state). By hand, a proof is mostly applying these rules,
+  writing out the register state after each block, the frame (every register not clobbered
+  keeps its value) and the postcondition at each return. `memcmp` proved this way
+  (`Cases/Zip2005/Runtime/MemcmpLprog.lean`) is 333 lines; `write_vectored`
+  (`WriteVectored.lean`) is 906. `lsym` addresses this.
+- **Pancake** has no automation, and no proof yet connects it to Lprog.
+- **`decompile --to lean`** has the kernel re-evaluate the lift to check each term, which is
+  slow on large functions ([`Tools/README.md`](../../Tools/README.md)).
 
 ## The plan, by leverage
 
-1. **A symbolic executor at Lprog (`lsym`)**, after `sym_exec`'s design, simpler at Lprog:
-   labels for addresses, no decoding, one set of operations. Steps operations, splits at
-   `Lcond`, applies function specifications at `Lcall`, leaves loops to an invariant the user
-   gives. Memory needs a shared vocabulary of regions at Lprog first (#21).
-2. **Straight-line blocks in one step.** A block of operations is the composition of their
-   `Op.eval`s (`SafeN.block`, over `runStraight`); the executor steps blocks, not
-   instructions, with `simp` normalising the register file (`updReg_apply`) and `bv_decide`
-   for side conditions. A proof that `dropDead` keeps the meaning would let proofs work on the
-   smaller program.
-3. **Reflection for whole-function properties.** A computable checker with a soundness
-   theorem, run by `decide +kernel`: an abstract interpreter (constants, stack offsets,
-   intervals) proving that no `Labort` is reachable, that each computed jump lands on a
-   candidate, that the program never goes `wrong`: the hypotheses of `equivalent_of_entry`.
-4. **Fewer candidates at indirect calls**, by a verified value analysis: today each lists
-   every function (218 lists of 304 in one zip-2005 function), which multiplies case splits
-   and the kernel's work.
-5. **Aborts and functions left out.** Each `Labort` either becomes coverage (`LIMITS.md` says
+1. **A symbolic executor at Lprog (`lsym`)**, after `sym_exec`'s design but simpler: labels
+   instead of addresses, no decoding, one set of operations. It steps operations, splits at
+   `Lcond`, applies function specifications at `Lcall`, and leaves loops to an invariant the
+   user supplies. A shared vocabulary of memory regions at Lprog (#21) is still to come.
+2. **Straight-line blocks in one step.** A block is the composition of its operations'
+   `Op.eval`s (`SafeN.block`, over `runStraight`); the executor would step blocks rather than
+   instructions, with `simp` normalising the register file (`updReg_apply`) and `bv_decide` for
+   side conditions. A proof that `dropDead` preserves meaning would let proofs work on the
+   smaller program (not yet proved).
+3. **Reflection for whole-function properties.** A computable checker with a soundness theorem,
+   run by `decide +kernel`: an abstract interpreter (constants, stack offsets, intervals)
+   proving that no `Labort` is reachable, that each computed jump lands on a candidate, and that
+   the program never goes `wrong` — the hypotheses of `equivalent_of_entry`.
+4. **Fewer candidates at indirect calls**, by a verified value analysis. Every candidate
+   multiplies case splits and kernel work.
+5. **Aborts and left-out functions.** Each `Labort` either becomes coverage (`LIMITS.md` says
    what is missing) or is proved unreachable (item 3). A function that does not decode can be
-   an external call whose contract is proved at the machine level with `sym_exec`: proved,
-   not assumed.
+   treated as an external call whose contract is proved at the machine level with `sym_exec`.
 6. **Certificates instead of evaluation** for `--to lean`: prove once that the lift is local
-   (an instruction's lift depends on the instruction and a few lookups), have the tool write
-   the lookups (labels, live flags), and the kernel checks each instruction alone.
-7. **Pancake**: a weakest-precondition tactic over Flapjack's semantics, natural for its
-   structured control flow, once that semantics builds here (`pancake/README.md`) and lift 2 or
-   Flapjack's compiler theorem makes proofs there pay.
+   (an instruction's lift depends on the instruction and a few lookups), have the tool write the
+   lookups (labels, live flags), and let the kernel check each instruction alone.
+7. **Pancake**: a weakest-precondition tactic over Flapjack's semantics, natural for structured
+   control flow, once that semantics builds here (`pancake/README.md`) and lift 2 or Flapjack's
+   compiler theorem makes proofs there pay off.
 
 ## zip-2005, counted
 
-The `--proved` lift of zip-2005 (304 functions, 41,631 instructions), counted from its Lprog
-text by `scripts/automation-stats.py` (which says how; the default lift in brackets where it
-differs):
+The `--proved` lift of zip-2005, counted from its Lprog text by `scripts/automation-stats.py`
+(its docstring gives the commands). Figures in brackets are for the default lift.
 
-| what | count | for the plan |
+| what | count | relevance |
 | --- | --- | --- |
-| straight-line code | 92% of the instructions; 84% of that in blocks of 8 or more; the longest block 3,988 (SHA-256, unrolled) | blocks are the largest lever (item 2); the longest needs atoms too, or the state grows without bound |
-| calls | 1,573, and 67 tail calls: about 5 to a function | specifications at calls from the start (item 1) |
-| candidates of a computed call | all 304 functions, at each of the 1,640 calls and tail calls: the `--proved` lift makes every call computed (the default lift has 1,657 computed calls and tail calls, 1,581 of them with one candidate and 76 with more) | item 4 is large and simple: the `--proved` lift can take the default lift's resolution |
-| loops (backward branches) | 324, about 1 to a function | an invariant to a loop, given by hand for now |
-| aborts | 2 (the default lift: 99 that control may reach, most after a call of a panic, which does not return) | mostly a specification that a function does not return (item 5) |
+| size | 304 functions, 41,631 instructions; median function 40, largest 4,424 | the long tail is a few cryptographic kernels |
+| straight-line code | 92% of instructions; 84% of that in blocks of 8 or more; longest block 3,988 (SHA-256, unrolled) | blocks are the largest lever (item 2); the longest also needs atoms, or the state grows without bound |
+| calls | 1,573 calls and 67 tail calls, about 5 per function | specifications at calls (item 1) |
+| computed calls and tail calls | all 1,640; 1,569 have one candidate, the rest all 304 functions (default lift: 1,657, of which 1,581 have one candidate) | item 4 |
+| loops (backward branches) | 324, about 1 per function | an invariant per loop, by hand for now |
+| aborts | 2 (default lift: 316) | item 5 |
 | functions left out | 3, the panic machinery | small |
-| size of a function | median 40, the largest 4,424 | the long tail is a few cryptographic kernels |
 
-## First spike: done
+## `lsym` today
 
-- **`Lprog/Block.lean`**: `Isa.runStraight` runs the operations of a straight-line piece;
-  `SafeN.block` steps over the piece at once. For every instruction set.
-- **`Lprog/Tactic.lean`**: `lsym hf [stop [pc, …]] [with [lemmas]]` steps a body on every
-  branch: labels; operations, computed and substituted, a load's or store's check left to
-  `simp_all`; gotos; branches, split, with the condition as `hc`; returns, their conditions
-  closed. It stops at the given program counters (a loop's head), and at calls and external
-  calls. The simp set `lsym_simp` holds Lprog's evaluation, and an instruction set adds its
-  own (`LprogRiscV/Lsym.lean`).
-- **`memcmp`** with it (`Cases/Zip2005/Runtime/MemcmpLsym.lean`), against stepping each
-  instruction by hand (`MemcmpLprog.lean`), the same contract:
+`lsym` lives in [`lprog/Lprog/Tactic.lean`](../../lprog/Lprog/Tactic.lean) (its module docstring
+is the reference). It works for any instruction set; each one adds its own lemmas to the simp
+set `lsym_simp` (RISC-V's are in `lprog-riscv/LprogRiscV/Lsym.lean`).
 
-  | | by hand | with `lsym` |
-  | --- | --- | --- |
-  | the loop and the contract | 206 lines | 126 lines |
-  | rules written by hand | 28 | none (two calls of `lsym`) |
-  | a raised `maxHeartbeats` | yes | no |
-  | time to check | 2.5 s | 6.6 s |
+```lean
+lsym hf [stop [pc, …]] [with [lemmas]] [using [specs]]
+```
 
-  What is left is what the function means: the invariant at the back edge, and the
-  postcondition at each return, the frame (every register not clobbered keeps its value)
-  written out three times.
+The goal is `I.SafeN p c G n Q ⟨⟨fn, pc, rv, top⟩ :: rest, regs, m⟩`, and `hf : p[fn]? = some fd`.
+The body of `fd` should be a literal (as `decompile --to lean` writes it, `f<i>`). On every
+branch, `lsym`:
 
-## Second round: done
+- steps over labels and follows `goto`s;
+- computes each operation by `simp` (`lsym_simp` plus the `with` lemmas) and substitutes the
+  result. A load's or store's memory check is closed if `simp` can; otherwise it becomes the
+  hypothesis `hm` and the result is computed anyway (an operation whose check fails traps, and
+  a trap is safe). Loads read back through earlier stores;
+- splits at a branch, with the condition as the hypothesis `hc`;
+- at a return, leaves goals that the link register and stack pointer are as the call left them,
+  plus the postcondition;
+- at a call or tail call, with `using [specs]`, applies the first specification that fits —
+  either a continuation-form spec or an `Isa.Contract` (below) — names what it returns (`r'`,
+  `m'`, `hret`, …) and continues after the return, using `hret` on that path (unfolded by the
+  `with` lemmas when the postcondition is a definition).
 
-- **The frame, once.** `lframe` proves that a register file `lsym` leaves agrees with the one
-  it started from outside the registers written; `frame_ofParts` (`LprogRiscV/Lsym.lean`)
-  turns that into a postcondition's frame over the machine state.
-- **Calls through specifications.** `lsym … using [spec, …]` applies a callee's specification
-  at a call or a tail call, names what it gives back (`r'`, `m'`, `hret`, …) and steps on
-  after the return (`Tools/Test/Lsym.lean`).
-- **Memory.** A load or a store is computed even when its check is not closed: the check is a
-  hypothesis (`hm`) of what follows and a goal of its own, in the form the region lemmas give
-  it (`isValidDwordAccessSp1 a`, and `noCodeAt m a 8` for a store), and a load reads back
-  through the stores before it. Program counters are kept literals, so bodies of a few hundred
-  entries step.
-- **Item 4, the simple half.** The `--proved` lift gives a `jalr` whose previous instruction is
-  an `auipc` of its register (`call`, `tail`) the one function at the address they compute
-  (`jalrCands`), and every function otherwise. Any list is sound (`callee_indirect`): a target
-  outside it is `wrong`, which a proof of safety excludes. On zip-2005, 1,570 of the 1,640
-  computed calls now have one candidate instead of 304; 70 keep all.
-- **`write_vectored`** with it (`Cases/Zip2005/Runtime/WriteVectoredLsym.lean`): three
-  functions, a loop, a call, a tail call, a system call, stores and loads of a frame, the same
-  contracts as `WriteVectored.lean`:
+It stops at a call without a specification, at an external call, at a program counter listed in
+`stop`, and at a loop head (a path that returns to a program counter it has already stepped
+from is left there, so `stop` is usually unnecessary). Hypotheses that would shadow each other
+are renamed apart: the latest is `hc`/`hm`/`hret`, earlier ones `hc_1`, `hm_2`, …, oldest
+first. `set_option trace.lsym true` reports why each remaining goal was left: a stop, a loop
+head, a step that does not apply (with the last rule's error), running out of depth, a return,
+or a side condition. `lsym` raises `maxRecDepth` to 16384 while it runs; a step that still runs
+out of depth leaves its goal. Running out of heartbeats stops `lsym` with an error naming the
+program counter.
 
-  | | by hand | with `lsym` |
-  | --- | --- | --- |
-  | the seven theorems | 480 lines | 270 lines |
-  | address lemmas | 64 lines (36 lemmas) | none |
-  | a raised `maxHeartbeats` | 6 | none |
-  | time to check | 4.2 s | 4.2 s |
+Related pieces:
 
-  `lsym` itself raises `maxRecDepth`, to 16384, while it runs (`Lprog/Tactic.lean`). (A step
-  that still ran out of depth stopped `lsym` as a whole, since `try … catch` does not catch
-  the limit; since the fourth round it leaves its goal.)
+| name | where | what |
+| --- | --- | --- |
+| `lstep` | `lprog/Lprog/Tactic.lean` | one step of `lsym` |
+| `lframe` | `lprog/Lprog/Tactic.lean` | proves that the register file `lsym` leaves agrees with the original outside the written registers |
+| `frame_ofParts` | `lprog-riscv/LprogRiscV/Lsym.lean` | turns that into a postcondition's frame over the RISC-V machine state |
+| `Isa.Contract p c f Pre Post` | `lprog/Lprog/Contract.lean` | a function contract over the register file, for any instruction set; `lsym … using` steps calls through it (`SafeN.call_contract`, `SafeN.tail_contract`), so proofs compose bottom-up |
+| `contract_of_agree` | `lprog-riscv/LprogRiscV/Lsym.lean` | turns a RISC-V contract stated over machine states into an `Isa.Contract` without re-proving it |
+| `lsym_addr` | simp set (`lprog/Lprog/Tactic.lean`) | address normal form: a base plus one constant (subtraction as addition of the negation, sums right-associated, constants folded, `ofNat (8 * (2 * j + 1))` as `ofNat (16 * j) + 8#64`, shifts as multiplications). Normalise a region lemma's fact with `simp only [lsym_addr] at h` to match `lsym`'s addresses |
+| `SafeN.label_spend` | `lprog/Lprog/Sem.lean` | spends one unit of budget at a label, so a function that never returns can be proved safe by induction on the budget (`Cases/Hardening/Calls.lean`, `stop_contract`) |
+| `SafeN.block` | `lprog/Lprog/Block.lean` | steps a straight-line piece at once (item 2; not yet used by `lsym`) |
 
-  What is left: the loop's invariant, the frame (which cells the prologue writes, that other
-  memory is unchanged), the postconditions, and the facts about addresses as `simp` writes
-  them (`sp + 0xffffffffffffffd0#64 + 40#64`), proved by `bv_decide`. Calls and the system
-  call still go through the machine-level rules (`lsafe_call`, `lsafe_tail`, `lsafe_write`),
-  whose contracts are stated over a machine state; `using` wants contracts over the register
-  file.
+**Recursion** needs nothing extra when it is on a smaller argument: prove the contract by
+induction on the argument and step the recursive call through the induction hypothesis
+(`Cases/Hardening/Rec.lean`, `fib`). Recursion that need not terminate would need the budget at
+calls (`budget_induction`).
 
-- **Item 6, first step.** The lift of an instruction is now local: `liftFrom` hands each
-  instruction the one before it, so its lift depends on the instruction, its predecessor, its
-  index and `entryOf`, not on decoding the function again (finding the predecessor through
-  the program had made `--to lean` quadratic in a function's size). And `--to lean --proved`
-  checks a function's parts by `kernel_eq` (`Eq.refl`, evaluated by the kernel) instead of
-  `decide +kernel`, which compares every field through `DecidableEq`: on zip-2005's three
-  largest functions the check is about 2.5 times faster and the module 30 to 35% faster
-  (16 s to 11 s for the largest). What is left is elaborating the term itself, about two
-  thirds of the time now. The route of whole programs keeps `decide`: there the kernel's
-  unfolding of `program.lift` to compare it with a term is far slower than evaluating the
-  decision. The Pancake route already used `kernel_eq`, since Flapjack's syntax has no
-  decidable equality.
+## Results
 
-## Third round: proofs that compose, on two instruction sets
+| proof | by hand | with `lsym` |
+| --- | --- | --- |
+| `memcmp` (`Cases/Zip2005/Runtime/MemcmpLprog.lean` vs `MemcmpLsym.lean`) | 333 lines, 28 rules applied by hand, raised `maxHeartbeats` | 140 lines, two calls of `lsym`, no raised limits |
+| `write_vectored`: three functions, a loop, a call, a tail call, a system call (`WriteVectored.lean` vs `WriteVectoredLsym.lean`) | 906 lines, 36 address lemmas, `maxHeartbeats` raised 6 times | 300 lines, no address lemmas or raised limits; calls go through `Isa.Contract`s |
+| `Cases/Hardening/` (C compiled by clang) | | every function proved against C's meaning; see [its README](../../Cases/Hardening/README.md) |
+| x86-64 (`Tools/Test/LsymX86.lean`) | | two functions lifted from bytes, a call through a contract with the return address pushed and popped; only the instruction set's `lsym_simp` instance was added |
 
-- **Contracts over the register file** (`Lprog/Contract.lean`). `Isa.Contract p c f Pre Post`:
-  the function at index `f`, from its entry with return address `ret` and stack pointer `top`
-  and `Pre ret top regs m`, is safe if every state it returns to with
-  `Post ret top regs m r' m'` is. It is stated for any instruction set. `lsym … using [contract]`
-  steps a call or a tail call through it (`SafeN.call_contract`, `SafeN.tail_contract`): the
-  callee is the contract's, shown by `simp` and `decide` (indirect targets too); the
-  precondition and the stack pointer are closed by `simp` if they can be; and the continuation
-  is taken up after the return, the postcondition as `hret`. A caller's proof uses its callees'
-  contracts and gives its own, so proofs build bottom-up as the program does.
-- **Contracts proved over a machine state, kept.** `contract_of_agree`
-  (`LprogRiscV/Lsym.lean`) turns a RISC-V contract stated over any machine state the register
-  file agrees with into an `Isa.Contract`, by `Agree.refl`, without proving it again.
-- **One normal form for addresses** (`lsym_addr`, also in `lsym_simp`): a base plus one
-  constant. A subtraction becomes the addition of its negation, sums associate to the right,
-  constants fold, and an index `BitVec.ofNat 64 (8 * (2 * j + 1))` becomes
-  `BitVec.ofNat 64 (16 * j) + 8#64`. A region lemma's fact about a cell, normalised by
-  `simp only [lsym_addr] at h`, is about the address `lsym` computes, so a proof no longer
-  bridges two spellings of an address.
-- **`write_vectored` again** (`WriteVectoredLsym.lean`). `syscall_write`'s `lsym` proof goes
-  through `contract_of_agree`; `sys_write` is proved by `lsym` with its tail call through it;
-  and `write_vectored`'s call goes through `sys_write`'s contract:
+What remains for the user in these proofs is what the function means: loop invariants, frames
+(which cells the prologue writes, that other memory is unchanged), postconditions, and some
+address arithmetic.
 
-  | | second round | third round |
-  | --- | --- | --- |
-  | lines (the same theorems and their helpers) | 270 | 243 |
-  | `bv_decide` bridging addresses | 22 | 0 |
-  | call rules applied by hand (`lsafe_call`, `lsafe_tail`) | 2 | 0 |
-  | time to check | 4.2 s | 3.8 s |
+On the Hardening programs the lift itself held: every operation matched C at its edges (division
+by zero and overflow, high halves of products) and every load's extension. On the 41 Rust
+guests built for SP1, the `--proved` lift leaves out 177 of 6,738 functions: 142 for `unimp` (the
+illegal instruction rustc emits for a trap) and 35 for the 32-bit operations riscv-zkvm's
+machine lacks. A guest's `__udivti3` composes with its callee's contract through a result
+returned in memory.
 
-  The system call is still a rule applied by hand (`lsafe_write`): an external call has no
-  contract form yet.
-- **x86-64** (`Tools/Test/LsymX86.lean`). Two functions are lifted from their bytes by the
-  x86-64 lift, and the kernel checks the terms against it. `g` has a contract, and `f`'s,
-  proved through `g`'s, steps the call with its push and pop of the return address. The
-  instruction set added only its instance to `lsym_simp`. Nothing in `lsym` was RISC-V's; the
-  shared set lacked `Width.bits`, which a zero-extension needs and RISC-V's code never had.
-  What x86-64 lacks is an instance at Lprog backed by its machine (RISC-V's is `rvIsa` over
-  SP1, with the transfer theorem), so the test runs over a model of its memory (doublewords by
-  address). A machine-backed instance for x86-64 or AArch64, with a theorem like RISC-V's
-  `transfer`, is what would make such proofs about the binary.
-
-## Fourth round: `lsym` made sturdier
-
-From the review of the first three rounds:
-
-- **No goal for a memory check.** `SafeN.opn'` asked that an operation give a result
-  (`isSome`), so every load or store whose check `simp` could not close left a goal. An
-  operation that gives none traps, and a trap is safe (`SafeN.fault`): the rule now asks
-  nothing, and the check stays only as the hypothesis `hm`. A condition that gives no value is
-  `wrong`, not a trap, so `SafeN.cond'` keeps its side condition. Both case studies build
-  unchanged, and faster: `MemcmpLsym` in 1.9 s (was 5 s), `WriteVectoredLsym` in 2.1 s.
-- **A step that runs out of depth leaves its goal**, instead of failing `lsym` as a whole
-  (`try … catch` does not catch the limit; `tryCatchRuntimeEx` does). Heartbeats are the
-  declaration's, not a step's: once they are spent every later step fails too, so `lsym` stops
-  with an error that names the program counter it was stepping from.
-- **A loop is found without `stop`.** A path that comes back to a function's program counter
-  it has stepped from is left there, for an invariant (it ran until it was out of time).
-- **Why it stopped**, for each goal left: `set_option trace.lsym true` says whether it is a
-  stop, a loop's head, a step that does not apply (and the error of the last rule tried), a
-  step out of depth, a return (the postcondition), or a side condition.
-- **A frame whose size is not a numeral.** The address normal form had no lemma for `-n + n`:
-  `sp - n + n` became `sp + (-n + n)` and stayed. `BitVec.add_left_neg`, `add_right_neg` and
-  two lemmas for `-n + (n + c)` and `n + (-n + c)` are in `lsym_simp` and `lsym_addr` now.
-
-Straight-line code, a body of `addi`s and a return, the time `lsym` takes:
+**Cost on straight-line code** (a body of `addi`s and a return):
 
 | instructions | 100 | 200 | 400 |
 | --- | --- | --- | --- |
 | time | 7 s | 18 s | 63 s |
 
-(At the default `maxHeartbeats`, 200,000, 100 instructions check and 200 do not: they need about
-a million.)
+At the default `maxHeartbeats` (200,000), 100 instructions check and 200 do not (they need about
+a million). Time grows with the square of the length; `SafeN.block` (item 2) is meant to fix
+this.
 
-The depth is no longer what stops it (the first spike failed at about 100); the time grows with
-the square of the length, which is what `SafeN.block` is for.
+## Known limitations and open problems
 
-Not done: the hypotheses `lsym` adds are named `hc`, `hm`, `hret`, `r'`, `m'`, and a later one
-hides an earlier one of its name; proofs reach the earlier ones with `rename_i`. Names that do
-not hide each other would change what the existing proofs refer to.
+- **Long straight-line code is slow** (above): `Cases/Hardening`'s 290-instruction `mix` takes
+  45 s with `maxHeartbeats` raised tenfold.
+- **`bv_omega` after `lsym`** is slow or fails where the same fact alone is instant: it takes
+  every hypothesis, and `lsym` leaves many. Workaround: state the arithmetic as separate lemmas
+  (`Rec.lean` does).
+- **`simp` on `toNat` of a sum with a large literal** (an address below `sp`) produces a proof
+  the kernel times out on (a Lean issue). Use `bv_omega` for such facts.
+- **External calls have no contract form.** System calls still go through machine-level rules
+  applied by hand (`lsafe_write`).
+- **No machine-backed instance for x86-64 or AArch64.** RISC-V's Lprog instance is `rvIsa` over
+  SP1, with a transfer theorem to the machine; the x86-64 test runs over a model of memory
+  (doublewords by address). Proofs about AArch64 or x86-64 binaries need such an instance and a
+  theorem like RISC-V's `transfer`.
+- **`unimp` and 32-bit operations** leave functions out of the `--proved` lift. Taking `unimp`
+  as a trap would be the larger gain.
+- **Memory regions** have no shared vocabulary at Lprog yet (#21).
 
-## Fifth round: the tools on code written to break them
+## Next steps
 
-`Cases/Hardening/` (its README has the full table): small C programs compiled by clang, through
-`decompile --to lean --proved` and `lsym`, each function proved against what C says it
-computes. Thirteen findings; the ones in `lsym` and Lprog:
-
-- **`hret` was not used.** After a call through a contract, `lsym` named the callee's
-  postcondition and went on without it, so a frame's `ra` read back after the call, or a tail
-  call's precondition, were left open. Each step on a path past a call now uses what its
-  callees' postconditions say (`hret`, and the earlier ones as `hret_1`, …), unfolded by the
-  lemmas given in `with` when a postcondition is a definition.
-- **A loop that never ends** could not be proved safe: every step rule keeps the budget.
-  `SafeN.label_spend` spends a unit at a label; a function that never returns is proved by
-  induction on the budget (`Calls.lean`'s `stop_contract`), and a call of it ends its path.
-- **Recursion** needs nothing new when it is on a smaller argument: the contract by induction
-  on the argument, the recursive call through the induction hypothesis (`Rec.lean`'s `fib`).
-  Recursion that need not end would need the budget at calls (`budget_induction`).
-- **The normal forms** missed an index scaled by a shift (`addr_ofNat_shl`), an unsigned
-  comparison (`ult_iff_lt`), and a register file read after a write under `simp only`
-  (`reduceCtorEq`).
-- **Open:** `bv_omega` in a context `lsym` has filled is slow or fails where the same fact
-  alone is instant; `simp` on `toNat` of a sum with a large literal (an address below `sp`)
-  gives a proof the kernel times out on (Lean's). Hypotheses that hid each other (`hm✝`) now
-  have names of their own (`hm_1`, …, oldest first).
-- **Real compiler output.** On the 41 Rust guests built for SP1, the `--proved` lift leaves out
-  177 of 6,738 functions: 142 for `unimp`, the illegal instruction rustc writes for a trap,
-  and 35 for the 32-bit operations riscv-zkvm's machine lacks. Taking `unimp` as a trap is the
-  larger gain. A guest's `__udivti3` composes with its callee's contract through a result
-  returned in memory, with nothing left to the proof but the contract.
-
-The lift itself held: every operation's meaning matched C at its edges (division by zero and
-its overflow, the high half of products), and every load's extension.
-
-Next: a contract form for external calls (the system call above); `SafeN.block` for long
-blocks, with atoms; machine-backed instances for x86-64 and AArch64; and the rest of item 6, a
-shorter written term for `--to lean` (elaborating it now costs more than checking it), and
-per-instruction checks.
+1. A contract form for external calls.
+2. `SafeN.block` in `lsym` for long blocks, with atoms.
+3. Machine-backed Lprog instances for x86-64 and AArch64.
+4. The rest of item 6: a shorter written term for `--to lean` (elaborating it now costs more
+   than checking it), and per-instruction checks.

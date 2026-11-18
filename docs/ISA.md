@@ -1,85 +1,77 @@
-# The canonical specification of each instruction set
+# The instruction-set models
 
-Each instruction set's model is the bottom of its stack (layer 0 of
-[`ROADMAP.md`](../ROADMAP.md)): the semantics every theorem about a binary for that ISA is
-stated against. A model is trusted only while it is named on the trust ladder
-([`ELF.md`](ELF.md) §4), and is to be verified against the canonical specification chosen
-here, or replaced by a model that already is.
+Which semantics each instruction set is verified against, and why. This is current. Each model
+is layer 0 of [`ROADMAP.md`](../ROADMAP.md): every theorem about a binary for that ISA is
+stated against it. A model is trusted only as listed on the trust ladder
+([`ELF.md`](ELF.md) §4), and is to be verified against the canonical specification named here,
+or be that specification.
 
-| ISA | canonical specification | model here | status |
+| ISA | canonical specification | model used here | status |
 | --- | --- | --- | --- |
-| RISC-V | the Sail RISC-V model | [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm), a dependency | tied to Sail; the only RV64 semantics |
-| x86-64 | [Kraken](https://github.com/AeneasVerif/kraken)'s x64 semantics (decided 2026-11-11, below) | Kraken, a dependency, imported by `MachineChecked/X86/Kraken.lean` | required; trusted (the canonical specification) |
-| AArch64 | [DeepMind's arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) (decided 2026-11-12, below) | arm64-semantics' trusted package, a dependency, imported by `MachineChecked/ARM/Arm64.lean` | required; trusted (the canonical specification) |
+| RISC-V | the Sail RISC-V model | [riscv-zkvm](https://github.com/Verified-zkEVM/riscv-zkvm) | tied to Sail; the only RV64 semantics here |
+| x86-64 | [Kraken](https://github.com/AeneasVerif/kraken)'s x64 semantics | Kraken, imported by `MachineChecked/X86/Kraken.lean` | trusted as the canonical specification |
+| AArch64 | [DeepMind's arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) | its trusted package `arm64`, imported by `MachineChecked/ARM/Arm64.lean` | trusted as the canonical specification |
+
+Each model is a dependency, required at a pinned commit in `lakefile.toml` and used
+unmodified. It is the only semantics for its ISA in this repository. Any other model of the
+same ISA (for example catcrypt-compiler's) must be proved against it, not used beside it.
 
 ## x86-64: Kraken
 
-**Decided 2026-11-11, with catcrypt-compiler's maintainers.** The x86-64 semantics is
-[Kraken](https://github.com/AeneasVerif/kraken)'s x64 model (Lean FRO, Google and INRIA; MIT).
-It plays the part riscv-zkvm plays for RISC-V: a dependency, required at a pinned revision
-and used unmodified, and the only x86-64 semantics here. Any other x86-64 model, such as
-catcrypt-compiler's, is proved against it rather than set beside it.
+Chosen on 2026-11-11, with catcrypt-compiler's maintainers. Kraken's x64 model is by the
+Lean FRO, Google and INRIA (MIT licence). It was chosen over Sail x86 and the ACL2 model
+because it is in Lean, its semantics is hand-written for both proof and testing, each change
+is checked against the Intel SDM by two maintainers, it is fuzz-tested against Intel's SDE,
+and it is built for proof automation (`SymM`, `grind`, `mvcgen`).
 
-Why Kraken rather than Sail x86 or the ACL2 model: it is in Lean, its semantics is written by
-hand for both proof and testing, each change to it is checked against the Intel SDM by two
-maintainers, it is tested against Intel's SDE by a fuzzer, and it is built for proof
-automation (`SymM`, `grind`, `mvcgen`).
+How it differs from RISC-V:
 
-What it changes, compared with RISC-V:
+- **Programs are assembly, not bytes.** Kraken verifies `.S` files or disassembled `.o` files,
+  with no layout, instruction sizes or addresses. An x86-64 theorem here is therefore stated
+  over the assembly, and the assembler and linker are trusted for x86-64 (`ELF.md` §4).
+  Checking the assembly against the binary's bytes is future work.
+- **Scope:** sequential user-level code in 64-bit mode: all general-purpose registers with
+  partial-register access, status flags, memory, ADX and `MULX`. Out of scope: faults,
+  virtual memory, segment registers, other modes, and mutable globals (`.data`, `.bss`). The
+  first x86-64 targets (s2n-bignum-style routines, hash kernels) fit in this scope. Missing
+  instructions (for example the rest of BMI1 and BMI2, `BT`, `XCHG`) are to be contributed to
+  Kraken when a target needs them.
+- **Toolchain:** Kraken follows Lean nightlies and uses the module system. It does not build on
+  Lean v4.35.0; this repository uses v4.36.0-rc2.
 
-- **Its programs are assembly, not bytes.** Kraken verifies code one level above the binary,
-  `.S` files or disassembled `.o` files, with no layout, instruction sizes or addresses. An
-  x86-64 theorem here is therefore stated over the assembly, and the assembler and linker
-  join the trusted base for x86-64 (`ELF.md` §4). Closing that gap (checking the assembly
-  against the bytes of the binary) is later work.
-- **Its scope** is sequential user-level code in 64-bit mode: all general-purpose registers
-  with partial-register access, status flags, memory, ADX and `MULX`. Faults, virtual memory,
-  segment registers, other modes and mutable globals (`.data`, `.bss`) are out of scope. The
-  first x86-64 targets (s2n-bignum-style routines, hash kernels) fit inside it.
-  Instructions it lacks (for example the rest of BMI1 and BMI2, `BT`, `XCHG`) are
-  contributed to Kraken when a target needs them.
-- **Toolchain.** Kraken follows Lean nightlies and the module system. It does not build on
-  v4.35.0, so this repository moved to v4.36.0-rc2 to require it.
-
-Kraken is required at a pinned commit (`lakefile.toml`). `MachineChecked/X86/Kraken.lean`
-imports `Kraken.X64.Semantics` and nothing else of Kraken's. The trusted transcription of
-Jasmin's x86 semantics that stood in before is removed.
+`MachineChecked/X86/Kraken.lean` imports `Kraken.X64.Semantics` and nothing else from Kraken.
 
 ## AArch64: DeepMind's arm64-semantics
 
-**Decided 2026-11-12.** The AArch64 semantics is the trusted package `arm64` of
-[arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) (Google DeepMind's code-verification repository; Apache-2.0): its
-`Arm64.Steps` relation, decoder, memory and state (`Arm64/Trusted/ISA/`). It plays the part
-riscv-zkvm plays for RISC-V: a dependency, required at a pinned commit and used unmodified, and
-the only AArch64 semantics here.
+Chosen on 2026-11-12. The model is the trusted package `arm64` of arm64-semantics, in Google
+DeepMind's code-verification repository (Apache-2.0): its `Step`/`Steps` relations, decoder,
+memory and state (under `Arm64/Trusted/ISA/`). It was chosen over sail-arm and Kraken's
+AArch64 model for three reasons:
 
-Why it rather than sail-arm or Kraken's AArch64 model:
+- **Programs are bytes, as for RISC-V.** `Step` fetches four bytes from memory, decodes them
+  and executes the instruction. An AArch64 theorem is stated over the binary, with no
+  assembler or linker in the trusted base.
+- **The trusted part is small and checked.** It is written by hand from Arm's
+  machine-readable ASL and contains no theorems. It is differentially tested against Sail's
+  Armv9.4-A model, Unicorn, LLVM, `ld.lld` and QEMU. The encoder round trip
+  (`encode (decode bs) = bs`) is proved.
+- **Coverage fits the targets.** Besides the integer core, it covers SIMD loads and stores and
+  the crypto extensions (AES, SHA-1/256/512, `PMULL`, and SHA-3's `EOR3`, `RAX1`, `XAR`,
+  `BCAX`).
 
-- **Its programs are bytes, as RISC-V's are.** `Step` fetches four bytes from memory, decodes
-  them and executes the instruction, so an AArch64 theorem is stated over the binary, with no
-  assembler or linker in the trusted base. That is the RISC-V shape, not Kraken's.
-- **Its trusted part is small and checked.** It is written by hand from Arm's machine-readable
-  ASL, kept theorem-free, and differentially tested against Sail's Armv9.4-A model, Unicorn,
-  LLVM, `ld.lld` and QEMU. The encoder round trip (`encode (decode bs) = bs`) is proved.
-- **Its coverage fits our targets.** Beyond the integer core, it covers the SIMD loads and
-  stores and the crypto extensions (AES, SHA-1/256/512, `PMULL`, and SHA-3's `EOR3`, `RAX1`,
-  `XAR`, `BCAX`).
+Sail-arm, generated from the ASL, remains the reference that arm64-semantics is tested
+against; it is not a second semantics here.
 
-Sail-arm, generated from the ASL itself, stays the reference arm64-semantics is tested
-against, not a second semantics here.
+Limits and requirements:
 
-What to know about it:
-
-- **Its scope** is one hardware thread at EL0 running Linux user code. A fault is a status that
+- **Scope:** one hardware thread at EL0 running Linux user code. A fault is a status that
   stops execution, not a trap. Anything not modelled, including unmodelled system registers
   and syscalls, faults rather than guesses. The exclusive monitor is not modelled, and `FPCR`
-  is pinned to zero.
+  is fixed at zero.
 - **What is required:** only the trusted package (`arm64-semantics/Arm64`, Lake package
-  `arm64`, no dependencies). Its proof library `ProofLib`, case studies and tests are not
-  required.
-- **Toolchain.** It pins Lean v4.34.0 and builds warning-free on v4.36.0-rc2 (checked
-  2026-11-12). It uses the module system, as Kraken does.
+  `arm64`, no dependencies), via `subDir` in `lakefile.toml`. Its proof library `ProofLib`,
+  case studies and tests are not required.
+- **Toolchain:** it pins Lean v4.34.0 and builds without warnings on v4.36.0-rc2 (checked
+  2026-11-12). It uses the module system.
 
-arm64-semantics is required at a pinned commit (`lakefile.toml`, with `subDir` set to the
-package). `MachineChecked/ARM/Arm64.lean` imports `Arm64.Trusted`. The hand-written model
-ported from catcrypt-compiler that stood in before is removed.
+`MachineChecked/ARM/Arm64.lean` imports `Arm64.Trusted`.

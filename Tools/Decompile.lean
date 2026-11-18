@@ -1,11 +1,15 @@
 /-
   Tools.Decompile
 
-  `decompile --to lprog|pancake BINARY [OUT]`: a RISC-V binary as an Lprog program, in text,
-  or as a Pancake program (`docs/design/Decompiler.md`).
+  `decompile --to lprog|pancake|lean BINARY …`: a RISC-V, AArch64 or x86-64 ELF (or a
+  Flapjack image) as an Lprog program in text, as a Pancake program, or as Lean modules
+  (`Tools/ToLean.lean`); and `--table`, `--kinds`, `--listing` for the `LIMITS.md` tables and
+  x86-64's decoder (`docs/design/Decompiler.md`, usage in `Tools/README.md`).
 
-  An ELF goes by the lift of whole programs (`RiscV/Lift/Whole.lean`) and, to Pancake, by
-  lift 2 in SP1's environment (`RiscV/Sp1/Pancake.lean`). Its functions are its text symbols,
+  An ELF goes by the lift of whole programs of its instruction set (`RiscV/Lift/Whole.lean`,
+  `ARM/Lift/Lift.lean`, `X86/Lift/Lift.lean`) and, to Pancake, by lift 2 in its environment
+  (SP1's for RISC-V, `RiscV/Sp1/Pancake.lean`; none for AArch64 and x86-64, `ARM/Bare.lean`,
+  `X86/Bare.lean`). Its functions are its text symbols,
   read from its own symbol table, and the hints of the lift are the addresses of code it
   holds as values. A Flapjack image goes by the lift of code without functions. Nothing on
   these routes is proved: they are checked by running (`scripts/decompile-check`).

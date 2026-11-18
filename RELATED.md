@@ -29,7 +29,7 @@ MachineChecked can borrow. The layers referred to throughout are those of
 4. [The Lean ecosystem](#4-the-lean-ecosystem)
 5. [Binary lifting and verified decompilation](#5-binary-lifting-and-verified-decompilation)
 6. [Instruction-set models and how they are validated](#6-instruction-set-models-and-how-they-are-validated)
-7. [Verified assembly, cryptography and verified compilers](#7-verified-assembly-cryptography-and-verified-compilers)
+7. [Verified assembly, cryptography and verified compilers](#7-verified-assembly-cryptography-and-verified-compilers-)
 8. [AI-assisted machine-code proof](#8-ai-assisted-machine-code-proof)
 9. [Lessons for MachineChecked, layer by layer](#9-lessons-for-machinechecked-layer-by-layer)
 10. [Open questions this survey raises](#10-open-questions-this-survey-raises)
