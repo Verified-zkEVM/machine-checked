@@ -1,17 +1,22 @@
 /-
   Examples.Sha256
 
-  `sha256_round` of `src/c/sha256.c`, compiled by clang: one round of SHA-256 on the eight
-  working variables in memory. Its contract at Lprog, proved with `lsym`, and the same statement
-  over riscv-zkvm's machine (`sha256_round_correct`).
+  `sha256_round` and `sha256_schedule` of `src/c/sha256.c`, compiled by clang: one round of
+  SHA-256 on the eight working variables in memory, and the message schedule. Their contracts
+  at Lprog, proved with `lsym`, and the same statements over riscv-zkvm's machine
+  (`sha256_round_correct`, `sha256_schedule_correct`).
 
-  The function is 57 instructions with no branch. It keeps `s0` in a frame of its own, so the
+  The round is 57 instructions with no branch. It keeps `s0` in a frame of its own, so the
   precondition asks that the doubleword it saves `s0` in is none of those the eight words are
   in. The specification is the round of FIPS 180-4 (`round`), with `rotateRight`; `bv_decide`
   relates it to the shifts the binary has.
 
-  `sha256_schedule` and `sha256_compress` are lifted (`Gen/Sha256/F1.lean`, `F2.lean`) and not
-  proved.
+  The schedule is a loop of forty-eight words, each from four before it; its lemma is at the
+  loop's head, by induction on the words left (`sched_loop`). The facts about its addresses are
+  theorems of their own, used after `lsym` has stepped: as hypotheses before it, `lsym`'s `simp`
+  takes them as rewrite rules and does not end.
+
+  `sha256_compress` is lifted (`Gen/Sha256/F2.lean`) and not proved.
 -/
 
 import Examples.Gen.Sha256
@@ -145,6 +150,129 @@ theorem sha256_round_contract : rvIsa.Contract (liftProg fns) sp1Ctx 0
       getMem_setWord32 _ _ _ _ d5.symm, getMem_setWord32 _ _ _ _ d4.symm,
       MachineState.getMem_setMem_eq]
   · simp [lsym_simp]
+
+/-! ## The message schedule -/
+
+def ssig0 (x : BitVec 32) : BitVec 32 := rotr x 7 ^^^ rotr x 18 ^^^ (x >>> 3)
+def ssig1 (x : BitVec 32) : BitVec 32 := rotr x 17 ^^^ rotr x 19 ^^^ (x >>> 10)
+
+/-- The message schedule (FIPS 180-4, 6.2.2 step 1): the sixteen words of the block, then each
+    word from four before it. -/
+def W (init : Nat → BitVec 32) (t : Nat) : BitVec 32 :=
+  if t < 16 then init t
+  else ssig1 (W init (t - 2)) + W init (t - 7) + ssig0 (W init (t - 15)) + W init (t - 16)
+termination_by t
+decreasing_by all_goals omega
+
+theorem W_step (init : Nat → BitVec 32) {t : Nat} (h : 16 ≤ t) :
+    W init t = ssig1 (W init (t - 2)) + W init (t - 7) + ssig0 (W init (t - 15)) + W init (t - 16) := by
+  rw [W, ite_eq_right (by omega)]
+
+theorem aligned4_ofNat {w : Word} (h : alignedFor 4 w = true) (i : Nat) :
+    alignedFor 4 (w + BitVec.ofNat 64 (4 * i)) = true := by
+  refine aligned4_add h _ ?_
+  have : BitVec.ofNat 64 (4 * i) = 4#64 * BitVec.ofNat 64 i := by
+    apply BitVec.eq_of_toNat_eq; simp
+  rw [this]; bv_decide
+
+/-- **One word of the schedule**: with the words before `t` in memory, the word the loop's body
+    stores at `t` is the schedule's, and the words before it stay. -/
+theorem sched_step (w : Word) (init : Nat → BitVec 32) (hal : alignedFor 4 w = true)
+    (m : MachineState) {t : Nat} (ht : 16 ≤ t) (ht' : t < 64)
+    (inv : ∀ i < t, m.getWord32 (w + BitVec.ofNat 64 (4 * i)) = W init i) (v : BitVec 32)
+    (hv : v = W init t) :
+    ∀ i < t + 1, (m.setWord32 (w + BitVec.ofNat 64 (4 * t)) v).getWord32
+      (w + BitVec.ofNat 64 (4 * i)) = W init i := by
+  intro i hi
+  rw [getWord32_setWord32 _ _ _ _ (aligned4_ofNat hal t) (aligned4_ofNat hal i)]
+  by_cases h : i = t
+  · subst h; simp [hv]
+  · have hne : w + BitVec.ofNat 64 (4 * i) ≠ w + BitVec.ofNat 64 (4 * t) := by bv_omega
+    rw [ite_eq_right hne]; exact inv i (by omega)
+
+/-- The addresses the loop's body reads, and the next it writes, as words of the array. -/
+theorem sched_addr (w : Word) {t : Nat} (ht : 16 ≤ t) (ht' : t < 64) :
+    w + (BitVec.ofNat 64 (4 * t) + 18446744073709551608#64) = w + BitVec.ofNat 64 (4 * (t - 2)) ∧
+    w + (BitVec.ofNat 64 (4 * t) + 18446744073709551588#64) = w + BitVec.ofNat 64 (4 * (t - 7)) ∧
+    w + (BitVec.ofNat 64 (4 * t) + 18446744073709551556#64) = w + BitVec.ofNat 64 (4 * (t - 15)) ∧
+    w + (BitVec.ofNat 64 (4 * t) + 18446744073709551552#64) = w + BitVec.ofNat 64 (4 * (t - 16)) ∧
+    w + (BitVec.ofNat 64 (4 * t) + 4#64) = w + BitVec.ofNat 64 (4 * (t + 1)) := by
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> bv_omega
+
+theorem sched_more {t : Nat} (ht' : t < 64) (h : ¬BitVec.ofNat 64 (4 * t) + 4#64 = 256#64) :
+    t + 1 < 64 := by bv_omega
+
+theorem sched_last {t : Nat} (ht' : t < 64) (h : BitVec.ofNat 64 (4 * t) + 4#64 = 256#64) :
+    t = 63 := by bv_omega
+
+/-- **The loop of the schedule**, at its head with the words before `t` written. -/
+theorem sched_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (w : Word) (init : Nat → BitVec 32) (hal : alignedFor 4 w = true)
+    (hpost : ∀ r' m', (∀ i < 64, m'.getWord32 (w + BitVec.ofNat 64 (4 * i)) = W init i) →
+      LSafeN fns G N Q ⟨rest, r', m'⟩) :
+    ∀ k t (regs : Reg → BitVec 64) (m : MachineState), 64 - t = k → 16 ≤ t → t < 64 →
+      regs .x11 = w + BitVec.ofNat 64 (4 * t) → regs .x10 = w + 256#64 →
+      regs .x1 = ret → regs .x2 = top →
+      (∀ i < t, m.getWord32 (w + BitVec.ofNat 64 (4 * i)) = W init i) →
+      LSafeN fns G N Q ⟨⟨1, 4, ret, top⟩ :: rest, regs, m⟩ := by
+  intro k
+  induction k with
+  | zero => intro t _ _ hk _ ht'; omega
+  | succ k ih =>
+    intro t regs m hk ht ht' h11 h10 hra hsp inv
+    lsym f1_eq stop [4] with [h11, h10, hra, hsp]
+    all_goals obtain ⟨e2, e7, e15, e16, enext⟩ := sched_addr w ht ht'
+    all_goals have hnew := sched_step w init hal m ht ht' inv
+    · -- words are left: the back edge
+      refine ih (t + 1) _ _ (by omega) (by omega) (sched_more ht' hc) ?_ ?_ ?_ ?_ (hnew _ ?_)
+      · simp only [lsym_simp]
+        exact enext
+      · simp [lsym_simp, h10]
+      · simp [lsym_simp, hra]
+      · simp [lsym_simp, hsp]
+      · simp only [e2, e7, e15, e16, inv (t - 2) (by omega), inv (t - 7) (by omega),
+          inv (t - 15) (by omega), inv (t - 16) (by omega), W_step init ht, ssig0, ssig1, rotr]
+        bv_decide
+    · -- the last word
+      obtain rfl := sched_last ht' (by simpa using hc)
+      apply hpost
+      refine hnew _ ?_
+      simp only [e2, e7, e15, e16, inv (63 - 2) (by omega), inv (63 - 7) (by omega),
+        inv (63 - 15) (by omega), inv (63 - 16) (by omega), W_step init ht, ssig0, ssig1, rotr]
+      bv_decide
+
+/-- The words of the block: the schedule's first sixteen. -/
+theorem W_init (init : Nat → BitVec 32) {t : Nat} (h : t < 16) : W init t = init t := by
+  rw [W, ite_eq_left h]
+
+/-- `sha256_schedule(w)`: with the block in the first sixteen words at `w`, the sixty-four
+    words at `w` become the message schedule of the block. -/
+theorem sha256_schedule_contract : rvIsa.Contract (liftProg fns) sp1Ctx 1
+    (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top ∧ alignedFor 4 (regs .x10) = true)
+    (fun _ _ regs m _ m' => ∀ i < 64, m'.getWord32 (regs .x10 + BitVec.ofNat 64 (4 * i)) =
+      W (fun j => m.getWord32 (regs .x10 + BitVec.ofNat 64 (4 * j))) i) := by
+  intro G N Q ret top rest regs m ⟨hra, hsp, hal⟩ hk
+  lsym f1_eq stop [4] with [hra, hsp]
+  refine sched_loop (regs .x10) (fun j => m.getWord32 (regs .x10 + BitVec.ofNat 64 (4 * j))) hal
+    (fun r' m' h => hk r' m' h) 48 16 _ _ rfl (by decide) (by decide) ?_ ?_ ?_ ?_
+    fun i hi => (W_init (fun j => m.getWord32 (regs .x10 + BitVec.ofNat 64 (4 * j))) hi).symm
+  · simp [lsym_simp]
+  · simp [lsym_simp]
+  · simp [lsym_simp, hra]
+  · simp [lsym_simp, hsp]
+
+/-- **`sha256_schedule` on the machine.** -/
+theorem sha256_schedule_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
+    (hpc : s.pc = 0x100e4#64) (hcode : Loaded fns s) (hal : alignedFor 4 (s.getReg .x10) = true)
+    (hk : ∀ t, t.pc = s.getReg .x1 &&& ~~~1#64 →
+      (∀ i < 64, t.getWord32 (s.getReg .x10 + BitVec.ofNat 64 (4 * i)) =
+        W (fun j => s.getWord32 (s.getReg .x10 + BitVec.ofNat 64 (4 * j))) i) → SafeN G k P t) :
+    SafeN G k P s := by
+  obtain ⟨fn, hg, hb⟩ : ∃ fn, fns[1]? = some fn ∧ fn.base = 0x100e4#64 := ⟨_, rfl, rfl⟩
+  refine SafeN.of_isa_contract hok hg (hpc.trans hb.symm) hcode sha256_schedule_contract
+    ⟨rfl, rfl, hal⟩ ?_
+  rintro t r' m' hag hpc' h
+  exact hk t hpc' fun i hi => by rw [getWord32_of_agree hag]; exact h i hi
 
 /-- **`sha256_round` on the machine.** -/
 theorem sha256_round_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
