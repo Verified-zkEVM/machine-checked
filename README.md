@@ -56,10 +56,10 @@ Details, targets and next steps: [`ROADMAP.md`](ROADMAP.md).
 
 What is verified here is functions, not a whole program:
 
-- [`Examples/`](Examples/README.md): 19 small functions in C and Rust, from straight-line
+- [`Examples/`](Examples/README.md): 20 small functions in C and Rust, from straight-line
   code to loops over memory, a call and a table in read-only data. Each has a contract at
-  Lprog and a theorem about riscv-zkvm's machine alone. `chacha20_block` and the SHA-256
-  functions are lifted there but not proved.
+  Lprog and a theorem about riscv-zkvm's machine alone. `chacha20_block` and SHA-256's
+  schedule and compression are lifted there but not proved.
 - [`Cases/Hardening`](Cases/Hardening/README.md): C written to break the tools, and `memcmp`
   and `write_vectored` of an SP1 guest's runtime.
 
