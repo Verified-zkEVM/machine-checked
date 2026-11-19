@@ -46,6 +46,7 @@ import Cases.LeanVM.Blake2s.Loaded
 
 -- Examples/Sha256.lean
 #print axioms Examples.Sha256.sha256_round_correct
+#print axioms Examples.Sha256.sha256_schedule_correct
 
 -- functions of an SP1 guest's runtime, proved with `lsym` and carried to the machine
 #print axioms Cases.Hardening.Memcmp.contract

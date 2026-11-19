@@ -31,9 +31,9 @@ Every name in the table is a function with a contract at the low logical program
 | `c/limbs.c` | [`Limbs.lean`](Limbs.lean) | `add_limbs` |
 | `c/crc32.c` | [`Crc32.lean`](Crc32.lean) | `crc32` |
 | `c/chacha20.c` | [`ChaCha20.lean`](ChaCha20.lean) | `quarter_round` |
-| `c/sha256.c` | [`Sha256.lean`](Sha256.lean) | `sha256_round` |
+| `c/sha256.c` | [`Sha256.lean`](Sha256.lean) | `sha256_round`, `sha256_schedule` |
 
-That is 20 functions. Each file checks in 3 to 9 seconds, with no limit raised. The proofs
+That is 21 functions. Each file checks in 3 to 12 seconds, with no limit raised. The proofs
 use no `sorry` and no axiom beyond Lean's three and `bv_decide`'s certificates
 (`scripts/AxiomCheckCases.lean`); CI builds them on every pull request.
 
@@ -42,7 +42,7 @@ Not verified yet:
 | Function | Instructions | State |
 | --- | --- | --- |
 | `chacha20_block` (`c/chacha20.c`) | 226 | Lifted (`Gen/ChaCha20/F1.lean`); no proof written or tried. Its loop body is 162 straight-line instructions; at the default limits `lsym` steps 100 in one go and not 200 (`docs/design/Automation.md`). |
-| `sha256_schedule`, `sha256_compress` (`c/sha256.c`) | 31, 130 | Lifted (`Gen/Sha256/`); no proof written or tried. The schedule is a loop over an array of 64 words; the compression calls it and runs the round 64 times. |
+| `sha256_compress` (`c/sha256.c`) | 130 | Lifted (`Gen/Sha256/F2.lean`); no proof written or tried. It calls the schedule and runs the round 64 times, both inlined, in a frame of 320 bytes. |
 
 Nothing was left out by the lift: every function of every source is in `Gen/`. The
 sources use 32-bit arithmetic that clang compiles to `srliw`, `addiw`, `lw` and `sw`, which
@@ -135,6 +135,9 @@ Habits from these proofs:
   precondition only when a caller should know it.
 - **Arithmetic goes in lemmas of its own.** `bv_omega` and `bv_decide` are fast on a small
   goal and slow inside a stepped one.
+- **Keep equations out of the context `lsym` runs in.** Its `simp` uses every hypothesis, so
+  an equation between addresses there is a rewrite rule, and can keep it from ending
+  (`sha256_schedule`). State such facts as theorems and use them after `lsym`.
 - **Say what the compiler did.** `add_limbs`'s carry is `s < a` in the binary, where the
   source has `s < carry`; the lemma is about the binary's.
 
