@@ -31,8 +31,9 @@ Every name in the table is a function with a contract at the low logical program
 | `c/limbs.c` | [`Limbs.lean`](Limbs.lean) | `add_limbs` |
 | `c/crc32.c` | [`Crc32.lean`](Crc32.lean) | `crc32` |
 | `c/chacha20.c` | [`ChaCha20.lean`](ChaCha20.lean) | `quarter_round` |
+| `c/sha256.c` | [`Sha256.lean`](Sha256.lean) | `sha256_round` |
 
-That is 19 functions. Each file checks in 3 to 8 seconds, with no limit raised. The proofs
+That is 20 functions. Each file checks in 3 to 9 seconds, with no limit raised. The proofs
 use no `sorry` and no axiom beyond Lean's three and `bv_decide`'s certificates
 (`scripts/AxiomCheckCases.lean`); CI builds them on every pull request.
 
@@ -41,7 +42,7 @@ Not verified yet:
 | Function | Instructions | State |
 | --- | --- | --- |
 | `chacha20_block` (`c/chacha20.c`) | 226 | Lifted (`Gen/ChaCha20/F1.lean`); no proof written or tried. Its loop body is 162 straight-line instructions; at the default limits `lsym` steps 100 in one go and not 200 (`docs/design/Automation.md`). |
-| `sha256_round`, `sha256_schedule`, `sha256_compress` (`c/sha256.c`) | 57, 31, 130 | Lifted (`Gen/Sha256/`); no proof written. `lsym` steps `sha256_round` in 7 seconds; its specification and the proof of what is left were not attempted. |
+| `sha256_schedule`, `sha256_compress` (`c/sha256.c`) | 31, 130 | Lifted (`Gen/Sha256/`); no proof written or tried. The schedule is a loop over an array of 64 words; the compression calls it and runs the round 64 times. |
 
 Nothing was left out by the lift: every function of every source is in `Gen/`. The
 sources use 32-bit arithmetic that clang compiles to `srliw`, `addiw`, `lw` and `sw`, which
@@ -64,7 +65,9 @@ What the examples exercise:
   represent.
 - **A table in read-only data** (`crc32`): the precondition says memory holds the table; that
   its addresses are valid and aligned is proved.
-- **32-bit words in memory** (`quarter_round`).
+- **32-bit words in memory** (`quarter_round`, `sha256_round`): rotations as two shifts and
+  an `or`, related to `rotateLeft` and `rotateRight` by `bv_decide`. `sha256_round` is 57
+  instructions without a branch, which `lsym` steps in one go, and keeps `s0` in a frame.
 
 `Cases/Hardening` has what these leave out: signed arithmetic and division at its edges, every
 load width, recursion, a function that never returns, `-O0` code, and two functions of an SP1

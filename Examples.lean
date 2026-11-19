@@ -12,3 +12,4 @@ import Examples.Mem
 import Examples.Limbs
 import Examples.Crc32
 import Examples.ChaCha20
+import Examples.Sha256
