@@ -52,7 +52,8 @@ premise (`CfiOk`) that the target is on it.
 
 An entry is either derived by the checker or proved by hand. Hand proofs should go through
 the lift: lift the function to Lprog (`MachineChecked/RiscV/Lift`), prove a contract there,
-and carry it down to `stepSp1` with the transfer theorem (`transfer`, `SafeN.of_contract`).
+and carry it down to `stepSp1` with the transfer theorem (`transfer`, `SafeN.of_contract`,
+`SafeN.of_isa_contract`).
 [`Walkthrough.md`](Walkthrough.md) shows this end to end.
 
 The older route is symbolic execution over the machine (`MachineChecked/RiscV/Sym`,

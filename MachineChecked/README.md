@@ -1,8 +1,8 @@
 # MachineChecked
 
 The framework: the machine semantics a binary is verified against, the layers that make proofs
-about it practical, and the lifts between them. Case studies are in `Cases/`; nothing here
-depends on them.
+about it practical, and the lifts between them. Examples are in `Examples/` and case studies
+in `Cases/`; nothing here depends on them.
 
 ## Layers and packages
 
@@ -67,8 +67,9 @@ The final theorem is always stated at layer 0, as `SafeN` over riscv-zkvm's `ste
 - **Through the lift** (the intended route). A function's decoded instructions are lifted to
   an Lprog body (`RiscV/Lift/Lift.lean`). A contract is proved for the body with the rules of
   `lprog/Lprog/Sem.lean` and `RiscV/Lift/Rules.lean`, and the transfer theorem carries it down
-  to `stepSp1` (`RiscV/Lift/Transfer.lean`, `SafeN.of_contract`). The functions of
-  `Cases/Hardening` are proved this way, with `lsym` applying the rules. A straight-line
+  to `stepSp1` (`RiscV/Lift/Transfer.lean`, `SafeN.of_contract`; `RiscV/Lift/Contract.lean`,
+  `SafeN.of_isa_contract`). The functions of `Examples/` and `Cases/Hardening` are proved this
+  way, with `lsym` applying the rules. A straight-line
   block can be proved over the machine with `RiscV/Lift/Block.lean`.
 - **With the layer-0 tools.** The contract checker (`RiscV/Check`) derives structural
   specifications for every function. The symbolic executor (`RiscV/Sym`) and hand proofs

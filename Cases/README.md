@@ -1,12 +1,17 @@
 # Cases
 
-Case studies: real binaries, loaded and verified with the framework in `MachineChecked/`. A
-case depends on the framework; nothing in the framework depends on a case.
+Case studies: binaries loaded and verified with the framework in `MachineChecked/`. A case
+depends on the framework; nothing in the framework depends on a case.
+
+[`Examples/`](../Examples/README.md) is the place to start: small functions with their sources,
+one contract and one theorem about the machine each. `Cases/` holds what that ladder leaves
+out: code written to break the tools, functions of a guest's runtime, and a loaded image of a
+second target.
 
 | directory | binary | what is verified | build |
 | --- | --- | --- | --- |
 | [`LeanVM/`](LeanVM/README.md) | A leanVM guest computing BLAKE2s | The loaded image only; the start of a second target | `lake build Cases.LeanVM.Blake2s.Loaded` |
-| [`Hardening/`](Hardening/README.md) | Small C programs compiled by clang, chosen to break the tools, and a Rust guest built for SP1 | `decompile --to lean` on each, and `lsym` proofs against the C for most functions of six of them; a list of what broke. Also two functions of an SP1 guest's runtime, for every input, down to the machine: `memcmp` (`Memcmp.lean`) and `write_vectored` (`WriteVectored.lean`) | `lake build Cases.Hardening` |
+| [`Hardening/`](Hardening/README.md) | Small C programs compiled by clang, chosen to break the tools, and a Rust guest built for SP1 | `decompile --to lean` on each, and `lsym` proofs against the C for most functions of six of them; a list of what broke. `add3`, the unsigned maximum, the sum of an array and `swap` are no longer here: they are in `Examples/`. Also two functions of an SP1 guest's runtime, for every input, down to the machine: `memcmp` (`Memcmp.lean`) and `write_vectored` (`WriteVectored.lean`) | `lake build Cases.Hardening` |
 
 `lake build Cases` builds every case study. With the framework built, it takes under a minute.
 
@@ -17,8 +22,9 @@ is the last tree here that has it and the CatCrypt kernels.
 ## CI
 
 CI (`.github/workflows/ci.yml`) builds every case study on every pull request, together with
-the framework and the tools (`lake build MachineChecked Tools Cases`), and fails on any
-warning. It then runs the case studies' axiom check (`scripts/AxiomCheckCases.lean`).
+the framework, the tools and the examples (`lake build MachineChecked Tools Examples Cases`),
+and fails on any warning. It then runs the examples' and the case studies' axiom check
+(`scripts/AxiomCheckCases.lean`).
 
 ## Layout of a case
 

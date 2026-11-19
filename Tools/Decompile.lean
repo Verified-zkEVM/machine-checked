@@ -61,14 +61,17 @@ def coverage (p : Lprog (Op Reg) Reg) : Nat × Nat :=
     (n + (fd.body.filter fun i => !(i matches .Llabel ..)).length,
       a + (fd.body.filter fun i => i matches .Labort).length)) (0, 0)
 
-/-- An Lprog program as text, checked to read back, under a header. -/
-def lprogText (p : Lprog (Op Reg) Reg) (skipped : Array String) : Except String (String × String) := do
+/-- An Lprog program as text, checked to read back, under a header. `ends` is the number of
+    `abort`s that only end a part of a function (the guard after its last instruction): they
+    are no instruction of the binary, and are counted neither as one nor as not covered. -/
+def lprogText (p : Lprog (Op Reg) Reg) (skipped : Array String) (ends : Nat := 0) :
+    Except String (String × String) := do
   let text := toText p
   if (ofText text : Option (Lprog (Op Reg) Reg)) != some p then
     throw "the text does not read back as the program (a symbol the format cannot hold?)"
   let (instrs, aborts) := coverage p
-  let summary := s!"{p.length} functions, {instrs} instructions, {aborts} of them `abort` " ++
-    s!"(not covered by the lift), {skipped.size} functions left out"
+  let summary := s!"{p.length} functions, {instrs - ends} instructions, {aborts - ends} of them " ++
+    s!"`abort` (not covered by the lift), {skipped.size} functions left out"
   let header := s!"# decompile --to lprog: {summary}\n" ++
     String.join (skipped.toList.map fun s => s!"# left out: {s}\n")
   return (summary, header ++ text)
@@ -83,7 +86,7 @@ def legend (p : Lprog (Op Reg) Reg) : String :=
 def render (target : String) (p : Lprog (Op Reg) Reg) (ends : Nat) (skipped : Array String)
     (pancake : Except String (List (Flapjack.Decl Pancake.W) × List String)) :
     Except String (String × String) := do
-  if target == "lprog" then lprogText p skipped else
+  if target == "lprog" then lprogText p skipped ends else
     let (ds, traps) ← pancake
     let some text := Pancake.print ds
       | throw "the Pancake program has a construct the printer does not print"
@@ -92,7 +95,7 @@ def render (target : String) (p : Lprog (Op Reg) Reg) (ends : Nat) (skipped : Ar
       | .function fd => fd.name.endsWith "_c0"
       | _ => false).length
     let summary := s!"{p.length} functions ({looped} of them as a loop over their blocks), " ++
-      s!"{instrs} instructions, {all - ends} of them `abort` (not covered by the lift), " ++
+      s!"{instrs - ends} instructions, {all - ends} of them `abort` (not covered by the lift), " ++
       s!"{skipped.size} functions left out"
     return (summary, s!"// decompile --to pancake: {summary}\n" ++
       String.join (skipped.toList.map fun s => s!"// left out: {s}\n") ++ legend p ++

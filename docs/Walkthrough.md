@@ -1,170 +1,244 @@
-# Walkthrough: `memcmp`, from the binary to its specification
+# Walkthrough: `gcd`, from its source to a theorem about the machine
 
-This guide follows one complete proof through every layer that exists today: load the binary,
-lift it to the low logical program (Lprog), prove a contract there, and carry the result back
-down to the machine. New proofs are meant to take this shape. Read it next to the code:
+This guide follows one small function through every layer that exists today: compile it, load
+the binary into Lean, lift it to the low logical program (Lprog), prove a contract there, and
+carry the contract down to riscv-zkvm's machine. New proofs are meant to take this shape. Read
+it next to the code:
 
-- `Cases/Hardening/Gen/Memcmp/`: the binary's words and their lift, written by
-  `decompile --to lean --proved`.
-- `Cases/Hardening/Memcmp.lean`: the contract at Lprog, proved with the `lsym` tactic, and the
-  machine-level theorem `safe`. This is the recommended style for new proofs.
+- `Examples/src/rust/basic.rs`, the source, and `Examples/elf/rustbasic.elf`, the binary
+  `Examples/build.sh` made of it;
+- `Examples/Gen/RustBasic/`: the binary's words and their lift, written by
+  `decompile --to lean --proved`;
+- `Examples/RustBasic.lean`: the contract (`gcd_contract`) and the theorem about the machine
+  (`gcd_correct`).
 
-The function is `memcmp(a, b, n)`, from `Cases/Hardening/src/memcmp.c` compiled by clang:
-twelve RISC-V instructions that compare `n` bytes at `a` and `b`, the ones rustc's
-`compiler_builtins` has for `memcmp` in an SP1 guest, with two of the increments in another
-order. The theorem holds for every `n`: the result is zero exactly when the bytes agree.
+## 1. The source
 
-## 1. The binary as Lean data (layer -1)
+Euclid's algorithm, in Rust:
 
-`decompile --to lean --proved` (`Tools/ToLean.lean`) reads the ELF
-(`Cases/Hardening/elf/memcmp.elf`) and writes a module with the image's words,
-`Cases/Hardening/Gen/Memcmp/Words.lean`, and one module per function. The words module holds
-each function's name, base address and 32-bit words, and the functions they decode to:
+```rust
+#[no_mangle]
+pub extern "C" fn gcd(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let t = a % b;
+        a = b;
+        b = t;
+    }
+    a
+}
+```
+
+Nothing below is about this text; it says what the binary is meant to compute.
+
+## 2. The binary
+
+`Examples/build.sh rustbasic` compiles the file and links it at `0x10000`. rustc writes LLVM
+IR and clang compiles that for RV64IM at `-O1`, so that the code has no compressed
+instructions, which riscv-zkvm's machine does not have. `llvm-objdump -d
+Examples/elf/rustbasic.elf` shows the six instructions of `gcd`:
+
+```
+0000000000010010 <gcd>:
+   10010: 00058a63     	beqz	a1, 0x10024 <gcd+0x14>
+   10014: 02b57633     	remu	a2, a0, a1
+   10018: 00058513     	mv	a0, a1
+   1001c: 00060593     	mv	a1, a2
+   10020: fe061ae3     	bnez	a2, 0x10014 <gcd+0x4>
+   10024: 00008067     	ret
+```
+
+`a0`, `a1`, `a2` and `ra` are the registers `x10`, `x11`, `x12` and `x1`. The loop is the four
+instructions from `0x10014`, entered only with `a1` not zero. The compiler is not trusted:
+everything that follows is about these words.
+
+## 3. The binary in Lean
+
+`build.sh` then runs
+
+```sh
+.lake/build/bin/decompile --to lean --proved Examples/elf/rustbasic.elf . Examples.Gen.RustBasic
+```
+
+which writes `Examples/Gen/RustBasic.lean` (the list of functions by index: `gcd` is function
+2) and one module per function. `Examples/Gen/RustBasic/Words.lean` has each function's name,
+address and words, and the functions they decode to:
 
 ```lean
-def w0 : List Nat :=
-    [33947747, 345731, 378627, 15113827, 1377555, 4294313491, 1410451, 4261811427, 1299, 32871, 1088849203, 32871]
-...
-def words : List (String × Nat × List Nat) := [
-  ("memcmp", 4096, w0),
-  ("_start", 4144, w1)]
+-- the words are the ELF's: `words_eq_elf`, checked when this module is built
+check_elf_words words "Examples/elf/rustbasic.elf"
 
-check_elf_words words "Cases/Hardening/elf/memcmp.elf"
-
+/-- The functions the words decode to. -/
 def fns : List Fn := words.map fun (name, base, ws) =>
   { name, base := BitVec.ofNat 64 base, prog := ((ws.map (BitVec.ofNat 32)).mapM decode).getD [] }
 ```
 
-`memcmp` is function 0, at `0x1000`. The generator is not trusted: `check_elf_words` reads the
-ELF when the module is built and fails if the words differ, and the instructions are not
-written out but computed from the words by riscv-zkvm's decoder (`decode`). A proof then
-assumes only that the machine holds each function's instructions at its base (`CodeAt`,
-`MachineChecked/RiscV/Sym/Core.lean`). A case study discharges that once from its loaded
-image.
+`gcd`'s words are `w2`, six numbers; the first, `363107`, is `0x00058a63`, the `beqz` above.
+The instructions are not written out: riscv-zkvm's decoder (`decode`) computes them.
 
-## 2. The machine and the statement (layer 0)
-
-Everything is stated over riscv-zkvm's `stepSp1`, the step function SP1 executes. The final
-theorem, `Cases.Hardening.Memcmp.safe`, uses the judgement `SafeN` (`MachineChecked/RiscV/Safe.lean`; see
-[`Architecture.md`](Architecture.md)) in continuation form:
+`Examples/Gen/RustBasic/F2.lean` has the lift of `gcd` as a term, `f2`, and the theorem a
+proof steps through:
 
 ```lean
-theorem safe ... (hpc : s.pc = 0x1000#64) (hcode : ∀ f ∈ fns, CodeAt f.base (f.prog.map some) s)
-    (hra : s.getReg .x1 = ra) (h10 : s.getReg .x10 = a) (h11 : s.getReg .x11 = b)
-    (h12 : s.getReg .x12 = BitVec.ofNat 64 n) ...
-    (hk : ∀ t, t.pc = ra &&& ~~~1#64 → t.code = s.code → (∀ addr, t.getMem addr = s.getMem addr) →
-      (∀ r, r ∉ clobbered → t.getReg r = s.getReg r) →
-      (t.getReg .x10 = 0 ↔
-        ∀ i < n, s.getByte (a + BitVec.ofNat 64 i) = s.getByte (b + BitVec.ofNat 64 i)) →
-      BitVec.signExtend 64 ((t.getReg .x10).truncate 32) = t.getReg .x10 →
-      SafeN G k P t) :
-    SafeN G k P s
+/-- **`f2` is the lift of the ELF's words.** -/
+theorem f2_eq : (liftProg fns)[2]? = some f2 :=
+  getElem?_eq_of_chunks f2_head f2_parts rfl
 ```
 
-Read it as: if the caller is safe from every state in which `memcmp` can return, then the
-caller is safe from the call. "Every state in which it can return" means: at `ra`, with code
-and memory unchanged, registers outside `x10`..`x14` unchanged, and `x10` zero exactly when
-the bytes agree (and sign-extended from 32 bits, as an `int`). Specifications in this form compose by application, through the contract
-table ([`Architecture.md`](Architecture.md)).
+The kernel checks `f2_eq` by evaluation: `f2` is what `liftProg`
+(`MachineChecked/RiscV/Lift/Lift.lean`) gives on `fns`. How `decompile` produced the term is
+not trusted. What is trusted is that the words in `Words.lean` are the file's: the kernel
+cannot read files, so `check_elf_words` reads the ELF when the module is built, with the
+tool's own reader, and fails if they differ. A misread word cannot give a false theorem about
+the machine, since the final theorem assumes the machine holds the words `fns` was built from
+(`Loaded`, below). Beyond that: riscv-zkvm's model and the Lean kernel
+([`ELF.md`](ELF.md#4-what-is-trusted-and-the-trust-ladder),
+[`Tools/README.md`](../Tools/README.md)).
 
-## 3. The lift (layer 0 to layer 0.5)
+## 4. The lifted program
 
-The image's functions are lifted to an Lprog program, `liftProg fns`
-(`MachineChecked/RiscV/Lift/Lift.lean`). `liftProg` puts a label before each instruction and
-translates the instruction:
+`decompile --to lprog --proved Examples/elf/rustbasic.elf` prints the same lift as text:
 
-- an operation becomes `Lopn (opOf i)`, an operation shared by all ISAs
-  (`lprog/Lprog/Op.lean`). For example, `LBU x13, 0(x10)` becomes
-  `load .x13 .b1 false (x10 + 0)`;
-- a conditional branch becomes `Lcond` on a comparison, jumping to the label of its target;
-- `jalr x0, 0(ra)` becomes `Lret`, a call `Lcall`, a tail call `Ltail`, and `ecall` `Lext`;
-- anything the lift does not cover becomes `Labort`.
+```
+fn gcd 0x10010 0 12
+  label 0
+    if cmp eq %x11 0 5
+  label 1
+    set %x12 remu %x10 %x11
+  label 2
+    set %x10 add %x11 0
+  label 3
+    set %x11 add %x12 0
+  label 4
+    if cmp ne %x12 0 1
+  label 5
+    ret
+```
 
-After the lift, the body mentions nothing RISC-V-specific except register names. The
-translation of an operation is proved once for every instruction, against riscv-zkvm's
-`execInstrBr` (`opOf_spec`, `lprog-riscv/LprogRiscV/Instance.lean`).
+The lift puts a label before each instruction and translates the instruction: an operation
+becomes a `set`, a `load` or a `store` on shared operations (`lprog/Lprog/Op.lean`), a branch
+a conditional jump to a label, `jalr x0, 0(ra)` a return, `jal ra` a call. The body mentions
+nothing of RISC-V but register names. It has twelve entries, a label and an instruction six
+times over, so **label `k` is at position `2k`**. The loop's head, label 1, is at position 2.
 
-The generator also writes the lifted body of each function as a term, so that a proof does not
-have to compute it. For `memcmp` this is `f0` in `Cases/Hardening/Gen/Memcmp/F0.lean`, with
-the theorem the proof steps through, checked by the kernel:
+An Lprog state is a stack of activations, a register file and a memory. An activation
+`⟨fn, pc, ret, top⟩` is a function's index, a position in its body, and the return address and
+stack pointer of its call. A return is defined only when `ra` and `sp` hold those two values;
+otherwise the step goes `wrong`, and the judgement at Lprog (`LSafeN`,
+`MachineChecked/RiscV/Lift/Lift.lean`) excludes `wrong`.
+
+## 5. The contract, proved with `lsym`
+
+A contract (`Isa.Contract`, `lprog/Lprog/Contract.lean`) has a precondition on the return
+address, the stack pointer, the registers and the memory at entry, and a postcondition that
+also sees the registers and the memory at the return:
 
 ```lean
-theorem f0_eq : (liftProg fns)[0]? = some f0
+theorem gcd_contract : rvIsa.Contract (liftProg fns) sp1Ctx 2
+    (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top)
+    (fun _ _ regs m r' m' =>
+      r' .x10 = BitVec.ofNat 64 (Nat.gcd (regs .x10).toNat (regs .x11).toNat) ∧
+      (∀ r, r ∉ gcdClobbered → r' r = regs r) ∧ m' = m) := by
+  intro G N Q ret top rest regs m ⟨hra, hsp⟩ hk
+  lsym f2_eq stop [2] with [hra, hsp]
+  · -- the second argument is zero: the first is the divisor
+    exact hk _ _ ⟨by simp [hc], fun _ _ => rfl, rfl⟩
+  · exact gcd_loop m _ regs rfl hc hra hsp hk
 ```
 
-## 4. The proof at Lprog (layer 0.5)
+The precondition says only that `ra` and `sp` are the frame's. The postcondition: `x10` is the
+greatest common divisor, registers outside `gcdClobbered` (`x10`, `x11`, `x12`) and the memory
+are as they were.
 
-An Lprog state is a stack of activations, a register file and a memory. `Lret` is defined only
-when `ra` holds the value the call put there and `sp` is back where it was at the call.
-Otherwise the step goes `wrong`, and the judgement at Lprog excludes `wrong`. That judgement
-is `LSafeN` (`MachineChecked/RiscV/Lift/Lift.lean`): the generic `Isa.SafeN` of
-`lprog/Lprog/Sem.lean`, at the lifted program under SP1. So a proof at Lprog also proves that
-the function returns to its caller.
+`lsym` (`lprog/Lprog/Tactic.lean`) steps the body from the goal's activation. It computes each
+operation, splits at a branch with the condition as `hc`, and at a return closes what it can
+of "`ra` and `sp` are as the call left them", using the `with` lemmas. Here it leaves two
+goals: the return when `x11` is zero, and the loop's head. `stop [2]` names the head, by
+position. With the label's number, `stop [1]`, `lsym` would stop somewhere else and the goal
+would be well typed but about another instruction.
 
-The contract is stated in continuation form, at Lprog:
+**A loop is a lemma**, stated at its head from an arbitrary iteration:
 
 ```lean
-theorem contract ... (hpost : ∀ r' m', Post u0 a b n (ofParts r' m') → LSafeN fns G N Q ⟨rest, r', m'⟩) :
-    LSafeN fns G N Q ⟨⟨0, 0, ret, top⟩ :: rest, regs, m⟩
+theorem gcd_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+    {rest : List Frame} (m : MachineState) :
+    ∀ n (regs : Reg → Word), (regs .x11).toNat = n → regs .x11 ≠ 0#64 →
+      regs .x1 = ret → regs .x2 = top →
+      (∀ r' m', r' .x10 = BitVec.ofNat 64 (Nat.gcd (regs .x10).toNat (regs .x11).toNat) ∧
+        (∀ r, r ∉ gcdClobbered → r' r = regs r) ∧ m' = m → LSafeN fns G N Q ⟨rest, r', m'⟩) →
+      LSafeN fns G N Q ⟨⟨2, 2, ret, top⟩ :: rest, regs, m⟩ := by
 ```
 
-That is: from the call, every continuation that is safe from the states `Post` describes is
-safe. The loop is an induction on the number of bytes left (`loop`); `contract` adds the entry
-and the case `n = 0`.
+The activation `⟨2, 2, ret, top⟩` is function 2 at position 2. The statement is in
+continuation form: the state is safe if every state the function may return in is. The proof
+is by strong induction on the second argument (`induction n using Nat.strongRecOn`), because
+one turn replaces `(a, b)` by `(b, a % b)` and `a % b < b` is all that is known of the new
+one. `lsym f2_eq stop [2] with [hra, hsp, hb]` steps one turn of the loop and again leaves two
+goals. Where the remainder is not zero the state is at the head again and the
+induction hypothesis applies, with `Nat.gcd_rec` relating the two results. Where it is zero the
+function returns `b`. The rest of the proof (`Examples/RustBasic.lean`) is that arithmetic and
+the frame.
 
-### The rules
+## 6. Down to the machine
 
-The generic rules are in `lprog/Lprog/Sem.lean` (`SafeN.label`, `SafeN.goto`, ...) and the
-RISC-V rules in `MachineChecked/RiscV/Lift/Rules.lean` (`lsafe_opn`, `lsafe_cond`,
-`lsafe_ret`, ...). Each RISC-V rule takes a machine state `u` that the Lprog state stands for
-(`Agree (ofParts regs m) u`), so what an instruction reads is stated on `u`, in riscv-zkvm's
-terms. A proof can apply them one instruction at a time; `memcmp` was first proved that way,
-in 333 lines (the tree at tag `with-zip2005` has that proof).
-
-### With `lsym`
-
-`lsym` (`lprog/Lprog/Tactic.lean`, with RISC-V's simp set in
-`lprog-riscv/LprogRiscV/Lsym.lean`) does the stepping. It steps through the body, computes
-each operation, closes the memory checks of loads and the conditions of returns, and splits at
-each `Lcond`. It stops at a loop head. What remains is what the function means: the loop
-invariant at its head and the postcondition at each return.
+`SafeN.of_isa_contract` (`MachineChecked/RiscV/Lift/Contract.lean`) turns a contract into a
+statement about riscv-zkvm's machine. It rests on the transfer theorem
+(`MachineChecked/RiscV/Lift/Transfer.lean`): every `stepSp1` step from a state that an Lprog
+state stands for is matched at Lprog, and `wrong` matches nothing. The same file defines
+`Loaded fs s`: each function of `fs` is in the code of `s`, at its address. The theorem and its
+whole proof:
 
 ```lean
-lsym f0_eq stop [2] with [h10, h11, h12, hra, hsp, hva j hj, hvb j hj]
+theorem gcd_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
+    (hpc : s.pc = 0x10010#64) (hcode : Loaded fns s)
+    (hk : ∀ t, t.pc = s.getReg .x1 &&& ~~~1#64 →
+      t.getReg .x10 = BitVec.ofNat 64 (Nat.gcd (s.getReg .x10).toNat (s.getReg .x11).toNat) →
+      (∀ a, t.getMem a = s.getMem a) → SafeN G k P t) :
+    SafeN G k P s := by
+  obtain ⟨fn, hg, hb⟩ : ∃ fn, fns[2]? = some fn ∧ fn.base = 0x10010#64 := ⟨_, rfl, rfl⟩
+  refine SafeN.of_isa_contract hok hg (hpc.trans hb.symm) hcode gcd_contract ⟨rfl, rfl⟩ ?_
+  rintro t r' m' hag hpc' ⟨h10, -, rfl⟩
+  refine hk t hpc' ?_ fun a => (hag.mem a).symm
+  rw [← hag.regs, getReg_ofParts, ite_eq_right (by decide)]; exact h10
 ```
 
-The loop is stated on Lprog's register file rather than on an agreeing machine state, because
-`lsym` writes registers with `updReg`. `lframe` proves that registers outside `clobbered` are
-unchanged.
+How to read it:
 
-## 5. Back down to the machine
+- `s` is any machine state at `gcd`'s entry (`hpc`) whose code holds the binary's functions
+  (`hcode`). Nothing else is assumed: not the arguments, not the stack, not the memory.
+- `SafeN G k P s` (`MachineChecked/RiscV/Safe.lean`) is safety of `stepSp1`, the step function
+  SP1 executes, for `k` steps from `s`.
+- `hk` is the caller's side: it must be safe from every state `t` at the return address
+  (`ra` with its low bit cleared, as `jalr` computes it) with the greatest common divisor in
+  `x10` and the memory `s` had.
+- So: the call is safe if what follows it is. This is partial correctness. It says what holds
+  if `gcd` returns, not that it does.
+- Nothing in the statement mentions Lprog or the lift. In the proof, `hok : ProgOk fns` says
+  every function is at a multiple of four (by `decide`), the two `rfl`s are the precondition
+  read off `s`, and the last three lines read the result off the machine state that agrees
+  with the Lprog one (`hag`).
 
-The transfer theorem (`transfer`, `MachineChecked/RiscV/Lift/Transfer.lean`) carries a contract
-at Lprog to the machine. Every `stepSp1` step from a state that an Lprog state stands for is
-matched at Lprog, and Lprog's `wrong` matches nothing. `SafeN.of_contract` states this for a
-function's entry:
+Statements in this form compose by application ([`Architecture.md`](Architecture.md)).
+
+## 7. What it rests on
 
 ```lean
-refine SafeN.of_contract hok (g := 0) hg (hpc.trans hb.symm) hcode
-  (Post := Post s a b n)
-  (fun _ _ hk => contract s a b n hn hva hvb _ _ (agree_ofParts_regsOf s) h10 h11 h12 rfl rfl hk) ?_
+#print axioms Examples.RustBasic.gcd_correct
 ```
 
-What remains is to read the returned machine state off the Lprog state that stands for it
-(`hag`). The proof of `safe` contains no symbolic execution and does not depend on how the run
-was found.
+reports `propext`, `Classical.choice` and `Quot.sound`, Lean's three. Proofs that use
+`bv_decide` add its certificates. `scripts/AxiomCheckCases.lean` lists every example's theorem,
+and CI runs it.
 
 ## Where to go next
 
-- A function with a loop, a call and a system call: `Cases/Hardening/WriteVectored.lean`,
-  `write_vectored` of a Rust SP1 guest, with `lsym`. The call to `sys_write` uses
-  `sys_write`'s contract at Lprog, which tail-calls `syscall_write`; its `WRITE` is SP1's
-  execution context.
-- Small C programs compiled by clang, decompiled with `decompile --to lean` and proved with
-  `lsym`: [`Cases/Hardening/`](../Cases/Hardening/README.md).
-- Straight-line blocks proved directly over the machine:
-  `MachineChecked/RiscV/Lift/Block.lean`.
+- The other examples, from straight-line code to a table in read-only data, and the habits
+  their proofs share: [`Examples/README.md`](../Examples/README.md).
+- Calls through registers, recursion, a function that never returns, signed arithmetic at its
+  edges, and two functions of an SP1 guest's runtime with a system call:
+  [`Cases/Hardening/`](../Cases/Hardening/README.md).
+- `lsym` in full, and its limits: [`design/Automation.md`](design/Automation.md).
 - A whole guest: zip-2005 has its verification in
   [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm).
-- What the lift does not cover yet, and what comes after layer 0.5:
-  [`ROADMAP.md`](../ROADMAP.md) and [`MachineChecked/RiscV/LIMITS.md`](../MachineChecked/RiscV/LIMITS.md).
+- What the lift does not cover, and what comes after layer 0.5:
+  [`MachineChecked/RiscV/LIMITS.md`](../MachineChecked/RiscV/LIMITS.md) and
+  [`ROADMAP.md`](../ROADMAP.md).
