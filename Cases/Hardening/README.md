@@ -17,8 +17,8 @@ which CI runs on every pull request.
 | `elf/*.elf` | The ELFs `build.sh` made (clang 22.1, `--target=riscv64-unknown-elf -march=rv64im`), and `k_u128.elf`, one of the Rust guests below. |
 | `Gen/` | `decompile --to lean --proved` of each ELF, as written. Do not edit. `BasicsO0`, `CallsO0`, `Switch` and `Big` are generated but not used by a proof here. Of the `k_u128` guest's modules (`Gen/KU128/`), only `Words`, `F11`, `F24`, `F104` and `F155` are kept. |
 | `build.sh` | Rebuilds `elf/` and `Gen/` from `src/`. Needs clang with the RISC-V target and `ld.lld`. |
-| `Basics.lean` | Signed and unsigned branches, `clamp`, a loop over memory (`sum`), and a bit length that clang compiles to a population count (`count_down`, by `bv_decide`). |
-| `Mem.lean` | Loads of every width, signed and unsigned; `swap`, including `a = b`. |
+| `Basics.lean` | A signed branch (`max2`), `clamp`, and a bit length that clang compiles to a population count (`count_down`, by `bv_decide`). `add3`, the unsigned maximum and the sum of an array are in [`Examples/`](../../Examples/README.md). |
+| `Mem.lean` | Loads of every width, signed and unsigned. `swap` is in [`Examples/Memory.lean`](../../Examples/Memory.lean). |
 | `Arith.lean` | Division and remainder by zero and at `INT64_MIN / -1`, the high half of signed and unsigned 128-bit products, a rotation, a branchless absolute value: each against C. |
 | `Calls.lean` | Contracts: a call and a tail call with `ra` saved in a frame, a tail call through a register (`jr t1`) to a function passed as a value, four registers kept across a call, a function that never returns, and a call to it. |
 | `Guest.lean` | `__udivti3` from a Rust guest built for SP1 (`elf/k_u128.elf`), through an assumed contract of its callee: a far call (`auipc`, `jalr`), with the result returned through a pointer into its frame. |

@@ -81,6 +81,12 @@ supportInterpreter = true
 name = "Cases"
 globs = ["Cases.+"]
 
+# The examples: small functions in several languages, compiled for RV64IM, each verified down
+# to the machine (`Examples/README.md`).
+[[lean_lib]]
+name = "Examples"
+globs = ["Examples", "Examples.+"]
+
 [[lean_exe]]
 name = "frame-sweep"
 root = "Tools.FrameSweep"

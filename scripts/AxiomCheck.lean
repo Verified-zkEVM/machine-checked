@@ -20,6 +20,7 @@ import Cases.Hardening
 #print axioms MachineChecked.RiscV.Lift.transfer
 #print axioms MachineChecked.RiscV.Lift.SafeN.of_lift
 #print axioms MachineChecked.RiscV.Lift.SafeN.of_contract
+#print axioms MachineChecked.RiscV.Lift.SafeN.of_isa_contract
 #print axioms Lprog.RiscV.sp1Ecall_agree
 #print axioms MachineChecked.RiscV.Lift.refines_lift
 #print axioms MachineChecked.RiscV.Lift.lift_refines
@@ -53,9 +54,9 @@ import Cases.Hardening
 #print axioms Tools.Test.LsymX86.f_contract
 
 -- the hardening examples (`Cases/Hardening`)
-#print axioms Cases.Hardening.Basics.sum_spec
+#print axioms Cases.Hardening.Basics.clamp_spec
 #print axioms Cases.Hardening.Basics.count_down_spec
-#print axioms Cases.Hardening.Mem.swap_spec
+#print axioms Cases.Hardening.Mem.load_s32_spec
 #print axioms Cases.Hardening.Arith.sdiv_spec
 #print axioms Cases.Hardening.Arith.smulhi_spec
 #print axioms Cases.Hardening.Calls.keep_contract

@@ -52,20 +52,4 @@ theorem load_u32_spec : Loads 8 fun m a => (m.getWord32 a).zeroExtend 64 := by
   lsym f8_eq with [hra, hsp]
   exact hpost _ _ (by simp [lsym_simp]) rfl
 
-/-- `swap(a, b)`: the doublewords at `a` and `b` exchanged, whether or not `a = b`. -/
-theorem swap_spec {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
-    {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
-    (hra : regs .x1 = ret) (hsp : regs .x2 = top)
-    (hpost : ∀ r' m', m'.getMem (regs .x10) = m.getMem (regs .x11) →
-      m'.getMem (regs .x11) = m.getMem (regs .x10) →
-      (∀ c, c ≠ regs .x10 → c ≠ regs .x11 → m'.getMem c = m.getMem c) →
-      LSafeN fns G N Q ⟨rest, r', m'⟩) :
-    LSafeN fns G N Q ⟨⟨11, 0, ret, top⟩ :: rest, regs, m⟩ := by
-  lsym f11_eq with [hra, hsp]
-  apply hpost
-  · simp only [lsym_simp, MachineState.getMem, MachineState.setMem]
-    split <;> simp_all
-  · simp [lsym_simp, MachineState.getMem, MachineState.setMem]
-  · intro c h1 h2; simp [lsym_simp, MachineState.getMem, MachineState.setMem, h1, h2]
-
 end Cases.Hardening.Mem
