@@ -67,20 +67,21 @@ The final theorem is always stated at layer 0, as `SafeN` over riscv-zkvm's `ste
 - **Through the lift** (the intended route). A function's decoded instructions are lifted to
   an Lprog body (`RiscV/Lift/Lift.lean`). A contract is proved for the body with the rules of
   `lprog/Lprog/Sem.lean` and `RiscV/Lift/Rules.lean`, and the transfer theorem carries it down
-  to `stepSp1` (`RiscV/Lift/Transfer.lean`, `SafeN.of_contract`). Three zip-2005 functions
-  are proved this way. The CatCrypt kernels (`Cases/CatCrypt`) are straight-line blocks,
-  proved over the machine with `RiscV/Lift/Block.lean`.
+  to `stepSp1` (`RiscV/Lift/Transfer.lean`, `SafeN.of_contract`). The functions of
+  `Cases/Hardening` are proved this way, with `lsym` applying the rules. A straight-line
+  block can be proved over the machine with `RiscV/Lift/Block.lean`.
 - **With the layer-0 tools.** The contract checker (`RiscV/Check`) derives structural
   specifications for every function. The symbolic executor (`RiscV/Sym`) and hand proofs
   (`RiscV/Exec`) prove functional specifications directly over the machine. Most of zip-2005
-  is proved this way. Whether these tools move up onto the lift or remain a fallback is an
-  open question in the roadmap.
+  was proved this way while it was a case study here (the tree at tag `with-zip2005`).
+  Whether these tools move up onto the lift or remain a fallback is an open question in the
+  roadmap.
 
 Both routes produce `SafeN` in continuation form, so their results compose through the
 contract table ([`docs/Architecture.md`](../docs/Architecture.md)).
 
-Layers 1 and 2 do not exist yet. Each case study connects its specification (for example
-`Cases/Zip2005/Spec`) to its proofs directly.
+Layers 1 and 2 do not exist yet. Each case study connects its specification to its proofs
+directly.
 
 ## Trust
 

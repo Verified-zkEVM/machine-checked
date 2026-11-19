@@ -32,8 +32,8 @@ What a proof at Lprog needs of RISC-V is in the package
 State a contract for a function at Lprog (`∀ G n Q`, a precondition, and a continuation from
 every state after the return). Prove it with the generic rules (`Lprog.SafeN.label`, `goto`,
 ...) and the rules above, then transfer it with `SafeN.of_contract`. A call to another lifted
-function uses that function's contract. The worked example is
-`Cases/Zip2005/Runtime/WriteVectored.lean`.
+function uses that function's contract. The worked example, with
+`lsym` applying the rules, is `Cases/Hardening/WriteVectored.lean`.
 
 Straight-line blocks are proved over the machine, not through the lift, because a lifted
 program cannot yet return control to code outside it. The "As built" section of

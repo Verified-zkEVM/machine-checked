@@ -11,7 +11,7 @@ A–D of [`ROADMAP.md`](../../ROADMAP.md) steps 1–2 (issues #2–#5). Accepted
 | A | programs, calls, outcomes, external calls, the generic judgement, the transfer theorem (§1–§5, §7, §8) | done; departures from the text in [As built](#as-built-milestone-a) |
 | B | automation at Lprog (§9) | in progress, as the tactic `lsym` ([`Automation.md`](Automation.md)) rather than a port of `RiscV/Sym`; `memcmp` and `write_vectored` re-proved with it; §9's three benchmarks not yet |
 | C | contracts and the contract table at Lprog; the runtime re-proved; the checker's future (#12) | `Isa.Contract` built (`lprog/Lprog/Contract.lean`); `table_sound` at Lprog and the memory vocabulary of §6 not built |
-| D | the rest of zip-2005 through Lprog; `RiscV/Sym`, `Exec`, `Frame` deleted | not started |
+| D | the rest of zip-2005 through Lprog; `RiscV/Sym`, `Exec`, `Frame` deleted | not started; zip-2005 is now in [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm) |
 
 The code is the reference where it and this note differ.
 
@@ -133,8 +133,9 @@ def SafeN (step : σ → Outcome σ → Prop) (accept : σ → Prop)
   `SR m a → P a → (∀ t, SR t (fa a) → SafeN … G n Q t) → SafeN … G n Q m`. On a relational
   machine (Lprog with external calls) every run, not some run, must reach a related state or
   stop safely. The older form over `Reaches` (total correctness) implies it on a deterministic
-  machine, by `SafeN.of_reaches`, so the CatCrypt kernels' statements remain valid and give
-  contracts directly (RISC-V's `SafeN.of_corres`).
+  machine, by `SafeN.of_reaches`, so statements in that form (the CatCrypt kernels', in the tree
+  at tag `with-zip2005`) remain valid and give contracts directly (RISC-V's
+  `SafeN.of_corres`).
 - **Composition** is a generic `table_sound`, by strong induction on the budget over a family of
   contracts (the shape of `Check/Sound/Act.lean`'s `table_sound`). At an `Lcall` the callee's
   contract is used at a smaller budget, which is what makes recursion compose. Not yet built at
@@ -210,11 +211,10 @@ within about twice their current build time.
 | A | §1–§5, §7, §8; SP1's context; the existing Lprog proofs ported | `write_vectored`'s call to `sys_write` is an Lprog call using a contract, no machine steps by hand |
 | B | §9 | the three benchmarks re-proved, within about 2× build time |
 | C | contracts and the table at Lprog; the runtime (memcpy, memset, memcmp, syscalls, allocator) re-proved; the checker's future decided (#12) | the runtime's machine-level statements are unchanged and proved through Lprog |
-| D | the rest of zip-2005, bottom-up through the call graph; `RiscV/Sym`, `Exec`, `Frame` deleted | every function on the Lprog route; `guest_run` unchanged |
+| D | the rest of zip-2005, bottom-up through the call graph; `RiscV/Sym`, `Exec`, `Frame` deleted | every function on the Lprog route; zip-2005's end theorem unchanged |
 
 Each re-proof keeps its machine-level statement (through the transfer theorem), so callers do
-not change and the end theorem stays green throughout. `PanicPaths`, the open premise of
-`guest_run`, is out of scope.
+not change and the end theorem stays green throughout.
 
 ## Decisions
 

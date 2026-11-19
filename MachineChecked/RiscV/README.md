@@ -41,7 +41,8 @@ The per-instruction translation (`rvIsa`), proved against riscv-zkvm, is in the 
 ## Layer-0 proof tools
 
 These prove facts about the machine directly, without the lift. They were built for zip-2005
-and prove most of it. Their results are `SafeN` facts in the contract table, so they compose
+and proved most of it while it was a case study here (the tree at tag `with-zip2005`). Their
+results are `SafeN` facts in the contract table, so they compose
 with results proved through the lift. Whether they move up to layer 0.5 or 1, or remain a
 fallback for what the lift does not cover, is an open question in the roadmap.
 

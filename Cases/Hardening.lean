@@ -10,3 +10,5 @@ import Cases.Hardening.Arith
 import Cases.Hardening.Calls
 import Cases.Hardening.Rec
 import Cases.Hardening.Guest
+import Cases.Hardening.Memcmp
+import Cases.Hardening.WriteVectored

@@ -97,8 +97,7 @@ the equivalence keeps (outputs, memory, leakage).
 | all | `lprog/Lprog/Ascent`: one notion of a run and one correspondence, for any step function. |
 
 In short: layers -1 to 0.5 are real for RISC-V, layer 0.5 is shared, and layers 1 and 2 are not
-started as proved layers. Most of zip-2005 predates the lift and is proved with the layer-0
-tools; new proofs go through the lift.
+started as proved layers. The layer-0 tools predate the lift; new proofs go through the lift.
 
 ## Targets
 
@@ -106,10 +105,9 @@ Chosen to exercise the framework in different ways, so that practice drives the 
 
 | target | ISA | exercises | status |
 | --- | --- | --- | --- |
-| [zip-2005](Cases/Zip2005/README.md): an SP1 guest checking a Zcash Orchard statement | RISC-V | a whole Rust binary: runtime, allocator, panics, cryptography, `main` | mostly proved with the layer-0 tools; `black_box`, `memcmp` and `write_vectored` also through the lift |
-| [CatCrypt kernels](Cases/CatCrypt/README.md): field and point arithmetic from catcrypt-compiler | RISC-V | straight-line constant-time code, carry chains | `cswap`, `addp256`, `feAdd`, `feSub` proved over the machine as straight-line blocks (`corres_block`); `feMul121666` open |
+| zip-2005: an SP1 guest checking a Zcash Orchard statement | RISC-V | a whole Rust binary: runtime, allocator, panics, cryptography, `main` | in its own repository, [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm); `memcmp` and an SP1 guest's `write_vectored` are proved through the lift in [Hardening](Cases/Hardening/README.md) |
 | [leanVM BLAKE2s](Cases/LeanVM/README.md) | RISC-V | a second execution context; a hash against [hash-specs](https://github.com/dhsorens/hash-specs) | image and loading only |
-| [Hardening](Cases/Hardening/README.md): small C programs written to break the tools | RISC-V | every function proved with `lsym` against what C says | done; findings tracked in its README |
+| [Hardening](Cases/Hardening/README.md): small C programs written to break the tools, and two functions of an SP1 guest's runtime | RISC-V | every function proved with `lsym` against what C says | done; findings tracked in its README |
 | the sig.golf verifier | to be chosen | signature verification end to end | not started |
 | hash and bignum routines in the style of [s2n-bignum](https://github.com/awslabs/s2n-bignum) | x86-64, AArch64 | hand-written assembly, flags and carries | not started |
 
@@ -123,8 +121,9 @@ and what its specification would be.
    are stated, and the symbolic executor `lsym` works on real code ([`docs/design/Automation.md`](docs/design/Automation.md)).
    Next: `lsym` stepping straight-line blocks at once (`SafeN.block`), milestone B's
    benchmarks re-proved with it, and the contract table at Lprog (milestone C).
-2. **Move zip-2005 onto the lift.** Re-prove its function specifications at Lprog, so the end
-   theorem goes through one route. This is also the test of step 1 at scale.
+2. **Move zip-2005 onto the lift.** Re-prove its function specifications at Lprog (in
+   [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm)), so the end theorem goes through
+   one route. This is also the test of step 1 at scale.
 3. **Contexts as parameters,** with SP1 as the first instance, so a second context (Zisk,
    leanVM) can sit beside it.
 4. **Layer 1:** lift 2 into Pancake proved, per function and possibly partial

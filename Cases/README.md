@@ -5,21 +5,20 @@ case depends on the framework; nothing in the framework depends on a case.
 
 | directory | binary | what is verified | build |
 | --- | --- | --- | --- |
-| [`Zip2005/`](Zip2005/README.md) | An SP1 guest, compiled from Rust, that checks a Zcash Orchard statement (ZIP 2005) | The whole guest, from the loaded ELF to its high-level statement, under thirteen premises on the panic and formatting paths that are not yet discharged or shown satisfiable | `lake build Cases.Zip2005.Top.Guest` |
-| [`CatCrypt/`](CatCrypt/README.md) | RV64 field and point kernels emitted by catcrypt-compiler | Four kernels, at their encoded bytes, over the machine as straight-line blocks (`corres_block`) | `lake build Cases.CatCrypt` |
 | [`LeanVM/`](LeanVM/README.md) | A leanVM guest computing BLAKE2s | The loaded image only; the start of a second target | `lake build Cases.LeanVM.Blake2s.Loaded` |
-| [`Hardening/`](Hardening/README.md) | Small C programs compiled by clang, chosen to break the tools | `decompile --to lean` on each, and `lsym` proofs against the C for most functions of six of them; a list of what broke | `lake build Cases.Hardening` |
+| [`Hardening/`](Hardening/README.md) | Small C programs compiled by clang, chosen to break the tools, and a Rust guest built for SP1 | `decompile --to lean` on each, and `lsym` proofs against the C for most functions of six of them; a list of what broke. Also two functions of an SP1 guest's runtime, for every input, down to the machine: `memcmp` (`Memcmp.lean`) and `write_vectored` (`WriteVectored.lean`) | `lake build Cases.Hardening` |
 
-`lake build Cases` builds every case study. It takes a few hours.
+`lake build Cases` builds every case study. With the framework built, it takes under a minute.
+
+zip-2005, an SP1 guest that checks a Zcash Orchard statement, has its verification in its own
+repository, [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm). The tag `with-zip2005`
+is the last tree here that has it and the CatCrypt kernels.
 
 ## CI
 
-Most case studies are not built on pull requests while the framework is being reworked. CI
-builds only the cases that test `lsym` on real code: `Zip2005/Runtime/MemcmpLsym.lean`,
-`Zip2005/Runtime/WriteVectoredLsym.lean` (with their imports) and `Cases.Hardening`. The
-on-demand `full` job (`.github/workflows/ci.yml`) builds all of `Cases` and runs the case
-studies' axiom check (`scripts/AxiomCheckCases.lean`). On 2026-11-18, on Lean v4.36.0-rc2,
-every case built, with warnings only in the vendored code under `Zip2005/Spec`.
+CI (`.github/workflows/ci.yml`) builds every case study on every pull request, together with
+the framework and the tools (`lake build MachineChecked Tools Cases`), and fails on any
+warning. It then runs the case studies' axiom check (`scripts/AxiomCheckCases.lean`).
 
 ## Layout of a case
 
@@ -29,10 +28,9 @@ every case built, with warnings only in the vendored code under `Zip2005/Spec`.
 - `Loaded.lean`: facts about the loaded image (layout, code, entry state), proved from the
   image rather than assumed.
 - Function specifications, one module per function or family. New proofs go through the lift
-  to the low logical program (`MachineChecked/RiscV/Lift`). Most zip-2005 proofs use the older
-  layer-0 tools (the checker and the symbolic executor).
-- The specification of the whole program (for example `Zip2005/Spec`). Until the roadmap's
-  layer 2 exists, each case connects its specification to its proofs directly.
+  to the low logical program (`MachineChecked/RiscV/Lift`).
+- The specification of the whole program. Until the roadmap's layer 2 exists, each case
+  connects its specification to its proofs directly.
 - A top-level theorem about the binary's accepting runs, composed from the function
   specifications.
 

@@ -130,7 +130,7 @@ def runStep (code : Term) (one : Bool) (havoc : Bool := false) : TacticM Unit :=
       MachineState.getReg_setPC, getReg_setByte, getReg_setWord32, getReg_setHalfword,
       Lprog.RiscV.Machine.getReg_setMem, getReg_x0,
       reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false,
-      false_and, true_and, if_true, if_false]
+      false_and, true_and, ite_true, ite_false]
     try simp only [signExtend12, signExtend13, BitVec.reduceSignExtend]
     try simp only [BitVec.reduceAdd, BitVec.add_zero, BitVec.reduceAnd, BitVec.reduceNot]))
   let simpHb ← `(tactic|
@@ -140,7 +140,7 @@ def runStep (code : Term) (one : Bool) (havoc : Bool := false) : TacticM Unit :=
       MachineState.getReg_setPC, getReg_setByte, getReg_setWord32, getReg_setHalfword,
       Lprog.RiscV.Machine.getReg_setMem, getReg_x0,
       reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false,
-      false_and, true_and, if_true, if_false]
+      false_and, true_and, ite_true, ite_false]
       at $(mkIdent `hb):ident)
   evalTactic (← `(tactic| dsimp only [execInstrBr]))
   if isBranch then
@@ -217,7 +217,7 @@ macro "xregs" : tactic => `(tactic|
   simp only [getReg_setReg, MachineState.getReg_setPC, getReg_setByte, getReg_setWord32,
     getReg_setHalfword, Lprog.RiscV.Machine.getReg_setMem, Lprog.RiscV.Machine.setReg_x0,
     reduceCtorEq, ne_eq, not_false_eq_true, not_true_eq_false, and_true, and_false, false_and,
-    true_and, if_true, if_false])
+    true_and, ite_true, ite_false])
 
 /-- `xret code hk`: a `ret` at the goal's state, to the continuation `hk`; leaves the frame
     as a goal. -/

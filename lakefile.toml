@@ -53,10 +53,9 @@ name = "Flapjack"
 git = "https://github.com/pirapira/flapjack"
 rev = "af5c59c5ba5d6a9bc52658d429f24a117c9cbaee"
 
-# Mathlib, as a direct require at the tag matching `lean-toolchain`. Only the ZIP 2005
-# specification and its closure (`Cases/Zip2005/Spec`) use it; `MachineChecked` and `Tools` do
-# not import it (the executor takes `List.Subperm` from Batteries, which comes with it). Run
-# `lake exe cache get` for the oleans.
+# Mathlib, as a direct require at the tag matching `lean-toolchain`. Nothing here imports it:
+# Flapjack's package requires it, and the executor takes `List.Subperm` from Batteries, which
+# comes with it. Run `lake exe cache get` for the oleans.
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"

@@ -14,7 +14,8 @@ theorem f_spec ... (hk : ∀ t, t.pc = ra → ... → SafeN G n P t) : SafeN G n
   sym_close hk
 ```
 
-Most functions in `Cases/Zip2005/` are proved this way.
+Most functions of zip-2005 were proved this way while it was a case study here (the tree at
+tag `with-zip2005`).
 
 ## Files
 
