@@ -47,13 +47,17 @@ Every name in the table is a function with a contract at the low logical program
 | `c/limbs.c` | [`Limbs/RiscV/Proofs.lean`](Limbs/RiscV/Proofs.lean) | `add_limbs` |
 | `c/crc32.c` | [`Crc32/RiscV/Proofs.lean`](Crc32/RiscV/Proofs.lean) | `crc32` |
 | `c/chacha20.c` | [`ChaCha20/RiscV/Proofs.lean`](ChaCha20/RiscV/Proofs.lean) | `quarter_round` |
-| `c/sha256.c` | [`Sha256/RiscV/Proofs.lean`](Sha256/RiscV/Proofs.lean) | `sha256_round`, `sha256_schedule` |
+| `c/sha256.c` | [`Sha256/RiscV/Proofs.lean`](Sha256/RiscV/Proofs.lean) | `sha256_round`, `sha256_schedule`, `sha256_compress` |
 
-That is 21 functions. Each file checks in 3 to 12 seconds, with no limit raised.
+That is 22 functions. Each file checks in 3 to 25 seconds, with no limit raised.
 
 What the examples exercise:
 
 - **Straight-line code** (`add3`).
+- **A whole compression function** (`sha256_compress`): five loops in a 320-byte frame, the
+  schedule and the sixty-four rounds inlined, the round constants read from `.rodata`; against
+  FIPS 180-4's `compress`. The rounds run in registers, so the loop that does them is split
+  before its back edge (`stop` at the branch) to stay within the default limits.
 - **A branch** (`max_u64`, `max2`): `bltu` over a move.
 - **A loop the compiler removed** (`sum_to`): the binary multiplies at double width and
   shifts. The specification is the sum, and a lemma connects the two.
@@ -135,9 +139,6 @@ The ladder:
 - `ChaCha20`: `chacha20_block`, 226 instructions (`ChaCha20/RiscV/Image/F1.lean`). No proof
   written or tried. Its loop body is 162 straight-line instructions; at the default limits
   `lsym` steps 100 in one go and not 200 (`docs/design/Automation.md`).
-- `Sha256`: `sha256_compress`, 130 instructions (`Sha256/RiscV/Image/F2.lean`). No proof
-  written or tried. It calls the schedule and runs the round 64 times, both inlined, in a
-  frame of 320 bytes.
 - `RustBasic`: `rust_begin_unwind`, the panic handler: a jump to itself, which none of the
   others calls.
 
