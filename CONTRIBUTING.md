@@ -51,7 +51,7 @@ These hold for every change. A pull request that breaks one is not merged.
   occur proves nothing.
 - **Untrusted producers, trusted checker.** Tools may generate images, annotations and
   certificates, but the Lean kernel re-checks everything they produce. Nothing in
-  `MachineChecked/` imports `Tools/`; proofs in `Examples/` and `Cases/` import it only through
+  `MachineChecked/` imports `Tools/`; proofs in `Examples/` import it only through
   the modules `decompile --to lean` wrote (`Tools.ToLean`, for `check_elf_words`).
 
 ### Semantics and trust
@@ -90,8 +90,7 @@ These hold for every change. A pull request that breaks one is not merged.
 lake exe cache get
 lake build                                # the framework and the tools (the default)
 lake build Examples                       # every example
-lake build Cases                          # every case study
-lake build Examples.RustBasic             # one module and what it imports
+lake build Examples.RustBasic.RiscV.Proofs  # one module and what it imports
 lake env lean path/to/File.lean           # check one file
 ```
 
@@ -104,22 +103,20 @@ Continuous integration (`.github/workflows/ci.yml`) runs one job, `build`, on ev
 request (about 8 minutes on a GitHub runner):
 
 - a search of the sources for `sorry`, `axiom` and `native_decide`;
-- `lake build MachineChecked Tools Examples Cases`: the framework, the tools, the examples and
-  every case study, failing on any warning;
+- `lake build MachineChecked Tools Examples`: the framework, the tools and the examples,
+  failing on any warning;
 - `python3 scripts/decompile-check/check.py limits`: the instruction tables in each
   `LIMITS.md` match what `decompile --table` generates;
 - `scripts/to-lean-check/check.sh`: `decompile --to lean` end to end on a small ELF;
-- `scripts/AxiomCheck.lean` (framework) and `scripts/AxiomCheckCases.lean` (examples and case
-  studies):
+- `scripts/AxiomCheck.lean` (framework) and `scripts/AxiomCheckExamples.lean` (examples):
   the listed theorems use only the standard axioms and `bv_decide` certificates.
 
 Before opening a pull request:
 1. Build every module you touched and every module that imports it. A change to a widely
-   imported file means `lake build MachineChecked Tools Examples Cases`, as CI runs it.
+   imported file means `lake build MachineChecked Tools Examples`, as CI runs it.
 2. Confirm the build has no warnings.
 3. Run `#print axioms` on the theorems you added or changed, and add the main ones to
-   `scripts/AxiomCheck.lean` (framework) or `scripts/AxiomCheckCases.lean` (examples and
-   case studies).
+   `scripts/AxiomCheck.lean` (framework) or `scripts/AxiomCheckExamples.lean` (examples).
 4. If you changed a lift, run `check.py limits`; if you changed `Tools/ToLean.lean`, run
    `scripts/to-lean-check/check.sh`.
 
@@ -128,7 +125,7 @@ Before opening a pull request:
 **Titles** follow `<type>(<optional scope>): <subject>`.
 - Types: `feat`, `fix`, `proof` (new or changed proofs), `doc`, `refactor`, `perf`, `test`,
   `chore`, `ci`.
-- The scope is a directory or case, such as `riscv/sym`, `lprog`, `examples` or `hardening`.
+- The scope is a directory or case, such as `riscv/sym`, `lprog` or `examples`.
 - The subject is imperative and lower case, with no final full stop: `feat(lprog): lift
   indirect jumps with candidate lists`.
 
@@ -157,40 +154,29 @@ Keep commits buildable where you can.
 
 ## Adding an example
 
-An example is a small function with its source here, verified down to the machine
-([`Examples/README.md`](Examples/README.md)). RISC-V only: the AArch64 and x86-64 lifts are not
-proved.
+An example is compiled code, verified down to the machine
+([`Examples/README.md`](Examples/README.md)): a small function with its source here, a program
+chosen to break the tools, or a binary from elsewhere. RISC-V only: the AArch64 and x86-64
+lifts are not proved.
 
-1. Put the source under `Examples/src/c/` or `Examples/src/rust/`.
-2. Add a line for it to `Examples/build.sh` and run the script (after `lake build decompile`).
-   It compiles the source to `Examples/elf/` and writes the generated modules,
-   `Examples/Gen/<Module>.lean` and `Examples/Gen/<Module>/`. Commit the ELF and the modules;
-   do not edit the modules.
-3. Write `Examples/<Module>.lean`: for each function a contract at Lprog, proved with `lsym`
-   (`<function>_contract`), and the same statement about the machine through
-   `SafeN.of_isa_contract` (`<function>_correct`). `Examples/Basic.lean` is the shortest model.
-   Import the file from `Examples.lean`.
-4. Add a row to the table in `Examples/README.md`. A function that is lifted and not proved
-   goes in the "Not verified yet" table, with what was tried.
-5. Add each `_correct` theorem to `scripts/AxiomCheckCases.lean`.
-
-## Adding a case study
-
-A case study is for what an example is not: a binary from elsewhere, a program rather than a
-function, or code chosen to break the tools.
-
-1. Pin the binary: commit it, or record how it was built and its digest.
-2. Lift it (RISC-V only: the AArch64 and x86-64 lifts are not proved): `lake exe decompile --to lean --proved BINARY . Cases.<Name>.Gen` writes the
-   lifted functions, checked against the ELF ([`Tools/README.md`](Tools/README.md)).
-   `Cases/Hardening/build.sh` is an example. For a whole-program theorem from the loaded
-   image, also generate the image with `lake exe gen-image` and prove its facts in
-   `Cases/<Name>/Loaded.lean` (as `Cases/LeanVM/Blake2s` does).
-3. Prove function contracts at Lprog with `lsym`, one module per function or family. Reuse
-   the runtime specifications where the code is shared.
-4. Carry them to the machine (`SafeN.of_isa_contract`, or `SafeN.of_contract`) and compose them into a theorem about the
-   binary's accepting runs.
-5. Add `Cases/<Name>/README.md`, saying where the binary came from and under what licence its
-   code is, and a row to `Cases/README.md`.
+1. Put the source under `Examples/src/c/` or `Examples/src/rust/`. For a binary from
+   elsewhere, commit it under `Examples/elf/`, or record how it was built and its digest, and
+   say in `Examples/README.md` where it came from and under what licence its code is.
+2. Add a line for it to `Examples/build.sh` and run the script for your module (after
+   `lake build decompile`). It compiles the source to `Examples/elf/` and writes the Image,
+   `Examples/<Module>/RiscV/Image.lean` and `Examples/<Module>/RiscV/Image/`
+   ([`Tools/README.md`](Tools/README.md)). Commit the ELF and the Image; do not edit the Image.
+   For a whole-program theorem from the loaded image, also generate the image with
+   `lake exe gen-image` and prove its facts in a `Loaded.lean` (as `Examples/LeanVM/Blake2s`
+   does).
+3. Write `Examples/<Module>/RiscV/Proofs.lean`: for each function a contract at Lprog, proved
+   with `lsym` (`<function>_contract`), and the same statement about the machine through
+   `SafeN.of_isa_contract` (`<function>_correct`). `Examples/Basic/RiscV/Proofs.lean` is the
+   shortest model. A specification function that is about words and lists, and not about the
+   machine, goes in `Examples/Spec.lean`. Import the file from `Examples.lean`.
+4. Add a row to the table of its group in `Examples/README.md`. A function that is lifted and
+   not proved goes in the "Not verified" list, with what was tried.
+5. Add each `_correct` theorem to `scripts/AxiomCheckExamples.lean`.
 
 ## Style
 

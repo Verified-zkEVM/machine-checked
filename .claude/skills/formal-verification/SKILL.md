@@ -31,12 +31,12 @@ use the case the session is about.
 
 | binding | this host |
 | --- | --- |
-| bytecode | The loaded image and `riscv-zkvm`'s SP1 machine: `MachineState`, `stepSp1`. The dependency is pinned in `lakefile.toml` and left unmodified. Image facts live under `Cases/<case>/` (`Loaded.lean`, `Image/`). Host wrappers: `MachineChecked/RiscV/Lift` (the lift; the preferred route), `MachineChecked/RiscV/Exec`, `MachineChecked/RiscV/Load`. |
-| spec | The high-level claim about what that bytecode computes. The user names it, otherwise the case module and the targets in `ROADMAP.md`. Blake2s: BLAKE2s-256 of the advice bytes, length and digest committed (`Cases/LeanVM/Blake2s/Loaded.lean`). |
-| proofs | `MachineChecked/RiscV/` (framework) and `Cases/` (`Cases/LeanVM`, `Cases/Hardening`). |
+| bytecode | The loaded image and `riscv-zkvm`'s SP1 machine: `MachineState`, `stepSp1`. The dependency is pinned in `lakefile.toml` and left unmodified. Image facts live under `Examples/<Module>/` (`RiscV/Image/` as `decompile` writes it; `Loaded.lean`, `Image/` as `gen-image` does, in `Examples/LeanVM`). Host wrappers: `MachineChecked/RiscV/Lift` (the lift; the preferred route), `MachineChecked/RiscV/Exec`, `MachineChecked/RiscV/Load`. |
+| spec | The high-level claim about what that bytecode computes. The user names it, otherwise the case module and the targets in `ROADMAP.md`. Blake2s: BLAKE2s-256 of the advice bytes, length and digest committed (`Examples/LeanVM/Blake2s/Loaded.lean`). |
+| proofs | `MachineChecked/RiscV/` (framework) and `Examples/` (the ladder, the stress tests, `Examples/Sp1Runtime`, `Examples/LeanVM`). |
 | observation | `SafeN` / `Safe` and `Iface.HoldsN` / `Iface.Holds` in `MachineChecked/RiscV/Check/Spec.lean`. Accepting is `Accepted`: SP1 `HALT` with exit code 0. |
 | state rel | `AState.Holds` (`MachineChecked/RiscV/Frame/Sound.lean`). Checker interfaces: `Pre`, `Post`, `Env` (`MachineChecked/RiscV/Check/Domain.lean`, `Check/Spec.lean`). |
-| queue | the case plan (`Cases/<case>/PLAN.md`) |
+| queue | the case plan (`Examples/<Module>/PLAN.md`) |
 | contract | `docs/Architecture.md` (the judgement), `CONTRIBUTING.md` (the ground rules) and `README.md` |
 | doctrine | `AGENTS.md` and `CONTRIBUTING.md` § Ground rules |
 | base | `main` |
@@ -47,7 +47,7 @@ use the case the session is about.
 | scars | `docs/ELF.md` §1 |
 | attack | `none` |
 | prover | `none` |
-| forbidden | editing `riscv-zkvm`; importing `zip-2005-asm`; hand-editing generated modules under `Cases/*/Image/` or `Cases/*/Gen/`; `sorry`; a new `axiom`; `native_decide`; a `Co-authored-by` trailer |
+| forbidden | editing `riscv-zkvm`; importing `zip-2005-asm`; hand-editing generated modules under `Examples/*/RiscV/Image/`, `Examples/*/RiscV/MemcmpImage/` or `Examples/LeanVM/*/Image/`; `sorry`; a new `axiom`; `native_decide`; a `Co-authored-by` trailer |
 
 Start at the image and at `stepSp1`, `SafeN`, and `Iface.HoldsN` as they
 are today. Inspect them. Do not guess shapes or theorem names.
@@ -175,7 +175,7 @@ before changing the statement.
 
 Keep the tree the host already has. Framework proofs live in
 `MachineChecked/RiscV/` (`Frame`, `Check`, `Exec`). A case lives in
-`Cases/<image>/` (`Image`, `Contract`, `Frame`, `Runtime`). Do not
+`Examples/<Module>/` (`Image`, `Contract`, `Frame`, `Runtime`). Do not
 create `Left/`, `Right/`, `Simulation/`, or `Assumptions.lean`.
 
 | layer | what the pass proves there |

@@ -66,7 +66,7 @@ rev = "v4.36.0-rc2"
 name = "MachineChecked"
 globs = ["MachineChecked", "MachineChecked.+"]
 
-# Build-time tooling (generators). Nothing in `MachineChecked` or `Cases` imports it.
+# Build-time tooling (generators). Nothing in `MachineChecked` imports it.
 [[lean_lib]]
 name = "Tools"
 globs = ["Tools.+"]
@@ -76,13 +76,8 @@ name = "gen-image"
 root = "Tools.GenImage"
 supportInterpreter = true
 
-# Case studies: generated image data and the proofs about it.
-[[lean_lib]]
-name = "Cases"
-globs = ["Cases.+"]
-
-# The examples: small functions in several languages, compiled for RV64IM, each verified down
-# to the machine (`Examples/README.md`).
+# The examples: compiled code, lifted, and the proofs about it, each down to the machine
+# (`Examples/README.md`).
 [[lean_lib]]
 name = "Examples"
 globs = ["Examples", "Examples.+"]

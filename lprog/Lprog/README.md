@@ -52,10 +52,10 @@ result transfers to the machine.
 
 ## Worked examples (RISC-V)
 
-- `Cases/Hardening/Memcmp.lean`: a loop, for every length. A good first read.
-- `Cases/Hardening/WriteVectored.lean`: a loop, a call to another lifted function
+- `Examples/Sp1Runtime/RiscV/Memcmp.lean`: a loop, for every length. A good first read.
+- `Examples/Sp1Runtime/RiscV/WriteVectored.lean`: a loop, a call to another lifted function
   through its contract, a tail call and a system call.
-- `Cases/Hardening/Mem.lean`: loads and stores of every width.
+- `Examples/Widths/RiscV/Proofs.lean`: loads and stores of every width.
 - `MachineChecked/RiscV/Lift/Block.lean`: straight-line blocks, proved over the machine.
 
 The layer above is the structured logical program (layer 1,

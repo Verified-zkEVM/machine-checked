@@ -1,6 +1,6 @@
 # Coverage hygiene
 
-The case plan (`Cases/<case>/PLAN.md`) is the account of what the verification pass has proved.
+The case plan (`Examples/<Module>/PLAN.md`) is the account of what the verification pass has proved.
 Chat is not that account.
 
 Bindings live in [SKILL.md](SKILL.md). Update the case plan in place.
@@ -20,7 +20,7 @@ Do not create a second matrix, and do not invent a regenerator.
 1. Update the case plan in place. A new disagreement or a new domain
    hypothesis goes in that file too.
 2. There is no derived coverage artifact. Do not generate one, and
-   do not hand-edit modules under `Cases/*/Image/`.
+   do not hand-edit modules under `Examples/*/RiscV/Image/` or `Examples/LeanVM/*/Image/`.
 3. Do not invent progress in chat that is not in the case plan.
 
 ## What a note may claim

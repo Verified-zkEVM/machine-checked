@@ -49,19 +49,19 @@ proofs happen where they meet.
 | ISA model | riscv-zkvm (tied to Sail) | DeepMind's [arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) | [Kraken](https://github.com/AeneasVerif/kraken)'s x64 model |
 | Lift to Lprog | proved (simulation) | tested, not proved | tested, not proved |
 | Decompile to Pancake | tested by recompiling | tested by recompiling | tested by recompiling |
-| Proofs about real binaries | yes ([`Examples/`](Examples/README.md), [`Cases/`](Cases/README.md)) | no | no |
+| Proofs about real binaries | yes ([`Examples/`](Examples/README.md)) | no | no |
 
 The ISA models are dependencies used unmodified at pinned commits ([`docs/ISA.md`](docs/ISA.md)).
 Details, targets and next steps: [`ROADMAP.md`](ROADMAP.md).
 
 What is verified here is functions, not a whole program:
 
-- [`Examples/`](Examples/README.md): 21 small functions in C and Rust, from straight-line
-  code to loops over memory, a call and a table in read-only data. Each has a contract at
-  Lprog and a theorem about riscv-zkvm's machine alone. `chacha20_block` and SHA-256's
-  compression function are lifted there but not proved.
-- [`Cases/Hardening`](Cases/Hardening/README.md): C written to break the tools, and `memcmp`
-  and `write_vectored` of an SP1 guest's runtime.
+- [`Examples/`](Examples/README.md), the ladder: 21 small functions in C and Rust, from
+  straight-line code to loops over memory, a call and a table in read-only data. Each has a
+  contract at Lprog and a theorem about riscv-zkvm's machine alone. `chacha20_block` and
+  SHA-256's compression function are lifted there but not proved.
+- [`Examples/`](Examples/README.md), stress tests and guest code: C written to break the
+  tools, and `memcmp` and `write_vectored` of an SP1 guest's runtime.
 
 No guest is verified end to end in this repository. A whole guest, zip-2005 (an SP1 guest
 that checks a Zcash Orchard statement), has its verification in its own repository,
@@ -75,7 +75,6 @@ The toolchain is pinned in `lean-toolchain` and installed by [elan](https://gith
 lake exe cache get              # Mathlib's prebuilt oleans
 lake build                      # the framework and the tools
 lake build Examples             # the examples: every image and every proof
-lake build Cases                # the case studies
 lake env lean path/to/File.lean # check one file
 ```
 
@@ -228,10 +227,9 @@ lprog/            package: Lprog, its semantics, runs (Ascent), contracts, lsym
 lprog-riscv/      package: RISC-V at Lprog, SP1's execution context
 pancake/          package: Pancake as the decompiler writes it
 Tools/            untrusted tools: decompile, gen-image, infer-contracts; their tests
-Examples/         small functions in C and Rust, each verified down to the machine
-                                                                (Examples/README.md)
-Cases/            case studies: code written to break the tools, functions of a guest's
-                  runtime, a loaded image                       (Cases/README.md)
+Examples/         compiled code verified down to the machine: small functions in C and
+                  Rust, code written to break the tools, functions of a guest's runtime,
+                  a loaded image                                (Examples/README.md)
 scripts/          CI checks: axioms, decompile-check, to-lean-check
 docs/             guides and design notes
 ```
@@ -268,5 +266,5 @@ Then see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 ## Licence
 
 Apache-2.0 ([`LICENSE`](LICENSE)). Code ported from other projects keeps its original licence
-notice, recorded in the `PROVENANCE.md` of its directory. The binaries under `Cases/` come from
-programs under their own licences; each case's README says which.
+notice, recorded in the `PROVENANCE.md` of its directory. The binaries of guests under `Examples/` come
+from programs under their own licences; their READMEs say which.

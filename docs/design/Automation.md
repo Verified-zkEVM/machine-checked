@@ -8,7 +8,7 @@ symbolic-execution tactic at Lprog.
 
 | item | what | status |
 | --- | --- | --- |
-| 1 | `lsym`, symbolic execution at Lprog | done, in use (`Examples/`, `Cases/Hardening/`) |
+| 1 | `lsym`, symbolic execution at Lprog | done, in use (`Examples/`) |
 | 2 | straight-line blocks in one step | `SafeN.block` proved; `lsym` does not use it yet |
 | 3 | reflection for whole-function properties | not started |
 | 4 | fewer candidates at indirect calls | the simple half done (`jalrCands`) |
@@ -118,7 +118,7 @@ program counter.
 positions in the function's body, not label numbers. In a lifted body every instruction has a
 label before it, so label `k` is at position `2k`: a loop whose head is label 1 is stopped
 with `stop [2]`, and its lemma is stated at the frame `⟨fn, 2, ret, top⟩`
-(`Examples/RustBasic.lean`, `gcd_loop`). With the label's number instead, the goal is well
+(`Examples/RustBasic/RiscV/Proofs.lean`, `gcd_loop`). With the label's number instead, the goal is well
 typed but about another instruction.
 
 **A memory access needs no precondition.** A load or a store that would trap is safe, so the
@@ -129,7 +129,7 @@ what the access did (a store's effect on memory), or when a caller should know i
 **Stores narrower than a doubleword.** For a byte the check is `isValidMemAddrSp1 a = true ∧
 noCodeAt m a 1 = true`, and the memory becomes `m.setByte a (setWidth 8 v)`. `getByte_setByte`
 (`Examples/Kit.lean`) reads a byte back through such a store. A 32-bit store also asks for
-alignment: `Examples/ChaCha20.lean` gives `lsym` the facts `alignedFor 4 a = true`,
+alignment: `Examples/ChaCha20/RiscV/Proofs.lean` gives `lsym` the facts `alignedFor 4 a = true`,
 `isValidMemAddrSp1 a = true` and `noCodeAt m a 4 = true` (its `Writable`), the memory becomes
 `m.setWord32 a (setWidth 32 v)`, and `getWord32_setWord32` in that file reads it back.
 
@@ -150,12 +150,12 @@ Related pieces:
 | `Isa.Contract p c f Pre Post` | `lprog/Lprog/Contract.lean` | a function contract over the register file, for any instruction set; `lsym … using` steps calls through it (`SafeN.call_contract`, `SafeN.tail_contract`, in `Tactic.lean`), so proofs compose bottom-up |
 | `contract_of_agree` | `lprog-riscv/LprogRiscV/Lsym.lean` | turns a RISC-V contract stated over machine states into an `Isa.Contract` without re-proving it |
 | `lsym_addr` | simp set (`lprog/Lprog/Tactic.lean`) | address normal form: a base plus one constant (subtraction as addition of the negation, sums right-associated, constants folded, `ofNat (8 * (2 * j + 1))` as `ofNat (16 * j) + 8#64`, shifts as multiplications). Normalise a region lemma's fact with `simp only [lsym_addr] at h` to match `lsym`'s addresses |
-| `SafeN.label_spend` | `lprog/Lprog/Sem.lean` | spends one unit of budget at a label, so a function that never returns can be proved safe by induction on the budget (`Cases/Hardening/Calls.lean`, `stop_contract`) |
+| `SafeN.label_spend` | `lprog/Lprog/Sem.lean` | spends one unit of budget at a label, so a function that never returns can be proved safe by induction on the budget (`Examples/Calls/RiscV/Proofs.lean`, `stop_contract`) |
 | `SafeN.block` | `lprog/Lprog/Block.lean` | steps a straight-line piece at once (item 2; not yet used by `lsym`) |
 
 **Recursion** needs nothing extra when it is on a smaller argument: prove the contract by
 induction on the argument and step the recursive call through the induction hypothesis
-(`Cases/Hardening/Rec.lean`, `fib`). Recursion that need not terminate would need the budget at
+(`Examples/Rec/RiscV/Proofs.lean`, `fib`). Recursion that need not terminate would need the budget at
 calls (`budget_induction`).
 
 ## Results
@@ -165,13 +165,13 @@ calls (`budget_induction`).
 | `memcmp` (`MemcmpLprog.lean` vs `MemcmpLsym.lean`, at tag `with-zip2005`) | 333 lines, 28 rules applied by hand, raised `maxHeartbeats`; checks in 2.5 s | 140 lines, two calls of `lsym`, no raised limits; 1.9 s |
 | `write_vectored`: three functions, a loop, a call, a tail call, a system call (`WriteVectored.lean` vs `WriteVectoredLsym.lean`, at tag `with-zip2005`) | 906 lines, 36 address lemmas, `maxHeartbeats` raised 6 times; 4.2 s | 300 lines, no address lemmas or raised limits, no address facts bridged by `bv_decide`; calls go through `Isa.Contract`s; 2.1 s |
 | `Examples/` (C by clang, Rust by rustc and clang) | | 21 functions, each with its contract and a theorem about the machine; no limit raised; `sha256_round` (57 instructions, no branch) is stepped in one go; `chacha20_block` and `sha256_compress` are lifted and not proved; see [its README](../../Examples/README.md) |
-| `Cases/Hardening/` (C compiled by clang) | | functions the `--proved` lift takes, each against C's meaning; its README lists those without a theorem; four of `arith.c`'s twelve are left out for their 32-bit operations; see [its README](../../Cases/Hardening/README.md) |
+| the stress tests of `Examples/` (C compiled by clang) | | functions the `--proved` lift takes, each against C's meaning; the README lists those without a theorem; four of `arith.c`'s twelve are left out for their 32-bit operations; see [`Examples/README.md`](../../Examples/README.md) |
 | x86-64 (`Tools/Test/LsymX86.lean`) | | two functions lifted from bytes, a call through a contract with the return address pushed and popped; only the instruction set's `lsym_simp` instance was added |
 
 The two comparisons were measured on zip-2005's guest, in `Cases/Zip2005/Runtime/` of the tree
 at tag `with-zip2005`. The hand proofs are no longer kept. The `lsym` proofs are now
-`Cases/Hardening/Memcmp.lean` (about 220 lines with the machine-level theorem), on the same
-function compiled by clang, and `Cases/Hardening/WriteVectored.lean` (about 515 lines with its
+`Examples/Sp1Runtime/RiscV/Memcmp.lean` (about 220 lines with the machine-level theorem), on the same
+function compiled by clang, and `Examples/Sp1Runtime/RiscV/WriteVectored.lean` (about 515 lines with its
 definitions and the machine-level theorem), on another SP1 guest's `write_vectored`. Neither
 raises a limit.
 
@@ -179,7 +179,7 @@ What remains for the user in these proofs is what the function means: loop invar
 (which cells the prologue writes, that other memory is unchanged), postconditions, and some
 address arithmetic.
 
-On the Hardening programs the lift itself held: every operation matched C at its edges (division
+On the stress tests the lift itself held: every operation matched C at its edges (division
 by zero and overflow, high halves of products) and every load's extension. On the 41 Rust
 guests built for SP1, the `--proved` lift leaves out 177 of 6,738 functions: 142 for `unimp` (the
 illegal instruction rustc emits for a trap) and 35 for the 32-bit operations riscv-zkvm's
@@ -207,7 +207,7 @@ decision.
 
 ## Known limitations and open problems
 
-- **Long straight-line code is slow** (above): `Cases/Hardening`'s 290-instruction `mix` takes
+- **Long straight-line code is slow** (above): the stress tests' 290-instruction `mix` takes
   45 s with `maxHeartbeats` raised tenfold. This is what stands between `lsym` and
   `chacha20_block`, whose loop body is 162 straight-line instructions
   ([`Examples/README.md`](../../Examples/README.md)).
@@ -218,7 +218,7 @@ decision.
   the kernel times out on (a Lean issue). Use `bv_omega` for such facts.
 - **Literal spelling.** A hypothesis given to `lsym` that writes a literal as `0` does not close
   a side condition `simp` has written as `0#128`. Workaround: write `0#128` in the contract
-  (`Cases/Hardening/Guest.lean`).
+  (`Examples/Sp1Runtime/RiscV/Udivti3.lean`).
 - **External calls have no contract form.** System calls still go through machine-level rules
   applied by hand (`lsafe_write`).
 - **No machine-backed instance for x86-64 or AArch64.** RISC-V's Lprog instance is `rvIsa` over

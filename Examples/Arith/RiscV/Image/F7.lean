@@ -1,0 +1,54 @@
+/-
+  Examples.Arith.RiscV.Image.F7
+
+  Written by `decompile --to lean`. Do not edit: the theorems below check it.
+-/
+
+import Examples.Arith.RiscV.Image.Words
+
+namespace Examples.Arith.RiscV.Image
+
+open RiscvZkvm.Rv64 RiscvZkvm.Interpreter Lprog MachineChecked.RiscV.Lift Tools.ToLean
+
+-- data for the kernel, not code to run: the code generator does not take terms this large
+noncomputable section
+
+def f7_0 : Lcmd (Op Reg) Reg :=
+  [LinstrR.Llabel (LabelKind.internal) 0, LinstrR.Lopn
+  (Op.set
+    (Reg.x11)
+    (Expr.bin
+      (BinOp.ashr)
+      (Expr.reg (Reg.x10))
+      (Expr.imm 0x000000000000003f#64))), LinstrR.Llabel (LabelKind.internal) 1, LinstrR.Lopn
+  (Op.set
+    (Reg.x10)
+    (Expr.bin
+      (BinOp.xor)
+      (Expr.reg (Reg.x10))
+      (Expr.reg (Reg.x11)))), LinstrR.Llabel (LabelKind.internal) 2, LinstrR.Lopn
+  (Op.set
+    (Reg.x10)
+    (Expr.bin
+      (BinOp.sub)
+      (Expr.reg (Reg.x10))
+      (Expr.reg (Reg.x11)))), LinstrR.Llabel (LabelKind.internal) 3, LinstrR.Lret]
+
+/-- The function "abs_branchless", lifted. -/
+def f7 : Lfundef (Op Reg) Reg :=
+  { name := "abs_branchless", addr := 4240, depth := 0,
+    body := List.flatten [f7_0] }
+
+kernel_eq f7_head : (liftProg fns)[7]?.map (fun g => (g.name, g.addr, g.depth)) =
+    some (f7.name, f7.addr, f7.depth)
+
+kernel_eq f7_parts : (liftProg fns)[7]?.map (fun g => chunks chunk g.body) =
+    some [f7_0]
+
+/-- **`f7` is the lift of the ELF's words.** -/
+theorem f7_eq : (liftProg fns)[7]? = some f7 :=
+  getElem?_eq_of_chunks f7_head f7_parts rfl
+
+end
+
+end Examples.Arith.RiscV.Image
