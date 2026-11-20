@@ -19,6 +19,7 @@ import MachineChecked.RiscV.Sym
 import LprogRiscV
 import MachineChecked.RiscV.Lift.Lift
 import MachineChecked.RiscV.Lift.Transfer
+import MachineChecked.RiscV.Lift.Contract
 import MachineChecked.RiscV.Lift.Equiv
 import MachineChecked.RiscV.Lift.Decode
 import MachineChecked.RiscV.Lift.Flat
