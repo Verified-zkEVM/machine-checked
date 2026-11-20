@@ -602,6 +602,50 @@ theorem round_branch {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → P
     · exact hra
     · exact hsp
 
+/-! ### One round in registers, piece by piece
+
+The round's two new words are sums of `Σ0`, `Σ1`, `ch`, `maj`, the constant and the word of
+the schedule. Each piece is checked on its own by `bv_decide`, which is quick; the sums are then
+equal by associativity and commutativity. One `bv_decide` over a whole word takes seconds of
+SAT solving, on the edge of its default timeout. -/
+
+/-- `Σ1` as the binary computes it, on a register holding the word in its low half. -/
+theorem bsig1_regs (x : Word) :
+    BitVec.setWidth 32
+      ((x <<< 26 ||| BitVec.signExtend 64 (BitVec.setWidth 32 (BitVec.setWidth 64 (BitVec.setWidth 32 x) >>> 6))) ^^^
+        (x <<< 21 ||| BitVec.signExtend 64 (BitVec.setWidth 32 (BitVec.setWidth 64 (BitVec.setWidth 32 x) >>> 11))) ^^^
+        (x <<< 7 ||| BitVec.signExtend 64 (BitVec.setWidth 32 (BitVec.setWidth 64 (BitVec.setWidth 32 x) >>> 25)))) =
+      (BitVec.setWidth 32 x).rotateRight 6 ^^^ (BitVec.setWidth 32 x).rotateRight 11 ^^^
+        (BitVec.setWidth 32 x).rotateRight 25 := by
+  bv_decide
+
+/-- `Σ0` as the binary computes it. -/
+theorem bsig0_regs (x : Word) :
+    BitVec.setWidth 32
+      ((x <<< 30 ||| BitVec.signExtend 64 (BitVec.setWidth 32 (BitVec.setWidth 64 (BitVec.setWidth 32 x) >>> 2))) ^^^
+        (x <<< 19 ||| BitVec.signExtend 64 (BitVec.setWidth 32 (BitVec.setWidth 64 (BitVec.setWidth 32 x) >>> 13))) ^^^
+        (x <<< 10 ||| BitVec.signExtend 64 (BitVec.setWidth 32 (BitVec.setWidth 64 (BitVec.setWidth 32 x) >>> 22)))) =
+      (BitVec.setWidth 32 x).rotateRight 2 ^^^ (BitVec.setWidth 32 x).rotateRight 13 ^^^
+        (BitVec.setWidth 32 x).rotateRight 22 := by
+  bv_decide
+
+/-- `ch` as the binary computes it: `((f ^ g) & e) ^ g`. -/
+theorem ch_regs (e f g : Word) :
+    BitVec.setWidth 32 ((f ^^^ g) &&& e ^^^ g) =
+      (BitVec.setWidth 32 e &&& BitVec.setWidth 32 f ^^^ ~~~BitVec.setWidth 32 e &&& BitVec.setWidth 32 g) := by
+  bv_decide
+
+/-- `maj` as the binary computes it: `((c ^ b) & a) ^ (c & b)`. -/
+theorem maj_regs (a b c : Word) :
+    BitVec.setWidth 32 ((c ^^^ b) &&& a ^^^ c &&& b) =
+      (BitVec.setWidth 32 a &&& BitVec.setWidth 32 b ^^^ BitVec.setWidth 32 a &&& BitVec.setWidth 32 c ^^^
+        BitVec.setWidth 32 b &&& BitVec.setWidth 32 c) := by
+  bv_decide
+
+/-- A 32-bit word sign-extended to 64 bits, then its low half. -/
+theorem setWidth_signExtend32 (w : BitVec 32) : BitVec.setWidth 32 (BitVec.signExtend 64 w) = w := by
+  bv_decide
+
 /-- **Loop 4, the sixty-four rounds**, at its head after `t` of them: the working variables are
     in registers, and memory is read, not written. -/
 theorem round_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
@@ -631,7 +675,10 @@ theorem round_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Pro
     · rw [rounds, ← inv, hkd, hwd]
       simp only [regs8, lsym_simp, round, bsig0, bsig1, ch, maj, rotr, Prod.mk.injEq]
       repeat' apply And.intro
-      all_goals bv_decide
+      all_goals
+        simp only [BitVec.setWidth_add _ _ (show 32 ≤ 64 by decide), setWidth_signExtend32,
+          bsig0_regs, bsig1_regs, ch_regs, maj_regs]
+      all_goals ac_rfl
     · simp [lsym_simp]
     · simp [lsym_simp, h6]
     · simp [lsym_simp]
