@@ -45,6 +45,7 @@ import Examples
 -- Examples/Sha256/RiscV/Proofs.lean
 #print axioms Examples.Sha256.RiscV.sha256_round_correct
 #print axioms Examples.Sha256.RiscV.sha256_schedule_correct
+#print axioms Examples.Sha256.RiscV.sha256_compress_correct
 
 -- guest code (`Examples/Sp1Runtime`): functions of an SP1 guest's runtime, proved with `lsym`
 -- and carried to the machine
