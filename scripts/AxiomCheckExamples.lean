@@ -41,6 +41,7 @@ import Examples
 
 -- Examples/ChaCha20/RiscV/Proofs.lean
 #print axioms Examples.ChaCha20.RiscV.quarter_round_correct
+#print axioms Examples.ChaCha20.RiscV.chacha20_block_correct
 
 -- Examples/Sha256/RiscV/Proofs.lean
 #print axioms Examples.Sha256.RiscV.sha256_round_correct

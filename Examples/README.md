@@ -46,14 +46,19 @@ Every name in the table is a function with a contract at the low logical program
 | `c/mem.c` | [`Mem/RiscV/Proofs.lean`](Mem/RiscV/Proofs.lean) | `copy_bytes`, `equal_bytes` |
 | `c/limbs.c` | [`Limbs/RiscV/Proofs.lean`](Limbs/RiscV/Proofs.lean) | `add_limbs` |
 | `c/crc32.c` | [`Crc32/RiscV/Proofs.lean`](Crc32/RiscV/Proofs.lean) | `crc32` |
-| `c/chacha20.c` | [`ChaCha20/RiscV/Proofs.lean`](ChaCha20/RiscV/Proofs.lean) | `quarter_round` |
+| `c/chacha20.c` | [`ChaCha20/RiscV/Proofs.lean`](ChaCha20/RiscV/Proofs.lean) | `quarter_round`, `chacha20_block` |
 | `c/sha256.c` | [`Sha256/RiscV/Proofs.lean`](Sha256/RiscV/Proofs.lean) | `sha256_round`, `sha256_schedule`, `sha256_compress` |
 
-That is 22 functions. Each file checks in 3 to 25 seconds, with no limit raised.
+That is 23 functions. Each file checks in 3 to 20 seconds, with no limit raised.
 
 What the examples exercise:
 
 - **Straight-line code** (`add3`).
+- **A long loop body** (`chacha20_block`): ten double rounds of 162 straight-line instructions
+  each, with the sixteen words of the state in registers, against RFC 8439's block function
+  (whose test vector is checked by `decide`). The body is stepped in four pieces of about forty
+  instructions, each a half of the column or the diagonal round, checked against `qr`'s halves;
+  each piece fits the default limits.
 - **A whole compression function** (`sha256_compress`): five loops in a 320-byte frame, the
   schedule and the sixty-four rounds inlined, the round constants read from `.rodata`; against
   FIPS 180-4's `compress`. The rounds run in registers, so the loop that does them is split
@@ -136,9 +141,6 @@ entry, an empty loop.
 
 The ladder:
 
-- `ChaCha20`: `chacha20_block`, 226 instructions (`ChaCha20/RiscV/Image/F1.lean`). No proof
-  written or tried. Its loop body is 162 straight-line instructions; at the default limits
-  `lsym` steps 100 in one go and not 200 (`docs/design/Automation.md`).
 - `RustBasic`: `rust_begin_unwind`, the panic handler: a jump to itself, which none of the
   others calls.
 
