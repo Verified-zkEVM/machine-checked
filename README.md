@@ -49,13 +49,22 @@ proofs happen where they meet.
 | ISA model | riscv-zkvm (tied to Sail) | DeepMind's [arm64-semantics](https://github.com/google-deepmind/code-verification/tree/main/arm64-semantics) | [Kraken](https://github.com/AeneasVerif/kraken)'s x64 model |
 | Lift to Lprog | proved (simulation) | tested, not proved | tested, not proved |
 | Decompile to Pancake | tested by recompiling | tested by recompiling | tested by recompiling |
-| Proofs about real binaries | yes ([`Cases/`](Cases/README.md)) | no | no |
+| Proofs about real binaries | yes ([`Examples/`](Examples/README.md), [`Cases/`](Cases/README.md)) | no | no |
 
 The ISA models are dependencies used unmodified at pinned commits ([`docs/ISA.md`](docs/ISA.md)).
 Details, targets and next steps: [`ROADMAP.md`](ROADMAP.md).
 
-The case studies here are of functions and small programs. A whole guest, zip-2005 (an SP1
-guest that checks a Zcash Orchard statement), has its verification in its own repository,
+What is verified here is functions, not a whole program:
+
+- [`Examples/`](Examples/README.md): 21 small functions in C and Rust, from straight-line
+  code to loops over memory, a call and a table in read-only data. Each has a contract at
+  Lprog and a theorem about riscv-zkvm's machine alone. `chacha20_block` and SHA-256's
+  compression function are lifted there but not proved.
+- [`Cases/Hardening`](Cases/Hardening/README.md): C written to break the tools, and `memcmp`
+  and `write_vectored` of an SP1 guest's runtime.
+
+No guest is verified end to end in this repository. A whole guest, zip-2005 (an SP1 guest
+that checks a Zcash Orchard statement), has its verification in its own repository,
 [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm).
 
 ## Getting started
@@ -64,12 +73,16 @@ The toolchain is pinned in `lean-toolchain` and installed by [elan](https://gith
 
 ```sh
 lake exe cache get              # Mathlib's prebuilt oleans
-lake build                      # the framework and the tools (minutes)
-lake build Cases.Hardening      # one case study (each case's README names its module)
+lake build                      # the framework and the tools
+lake build Examples             # the examples: every image and every proof
+lake build Cases                # the case studies
 lake env lean path/to/File.lean # check one file
 ```
 
-`lake build Cases` builds every case study (under a minute once the framework is built).
+From a fresh clone, after `lake exe cache get`, building all of it takes a few minutes; once
+the dependencies are built, under a minute. On the first build Lake prints `warning: building
+from source; failed to fetch GitHub release` for riscv-zkvm. It is harmless: the dependency
+is pinned to a commit, which has no release archive.
 
 ## How to use it
 
@@ -93,6 +106,20 @@ instruction set does not cover is listed in its `LIMITS.md`
 
 ### 2. Generate Lean to prove against
 
+Proofs about a binary go in a Lake project of their own, which requires this repository and
+uses the same `lean-toolchain`:
+
+```toml
+[[require]]
+name = "machine-checked"
+git = "https://github.com/Verified-zkEVM/machine-checked"
+
+[[lean_lib]]
+name = "MyProject"
+```
+
+In that project (for RISC-V; the `--proved` lift is the one the theorems are about):
+
 ```sh
 lake exe decompile --to lean --proved guest.elf . MyProject.Gen
 ```
@@ -105,46 +132,88 @@ This writes `MyProject/Gen.lean` and `MyProject/Gen/`:
   checked by the kernel.
 - `Gen.lean`: imports everything, and lists which index is which symbol.
 
-The modules import this repository (`Tools.ToLean`, `MachineChecked`), so the project they go
-into must `require` it in its Lake file. The ELF path is read relative to where the module is
-built, and the namespace's directory (`MyProject/Gen/`) must not already exist. See [`Tools/README.md`](Tools/README.md) for the other routes and what each one
-trusts.
+The ELF path is read relative to where the module is built, and the namespace's directory
+(`MyProject/Gen/`) must not already exist. See [`Tools/README.md`](Tools/README.md) for the
+other routes and what each one trusts.
 
 ### 3. Prove a function's contract
 
 A contract (`Isa.Contract`) says: from a precondition on entry, the function returns in a state
 satisfying a postcondition. `lsym` steps the lifted body symbolically, uses callees' contracts
-at calls, and leaves the goals it cannot close. From
-[`Cases/Hardening/Calls.lean`](Cases/Hardening/Calls.lean):
+at calls, and leaves the goals it cannot close.
+
+The example in this step and the next is for `Examples/elf/basic.elf` of this repository as
+`guest.elf` ([`Examples/README.md`](Examples/README.md)), whose function 0 is `add3` at
+`0x10000`: two additions and a return. The two Lean snippets, one after the other, are one
+file, `MyProject.lean`, which `lake build` checks:
 
 ```lean
-/-- `twice_inc`: a call and a tail call of `inc`, with `ra` saved in a frame across the call. -/
-theorem twice_inc_contract : rvIsa.Contract (liftProg fns) sp1Ctx 1
+import MyProject.Gen
+import LprogRiscV.Lsym
+import MachineChecked.RiscV.Lift.Contract  -- for step 4
+
+open RiscvZkvm.Rv64 Lprog Lprog.RiscV Lprog.RiscV.Machine MachineChecked.RiscV.Lift
+open MyProject.Gen
+
+theorem add3_contract : rvIsa.Contract (liftProg fns) sp1Ctx 0
     (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top)
-    (fun _ _ regs _ r' _ => r' .x10 = regs .x10 + 2) := by
+    (fun _ _ regs m r' m' => r' .x10 = regs .x10 + regs .x11 + regs .x12 ∧
+      (∀ r, r ≠ .x10 → r' r = regs r) ∧ m' = m) := by
   intro G N Q ret top rest regs m ⟨hra, hsp⟩ hk
-  lsym f1_eq with [hra, hsp] using [inc_contract]
-  apply hk; simp [lsym_simp, hret, hret_1, BitVec.add_assoc]
+  lsym f0_eq with [hra, hsp]
+  apply hk
+  exact ⟨by simp only [lsym_simp]; ac_rfl, fun r h => by simp [lsym_simp, h], rfl⟩
 ```
 
+The precondition says the return address (`x1`) and the stack pointer (`x2`) are the frame's.
+The postcondition: `x10` is the sum, every other register and the memory are kept. `lsym`
+steps the body; what is left is the postcondition.
+
 How to use `lsym`, and its limits: [`docs/design/Automation.md`](docs/design/Automation.md).
-Loops are proved by induction with an invariant, as in
-[`Cases/Hardening/Memcmp.lean`](Cases/Hardening/Memcmp.lean).
+A loop is a lemma at its head, proved by induction;
+[`docs/Walkthrough.md`](docs/Walkthrough.md) does one, and [`Examples/`](Examples/README.md)
+has more.
 
 ### 4. Carry it down to the machine
 
-For RISC-V, `SafeN.of_contract` ([`RiscV/Lift/Transfer.lean`](MachineChecked/RiscV/Lift/Transfer.lean))
-turns a contract at Lprog into a theorem about riscv-zkvm's machine running the loaded code.
-[`docs/Walkthrough.md`](docs/Walkthrough.md) follows `memcmp` through every step.
+For RISC-V, `SafeN.of_isa_contract`
+([`RiscV/Lift/Contract.lean`](MachineChecked/RiscV/Lift/Contract.lean)) turns a contract at
+Lprog into a theorem about riscv-zkvm's machine with the binary's functions in its code
+(`Loaded fns s`). Continuing the file of step 3:
+
+```lean
+open MachineChecked.RiscV MachineChecked.RiscV.Sym
+
+theorem hok : ProgOk fns := by decide
+
+theorem add3_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
+    (hpc : s.pc = 0x10000#64) (hcode : Loaded fns s)
+    (hk : ∀ t, t.pc = s.getReg .x1 &&& ~~~1#64 →
+      t.getReg .x10 = s.getReg .x10 + s.getReg .x11 + s.getReg .x12 →
+      (∀ a, t.getMem a = s.getMem a) → SafeN G k P t) :
+    SafeN G k P s := by
+  obtain ⟨fn, hg, hb⟩ : ∃ fn, fns[0]? = some fn ∧ fn.base = 0x10000#64 := ⟨_, rfl, rfl⟩
+  refine SafeN.of_isa_contract hok hg (hpc.trans hb.symm) hcode add3_contract ⟨rfl, rfl⟩ ?_
+  rintro t r' m' hag hpc' ⟨h10, -, rfl⟩
+  refine hk t hpc' ?_ fun a => (hag.mem a).symm
+  rw [← hag.regs, getReg_ofParts]; simpa [regsOf] using h10
+```
+
+Read it as: a machine `s` at `add3`'s entry, with the binary's functions in its code, is safe
+if every state `t` it may return in is. `SafeN` is safety of riscv-zkvm's `stepSp1` for `k`
+steps; nothing in the statement is about the lift. It says what holds if the function
+returns, not that it does. [`docs/Walkthrough.md`](docs/Walkthrough.md) follows a function
+with a loop through every step.
 
 ### 5. Check what it rests on
 
 ```lean
-#print axioms MyProject.my_theorem
+#print axioms add3_correct
 ```
 
-Only `propext`, `Classical.choice`, `Quot.sound`, and `bv_decide` certificates are expected.
-The repository has no `sorry`, `axiom` or `native_decide`; CI enforces this.
+Only `propext`, `Classical.choice`, `Quot.sound`, and `bv_decide` certificates are expected
+(for `add3_correct`, the first three). The repository has no `sorry`, `axiom` or
+`native_decide`; CI enforces this.
 
 ## Repository map
 
@@ -158,7 +227,10 @@ lprog/            package: Lprog, its semantics, runs (Ascent), contracts, lsym
 lprog-riscv/      package: RISC-V at Lprog, SP1's execution context
 pancake/          package: Pancake as the decompiler writes it
 Tools/            untrusted tools: decompile, gen-image, infer-contracts; their tests
-Cases/            case studies: real binaries, verified                (Cases/README.md)
+Examples/         small functions in C and Rust, each verified down to the machine
+                                                                (Examples/README.md)
+Cases/            case studies: code written to break the tools, functions of a guest's
+                  runtime, a loaded image                       (Cases/README.md)
 scripts/          CI checks: axioms, decompile-check, to-lean-check
 docs/             guides and design notes
 ```
@@ -169,7 +241,10 @@ The packages `lprog`, `lprog-riscv` and `pancake` can be required on their own
 ## Documentation
 
 Start with:
-- [`docs/Walkthrough.md`](docs/Walkthrough.md): one proof, `memcmp`, through every layer.
+- [`docs/Walkthrough.md`](docs/Walkthrough.md): one function, `gcd`, from its source to a
+  theorem about the machine.
+- [`Examples/README.md`](Examples/README.md): the examples, what is verified of each, and how
+  their proofs are written.
 - [`Tools/README.md`](Tools/README.md): the decompiler and `--to lean`, and what each route trusts.
 - [`docs/design/Automation.md`](docs/design/Automation.md): `lsym` in practice.
 

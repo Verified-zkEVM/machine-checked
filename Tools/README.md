@@ -3,7 +3,8 @@
 Build-time tools that turn an ELF into Lean data, into an Lprog program (layer 0.5) or into a
 Pancake program (layer 1). They are layer -1 of the [roadmap](../ROADMAP.md) and are
 **untrusted**: whatever they emit as Lean is re-checked by the kernel, and nothing in
-`MachineChecked/` or `Cases/` imports them.
+`MachineChecked/` imports them. The modules `decompile --to lean` writes (in `Examples/` and
+`Cases/`) import `Tools.ToLean`, for the check of their words against the ELF.
 
 | file | command | what it does |
 | --- | --- | --- |

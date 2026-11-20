@@ -1,6 +1,6 @@
 # Contributing to MachineChecked
 
-Contributions are welcome: new case studies, proofs of more functions, better automation,
+Contributions are welcome: new examples and case studies, proofs of more functions, better automation,
 support for more instruction sets, fixes and documentation.
 
 ## Where to start
@@ -15,8 +15,9 @@ and where it fits saves work on both sides.
 - [`README.md`](README.md): the idea, how to use the tools, and the layout.
   [`MachineChecked/README.md`](MachineChecked/README.md) goes through the framework directory
   by directory.
-- [`docs/Walkthrough.md`](docs/Walkthrough.md): one complete proof (`memcmp`) done the
+- [`docs/Walkthrough.md`](docs/Walkthrough.md): one complete proof (`gcd`) done the
   intended way: lifted to Lprog, proved there, and carried down to the machine.
+  [`Examples/README.md`](Examples/README.md) has the rest of the examples.
 - [`docs/Architecture.md`](docs/Architecture.md): the judgement and the contract table.
 - [`docs/ELF.md`](docs/ELF.md) §4: what is trusted.
 - [`AGENTS.md`](AGENTS.md): the entry point for AI agents.
@@ -50,7 +51,8 @@ These hold for every change. A pull request that breaks one is not merged.
   occur proves nothing.
 - **Untrusted producers, trusted checker.** Tools may generate images, annotations and
   certificates, but the Lean kernel re-checks everything they produce. Nothing in
-  `MachineChecked/` or `Cases/` imports `Tools/`.
+  `MachineChecked/` imports `Tools/`; proofs in `Examples/` and `Cases/` import it only through
+  the modules `decompile --to lean` wrote (`Tools.ToLean`, for `check_elf_words`).
 
 ### Semantics and trust
 
@@ -63,7 +65,9 @@ These hold for every change. A pull request that breaks one is not merged.
   specification (`docs/ISA.md`) in the end.
 - **One judgement.** Function specifications are stated as `SafeN` in continuation form: at
   the machine (`MachineChecked/RiscV/Safe.lean`), and at Lprog as `Isa.Contract`
-  (`lprog/Lprog/Contract.lean`), carried down by `SafeN.of_contract`. Results proved by
+  (`lprog/Lprog/Contract.lean`), carried down by `SafeN.of_isa_contract`
+  (`MachineChecked/RiscV/Lift/Contract.lean`; `SafeN.of_contract` in `Transfer.lean` for a
+  postcondition over a machine state). Results proved by
   different tools compose through the contract table.
 - **One of each concept.** One notion of a run (`lprog/Lprog/Ascent/Run.lean`), one
   correspondence (`lprog/Lprog/Ascent/Corres.lean`), one logical machine per layer, and one
@@ -85,28 +89,37 @@ These hold for every change. A pull request that breaks one is not merged.
 ```sh
 lake exe cache get
 lake build                                # the framework and the tools (the default)
-lake build Cases.Hardening.Memcmp         # one module and what it imports
-lake build Cases                          # every case study (under a minute, framework built)
+lake build Examples                       # every example
+lake build Cases                          # every case study
+lake build Examples.RustBasic             # one module and what it imports
 lake env lean path/to/File.lean           # check one file
 ```
 
-Continuous integration (`.github/workflows/ci.yml`) runs on every pull request:
+Building everything takes a few minutes from a fresh clone after `lake exe cache get`, and under
+a minute once the dependencies are built. Lake's `warning: building from source; failed to
+fetch GitHub release` for riscv-zkvm on the first build is harmless: the dependency is pinned
+to a commit, which has no release archive.
+
+Continuous integration (`.github/workflows/ci.yml`) runs one job, `build`, on every pull
+request (about 8 minutes on a GitHub runner):
 
 - a search of the sources for `sorry`, `axiom` and `native_decide`;
-- `lake build MachineChecked Tools Cases`: the framework, the tools and every case study,
-  failing on any warning;
+- `lake build MachineChecked Tools Examples Cases`: the framework, the tools, the examples and
+  every case study, failing on any warning;
 - `python3 scripts/decompile-check/check.py limits`: the instruction tables in each
   `LIMITS.md` match what `decompile --table` generates;
 - `scripts/to-lean-check/check.sh`: `decompile --to lean` end to end on a small ELF;
-- `scripts/AxiomCheck.lean` (framework) and `scripts/AxiomCheckCases.lean` (case studies):
+- `scripts/AxiomCheck.lean` (framework) and `scripts/AxiomCheckCases.lean` (examples and case
+  studies):
   the listed theorems use only the standard axioms and `bv_decide` certificates.
 
 Before opening a pull request:
 1. Build every module you touched and every module that imports it. A change to a widely
-   imported file means `lake build MachineChecked Tools Cases`, as CI runs it.
+   imported file means `lake build MachineChecked Tools Examples Cases`, as CI runs it.
 2. Confirm the build has no warnings.
 3. Run `#print axioms` on the theorems you added or changed, and add the main ones to
-   `scripts/AxiomCheck.lean` (framework) or `scripts/AxiomCheckCases.lean` (case studies).
+   `scripts/AxiomCheck.lean` (framework) or `scripts/AxiomCheckCases.lean` (examples and
+   case studies).
 4. If you changed a lift, run `check.py limits`; if you changed `Tools/ToLean.lean`, run
    `scripts/to-lean-check/check.sh`.
 
@@ -115,7 +128,7 @@ Before opening a pull request:
 **Titles** follow `<type>(<optional scope>): <subject>`.
 - Types: `feat`, `fix`, `proof` (new or changed proofs), `doc`, `refactor`, `perf`, `test`,
   `chore`, `ci`.
-- The scope is a directory or case, such as `riscv/sym`, `lprog` or `hardening`.
+- The scope is a directory or case, such as `riscv/sym`, `lprog`, `examples` or `hardening`.
 - The subject is imperative and lower case, with no final full stop: `feat(lprog): lift
   indirect jumps with candidate lists`.
 
@@ -142,7 +155,29 @@ callers in the same pull request, or keep the old name as a deprecated alias:
 Write commit messages in the imperative, with a short first line and a body that explains why.
 Keep commits buildable where you can.
 
+## Adding an example
+
+An example is a small function with its source here, verified down to the machine
+([`Examples/README.md`](Examples/README.md)). RISC-V only: the AArch64 and x86-64 lifts are not
+proved.
+
+1. Put the source under `Examples/src/c/` or `Examples/src/rust/`.
+2. Add a line for it to `Examples/build.sh` and run the script (after `lake build decompile`).
+   It compiles the source to `Examples/elf/` and writes the generated modules,
+   `Examples/Gen/<Module>.lean` and `Examples/Gen/<Module>/`. Commit the ELF and the modules;
+   do not edit the modules.
+3. Write `Examples/<Module>.lean`: for each function a contract at Lprog, proved with `lsym`
+   (`<function>_contract`), and the same statement about the machine through
+   `SafeN.of_isa_contract` (`<function>_correct`). `Examples/Basic.lean` is the shortest model.
+   Import the file from `Examples.lean`.
+4. Add a row to the table in `Examples/README.md`. A function that is lifted and not proved
+   goes in the "Not verified yet" table, with what was tried.
+5. Add each `_correct` theorem to `scripts/AxiomCheckCases.lean`.
+
 ## Adding a case study
+
+A case study is for what an example is not: a binary from elsewhere, a program rather than a
+function, or code chosen to break the tools.
 
 1. Pin the binary: commit it, or record how it was built and its digest.
 2. Lift it (RISC-V only: the AArch64 and x86-64 lifts are not proved): `lake exe decompile --to lean --proved BINARY . Cases.<Name>.Gen` writes the
@@ -152,7 +187,7 @@ Keep commits buildable where you can.
    `Cases/<Name>/Loaded.lean` (as `Cases/LeanVM/Blake2s` does).
 3. Prove function contracts at Lprog with `lsym`, one module per function or family. Reuse
    the runtime specifications where the code is shared.
-4. Carry them to the machine (`SafeN.of_contract`) and compose them into a theorem about the
+4. Carry them to the machine (`SafeN.of_isa_contract`, or `SafeN.of_contract`) and compose them into a theorem about the
    binary's accepting runs.
 5. Add `Cases/<Name>/README.md`, saying where the binary came from and under what licence its
    code is, and a row to `Cases/README.md`.
@@ -168,7 +203,7 @@ says otherwise. When in doubt, match the surrounding code.
   `MachineChecked/RiscV/Sym/Mem.lean` is `MachineChecked.RiscV.Sym`.
 - Keep lines under 100 characters, and indent by 2 spaces.
 - Every new file is reachable from its library root: `MachineChecked.lean` for the framework,
-  the case's root module for a case.
+  `Examples.lean` for an example, the case's root module for a case.
 
 ### Naming
 
