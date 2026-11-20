@@ -17,6 +17,13 @@ namespace Examples
 /-- The unsigned maximum. -/
 def umax (a b : BitVec 64) : BitVec 64 := if b < a then a else b
 
+/-- The signed maximum: `a > b ? a : b` on `long`. -/
+def smax (a b : BitVec 64) : BitVec 64 := if b.slt a then a else b
+
+/-- `x < lo ? lo : (x > hi ? hi : x)`, signed. -/
+def clampSpec (x lo hi : BitVec 64) : BitVec 64 :=
+  if x.slt lo then lo else if hi.slt x then hi else x
+
 /-- The sum of a list of words, modulo `2^64`. -/
 def wsum : List (BitVec 64) → BitVec 64
   | [] => 0
@@ -51,6 +58,15 @@ theorem ones_eq (n : Nat) : ones n = n % 2 + ones (n / 2) := by
   cases n with
   | zero => simp [ones]
   | succ n => rw [ones]
+
+/-- The loop `while (n) { n >>= 1; k++; }` on numbers: how many halvings take `n` to zero. -/
+def countDown (n : Nat) : Nat := if n = 0 then 0 else countDown (n / 2) + 1
+decreasing_by omega
+
+/-- The factorial. -/
+def factN : Nat → Nat
+  | 0 => 1
+  | n + 1 => (n + 1) * factN n
 
 /-- The Fibonacci numbers, `fibN 0 = 0`, `fibN 1 = 1`. -/
 def fibN : Nat → Nat

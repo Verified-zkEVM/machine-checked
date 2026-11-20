@@ -164,14 +164,14 @@ calls (`budget_induction`).
 | --- | --- | --- |
 | `memcmp` (`MemcmpLprog.lean` vs `MemcmpLsym.lean`, at tag `with-zip2005`) | 333 lines, 28 rules applied by hand, raised `maxHeartbeats`; checks in 2.5 s | 140 lines, two calls of `lsym`, no raised limits; 1.9 s |
 | `write_vectored`: three functions, a loop, a call, a tail call, a system call (`WriteVectored.lean` vs `WriteVectoredLsym.lean`, at tag `with-zip2005`) | 906 lines, 36 address lemmas, `maxHeartbeats` raised 6 times; 4.2 s | 300 lines, no address lemmas or raised limits, no address facts bridged by `bv_decide`; calls go through `Isa.Contract`s; 2.1 s |
-| `Examples/` (C by clang, Rust by rustc and clang) | | 23 functions, each with its contract and a theorem about the machine; no limit raised; `sha256_round` (57 instructions, no branch) is stepped in one go; `sha256_compress`'s round loop, about 50 instructions per iteration, fits the default limits once split before its back-edge branch; `chacha20_block`'s 162-instruction loop body fits them in four pieces of about forty instructions; see [its README](../../Examples/README.md) |
-| the stress tests of `Examples/` (C compiled by clang) | | functions the `--proved` lift takes, each against C's meaning; the README lists those without a theorem; four of `arith.c`'s twelve are left out for their 32-bit operations; see [`Examples/README.md`](../../Examples/README.md) |
+| the ladder of `Examples/` (C by clang, Rust by rustc and clang) | | 23 functions, each with its contract and a theorem about the machine; no `maxHeartbeats` raised (one `bv_decide` runs with a longer SAT timeout, in `sha256_round`); `sha256_round` (57 instructions, no branch) is stepped in one go; `sha256_compress`'s round loop, about 50 instructions per iteration, fits the default limits once split before its back-edge branch; `chacha20_block`'s 162-instruction loop body fits them in four pieces of about forty instructions; see [its README](../../Examples/README.md) |
+| the stress tests of `Examples/` (C compiled by clang) | | 53 functions, each against C's meaning, with its contract and a theorem about the machine; `mix`'s 290 straight-line instructions in eight pieces, within the default limits; four of `arith.c`'s twelve functions are left out of the lift for their 32-bit operations, and the README lists every function without a theorem; see [`Examples/README.md`](../../Examples/README.md) |
 | x86-64 (`Tools/Test/LsymX86.lean`) | | two functions lifted from bytes, a call through a contract with the return address pushed and popped; only the instruction set's `lsym_simp` instance was added |
 
 The two comparisons were measured on zip-2005's guest, in `Cases/Zip2005/Runtime/` of the tree
 at tag `with-zip2005`. The hand proofs are no longer kept. The `lsym` proofs are now
-`Examples/Sp1Runtime/RiscV/Memcmp.lean` (about 220 lines with the machine-level theorem), on the same
-function compiled by clang, and `Examples/Sp1Runtime/RiscV/WriteVectored.lean` (about 515 lines with its
+`Examples/Sp1Runtime/RiscV/Memcmp.lean` (about 205 lines with the machine-level theorem), on the same
+function compiled by clang, and `Examples/Sp1Runtime/RiscV/WriteVectored.lean` (about 505 lines with its
 definitions and the machine-level theorem), on another SP1 guest's `write_vectored`. Neither
 raises a limit.
 
@@ -207,11 +207,11 @@ decision.
 
 ## Known limitations and open problems
 
-- **Long straight-line code is slow** (above): the stress tests' 290-instruction `mix` takes
-  45 s with `maxHeartbeats` raised tenfold. Splitting a long body with intermediate `stop`s,
-  a lemma per piece, keeps each within the default limits: `chacha20_block`'s 162-instruction
-  loop body is four pieces of 100k to 150k heartbeats each
-  ([`Examples/README.md`](../../Examples/README.md)).
+- **Long straight-line code is slow** (above): the stress tests' 290-instruction `mix` took
+  45 s in one call of `lsym`, with `maxHeartbeats` raised tenfold. Splitting a long body with
+  intermediate `stop`s, a lemma per piece, keeps each within the default limits: `mix` is
+  eight pieces of four rounds, and `chacha20_block`'s 162-instruction loop body is four pieces
+  of 100k to 150k heartbeats each ([`Examples/README.md`](../../Examples/README.md)).
 - **`bv_omega` after `lsym`** is slow or fails where the same fact alone is instant: it takes
   every hypothesis, and `lsym` leaves many. Workaround: state the arithmetic as separate lemmas
   (`Rec.lean` does).

@@ -7,7 +7,7 @@
 
   * `swap(a, b)` exchanges the doublewords at `a` and `b`, whether or not `a = b`, and leaves
     every other doubleword of memory as it was.
-  * `sum_array(p, n)` returns the wrapping sum of the `n` doublewords from `p` (`wsum`), for
+  * `sum_array(p, n)` returns the wrapping sum of the `n` doublewords from `p` (`sumMem`), for
     `n < 2 ^ 61`, memory unchanged. The loop walks a pointer to the end pointer `p + 8 * n`;
     it is a lemma of its own (`sum_array_loop`), by induction on the doublewords left.
   * `max2(a, b)` returns the unsigned maximum (`umax`), and keeps every other register and the
@@ -72,24 +72,13 @@ theorem swap_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : Machi
 
 /-! ## `sum_array` -/
 
-/-- The wrapping sum of the first `k` doublewords from `p`. -/
-def wsum (m : MachineState) (p : Word) : Nat → Word
-  | 0 => 0
-  | k + 1 => wsum m p k + m.getMem (p + BitVec.ofNat 64 (8 * k))
-
-/-- The shift that scales an index to a byte offset, as a multiplication. -/
-theorem shl3 (x : Word) : x <<< 3 = BitVec.ofNat 64 (8 * x.toNat) := by
-  apply BitVec.eq_of_toNat_eq
-  simp [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq]
-  omega
-
 /-- **The loop of `sum_array`**, at its head, with `j < n` doublewords summed. -/
 theorem sum_array_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
     {rest : List Frame} (m : MachineState) (p : Word) (n : Nat) (hn : n < 2 ^ 61)
-    (hpost : ∀ r' m', r' .x10 = wsum m p n → m' = m → LSafeN fns G N Q ⟨rest, r', m'⟩) :
+    (hpost : ∀ r' m', r' .x10 = sumMem m p n → m' = m → LSafeN fns G N Q ⟨rest, r', m'⟩) :
     ∀ k j (regs : Reg → BitVec 64), n - j = k → j < n →
       regs .x12 = p + BitVec.ofNat 64 (8 * j) → regs .x11 = p + BitVec.ofNat 64 (8 * n) →
-      regs .x10 = wsum m p j → regs .x1 = ret → regs .x2 = top →
+      regs .x10 = sumMem m p j → regs .x1 = ret → regs .x2 = top →
       LSafeN fns G N Q ⟨⟨1, 10, ret, top⟩ :: rest, regs, m⟩ := by
   intro k
   induction k with
@@ -104,7 +93,7 @@ theorem sum_array_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa →
         · obtain rfl : n = j + 1 := by omega
           simp only [lsym_addr] at hc; simp at hc
       apply ih (j + 1) _ (by omega) hlt
-      all_goals simp [lsym_simp, lsym_addr, wsum, h11, hra, hsp, BitVec.add_comm]
+      all_goals simp [lsym_simp, lsym_addr, sumMem, h11, hra, hsp, BitVec.add_comm]
     · -- the exit
       have : j + 1 = n := by
         rcases Nat.lt_or_ge (j + 1) n with h | h
@@ -115,32 +104,32 @@ theorem sum_array_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa →
         · omega
       subst this
       apply hpost
-      · simp [lsym_simp, wsum, BitVec.add_comm]
+      · simp [lsym_simp, sumMem, BitVec.add_comm]
       · rfl
 
 /-- `sum_array(p, n)`: the wrapping sum of the `n` doublewords from `p`, for `n < 2 ^ 61` (so
     that `8 * n` does not wrap); memory unchanged. -/
 theorem sum_array_contract : rvIsa.Contract (liftProg fns) sp1Ctx 1
     (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top ∧ (regs .x11).toNat < 2 ^ 61)
-    (fun _ _ regs m r' m' => r' .x10 = wsum m (regs .x10) (regs .x11).toNat ∧ m' = m) := by
+    (fun _ _ regs m r' m' => r' .x10 = sumMem m (regs .x10) (regs .x11).toNat ∧ m' = m) := by
   intro G N Q ret top rest regs m ⟨hra, hsp, hn⟩ hk
   lsym f1_eq stop [10] with [hra, hsp]
   · -- no doublewords
     apply hk
-    simp [lsym_simp, hc, wsum]
+    simp [lsym_simp, hc, sumMem]
   · -- the loop, from its first doubleword
     have hpos : 0 < (regs .x11).toNat := by
       rcases Nat.eq_zero_or_pos (regs .x11).toNat with h | h
       · exact absurd (BitVec.eq_of_toNat_eq h) hc
       · exact h
     apply sum_array_loop m (regs .x10) _ hn (fun r' m' h1 h2 => hk r' m' ⟨h1, h2⟩) _ 0 _ rfl hpos
-    all_goals simp [lsym_simp, wsum, hra, hsp, shl3]
+    all_goals simp [lsym_simp, sumMem, hra, hsp, shl3]
 
 /-- **`sum_array` on the machine.** -/
 theorem sum_array_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
     (hpc : s.pc = 0x10014#64) (hcode : Loaded fns s) (hn : (s.getReg .x11).toNat < 2 ^ 61)
     (hk : ∀ t, t.pc = s.getReg .x1 &&& ~~~1#64 →
-      t.getReg .x10 = wsum s (s.getReg .x10) (s.getReg .x11).toNat →
+      t.getReg .x10 = sumMem s (s.getReg .x10) (s.getReg .x11).toNat →
       (∀ a, t.getMem a = s.getMem a) → SafeN G k P t) :
     SafeN G k P s := by
   obtain ⟨fn, hg, hb⟩ : ∃ fn, fns[1]? = some fn ∧ fn.base = 0x10014#64 := ⟨_, rfl, rfl⟩

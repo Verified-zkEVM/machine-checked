@@ -377,28 +377,6 @@ Addresses are written as `lsym` writes them: `top + 18446744073709551504#64` is 
 def words16 (m : MachineState) (a : Word) : ChaCha20.State :=
   fun i => m.getWord32 (a + BitVec.ofNat 64 (4 * i.val))
 
-/-- A word read after a doubleword written in another doubleword. -/
-theorem getWord32_setMem (m : MachineState) (c w a : Word) (h : alignToDword a ≠ c) :
-    (m.setMem c w).getWord32 a = m.getWord32 a := by
-  simp only [MachineState.getWord32, MachineState.getMem_setMem_ne h]
-
-/-- A doubleword read after a word written in another doubleword. -/
-theorem getMem_setWord32 (m : MachineState) (a c : Word) (v : BitVec 32) (h : c ≠ alignToDword a) :
-    (m.setWord32 a v).getMem c = m.getMem c := by
-  simp only [MachineState.setWord32, MachineState.getMem_setMem_ne h]
-
-theorem aligned4_ofNat {w : Word} (h : alignedFor 4 w = true) (i : Nat) :
-    alignedFor 4 (w + BitVec.ofNat 64 (4 * i)) = true := by
-  refine aligned4_add h _ ?_
-  have : BitVec.ofNat 64 (4 * i) = 4#64 * BitVec.ofNat 64 i := by
-    apply BitVec.eq_of_toNat_eq; simp
-  rw [this]; bv_decide
-
-theorem aligned8_iff (a : Word) : alignedFor 8 a = true ↔ a &&& 7#64 = 0#64 := by
-  have e : a.toNat % 8 = (a &&& 7#64).toNat := by
-    rw [BitVec.toNat_and]; exact (Nat.and_two_pow_sub_one_eq_mod _ 3).symm
-  simp [alignedFor, isAligned8, e, BitVec.toNat_eq]
-
 /-- A word at `a` is outside the 112 bytes below `top`, `chacha20_block`'s frame. -/
 def Out (top a : Word) : Prop := 112#64 ≤ a - (top - 112#64)
 
@@ -490,18 +468,6 @@ theorem words_store {b : Word} (hal : alignedFor 4 b = true) {m : MachineState}
   · have hne : b + BitVec.ofNat 64 (4 * i) ≠ b + BitVec.ofNat 64 (4 * t) := by bv_omega
     rw [ite_eq_right hne]; exact inv i (by omega)
 
-/-- A word loaded (sign-extended) and stored again. -/
-theorem sext_trunc (x : BitVec 32) : (BitVec.signExtend 64 x).setWidth 32 = x := by bv_decide
-
-theorem copy_more {t : Nat} (ht : t < 16) (h : ¬BitVec.ofNat 64 (4 * t) + 4#64 = 64#64) :
-    t + 1 < 16 := by bv_omega
-
-theorem copy_last {t : Nat} (ht : t < 16) (h : BitVec.ofNat 64 (4 * t) + 4#64 = 64#64) :
-    t = 15 := by bv_omega
-
-theorem next_addr (b : Word) (t : Nat) :
-    b + (BitVec.ofNat 64 (4 * t) + 4#64) = b + BitVec.ofNat 64 (4 * (t + 1)) := by bv_omega
-
 /-! ### The last loop: `out[i] = x[i] + in[i]` -/
 
 /-- One word of `out` written: what the last loop keeps of `x`, of the words of `in` it has yet
@@ -585,10 +551,6 @@ theorem out_loop {G : Lprog.State rvIsa → Prop} {N : Nat} {Q : Lprog.State rvI
       · simp only [lsym_simp]; exact e3
       · simp only [lsym_simp]; exact e4
       · simp [lsym_simp]
-
-theorem frame_aligned {top : Word} (ht : top &&& 7#64 = 0#64) (c : Word) (hc : c &&& 3#64 = 0#64) :
-    alignedFor 4 (top + c) = true := by
-  rw [aligned4_iff]; bv_decide
 
 /-- **The sixteen words of `x` stored back** after the rounds, in the order the binary stores
     them: they read back, and what `Kept` asks is kept. -/

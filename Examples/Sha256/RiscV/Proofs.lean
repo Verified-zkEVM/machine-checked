@@ -42,16 +42,6 @@ open Lprog.RiscV Lprog.RiscV.Machine Examples.Sha256.RiscV.Image
 /-- The functions' entries are aligned. -/
 theorem hok : ProgOk fns := by decide
 
-/-- A word read after a doubleword written in another doubleword. -/
-theorem getWord32_setMem (m : MachineState) (c w a : Word) (h : alignToDword a ≠ c) :
-    (m.setMem c w).getWord32 a = m.getWord32 a := by
-  simp only [MachineState.getWord32, MachineState.getMem_setMem_ne h]
-
-/-- A doubleword read after a word written in another doubleword. -/
-theorem getMem_setWord32 (m : MachineState) (a c : Word) (v : BitVec 32) (h : c ≠ alignToDword a) :
-    (m.setWord32 a v).getMem c = m.getMem c := by
-  simp only [MachineState.setWord32, MachineState.getMem_setMem_ne h]
-
 /-- **Eight words written** at `s + 16`, …, `s + 28`, then `s`, …, `s + 12`, the order the round
     stores them in: they read back. -/
 theorem eight_words (m : MachineState) (s : Word) (A B C D E F G H : BitVec 32)
@@ -153,13 +143,6 @@ theorem sha256_round_contract : rvIsa.Contract (liftProg fns) sp1Ctx 0
   · simp [lsym_simp]
 
 /-! ## The message schedule -/
-
-theorem aligned4_ofNat {w : Word} (h : alignedFor 4 w = true) (i : Nat) :
-    alignedFor 4 (w + BitVec.ofNat 64 (4 * i)) = true := by
-  refine aligned4_add h _ ?_
-  have : BitVec.ofNat 64 (4 * i) = 4#64 * BitVec.ofNat 64 i := by
-    apply BitVec.eq_of_toNat_eq; simp
-  rw [this]; bv_decide
 
 /-- **One word of the schedule**: with the words before `t` in memory, the word the loop's body
     stores at `t` is the schedule's, and the words before it stay. -/
@@ -403,18 +386,6 @@ def regs8 (r : Reg → Word) : Words8 :=
   ((r .x7).setWidth 32, (r .x12).setWidth 32, (r .x13).setWidth 32, (r .x28).setWidth 32,
     (r .x29).setWidth 32, (r .x14).setWidth 32, (r .x15).setWidth 32, (r .x16).setWidth 32)
 
-/-- A word loaded (sign-extended) and stored again. -/
-theorem sext_trunc (x : BitVec 32) : (BitVec.signExtend 64 x).setWidth 32 = x := by bv_decide
-
-theorem copy_more {t : Nat} (ht : t < 16) (h : ¬BitVec.ofNat 64 (4 * t) + 4#64 = 64#64) :
-    t + 1 < 16 := by bv_omega
-
-theorem copy_last {t : Nat} (ht : t < 16) (h : BitVec.ofNat 64 (4 * t) + 4#64 = 64#64) :
-    t = 15 := by bv_omega
-
-theorem next_addr (b : Word) (t : Nat) :
-    b + (BitVec.ofNat 64 (4 * t) + 4#64) = b + BitVec.ofNat 64 (4 * (t + 1)) := by bv_omega
-
 /-- **Loop 1, the block copied into the schedule's first sixteen words**, at its head with `t`
     words copied. -/
 theorem copy_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
@@ -645,10 +616,6 @@ theorem maj_regs (a b c : Word) :
         BitVec.setWidth 32 b &&& BitVec.setWidth 32 c) := by
   bv_decide
 
-/-- A 32-bit word sign-extended to 64 bits, then its low half. -/
-theorem setWidth_signExtend32 (w : BitVec 32) : BitVec.setWidth 32 (BitVec.signExtend 64 w) = w := by
-  bv_decide
-
 /-- **Loop 4, the sixty-four rounds**, at its head after `t` of them: the working variables are
     in registers, and memory is read, not written. -/
 theorem round_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
@@ -679,7 +646,7 @@ theorem round_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Pro
       simp only [regs8, lsym_simp, round, bsig0, bsig1, ch, maj, rotr, Prod.mk.injEq]
       repeat' apply And.intro
       all_goals
-        simp only [BitVec.setWidth_add _ _ (show 32 ≤ 64 by decide), setWidth_signExtend32,
+        simp only [BitVec.setWidth_add _ _ (show 32 ≤ 64 by decide), sext_trunc,
           bsig0_regs, bsig1_regs, ch_regs, maj_regs]
       all_goals ac_rfl
     · simp [lsym_simp]
@@ -759,10 +726,6 @@ theorem add_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
       · simp [lsym_simp, getMem_setWord32 _ _ _ _ d2, hs2]
       · simp [lsym_simp]
       · rw [hnew _ hsum i hi, ite_eq_left (by omega)]
-
-theorem frame_aligned {top : Word} (ht : top &&& 7#64 = 0#64) (c : Word) (hc : c &&& 3#64 = 0#64) :
-    alignedFor 4 (top + c) = true := by
-  rw [aligned4_iff]; bv_decide
 
 /-- **The eight working variables stored back** into `v` after the rounds: they read back, and
     what `Kept` asks is kept. -/
@@ -950,11 +913,6 @@ theorem after_copy {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Pro
   · simp [lsym_simp, h10]
   · simp [lsym_simp, hra]
   · simp [lsym_simp, hsp]
-
-theorem aligned8_iff (a : Word) : alignedFor 8 a = true ↔ a &&& 7#64 = 0#64 := by
-  have e : a.toNat % 8 = (a &&& 7#64).toNat := by
-    rw [BitVec.toNat_and]; exact (Nat.and_two_pow_sub_one_eq_mod _ 3).symm
-  simp [alignedFor, isAligned8, e, BitVec.toNat_eq]
 
 /-- `sha256_compress(h, m)`: the eight words at `h` become the compression function of FIPS
     180-4 (`compress`) of the hash value they held and the block of sixteen words at `m`;

@@ -54,11 +54,11 @@ import Examples
 #print axioms Tools.Test.LsymX86.f_contract
 
 -- the stress tests and `__udivti3` of the guest's runtime (`Examples/README.md`)
-#print axioms Examples.Branches.RiscV.clamp_spec
-#print axioms Examples.Branches.RiscV.count_down_spec
-#print axioms Examples.Widths.RiscV.load_s32_spec
-#print axioms Examples.Arith.RiscV.sdiv_spec
-#print axioms Examples.Arith.RiscV.smulhi_spec
+#print axioms Examples.Branches.RiscV.clamp_contract
+#print axioms Examples.Branches.RiscV.count_down_contract
+#print axioms Examples.Widths.RiscV.load_s32_contract
+#print axioms Examples.Arith.RiscV.sdiv_contract
+#print axioms Examples.Arith.RiscV.smulhi_contract
 #print axioms Examples.Calls.RiscV.keep_contract
 #print axioms Examples.Calls.RiscV.stop_contract
 #print axioms Examples.Calls.RiscV.apply_inc_contract

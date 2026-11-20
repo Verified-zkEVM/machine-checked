@@ -173,9 +173,12 @@ lifts are not proved.
    with `lsym` (`<function>_contract`), and the same statement about the machine through
    `SafeN.of_isa_contract` (`<function>_correct`). `Examples/Basic/RiscV/Proofs.lean` is the
    shortest model. A specification function that is about words and lists, and not about the
-   machine, goes in `Examples/Spec.lean`. Import the file from `Examples.lean`.
+   machine, goes in `Examples/Spec.lean`; a definition or lemma about the machine that another
+   module also needs goes in `Examples/Kit.lean`, not in a copy. Import the file from
+   `Examples.lean`.
 4. Add a row to the table of its group in `Examples/README.md`. A function that is lifted and
-   not proved goes in the "Not verified" list, with what was tried.
+   not proved goes in the "Not verified" list, with the reason; an assumption a reader could
+   miss goes in "Assumptions worth knowing".
 5. Add each `_correct` theorem to `scripts/AxiomCheckExamples.lean`.
 
 ## Style
@@ -201,8 +204,8 @@ says otherwise. When in doubt, match the surrounding code.
 - Name a declaration for what it says, never for where it came from or when it was written.
   Do not use paper numbering, phase codes or dates in names. Put citations in the module
   header instead.
-- A function's specification is `<function>_spec`, and a case's top theorem says what it
-  proves.
+- A function's contract at Lprog is `<function>_contract`, and the same statement about the
+  machine is `<function>_correct`; a case's top theorem says what it proves.
 
 ### Proofs
 
