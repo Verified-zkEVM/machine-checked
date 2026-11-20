@@ -3,8 +3,8 @@
 Build-time tools that turn an ELF into Lean data, into an Lprog program (layer 0.5) or into a
 Pancake program (layer 1). They are layer -1 of the [roadmap](../ROADMAP.md) and are
 **untrusted**: whatever they emit as Lean is re-checked by the kernel, and nothing in
-`MachineChecked/` imports them. The modules `decompile --to lean` writes (in `Examples/` and
-`Cases/`) import `Tools.ToLean`, for the check of their words against the ELF.
+`MachineChecked/` imports them. The modules `decompile --to lean` writes (in `Examples/`)
+import `Tools.ToLean`, for the check of their words against the ELF.
 
 | file | command | what it does |
 | --- | --- | --- |
@@ -136,7 +136,7 @@ so a proof about the machine must show the machine holds the words `fns` was bui
 **Namespace.** `NS` is one or more `.`-separated components, each an ASCII upper-case letter
 followed by ASCII letters, digits and `_`. It is also a module path under `OUTDIR`: `A.B` is
 written as `OUTDIR/A/B.lean` and `OUTDIR/A/B/`. With `OUTDIR` a library's source root, the
-modules become part of that library (`Cases/Hardening/build.sh` uses `OUTDIR` `.` and `NS` `Cases.Hardening.Gen.Arith`, and so on). The
+modules become part of that library (`Examples/build.sh` uses `OUTDIR` `.` and `NS` `Examples.Arith.RiscV.Image`, and so on). The
 target directory must not already exist. The modules are `noncomputable` (the code generator
 cannot handle terms this large) and require this repository's root package.
 
@@ -146,7 +146,7 @@ cannot handle terms this large) and require this repository's root package.
 | `experiments/zip-2005/out/baseline.elf` | 304 | 41,631 | 8.3 MB | 74 s wall (495 s CPU) on an Apple M3 Max, measured when the parts were checked by `decide`; with `kernel_eq` the longest function takes 11 s (16 s before) |
 
 The two binaries are local builds (`experiments/` is not committed): zip-2005's guest, and the
-leanVM guest of [`Cases/LeanVM`](../Cases/LeanVM/README.md).
+leanVM guest of [`Examples/LeanVM`](../Examples/LeanVM/README.md).
 
 A one-bit change to a word or a term fails: the words module does not build, or the kernel
 rejects the function's statement. `Test/ToLean.lean` checks the latter on a small program.

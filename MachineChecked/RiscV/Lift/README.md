@@ -36,7 +36,7 @@ every state after the return). Prove it with the generic rules (`Lprog.SafeN.lab
 goes to the machine by `SafeN.of_isa_contract` (`Contract.lean`); one with a postcondition
 over a machine state by `SafeN.of_contract`. A call to another lifted function uses that
 function's contract. The worked examples are [`docs/Walkthrough.md`](../../../docs/Walkthrough.md)
-(`gcd`, through `SafeN.of_isa_contract`) and `Cases/Hardening/WriteVectored.lean` (a loop, a
+(`gcd`, through `SafeN.of_isa_contract`) and `Examples/Sp1Runtime/RiscV/WriteVectored.lean` (a loop, a
 call and a system call, through `SafeN.of_contract`).
 
 Straight-line blocks are proved over the machine, not through the lift, because a lifted

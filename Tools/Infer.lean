@@ -1100,7 +1100,7 @@ def layoutIndex (layout : String) : Std.HashMap Nat Nat := Id.run do
   return out
 
 /-- The module with an image's loading theorems (`codeWF`): `Loaded`, beside the image's
-    modules (`Cases.LeanVM.Blake2s.Image` has `Cases.LeanVM.Blake2s.Loaded`). -/
+    modules (`Examples.LeanVM.Blake2s.Image` has `Examples.LeanVM.Blake2s.Loaded`). -/
 def loadedOf (imgPrefix : String) : String :=
   ".".intercalate ((imgPrefix.splitOn ".").dropLast ++ ["Loaded"])
 

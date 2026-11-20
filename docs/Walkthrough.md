@@ -7,9 +7,9 @@ it next to the code:
 
 - `Examples/src/rust/basic.rs`, the source, and `Examples/elf/rustbasic.elf`, the binary
   `Examples/build.sh` made of it;
-- `Examples/Gen/RustBasic/`: the binary's words and their lift, written by
+- `Examples/RustBasic/RiscV/Image/`: the binary's words and their lift, written by
   `decompile --to lean --proved`;
-- `Examples/RustBasic.lean`: the contract (`gcd_contract`) and the theorem about the machine
+- `Examples/RustBasic/RiscV/Proofs.lean`: the contract (`gcd_contract`) and the theorem about the machine
   (`gcd_correct`).
 
 ## 1. The source
@@ -32,7 +32,7 @@ Nothing below is about this text; it says what the binary is meant to compute.
 
 ## 2. The binary
 
-`Examples/build.sh rustbasic` compiles the file and links it at `0x10000`. rustc writes LLVM
+`Examples/build.sh RustBasic` compiles the file and links it at `0x10000`. rustc writes LLVM
 IR and clang compiles that for RV64IM at `-O1`, so that the code has no compressed
 instructions, which riscv-zkvm's machine does not have. `llvm-objdump -d
 Examples/elf/rustbasic.elf` shows the six instructions of `gcd`:
@@ -56,11 +56,12 @@ everything that follows is about these words.
 `build.sh` then runs
 
 ```sh
-.lake/build/bin/decompile --to lean --proved Examples/elf/rustbasic.elf . Examples.Gen.RustBasic
+.lake/build/bin/decompile --to lean --proved Examples/elf/rustbasic.elf . Examples.RustBasic.RiscV.Image
 ```
 
-which writes `Examples/Gen/RustBasic.lean` (the list of functions by index: `gcd` is function
-2) and one module per function. `Examples/Gen/RustBasic/Words.lean` has each function's name,
+which writes `Examples/RustBasic/RiscV/Image.lean` (the list of functions by index: `gcd` is
+function 2) and one module per function. `Examples/RustBasic/RiscV/Image/Words.lean` has each
+function's name,
 address and words, and the functions they decode to:
 
 ```lean
@@ -75,7 +76,7 @@ def fns : List Fn := words.map fun (name, base, ws) =>
 `gcd`'s words are `w2`, six numbers; the first, `363107`, is `0x00058a63`, the `beqz` above.
 The instructions are not written out: riscv-zkvm's decoder (`decode`) computes them.
 
-`Examples/Gen/RustBasic/F2.lean` has the lift of `gcd` as a term, `f2`, and the theorem a
+`Examples/RustBasic/RiscV/Image/F2.lean` has the lift of `gcd` as a term, `f2`, and the theorem a
 proof steps through:
 
 ```lean
@@ -136,17 +137,18 @@ also sees the registers and the memory at the return:
 theorem gcd_contract : rvIsa.Contract (liftProg fns) sp1Ctx 2
     (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top)
     (fun _ _ regs m r' m' =>
-      r' .x10 = BitVec.ofNat 64 (Nat.gcd (regs .x10).toNat (regs .x11).toNat) ∧
+      r' .x10 = wgcd (regs .x10) (regs .x11) ∧
       (∀ r, r ∉ gcdClobbered → r' r = regs r) ∧ m' = m) := by
   intro G N Q ret top rest regs m ⟨hra, hsp⟩ hk
   lsym f2_eq stop [2] with [hra, hsp]
   · -- the second argument is zero: the first is the divisor
-    exact hk _ _ ⟨by simp [hc], fun _ _ => rfl, rfl⟩
+    exact hk _ _ ⟨by simp [wgcd, hc], fun _ _ => rfl, rfl⟩
   · exact gcd_loop m _ regs rfl hc hra hsp hk
 ```
 
 The precondition says only that `ra` and `sp` are the frame's. The postcondition: `x10` is the
-greatest common divisor, registers outside `gcdClobbered` (`x10`, `x11`, `x12`) and the memory
+greatest common divisor (`wgcd a b`, in `Examples/Spec.lean`, is `Nat.gcd` of the two words'
+numbers, as a word), registers outside `gcdClobbered` (`x10`, `x11`, `x12`) and the memory
 are as they were.
 
 `lsym` (`lprog/Lprog/Tactic.lean`) steps the body from the goal's activation. It computes each
@@ -163,7 +165,7 @@ theorem gcd_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
     {rest : List Frame} (m : MachineState) :
     ∀ n (regs : Reg → Word), (regs .x11).toNat = n → regs .x11 ≠ 0#64 →
       regs .x1 = ret → regs .x2 = top →
-      (∀ r' m', r' .x10 = BitVec.ofNat 64 (Nat.gcd (regs .x10).toNat (regs .x11).toNat) ∧
+      (∀ r' m', r' .x10 = wgcd (regs .x10) (regs .x11) ∧
         (∀ r, r ∉ gcdClobbered → r' r = regs r) ∧ m' = m → LSafeN fns G N Q ⟨rest, r', m'⟩) →
       LSafeN fns G N Q ⟨⟨2, 2, ret, top⟩ :: rest, regs, m⟩ := by
 ```
@@ -175,7 +177,7 @@ one turn replaces `(a, b)` by `(b, a % b)` and `a % b < b` is all that is known 
 one. `lsym f2_eq stop [2] with [hra, hsp, hb]` steps one turn of the loop and again leaves two
 goals. Where the remainder is not zero the state is at the head again and the
 induction hypothesis applies, with `Nat.gcd_rec` relating the two results. Where it is zero the
-function returns `b`. The rest of the proof (`Examples/RustBasic.lean`) is that arithmetic and
+function returns `b`. The rest of the proof (`Examples/RustBasic/RiscV/Proofs.lean`) is that arithmetic and
 the frame.
 
 ## 6. Down to the machine
@@ -191,7 +193,7 @@ whole proof:
 theorem gcd_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
     (hpc : s.pc = 0x10010#64) (hcode : Loaded fns s)
     (hk : ∀ t, t.pc = s.getReg .x1 &&& ~~~1#64 →
-      t.getReg .x10 = BitVec.ofNat 64 (Nat.gcd (s.getReg .x10).toNat (s.getReg .x11).toNat) →
+      t.getReg .x10 = wgcd (s.getReg .x10) (s.getReg .x11) →
       (∀ a, t.getMem a = s.getMem a) → SafeN G k P t) :
     SafeN G k P s := by
   obtain ⟨fn, hg, hb⟩ : ∃ fn, fns[2]? = some fn ∧ fn.base = 0x10010#64 := ⟨_, rfl, rfl⟩
@@ -222,11 +224,11 @@ Statements in this form compose by application ([`Architecture.md`](Architecture
 ## 7. What it rests on
 
 ```lean
-#print axioms Examples.RustBasic.gcd_correct
+#print axioms Examples.RustBasic.RiscV.gcd_correct
 ```
 
 reports `propext`, `Classical.choice` and `Quot.sound`, Lean's three. Proofs that use
-`bv_decide` add its certificates. `scripts/AxiomCheckCases.lean` lists every example's theorem,
+`bv_decide` add its certificates. `scripts/AxiomCheckExamples.lean` lists every example's theorem,
 and CI runs it.
 
 ## Where to go next
@@ -235,7 +237,7 @@ and CI runs it.
   their proofs share: [`Examples/README.md`](../Examples/README.md).
 - Calls through registers, recursion, a function that never returns, signed arithmetic at its
   edges, and two functions of an SP1 guest's runtime with a system call:
-  [`Cases/Hardening/`](../Cases/Hardening/README.md).
+  the stress tests and the guest code of [`Examples/README.md`](../Examples/README.md).
 - `lsym` in full, and its limits: [`design/Automation.md`](design/Automation.md).
 - A whole guest: zip-2005 has its verification in
   [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm).

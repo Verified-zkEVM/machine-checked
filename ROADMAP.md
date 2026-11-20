@@ -3,8 +3,7 @@
 The goal: a Lean framework for formally verifying binaries from any compiler, on RISC-V,
 AArch64 and x86-64. You import it, lift an ELF into a logical machine, and prove it correct
 against a high-level specification (at the level of, say, ArkLib or CompPoly). The examples
-in [`Examples/`](Examples/README.md) and the case studies in [`Cases/`](Cases/README.md) are
-its first users.
+in [`Examples/`](Examples/README.md) are its first users.
 
 This document describes the layers, where each stands, the targets, and what comes next.
 
@@ -89,14 +88,14 @@ the equivalence keeps (outputs, memory, leakage).
 
 | layer | what exists |
 | --- | --- |
-| 2 | Nothing generic (`MachineChecked/Refine` is a placeholder). Each example's and case study's specification connects to its proofs directly. |
+| 2 | Nothing generic (`MachineChecked/Refine` is a placeholder). Each example's specification connects to its proofs directly. |
 | 1 | `MachineChecked/Logical`: Pancake, and lift 2 from Lprog with structured control flow where it can be found. Not proved; checked by recompiling with Flapjack and comparing runs ([`scripts/decompile-check`](scripts/decompile-check/README.md)) for RISC-V, AArch64 and x86-64. [`docs/LogicalMachine.md`](docs/LogicalMachine.md) sketches the program logics. |
 | 0.5 | The package [`lprog`](lprog/README.md): Lprog's syntax and semantics, independent of any ISA, with calls, tail calls, returns and external calls; the judgement `SafeN`; contracts (`Isa.Contract`); the symbolic-execution tactic `lsym`. Design: [`docs/design/Lprog.md`](docs/design/Lprog.md), [`docs/design/Automation.md`](docs/design/Automation.md). |
 | 0 → 0.5 | **RISC-V** (`MachineChecked/RiscV/Lift`): whole programs lift, and the transfer theorem carries `SafeN` at Lprog down to `stepSp1`, with SP1's system calls as the context. `SafeN.of_isa_contract` (`Contract.lean`) carries a contract proved with `lsym` to the machine as it is. **AArch64, x86-64** (`MachineChecked/ARM/Lift`, `X86/Lift`): lifts of linked programs for `decompile`, tested but not proved; limits in each `LIMITS.md`. |
 | 0 | **RISC-V:** riscv-zkvm, tied to Sail, with the judgement `SafeN` over `stepSp1`, and the layer-0 proof tools (`RiscV/Check`, `Sym`, `Frame`, `Exec`). **x86-64:** Kraken's x64 semantics (`MachineChecked/X86/Kraken.lean`); no judgement over it yet. **AArch64:** DeepMind's arm64-semantics (`MachineChecked/ARM/Arm64.lean`); no judgement over it yet. |
 | -1 | RISC-V on SP1 only: the loader, SP1's acceptance and system calls. The context is not yet a parameter. |
 | all | `lprog/Lprog/Ascent`: one notion of a run and one correspondence, for any step function. |
-| proofs | [`Examples/`](Examples/README.md): 21 functions in C and Rust (RISC-V), each with a contract at Lprog (`<function>_contract`, by `lsym`) and the same statement about the machine alone (`<function>_correct`). Lifted there and not proved: `chacha20_block` and `sha256_compress`. [`Cases/Hardening`](Cases/Hardening/README.md): code written to break the tools, and `memcmp` and `write_vectored` of an SP1 guest's runtime. No whole program. |
+| proofs | [`Examples/`](Examples/README.md): 21 functions in C and Rust (RISC-V), each with a contract at Lprog (`<function>_contract`, by `lsym`) and the same statement about the machine alone (`<function>_correct`). Lifted there and not proved: `chacha20_block` and `sha256_compress`. Also there: stress tests, code written to break the tools, and guest code, `memcmp` and `write_vectored` of an SP1 guest's runtime. No whole program. |
 
 In short: layers -1 to 0.5 are real for RISC-V, layer 0.5 is shared, and layers 1 and 2 are not
 started as proved layers. The layer-0 tools predate the lift; new proofs go through the lift.
@@ -108,9 +107,9 @@ Chosen to exercise the framework in different ways, so that practice drives the 
 | target | ISA | exercises | status |
 | --- | --- | --- | --- |
 | [the example ladder](Examples/README.md): small functions in C and Rust, their sources shared with [braid](https://github.com/dhsorens/braid) | RISC-V | the whole route on one function at a time, from straight-line code to cryptographic kernels: source, binary, lift, contract with `lsym`, theorem about the machine | 21 functions proved down to the machine, up to `crc32`, ChaCha20's `quarter_round`, and the round and the message schedule of SHA-256; `chacha20_block` and `sha256_compress` lifted, not proved |
-| zip-2005: an SP1 guest checking a Zcash Orchard statement | RISC-V | a whole Rust binary: runtime, allocator, panics, cryptography, `main` | has its verification in its own repository, [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm); here, `memcmp` and an SP1 guest's `write_vectored` are proved through the lift in [Hardening](Cases/Hardening/README.md) |
-| [leanVM BLAKE2s](Cases/LeanVM/README.md) | RISC-V | a second execution context; a hash against [hash-specs](https://github.com/dhsorens/hash-specs) | image and loading only |
-| [Hardening](Cases/Hardening/README.md): small C programs written to break the tools, and two functions of an SP1 guest's runtime | RISC-V | every function proved with `lsym` against what C says | done; findings tracked in its README |
+| zip-2005: an SP1 guest checking a Zcash Orchard statement | RISC-V | a whole Rust binary: runtime, allocator, panics, cryptography, `main` | has its verification in its own repository, [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm); here, `memcmp` and an SP1 guest's `write_vectored` are proved through the lift in [`Examples/Sp1Runtime`](Examples/README.md#guest-code) |
+| [leanVM BLAKE2s](Examples/LeanVM/README.md) | RISC-V | a second execution context; a hash against [hash-specs](https://github.com/dhsorens/hash-specs) | image and loading only |
+| [the stress tests](Examples/README.md#stress-tests): small C programs written to break the tools, and two functions of an SP1 guest's runtime | RISC-V | every function proved with `lsym` against what C says | done; findings tracked in [`Examples/README.md`](Examples/README.md#what-was-found) |
 | the sig.golf verifier | to be chosen | signature verification end to end | not started |
 | hash and bignum routines in the style of [s2n-bignum](https://github.com/awslabs/s2n-bignum) | x86-64, AArch64 | hand-written assembly, flags and carries | not started |
 

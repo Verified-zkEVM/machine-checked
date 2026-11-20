@@ -3,7 +3,7 @@
 
   A check of `lsym` (`Lprog/Tactic.lean`), run when the module is built: a small RISC-V function
   (a branch, two paths that set `a0`, a return) proved at Lprog with `lsym` and the postcondition
-  alone. `Cases/Hardening/Memcmp.lean` is a larger use, with loads and a loop.
+  alone. `Examples/Sp1Runtime/RiscV/Memcmp.lean` is a larger use, with loads and a loop.
 -/
 
 import MachineChecked.RiscV.Lift.Lift

@@ -3,8 +3,8 @@
 
   `#print axioms` on the main theorems of the framework. CI fails if any of them depends on
   an axiom other than `propext`, `Classical.choice`, `Quot.sound`, or the certificate axioms
-  `bv_decide` adds. Add a theorem here when it becomes a main result. The case studies' main
-  theorems are in `AxiomCheckCases.lean`.
+  `bv_decide` adds. Add a theorem here when it becomes a main result. The examples' theorems
+  are in `AxiomCheckExamples.lean`.
 -/
 
 import MachineChecked
@@ -12,7 +12,7 @@ import Tools.ToLean
 import LprogRiscV.Lsym
 import Tools.Test.Lsym
 import Tools.Test.LsymX86
-import Cases.Hardening
+import Examples
 
 -- the lift
 #print axioms Lprog.parse_print
@@ -53,16 +53,16 @@ import Cases.Hardening
 #print axioms Tools.Test.LsymX86.p_eq
 #print axioms Tools.Test.LsymX86.f_contract
 
--- the hardening examples (`Cases/Hardening`)
-#print axioms Cases.Hardening.Basics.clamp_spec
-#print axioms Cases.Hardening.Basics.count_down_spec
-#print axioms Cases.Hardening.Mem.load_s32_spec
-#print axioms Cases.Hardening.Arith.sdiv_spec
-#print axioms Cases.Hardening.Arith.smulhi_spec
-#print axioms Cases.Hardening.Calls.keep_contract
-#print axioms Cases.Hardening.Calls.stop_contract
-#print axioms Cases.Hardening.Calls.apply_inc_contract
-#print axioms Cases.Hardening.Rec.fib_contract
-#print axioms Cases.Hardening.Guest.udivti3_contract
+-- the stress tests and `__udivti3` of the guest's runtime (`Examples/README.md`)
+#print axioms Examples.Branches.RiscV.clamp_spec
+#print axioms Examples.Branches.RiscV.count_down_spec
+#print axioms Examples.Widths.RiscV.load_s32_spec
+#print axioms Examples.Arith.RiscV.sdiv_spec
+#print axioms Examples.Arith.RiscV.smulhi_spec
+#print axioms Examples.Calls.RiscV.keep_contract
+#print axioms Examples.Calls.RiscV.stop_contract
+#print axioms Examples.Calls.RiscV.apply_inc_contract
+#print axioms Examples.Rec.RiscV.fib_contract
+#print axioms Examples.Sp1Runtime.RiscV.Udivti3.udivti3_contract
 #print axioms Tools.Test.Lsym.l2_safe
 #print axioms Tools.Test.Lsym.l2_safe'

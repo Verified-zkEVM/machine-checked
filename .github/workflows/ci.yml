@@ -34,16 +34,16 @@ jobs:
         run: |
           # Declarations and tactic uses, not mentions in comments or docstrings.
           if grep -rnE '^\s*(private |protected )?axiom\s|^\s*(by\s+)?native_decide\b|:=\s*by\s+native_decide\b|<;>\s*native_decide\b|\bsorry\b\s*$|:=\s*sorry\b|by\s+sorry\b' \
-              --include='*.lean' --exclude-dir=.lake MachineChecked lprog lprog-riscv pancake Examples Cases Tools scripts; then
+              --include='*.lean' --exclude-dir=.lake MachineChecked lprog lprog-riscv pancake Examples Tools scripts; then
             echo "::error::found sorry, axiom or native_decide"; exit 1
           fi
 
-      # Everything: the framework, the tools, the examples and every case study. No warning is
-      # allowed, in any of them.
+      # Everything: the framework, the tools and the examples. No warning is allowed, in any of
+      # them.
       - name: Build everything
         run: |
           set -eo pipefail
-          lake build MachineChecked Tools Examples Cases 2>&1 | tee build.log
+          lake build MachineChecked Tools Examples 2>&1 | tee build.log
           # Lean's diagnostics, not Lake's notices (e.g. a dependency built from source).
           if grep -E '^warning: .*\.lean:' build.log; then
             echo "::error::the build has warnings"; exit 1
@@ -59,10 +59,10 @@ jobs:
       - name: decompile --to lean, end to end, on a small ELF
         run: scripts/to-lean-check/check.sh
 
-      - name: Axiom check, framework and case studies
+      - name: Axiom check, framework and examples
         run: |
           set -o pipefail
-          for f in scripts/AxiomCheck.lean scripts/AxiomCheckCases.lean; do
+          for f in scripts/AxiomCheck.lean scripts/AxiomCheckExamples.lean; do
             lake env lean "$f" 2>&1 | tee -a axioms.log
           done
           # Every listed axiom must be a standard one or a bv_decide certificate.
