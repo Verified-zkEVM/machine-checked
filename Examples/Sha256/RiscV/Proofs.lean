@@ -133,14 +133,17 @@ theorem sha256_round_contract : rvIsa.Contract (liftProg fns) sp1Ctx 0
       getWord32_setMem _ _ _ _ d5, getWord32_setMem _ _ _ _ d6, getWord32_setMem _ _ _ _ d7]
     simp only [words8, round, bsig0, bsig1, ch, maj, rotr, Prod.mk.injEq]
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).1]; bv_decide
-    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.1]; bv_decide
-    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.1]; bv_decide
-    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.1]; bv_decide
-    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.2.1]; bv_decide
-    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.2.2.1]; bv_decide
-    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.2.2.2.1]; bv_decide
-    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.2.2.2.2]; bv_decide
+    -- The SAT solver's timeout is raised from its 10 s default for these eight words: the
+    -- slowest takes about 2.6 s here, and over 10 s on a loaded CI runner. Splitting them
+    -- into pieces, as `round_loop` does, overruns this declaration's heartbeats.
+    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).1]; bv_decide (config := { timeout := 60 })
+    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.1]; bv_decide (config := { timeout := 60 })
+    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.1]; bv_decide (config := { timeout := 60 })
+    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.1]; bv_decide (config := { timeout := 60 })
+    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.2.1]; bv_decide (config := { timeout := 60 })
+    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.2.2.1]; bv_decide (config := { timeout := 60 })
+    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.2.2.2.1]; bv_decide (config := { timeout := 60 })
+    · rw [(eight_words _ _ _ _ _ _ _ _ _ _ hal).2.2.2.2.2.2.2]; bv_decide (config := { timeout := 60 })
   · simp only [lsym_simp]
     rw [getMem_setWord32 _ _ _ _ d3.symm, getMem_setWord32 _ _ _ _ d2.symm,
       getMem_setWord32 _ _ _ _ d1.symm, getMem_setWord32 _ _ _ _ d0.symm,
