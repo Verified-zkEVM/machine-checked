@@ -95,7 +95,7 @@ the equivalence keeps (outputs, memory, leakage).
 | 0 | **RISC-V:** riscv-zkvm, tied to Sail, with the judgement `SafeN` over `stepSp1`, and the layer-0 proof tools (`RiscV/Check`, `Sym`, `Frame`, `Exec`). **x86-64:** Kraken's x64 semantics (`MachineChecked/X86/Kraken.lean`); no judgement over it yet. **AArch64:** DeepMind's arm64-semantics (`MachineChecked/ARM/Arm64.lean`); no judgement over it yet. |
 | -1 | RISC-V on SP1 only: the loader, SP1's acceptance and system calls. The context is not yet a parameter. |
 | all | `lprog/Lprog/Ascent`: one notion of a run and one correspondence, for any step function. |
-| proofs | [`Examples/`](Examples/README.md): 22 functions in C and Rust (RISC-V), each with a contract at Lprog (`<function>_contract`, by `lsym`) and the same statement about the machine alone (`<function>_correct`). Lifted there and not proved: `chacha20_block`. Also there: stress tests, code written to break the tools, and guest code, `memcmp` and `write_vectored` of an SP1 guest's runtime. No whole program. |
+| proofs | [`Examples/`](Examples/README.md): 23 functions in C and Rust (RISC-V), each with a contract at Lprog (`<function>_contract`, by `lsym`) and the same statement about the machine alone (`<function>_correct`). Also there: stress tests, code written to break the tools, and guest code, `memcmp` and `write_vectored` of an SP1 guest's runtime. No whole program. |
 
 In short: layers -1 to 0.5 are real for RISC-V, layer 0.5 is shared, and layers 1 and 2 are not
 started as proved layers. The layer-0 tools predate the lift; new proofs go through the lift.
@@ -106,7 +106,7 @@ Chosen to exercise the framework in different ways, so that practice drives the 
 
 | target | ISA | exercises | status |
 | --- | --- | --- | --- |
-| [the example ladder](Examples/README.md): small functions in C and Rust, their sources shared with [braid](https://github.com/dhsorens/braid) | RISC-V | the whole route on one function at a time, from straight-line code to cryptographic kernels: source, binary, lift, contract with `lsym`, theorem about the machine | 22 functions proved down to the machine, up to `crc32`, ChaCha20's `quarter_round`, and SHA-256's compression function; `chacha20_block` lifted, not proved |
+| [the example ladder](Examples/README.md): small functions in C and Rust, their sources shared with [braid](https://github.com/dhsorens/braid) | RISC-V | the whole route on one function at a time, from straight-line code to cryptographic kernels: source, binary, lift, contract with `lsym`, theorem about the machine | 23 functions proved down to the machine, up to `crc32` and the block functions of SHA-256 and ChaCha20 |
 | zip-2005: an SP1 guest checking a Zcash Orchard statement | RISC-V | a whole Rust binary: runtime, allocator, panics, cryptography, `main` | has its verification in its own repository, [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm); here, `memcmp` and an SP1 guest's `write_vectored` are proved through the lift in [`Examples/Sp1Runtime`](Examples/README.md#guest-code) |
 | [leanVM BLAKE2s](Examples/LeanVM/README.md) | RISC-V | a second execution context; a hash against [hash-specs](https://github.com/dhsorens/hash-specs) | image and loading only |
 | [the stress tests](Examples/README.md#stress-tests): small C programs written to break the tools, and two functions of an SP1 guest's runtime | RISC-V | every function proved with `lsym` against what C says | done; findings tracked in [`Examples/README.md`](Examples/README.md#what-was-found) |
@@ -123,9 +123,8 @@ and what its specification would be.
    are stated, and the symbolic executor `lsym` works on real code ([`docs/design/Automation.md`](docs/design/Automation.md)).
    Next: `lsym` stepping straight-line blocks at once (`SafeN.block`), milestone B's
    benchmarks re-proved with it, and the contract table at Lprog (milestone C).
-2. **Finish the example ladder** before larger guests: `chacha20_block`
-   ([`Examples/README.md`](Examples/README.md)). Its long straight-line loop body needs
-   `SafeN.block` in `lsym`, or more speed per step.
+2. **Finish the examples** before larger guests: the stress tests' functions still without a
+   theorem about the machine ([`Examples/README.md`](Examples/README.md)).
 3. **Move zip-2005 onto the lift.** Re-prove its function specifications at Lprog (in
    [zip-2005-asm](https://github.com/dhsorens/zip-2005-asm)), so the end theorem goes through
    one route. This is also the test of step 1 at scale.

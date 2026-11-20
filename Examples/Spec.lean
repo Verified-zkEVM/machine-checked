@@ -130,6 +130,45 @@ def qr (a b c d : BitVec 32) : BitVec 32 × BitVec 32 × BitVec 32 × BitVec 32 
 example : qr 0x11111111 0x01020304 0x9b8d6f43 0x01234567 =
     (0xea2a92f4, 0xcb1cf8ce, 0x4581472e, 0x5881c4bb) := by decide
 
+/-- ChaCha20's state: sixteen 32-bit words (RFC 8439, 2.2). -/
+abbrev State := Fin 16 → BitVec 32
+
+/-- `QUARTERROUND(a, b, c, d)` on the state (RFC 8439, 2.2): `qr` on the words at `a`, `b`, `c`,
+    `d`; the other words are as they were. -/
+def quarterRound (a b c d : Fin 16) (s : State) : State :=
+  let (a', b', c', d') := qr (s a) (s b) (s c) (s d)
+  fun i => if i = a then a' else if i = b then b' else if i = c then c' else if i = d then d'
+    else s i
+
+/-- The four quarter rounds on the columns (RFC 8439, 2.3). -/
+def columnRound (s : State) : State :=
+  quarterRound 3 7 11 15 (quarterRound 2 6 10 14 (quarterRound 1 5 9 13 (quarterRound 0 4 8 12 s)))
+
+/-- The four quarter rounds on the diagonals (RFC 8439, 2.3). -/
+def diagonalRound (s : State) : State :=
+  quarterRound 3 4 9 14 (quarterRound 2 7 8 13 (quarterRound 1 6 11 12 (quarterRound 0 5 10 15 s)))
+
+/-- `inner_block` (RFC 8439, 2.3.1): a column round, then a diagonal round. -/
+def doubleRound (s : State) : State := diagonalRound (columnRound s)
+
+/-- The twenty rounds: ten double rounds. -/
+def rounds20 (s : State) : State := Nat.repeat doubleRound 10 s
+
+/-- **The ChaCha20 block function** (RFC 8439, 2.3): the state after twenty rounds, added word
+    by word to the state it started from. The serialization of the result is not part of it:
+    this is the sixteen words before they are written out as bytes. -/
+def block (s : State) : State := fun i => rounds20 s i + s i
+
+/-- The test vector of RFC 8439, 2.3.2: the key `00:01:…:1f`, the block count 1 and the nonce
+    `00:00:00:09:00:00:00:4a:00:00:00:00`, as the state's sixteen words, and the block function
+    of it. -/
+example : List.ofFn (block fun i => [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574,
+      0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0x13121110, 0x17161514, 0x1b1a1918,
+      0x1f1e1d1c, 0x00000001, 0x09000000, 0x4a000000, 0x00000000].getD i.val 0) =
+    [0xe4e7f110, 0x15593bd1, 0x1fdd0f50, 0xc47120a3, 0xc7f4d1c7, 0x0368c033, 0x9aaa2204,
+      0x4e6cd4c3, 0x466482d2, 0x09aa9f07, 0x05d7c214, 0xa2028bd9, 0xd19c12b5, 0xb94e16de,
+      0xe883d0cb, 0x4e3c50a2] := by decide
+
 end ChaCha20
 
 /-! ## SHA-256, as FIPS 180-4 has it: the round, the message schedule and the compression
