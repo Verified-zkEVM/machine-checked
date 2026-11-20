@@ -113,6 +113,7 @@ uses the same `lean-toolchain`:
 [[require]]
 name = "machine-checked"
 git = "https://github.com/Verified-zkEVM/machine-checked"
+rev = "main"
 
 [[lean_lib]]
 name = "MyProject"
