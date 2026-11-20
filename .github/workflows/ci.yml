@@ -5,11 +5,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      full:
-        description: "Also build every case study (a few hours)"
-        type: boolean
-        default: false
 
 jobs:
   build:
@@ -37,24 +32,18 @@ jobs:
 
       - name: No sorry, axiom or native_decide in the sources
         run: |
-          # Declarations and tactic uses, not mentions in comments or docstrings. The vendored
-          # specification libraries under Cases/Zip2005/Spec are upstream code and are checked
-          # by their own axiom census (Spec/Zip2005.lean) instead.
+          # Declarations and tactic uses, not mentions in comments or docstrings.
           if grep -rnE '^\s*(private |protected )?axiom\s|^\s*(by\s+)?native_decide\b|:=\s*by\s+native_decide\b|<;>\s*native_decide\b|\bsorry\b\s*$|:=\s*sorry\b|by\s+sorry\b' \
-              --include='*.lean' --exclude-dir=Spec --exclude-dir=.lake MachineChecked lprog lprog-riscv pancake Cases Tools scripts; then
+              --include='*.lean' --exclude-dir=.lake MachineChecked lprog lprog-riscv pancake Cases Tools scripts; then
             echo "::error::found sorry, axiom or native_decide"; exit 1
           fi
 
-      # The case studies are not built on pull requests for now (see `Cases/README.md`); the
-      # on-demand `full` job builds them. The two proved with `lsym` are, since they check the
-      # tactic on real code, and take seconds; so are the hardening examples (`Cases/Hardening`),
-      # which check it and `--to lean` on code written to break them.
-      - name: Build the framework and the tools
+      # Everything: the framework, the tools and every case study. No warning is allowed, in
+      # any of them.
+      - name: Build everything
         run: |
           set -eo pipefail
-          lake build MachineChecked Tools \
-            Cases.Zip2005.Runtime.MemcmpLsym Cases.Zip2005.Runtime.WriteVectoredLsym \
-            Cases.Hardening 2>&1 | tee build.log
+          lake build MachineChecked Tools Cases 2>&1 | tee build.log
           # Lean's diagnostics, not Lake's notices (e.g. a dependency built from source).
           if grep -E '^warning: .*\.lean:' build.log; then
             echo "::error::the build has warnings"; exit 1
@@ -70,42 +59,13 @@ jobs:
       - name: decompile --to lean, end to end, on a small ELF
         run: scripts/to-lean-check/check.sh
 
-      - name: Axiom check
-        run: |
-          lake env lean scripts/AxiomCheck.lean 2>&1 | tee axioms.log
-          # Every listed axiom must be a standard one or a bv_decide certificate.
-          bad=$(tr ',[]' '\n\n\n' < axioms.log | sed 's/^ *//; s/ *$//' \
-            | grep -vE "^$|depends on axioms:|does not depend on any axioms|^(propext|Classical\.choice|Quot\.sound)$|\.bv_decide\.ax_" || true)
-          if [ -n "$bad" ]; then
-            echo "::error::non-standard axioms: $bad"; exit 1
-          fi
-
-  full:
-    if: github.event_name == 'workflow_dispatch' && inputs.full
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install elan
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-            | sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-      - name: Fetch Mathlib's cache
-        run: lake exe cache get
-      - name: Build everything
-        run: |
-          set -o pipefail
-          lake build MachineChecked Tools Cases 2>&1 | tee build.log
-          # The known baseline: warnings in the vendored code under Cases/Zip2005/Spec.
-          if grep -E '^warning: .*\.lean:' build.log | grep -v '^warning: Cases/Zip2005/Spec/'; then
-            echo "::error::warnings outside the Cases/Zip2005/Spec baseline"; exit 1
-          fi
       - name: Axiom check, framework and case studies
         run: |
+          set -o pipefail
           for f in scripts/AxiomCheck.lean scripts/AxiomCheckCases.lean; do
             lake env lean "$f" 2>&1 | tee -a axioms.log
           done
+          # Every listed axiom must be a standard one or a bv_decide certificate.
           bad=$(tr ',[]' '\n\n\n' < axioms.log | sed 's/^ *//; s/ *$//' \
             | grep -vE "^$|depends on axioms:|does not depend on any axioms|^(propext|Classical\.choice|Quot\.sound)$|\.bv_decide\.ax_" || true)
           if [ -n "$bad" ]; then

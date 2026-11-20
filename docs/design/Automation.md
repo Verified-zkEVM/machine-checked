@@ -8,7 +8,7 @@ symbolic-execution tactic at Lprog.
 
 | item | what | status |
 | --- | --- | --- |
-| 1 | `lsym`, symbolic execution at Lprog | done, in use (`Cases/Zip2005/Runtime/*Lsym.lean`, `Cases/Hardening/`) |
+| 1 | `lsym`, symbolic execution at Lprog | done, in use (`Cases/Hardening/`) |
 | 2 | straight-line blocks in one step | `SafeN.block` proved; `lsym` does not use it yet |
 | 3 | reflection for whole-function properties | not started |
 | 4 | fewer candidates at indirect calls | the simple half done (`jalrCands`) |
@@ -25,8 +25,8 @@ symbolic-execution tactic at Lprog.
   RISC-V's `lsafe_*` over the machine state). By hand, a proof is mostly applying these rules,
   writing out the register state after each block, the frame (every register not clobbered
   keeps its value) and the postcondition at each return. `memcmp` proved this way
-  (`Cases/Zip2005/Runtime/MemcmpLprog.lean`) is 333 lines; `write_vectored`
-  (`WriteVectored.lean`) is 906. `lsym` addresses this.
+  was 333 lines and `write_vectored` 906 (both proofs are in the tree at tag `with-zip2005`).
+  `lsym` addresses this.
 - **Pancake** has no automation, and no proof yet connects it to Lprog.
 - **`decompile --to lean`** has the kernel re-evaluate the lift to check each term, which is
   slow on large functions ([`Tools/README.md`](../../Tools/README.md)).
@@ -135,10 +135,17 @@ calls (`budget_induction`).
 
 | proof | by hand | with `lsym` |
 | --- | --- | --- |
-| `memcmp` (`Cases/Zip2005/Runtime/MemcmpLprog.lean` vs `MemcmpLsym.lean`) | 333 lines, 28 rules applied by hand, raised `maxHeartbeats`; checks in 2.5 s | 140 lines, two calls of `lsym`, no raised limits; 1.9 s |
-| `write_vectored`: three functions, a loop, a call, a tail call, a system call (`WriteVectored.lean` vs `WriteVectoredLsym.lean`) | 906 lines, 36 address lemmas, `maxHeartbeats` raised 6 times; 4.2 s | 300 lines, no address lemmas or raised limits, no address facts bridged by `bv_decide`; calls go through `Isa.Contract`s; 2.1 s |
+| `memcmp` (`MemcmpLprog.lean` vs `MemcmpLsym.lean`, at tag `with-zip2005`) | 333 lines, 28 rules applied by hand, raised `maxHeartbeats`; checks in 2.5 s | 140 lines, two calls of `lsym`, no raised limits; 1.9 s |
+| `write_vectored`: three functions, a loop, a call, a tail call, a system call (`WriteVectored.lean` vs `WriteVectoredLsym.lean`, at tag `with-zip2005`) | 906 lines, 36 address lemmas, `maxHeartbeats` raised 6 times; 4.2 s | 300 lines, no address lemmas or raised limits, no address facts bridged by `bv_decide`; calls go through `Isa.Contract`s; 2.1 s |
 | `Cases/Hardening/` (C compiled by clang) | | the functions the `--proved` lift takes, each against C's meaning, except `popcount`; four of `arith.c`'s twelve are left out for their 32-bit operations; see [its README](../../Cases/Hardening/README.md) |
 | x86-64 (`Tools/Test/LsymX86.lean`) | | two functions lifted from bytes, a call through a contract with the return address pushed and popped; only the instruction set's `lsym_simp` instance was added |
+
+The two comparisons were measured on zip-2005's guest, in `Cases/Zip2005/Runtime/` of the tree
+at tag `with-zip2005`. The hand proofs are no longer kept. The `lsym` proofs are now
+`Cases/Hardening/Memcmp.lean` (about 220 lines with the machine-level theorem), on the same
+function compiled by clang, and `Cases/Hardening/WriteVectored.lean` (about 515 lines with its
+definitions and the machine-level theorem), on another SP1 guest's `write_vectored`. Neither
+raises a limit.
 
 What remains for the user in these proofs is what the function means: loop invariants, frames
 (which cells the prologue writes, that other memory is unchanged), postconditions, and some

@@ -54,6 +54,10 @@ proofs happen where they meet.
 The ISA models are dependencies used unmodified at pinned commits ([`docs/ISA.md`](docs/ISA.md)).
 Details, targets and next steps: [`ROADMAP.md`](ROADMAP.md).
 
+The case studies here are of functions and small programs. A whole guest, zip-2005 (an SP1
+guest that checks a Zcash Orchard statement), has its verification in its own repository,
+[zip-2005-asm](https://github.com/dhsorens/zip-2005-asm).
+
 ## Getting started
 
 The toolchain is pinned in `lean-toolchain` and installed by [elan](https://github.com/leanprover/elan).
@@ -65,7 +69,7 @@ lake build Cases.Hardening      # one case study (each case's README names its m
 lake env lean path/to/File.lean # check one file
 ```
 
-`lake build Cases` builds every case study; zip-2005 takes a few hours.
+`lake build Cases` builds every case study (under a minute once the framework is built).
 
 ## How to use it
 
@@ -125,7 +129,7 @@ theorem twice_inc_contract : rvIsa.Contract (liftProg fns) sp1Ctx 1
 
 How to use `lsym`, and its limits: [`docs/design/Automation.md`](docs/design/Automation.md).
 Loops are proved by induction with an invariant, as in
-[`Cases/Zip2005/Runtime/MemcmpLsym.lean`](Cases/Zip2005/Runtime/MemcmpLsym.lean).
+[`Cases/Hardening/Memcmp.lean`](Cases/Hardening/Memcmp.lean).
 
 ### 4. Carry it down to the machine
 
@@ -140,8 +144,7 @@ turns a contract at Lprog into a theorem about riscv-zkvm's machine running the 
 ```
 
 Only `propext`, `Classical.choice`, `Quot.sound`, and `bv_decide` certificates are expected.
-The repository has no `sorry`, `axiom` or `native_decide` outside the vendored specifications
-under `Cases/Zip2005/Spec` (which have their own census); CI enforces this.
+The repository has no `sorry`, `axiom` or `native_decide`; CI enforces this.
 
 ## Repository map
 

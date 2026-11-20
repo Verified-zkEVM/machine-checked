@@ -1099,6 +1099,11 @@ def layoutIndex (layout : String) : Std.HashMap Nat Nat := Id.run do
         idx := idx + 1
   return out
 
+/-- The module with an image's loading theorems (`codeWF`): `Loaded`, beside the image's
+    modules (`Cases.LeanVM.Blake2s.Image` has `Cases.LeanVM.Blake2s.Loaded`). -/
+def loadedOf (imgPrefix : String) : String :=
+  ".".intercalate ((imgPrefix.splitOn ".").dropLast ++ ["Loaded"])
+
 /-- The states a sparse certificate must give: the analysis's states at the targets of
     jumps (where its join happens), where fall-through propagation does not already produce
     them. Elsewhere the checker's own fall-through state stands: at least as precise as the
@@ -1202,7 +1207,7 @@ def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res 
       String.join (fragFacts.map fun (fa, kf) => s!"    · exact ⟨{kf}, _, rfl, decode_{fa}⟩\n") ++ "))"
     IO.FS.writeFile s!"{dir}/V_{a}.lean" <|
       hdr s!"`{r.sym.name}` meets its interface, given the table below the budget." ++
-      s!"import MachineChecked.RiscV.Check.Image\nimport MachineChecked.RiscV.Check.Fast\nimport Cases.Zip2005.Loaded\nimport {modPrefix}.Table\n\n" ++
+      s!"import MachineChecked.RiscV.Check.Image\nimport MachineChecked.RiscV.Check.Fast\nimport {loadedOf imgPrefix}\nimport {modPrefix}.Table\n\n" ++
       "set_option maxRecDepth 200000\n\n" ++
       s!"namespace {modPrefix}.V_{a}\n\n" ++ opens ++ s!"open {modPrefix}\n\n" ++
       s!"noncomputable abbrev ctx : Ctx := \{ env, tbl, σ := A_{a}.iface, f := A_{a}.fn }\n\n" ++
@@ -1210,7 +1215,7 @@ def emit (dir modPrefix imgPrefix : String) (env : Env) (tbl : List Iface) (res 
       s!"theorem valid : ctx.valid anno = true := Ctx.validFast_sound (by decide +kernel)\n\n" ++
       s!"theorem decode : decodeWords {imgPrefix}.F_{a}.words = {imgPrefix}.F_{a}.prog := by decide +kernel\n\n" ++
       fragDecodes ++
-      s!"theorem code : CodeAt A_{a}.fn {imgPrefix}.Layout.image.codeAt :=\n  codeAt_of_image (k := {k}) Cases.Zip2005.Loaded.codeWF rfl decode\n  {fragProof}\n\n" ++
+      s!"theorem code : CodeAt A_{a}.fn {imgPrefix}.Layout.image.codeAt :=\n  codeAt_of_image (k := {k}) {loadedOf imgPrefix}.codeWF rfl decode\n  {fragProof}\n\n" ++
       s!"theorem holds (n : Nat) (h : ∀ g ∈ tbl, ∀ m < n, g.HoldsN env {imgPrefix}.Layout.image.codeAt m) :\n" ++
       s!"    A_{a}.iface.HoldsN env {imgPrefix}.Layout.image.codeAt n :=\n" ++
       s!"  Ctx.sound (c := ctx) valid code (by decide +kernel) env_wf env_ok h\n\n" ++

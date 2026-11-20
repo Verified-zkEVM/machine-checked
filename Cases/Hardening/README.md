@@ -8,14 +8,14 @@ everything in memory, and 290 instructions of straight-line code. The findings a
 below, with what was done about each.
 
 The proofs use no `sorry` and no axioms beyond Lean's three and `bv_decide`'s certificates
-(`scripts/AxiomCheck.lean`). Each file checks in 3 to 5 s. Build: `lake build Cases.Hardening`,
+(`scripts/AxiomCheck.lean`, `scripts/AxiomCheckCases.lean`). Each file checks in 3 to 6 s. Build: `lake build Cases.Hardening`,
 which CI runs on every pull request.
 
 | file | contents |
 | --- | --- |
-| `src/*.c` | The programs. `*_o0.c` is built at `-O0`, the rest at `-O2`. |
+| `src/*.c` | The programs. `*_o0.c` is built at `-O0`, the rest at `-O2`. `src/memcmp.c` is `memcmp` as a byte loop, which clang compiles to the twelve instructions rustc's `compiler_builtins` has for it in an SP1 guest, with two of the increments in another order. |
 | `elf/*.elf` | The ELFs `build.sh` made (clang 22.1, `--target=riscv64-unknown-elf -march=rv64im`), and `k_u128.elf`, one of the Rust guests below. |
-| `Gen/` | `decompile --to lean --proved` of each ELF, as written. Do not edit. `BasicsO0`, `CallsO0`, `Switch` and `Big` are generated but not used by a proof here, so only CI's `full` job builds them. |
+| `Gen/` | `decompile --to lean --proved` of each ELF, as written. Do not edit. `BasicsO0`, `CallsO0`, `Switch` and `Big` are generated but not used by a proof here. Of the `k_u128` guest's modules (`Gen/KU128/`), only `Words`, `F11`, `F24`, `F104` and `F155` are kept. |
 | `build.sh` | Rebuilds `elf/` and `Gen/` from `src/`. Needs clang with the RISC-V target and `ld.lld`. |
 | `Basics.lean` | Signed and unsigned branches, `clamp`, a loop over memory (`sum`), and a bit length that clang compiles to a population count (`count_down`, by `bv_decide`). |
 | `Mem.lean` | Loads of every width, signed and unsigned; `swap`, including `a = b`. |
@@ -23,6 +23,8 @@ which CI runs on every pull request.
 | `Calls.lean` | Contracts: a call and a tail call with `ra` saved in a frame, a tail call through a register (`jr t1`) to a function passed as a value, four registers kept across a call, a function that never returns, and a call to it. |
 | `Guest.lean` | `__udivti3` from a Rust guest built for SP1 (`elf/k_u128.elf`), through an assumed contract of its callee: a far call (`auipc`, `jalr`), with the result returned through a pointer into its frame. |
 | `Rec.lean` | Recursive `fib`: its contract, by induction on the argument, through a loop around the recursive call, with a frame condition. |
+| `Memcmp.lean` | `memcmp(a, b, n)` of `src/memcmp.c`, for every length: the byte loop by induction (`loop`), its contract at Lprog (`contract`), and the same statement over riscv-zkvm's machine (`safe`), through `SafeN.of_contract`. |
+| `WriteVectored.lean` | `write_vectored` of the Rust guest's standard error (`elf/k_u128.elf`, `F104`): a loop, a call to `sys_write` (`F24`, `sw_spec`), which tail-calls `syscall_write` (`F11`, `scw_lsym`, `scw_spec`), which makes the system call. Its contract at Lprog (`contract`) and the same statement over the machine (`spec`). |
 
 Not every lifted function has a theorem. `Gen/` also holds `popcount` (`arith.c`); `set_bytes`,
 `copy_bytes`, `str_len`, `store_widths` and `read_le32` (`mem.c`); and `fact` (`calls.c`). No proof

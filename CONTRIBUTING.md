@@ -41,18 +41,13 @@ These hold for every change. A pull request that breaks one is not merged.
 - **No `sorry`, no `axiom`, no `native_decide`.** `bv_decide` is allowed. Check with
   `#print axioms`: a theorem may depend on `propext`, `Classical.choice` and `Quot.sound`,
   plus the certificate axioms of any `bv_decide` it uses, and nothing else.
-- **Zero warnings.** The build is warning-free outside the known baseline in
-  `Cases/Zip2005/Spec`. A change must not add warnings. Fix a warning rather than silencing
-  it: do not disable a linter with `set_option` or `nolint`. If a warning can only be fixed by
+- **Zero warnings.** The build is warning-free, and CI fails on any warning. Fix a warning
+  rather than silencing it: do not disable a linter with `set_option` or `nolint`. If a warning can only be fixed by
   a signature change or another decision for the maintainers, say so in the pull request.
 - **No vacuous results.** A specification must constrain states the program actually reaches.
   Every premise that remains in a top-level theorem needs a witness that it is satisfiable,
   that is, that it holds on the reference run. A contract quantified over states that never
   occur proves nothing.
-- **Vendored code.** `Cases/Zip2005/Spec` holds upstream specification libraries under their
-  own licences. They do not yet meet these rules (they have warnings, and `native_decide` in
-  examples and in lemmas the zip-2005 statement does not use; `Spec/Zip2005.lean` checks the
-  statement's axioms). New code there must meet them.
 - **Untrusted producers, trusted checker.** Tools may generate images, annotations and
   certificates, but the Lean kernel re-checks everything they produce. Nothing in
   `MachineChecked/` or `Cases/` imports `Tools/`.
@@ -90,31 +85,26 @@ These hold for every change. A pull request that breaks one is not merged.
 ```sh
 lake exe cache get
 lake build                                # the framework and the tools (the default)
-lake build Cases.CatCrypt                 # the CatCrypt kernels
-lake build Cases.Zip2005.Runtime.Memcmp   # one module and what it imports
-lake build Cases                          # every case study (a few hours)
+lake build Cases.Hardening.Memcmp         # one module and what it imports
+lake build Cases                          # every case study (under a minute, framework built)
 lake env lean path/to/File.lean           # check one file
 ```
 
 Continuous integration (`.github/workflows/ci.yml`) runs on every pull request:
 
-- a search of the sources (outside the vendored `Cases/Zip2005/Spec`) for `sorry`, `axiom` and
-  `native_decide`;
-- `lake build` of the framework, the tools, the case studies proved with `lsym`
-  (`MemcmpLsym`, `WriteVectoredLsym`) and `Cases.Hardening`, failing on any warning;
+- a search of the sources for `sorry`, `axiom` and `native_decide`;
+- `lake build MachineChecked Tools Cases`: the framework, the tools and every case study,
+  failing on any warning;
 - `python3 scripts/decompile-check/check.py limits`: the instruction tables in each
   `LIMITS.md` match what `decompile --table` generates;
 - `scripts/to-lean-check/check.sh`: `decompile --to lean` end to end on a small ELF;
-- `scripts/AxiomCheck.lean`: the listed theorems use only the standard axioms and `bv_decide`
-  certificates.
-
-The other case studies are built by the on-demand `full` job ([`Cases/README.md`](Cases/README.md)),
-which also runs `scripts/AxiomCheckCases.lean`.
+- `scripts/AxiomCheck.lean` (framework) and `scripts/AxiomCheckCases.lean` (case studies):
+  the listed theorems use only the standard axioms and `bv_decide` certificates.
 
 Before opening a pull request:
 1. Build every module you touched and every module that imports it. A change to a widely
-   imported file means a full `lake build`.
-2. Confirm the warning count has not gone up.
+   imported file means `lake build MachineChecked Tools Cases`, as CI runs it.
+2. Confirm the build has no warnings.
 3. Run `#print axioms` on the theorems you added or changed, and add the main ones to
    `scripts/AxiomCheck.lean` (framework) or `scripts/AxiomCheckCases.lean` (case studies).
 4. If you changed a lift, run `check.py limits`; if you changed `Tools/ToLean.lean`, run
@@ -125,7 +115,7 @@ Before opening a pull request:
 **Titles** follow `<type>(<optional scope>): <subject>`.
 - Types: `feat`, `fix`, `proof` (new or changed proofs), `doc`, `refactor`, `perf`, `test`,
   `chore`, `ci`.
-- The scope is a directory or case, such as `riscv/sym`, `lprog` or `zip2005`.
+- The scope is a directory or case, such as `riscv/sym`, `lprog` or `hardening`.
 - The subject is imperative and lower case, with no final full stop: `feat(lprog): lift
   indirect jumps with candidate lists`.
 
@@ -159,7 +149,7 @@ Keep commits buildable where you can.
    lifted functions, checked against the ELF ([`Tools/README.md`](Tools/README.md)).
    `Cases/Hardening/build.sh` is an example. For a whole-program theorem from the loaded
    image, also generate the image with `lake exe gen-image` and prove its facts in
-   `Cases/<Name>/Loaded.lean` (as zip-2005 does).
+   `Cases/<Name>/Loaded.lean` (as `Cases/LeanVM/Blake2s` does).
 3. Prove function contracts at Lprog with `lsym`, one module per function or family. Reuse
    the runtime specifications where the code is shared.
 4. Carry them to the machine (`SafeN.of_contract`) and compose them into a theorem about the

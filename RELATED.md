@@ -603,7 +603,7 @@ Links: <https://fsl.cs.illinois.edu/publications/dasgupta-park-kasampalis-adve-r
 ## 7. Verified assembly, cryptography and verified compilers ○
 
 All of these are background, apart from s2n-bignum (§3.2–3.3). They matter because
-MachineChecked's targets (CatCrypt kernels, s2n-bignum-style routines, hashes) are their home
+MachineChecked's targets (field and point kernels, s2n-bignum-style routines, hashes) are their home
 ground.
 
 | system | approach | relation to MachineChecked |

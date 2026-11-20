@@ -112,9 +112,9 @@ semantics does not build here yet ([`Packages.md`](Packages.md) §1).
 ### catcrypt-compiler
 
 An exporter from Lprog to catcrypt-compiler's linear form, on the fragment its RISC-V back end
-compiles, with a theorem that the lift inverts its encoder there. The kernels in
-`Cases/CatCrypt` were emitted by it and are the first examples. Wider coverage follows
-catcrypt-compiler's back end.
+compiles, with a theorem that the lift inverts its encoder there. The kernels it
+emits are the first examples (four were a case study here, in the tree at tag
+`with-zip2005`). Wider coverage follows catcrypt-compiler's back end.
 
 ## 5. Lift 2
 

@@ -3,6 +3,9 @@
 Archived working notes, kept for their reasoning. Each opens with its status. They are not the
 plan; the plan is [`ROADMAP.md`](../../ROADMAP.md).
 
+The notes predate the removal of `Cases/Zip2005` and `Cases/CatCrypt` from this repository.
+Paths into those directories refer to the tree at tag `with-zip2005`.
+
 | note | contents | status |
 | --- | --- | --- |
 | [`CATCRYPT-PORT.md`](CATCRYPT-PORT.md) | Porting catcrypt-compiler's ascent, Lprog and machine models. | Largely done. |

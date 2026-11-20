@@ -1,32 +1,19 @@
 /-
-  The case studies' axiom check, run by CI's on-demand `full` job (`.github/workflows/ci.yml`),
-  after the case studies are built. The same rule as `AxiomCheck.lean`: only `propext`,
-  `Classical.choice`, `Quot.sound` and `bv_decide`'s certificate axioms.
+  The case studies' axiom check, run by CI (`.github/workflows/ci.yml`) after the case studies
+  are built. The same rule as `AxiomCheck.lean`: only `propext`, `Classical.choice`,
+  `Quot.sound` and `bv_decide`'s certificate axioms.
 -/
 
-import Cases.CatCrypt
-import Cases.Zip2005.Runtime.MemcmpLprog
-import Cases.Zip2005.Runtime.WriteVectored
-import Cases.Zip2005.Runtime.MemcmpLsym
-import Cases.Zip2005.Runtime.WriteVectoredLsym
-import Cases.Zip2005.Runtime.BlackBox
-import Cases.Zip2005.Top.Guest
+import Cases.Hardening
+import Cases.LeanVM.Blake2s.Loaded
 
--- the CatCrypt kernels
-#print axioms Cases.CatCrypt.Cswap.corres
-#print axioms Cases.CatCrypt.AddP256.corres
-#print axioms Cases.CatCrypt.FeAdd.corres
-#print axioms Cases.CatCrypt.FeSub.corres
+-- functions of an SP1 guest's runtime, proved with `lsym` and carried to the machine
+#print axioms Cases.Hardening.Memcmp.contract
+#print axioms Cases.Hardening.Memcmp.safe
+#print axioms Cases.Hardening.WriteVectored.scw_spec
+#print axioms Cases.Hardening.WriteVectored.sw_spec
+#print axioms Cases.Hardening.WriteVectored.contract
+#print axioms Cases.Hardening.WriteVectored.spec
 
--- zip-2005 functions proved through the lift
-#print axioms Cases.Zip2005.MemcmpLprog.safe
-#print axioms Cases.Zip2005.WriteVectored.contract
-#print axioms Cases.Zip2005.WriteVectored.spec
-#print axioms Cases.Zip2005.black_box_spec
-
--- the same, with `lsym`
-#print axioms Cases.Zip2005.MemcmpLsym.contract
-#print axioms Cases.Zip2005.WriteVectoredLsym.contract
-
--- zip-2005's end theorem (`Top/Guest.lean`), under its open premises `PanicPaths` and `hIfit`
-#print axioms Cases.Zip2005.guest_run
+-- leanVM's Blake2s guest: the loaded image
+#print axioms Cases.LeanVM.Blake2s.Loaded.codeWF

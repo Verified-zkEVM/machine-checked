@@ -7,7 +7,8 @@
   sixteen-way `if` chains. This file cuts out the `UINT256_MUL`, `PALLAS_ADD` and
   `PALLAS_DOUBLE` arms and states each arm's write and its trap condition exactly (as an
   `↔`, so nothing is lost). What the arms compute (the residue, the Pallas group law) is a
-  case's mathematics, not the machine's: ZIP 2005 proves it in `Cases/Zip2005/Precompile`.
+  case's mathematics, not the machine's: zip-2005-asm
+  (https://github.com/dhsorens/zip-2005-asm) proves it for the ZIP 2005 guest.
 
   ## Main definitions
 

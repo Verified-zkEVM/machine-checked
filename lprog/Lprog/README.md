@@ -52,12 +52,11 @@ result transfers to the machine.
 
 ## Worked examples (RISC-V)
 
-- `Cases/Zip2005/Runtime/MemcmpLprog.lean`: a loop, for every length. A good first read.
-- `Cases/Zip2005/Runtime/WriteVectored.lean`: a loop, a call to another lifted function
+- `Cases/Hardening/Memcmp.lean`: a loop, for every length. A good first read.
+- `Cases/Hardening/WriteVectored.lean`: a loop, a call to another lifted function
   through its contract, a tail call and a system call.
-- `Cases/Zip2005/Runtime/BlackBox.lean`: a store and a load through the stack.
-- `Cases/CatCrypt/`: straight-line kernels, proved over the machine with
-  `MachineChecked/RiscV/Lift/Block.lean`.
+- `Cases/Hardening/Mem.lean`: loads and stores of every width.
+- `MachineChecked/RiscV/Lift/Block.lean`: straight-line blocks, proved over the machine.
 
 The layer above is the structured logical program (layer 1,
 [`MachineChecked/Logical`](../../MachineChecked/Logical/README.md)), sketched in

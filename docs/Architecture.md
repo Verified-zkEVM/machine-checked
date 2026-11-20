@@ -56,5 +56,6 @@ and carry it down to `stepSp1` with the transfer theorem (`transfer`, `SafeN.of_
 [`Walkthrough.md`](Walkthrough.md) shows this end to end.
 
 The older route is symbolic execution over the machine (`MachineChecked/RiscV/Sym`,
-`MachineChecked/RiscV/Exec`). Most of the zip-2005 proofs use it. Whether these layer-0 tools
+`MachineChecked/RiscV/Exec`). Most of zip-2005 was proved with it while it was a case study
+here (the tree at tag `with-zip2005`). Whether these layer-0 tools
 move up onto the lift or stay as a fallback is an open question in the roadmap.
