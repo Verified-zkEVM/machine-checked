@@ -17,14 +17,14 @@ import Examples.Sha256.RiscV.Proofs
 
 -- stress tests
 import Examples.Branches.RiscV.Proofs
-import Examples.BranchesO0.RiscV.Image
+import Examples.BranchesO0.RiscV.Proofs
 import Examples.Widths.RiscV.Proofs
 import Examples.Arith.RiscV.Proofs
 import Examples.Calls.RiscV.Proofs
-import Examples.CallsO0.RiscV.Image
+import Examples.CallsO0.RiscV.Proofs
 import Examples.Rec.RiscV.Proofs
-import Examples.Switch.RiscV.Image
-import Examples.Big.RiscV.Image
+import Examples.Switch.RiscV.Proofs
+import Examples.Big.RiscV.Proofs
 
 -- guest code
 import Examples.Sp1Runtime.RiscV.Proofs

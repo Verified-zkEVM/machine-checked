@@ -1,8 +1,9 @@
 /-
   Examples.Sp1Runtime.RiscV.Memcmp
 
-  `memcmp(a, b, n)`, for every length `n`: its contract at Lprog, proved with `lsym`, and the
-  same statement over riscv-zkvm's machine (`safe`), through `SafeN.of_contract`.
+  `memcmp(a, b, n)`, for every length `n`: its contract at Lprog (`memcmp_contract`), proved
+  with `lsym`, and the same statement over riscv-zkvm's machine (`memcmp_correct`), through
+  `SafeN.of_contract`.
 
   The function is `Examples/src/c/memcmp.c`, compiled by clang: twelve instructions, the ones rustc's
   `compiler_builtins` has for `memcmp` in an SP1 guest, with two of the increments in another
@@ -15,6 +16,7 @@
 -/
 
 import Examples.Sp1Runtime.RiscV.MemcmpImage
+import Examples.Kit
 import MachineChecked.RiscV.Lift.Rules
 import LprogRiscV.Lsym
 
@@ -22,14 +24,6 @@ namespace Examples.Sp1Runtime.RiscV.Memcmp
 
 open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog MachineChecked.RiscV.Lift
 open Lprog.RiscV Lprog.RiscV.Machine Examples.Sp1Runtime.RiscV.MemcmpImage
-
-theorem zeroExtend_byte_inj (x y : BitVec 8) (h : BitVec.zeroExtend 64 x = BitVec.zeroExtend 64 y) :
-    x = y := by
-  apply BitVec.eq_of_toNat_eq
-  have := congrArg BitVec.toNat h
-  simp only [BitVec.toNat_setWidth] at this
-  have hx := x.isLt; have hy := y.isLt
-  rwa [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
 
 theorem sext32_sub_bytes (x y : BitVec 8) :
     BitVec.signExtend 64 ((BitVec.zeroExtend 64 x + -BitVec.zeroExtend 64 y).truncate 32) =
@@ -62,23 +56,10 @@ def Post (u0 : MachineState) (a b : Word) (n : Nat) (v : MachineState) : Prop :=
   (∀ r, r ∉ clobbered → v.getReg r = u0.getReg r) ∧
   BitVec.signExtend 64 ((v.getReg .x10).truncate 32) = v.getReg .x10
 
-theorem ofNat_eq_zero {x : Nat} (hx : x < 2 ^ 64) (h : BitVec.ofNat 64 x = 0#64) : x = 0 := by
-  have := congrArg BitVec.toNat h
-  rwa [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hx] at this
-
-theorem ofNat_add_neg_one {x : Nat} (h : 0 < x) :
-    BitVec.ofNat 64 x + 18446744073709551615#64 = BitVec.ofNat 64 (x - 1) := by
-  have e : (18446744073709551615#64 : Word) = -1#64 := by decide
-  rw [e, ← BitVec.sub_eq_add_neg, show x = (x - 1) + 1 by omega, BitVec.ofNat_add]
-  exact BitVec.add_sub_cancel _ _
-
 /-- A register other than `x0`, read from a machine state built from a register file. -/
 theorem getReg_ofParts_ne {r : Reg} (h : r ≠ .x0) (regs : Reg → BitVec 64) (m : MachineState) :
     (ofParts regs m).getReg r = regs r := by
   rw [getReg_ofParts]; simp [h]
-
-theorem ofNat_succ (j : Nat) : BitVec.ofNat 64 j + 1#64 = BitVec.ofNat 64 (j + 1) := by
-  apply BitVec.eq_of_toNat_eq; simp
 
 /-- **The byte loop**, from byte `j < n`, at the loop head, on the register file. -/
 theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
@@ -153,7 +134,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {re
         simp [lsym_simp]
 
 /-- **`memcmp`'s contract at Lprog**. -/
-theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
+theorem memcmp_contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
     {rest : List Frame} (u0 : MachineState) (a b : Word) (n : Nat) (hn : n < 2 ^ 64)
     (hva : ∀ i < n, isValidMemAddrSp1 (a + BitVec.ofNat 64 i) = true)
     (hvb : ∀ i < n, isValidMemAddrSp1 (b + BitVec.ofNat 64 i) = true)
@@ -192,7 +173,8 @@ theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
 /-- **`memcmp(a, b, n)` over `stepSp1`**, for every length: it returns to `ra` with zero in `x10`
     exactly when the `n` bytes at `a` and at `b` agree (and sign-extended from 32 bits, as an
     `int`), memory and code untouched, and every register but `x10`..`x14` as it was. -/
-theorem safe {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState) (ra a b : Word)
+theorem memcmp_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
+    (ra a b : Word)
     (n : Nat) (hn : n < 2 ^ 64)
     (hpc : s.pc = 0x1000#64) (hcode : ∀ f ∈ fns, CodeAt f.base (f.prog.map some) s)
     (hra : s.getReg .x1 = ra) (h10 : s.getReg .x10 = a) (h11 : s.getReg .x11 = b)
@@ -209,7 +191,8 @@ theorem safe {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
   obtain ⟨fn, hg, hb⟩ : ∃ fn, fns[0]? = some fn ∧ fn.base = 0x1000#64 := ⟨_, rfl, rfl⟩
   refine SafeN.of_contract hok (g := 0) hg (hpc.trans hb.symm) hcode
     (Post := Post s a b n)
-    (fun _ _ hk => contract s a b n hn hva hvb _ _ (agree_ofParts_regsOf s) h10 h11 h12 rfl rfl hk) ?_
+    (fun _ _ hk => memcmp_contract s a b n hn hva hvb _ _ (agree_ofParts_regsOf s) h10 h11 h12
+      rfl rfl hk) ?_
   intro t r' m' hag hpc' ⟨hx10, hmem, hcode', hkept, hsx⟩
   apply hk
   · rw [hpc', hra]

@@ -56,11 +56,14 @@ Details, targets and next steps: [`ROADMAP.md`](ROADMAP.md).
 
 What is verified here is functions, not a whole program:
 
-- [`Examples/`](Examples/README.md), the ladder: 23 functions in C and Rust, from straight-line
-  code to loops over memory, a call, a table in read-only data, and SHA-256's and ChaCha20's
-  block functions. Each has a contract at Lprog and a theorem about riscv-zkvm's machine alone.
-- [`Examples/`](Examples/README.md), stress tests and guest code: C written to break the
-  tools, and `memcmp` and `write_vectored` of an SP1 guest's runtime.
+- [`Examples/`](Examples/README.md): 79 functions, each with a contract at Lprog and a theorem
+  about riscv-zkvm's machine alone. The ladder, 23 functions in C and Rust, goes from
+  straight-line code to loops over memory, a call, a table in read-only data, and SHA-256's and
+  ChaCha20's block functions. The stress tests, 53 functions of C written to break the tools,
+  add every load and store width, division at its edges, recursion, calls through registers
+  and `-O0` code. The guest code is `memcmp`, `write_vectored` and `__udivti3` of an SP1
+  guest's runtime. The functions without a theorem, and why, are listed in
+  [its README](Examples/README.md#not-verified).
 
 No guest is verified end to end in this repository. A whole guest, zip-2005 (an SP1 guest
 that checks a Zcash Orchard statement), has its verification in its own repository,

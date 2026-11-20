@@ -1,17 +1,19 @@
 /-
   Examples.Sp1Runtime.RiscV.WriteVectored
 
-  `write_vectored` of an SP1 guest's standard error, with `lsym`: its contract at Lprog, and
-  the same statement over riscv-zkvm's machine (`spec`), through `SafeN.of_contract`. The code
-  is rustc's, in `Examples/elf/k_u128.elf`: `write_vectored` (`F104`) finds the first slice that is not
-  empty and calls `sys_write` (`F24`), which tail-calls `syscall_write` (`F11`), which makes
-  the system call.
+  `write_vectored` of an SP1 guest's standard error, with `lsym`: its contract at Lprog
+  (`write_vectored_contract`), and the same statement over riscv-zkvm's machine
+  (`write_vectored_correct`), through `SafeN.of_contract`. The code is rustc's, in
+  `Examples/elf/k_u128.elf`: `write_vectored` (`F104`) finds the first slice that is not empty
+  and calls `sys_write` (`F24`), which tail-calls `syscall_write` (`F11`), which makes the
+  system call.
 
   The callees are stated as contracts over the register file (`Isa.Contract`):
-  `syscall_write`'s is proved over a machine state and turned into one (`contract_of_agree`),
-  `sys_write`'s is proved by `lsym` with its tail call stepped through `syscall_write`'s
-  (`sw_spec`), and `write_vectored`'s call is stepped through `sys_write`'s. No call is stepped
-  by a rule by hand; the system call is (`lsafe_write`).
+  `syscall_write`'s (`syscall_write_contract`) is proved over a machine state and turned into
+  one (`contract_of_agree`), `sys_write`'s is proved by `lsym` with its tail call stepped
+  through `syscall_write`'s (`sys_write_contract`), and `write_vectored`'s call is stepped
+  through `sys_write`'s. No call is stepped by a rule by hand; the system call is
+  (`lsafe_write`).
 
   Addresses are in one normal form, a base plus a constant (`lsym_addr`): a fact about a cell
   of a region, normalised by `simp only [lsym_addr]`, is about the address `lsym` computes, so
@@ -22,9 +24,8 @@
   top of its stack.
 -/
 
-import Examples.Sp1Runtime.RiscV.Image.F11
-import Examples.Sp1Runtime.RiscV.Image.F24
-import Examples.Sp1Runtime.RiscV.Image.F104
+import Examples.Sp1Runtime.RiscV.Image
+import Examples.Kit
 import MachineChecked.RiscV.Lift.Rules
 import MachineChecked.RiscV.Sym
 import MachineChecked.RiscV.Sym.Write
@@ -36,14 +37,6 @@ open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog MachineC
   Lprog.RiscV.Machine Examples.Sp1Runtime.RiscV.Image
 
 variable {L : Layout}
-
-/-- The functions' entries are aligned. -/
-theorem hok : ProgOk fns := by
-  have h : ∀ w ∈ words, w.2.1 % 4 = 0 := by decide +kernel
-  intro f hf
-  obtain ⟨⟨name, base, ws⟩, hw, rfl⟩ := List.mem_map.mp hf
-  have hb : base % 4 = 0 := h _ hw
-  simp only [BitVec.toNat_ofNat]; omega
 
 /-- The length of the first non-empty slice of a list of `IoSlice`s (pointer, length), or `0`. -/
 def firstLen : List Word → Word
@@ -106,10 +99,6 @@ theorem count_dec {n j : Nat} (h : j < n) :
   rw [e, ← BitVec.sub_eq_add_neg, show 16 * (n - j) = 16 * (n - (j + 1)) + 16 by omega,
     BitVec.ofNat_add]
   exact BitVec.add_sub_cancel _ _
-
-theorem ofNat_eq_zero {x : Nat} (hx : x < 2 ^ 64) (h : BitVec.ofNat 64 x = 0#64) : x = 0 := by
-  have := congrArg BitVec.toNat h
-  rwa [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hx] at this
 
 theorem kept_ne {r : Reg} (hr : r ∈ kept) :
     r ≠ .x1 ∧ r ≠ .x2 ∧ r ≠ .x8 ∧ r ≠ .x9 ∧ r ≠ .x10 ∧ r ≠ .x11 ∧ r ≠ .x12 := by
@@ -259,7 +248,7 @@ def ScwPre (L : Layout) (ret top : Word) (u : MachineState) : Prop :=
 
 /-- **`syscall_write`'s contract over the register file**: `scw_lsym`, proved over a machine
     state, as it is (`contract_of_agree`). -/
-theorem scw_spec : rvIsa.Contract (liftProg fns) sp1Ctx 11
+theorem syscall_write_contract : rvIsa.Contract (liftProg fns) sp1Ctx 11
     (fun ret top regs m => ScwPre L ret top (ofParts regs m))
     (fun _ top regs m r' m' => ScwRet (ofParts regs m) top (ofParts r' m')) :=
   contract_of_agree (Pre := ScwPre L) (Post := fun _ top u v => ScwRet u top v)
@@ -267,13 +256,13 @@ theorem scw_spec : rvIsa.Contract (liftProg fns) sp1Ctx 11
       scw_lsym u top _ regs m hag hcw hra hsp hstk rfl h10 hk
 
 /-- **`sys_write`'s contract over the register file**, through `syscall_write`'s, by `lsym`:
-    the tail call is stepped through `scw_spec`. -/
-theorem sw_spec : rvIsa.Contract (liftProg fns) sp1Ctx 24
+    the tail call is stepped through `syscall_write_contract`. -/
+theorem sys_write_contract : rvIsa.Contract (liftProg fns) sp1Ctx 24
     (fun ret top regs m => ScwPre L ret top (ofParts regs m))
     (fun _ top regs m r' m' => ScwRet (ofParts regs m) top (ofParts r' m')) := by
   intro G N Q ret top rest regs m ⟨hcw, hra, hsp, hstk, h10⟩ hk
   simp only [getReg_ofParts, reduceCtorEq, ite_false, codeWithin_ofParts] at hra hsp h10 hcw
-  lsym f24_eq with [ScwPre, hra, hsp, h10, hstk, hcw] using [scw_spec (L := L)]
+  lsym f24_eq with [ScwPre, hra, hsp, h10, hstk, hcw] using [syscall_write_contract (L := L)]
   -- `syscall_write` returns to `sys_write`'s caller; `x6`, which `sys_write` wrote, is no
   -- callee-saved register
   apply hk
@@ -441,8 +430,9 @@ theorem scwRet_top {u v : MachineState} {a b : Word} (h : ScwRet u a v) (e : a =
   e ▸ h
 
 /-- **`write_vectored`'s contract at Lprog**; the call of
-    `sys_write` is stepped through its contract (`sw_spec`). -/
-theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {rv top : Word}
+    `sys_write` is stepped through its contract (`sys_write_contract`). -/
+theorem write_vectored_contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
+    {rv top : Word}
     {rest : List Frame} (s0 : MachineState) (sp bufs : Word) (xs : List Word) (cnt : Nat)
     (hxl : xs.length = 2 * cnt) (hokx : RegionOk L.textLo L.textHi bufs (2 * cnt))
     (hstk : StackOk L 0x50 sp) (hcw : CodeWithin L.textLo L.textHi s0)
@@ -460,7 +450,7 @@ theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
   have hcwA : CodeWithin L.textLo L.textHi mA := cw_of_code hcw hat.saved.code
   have hstkA := stack_sub hstk
   simp only [getReg_ofParts, reduceCtorEq, ite_false, lsym_addr] at a2 a10 hstkA
-  lsym f104_eq stop [40] with [ScwPre, a2, a10, hcwA, hstkA] using [sw_spec (L := L)]
+  lsym f104_eq stop [40] with [ScwPre, a2, a10, hcwA, hstkA] using [sys_write_contract (L := L)]
   -- back from the call
   have a9 := hat.x9
   simp only [getReg_ofParts, reduceCtorEq, ite_false] at a9
@@ -475,7 +465,8 @@ theorem contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
     stderr and returns `Ok(len)`, `0` in `x10` and that slice's length in `x11` (`0` if every
     slice is empty), with the callee-saved registers restored, the code untouched and memory
     changed only in the frame below `sp`. -/
-theorem spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState) (ra sp bufs : Word)
+theorem write_vectored_correct {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
+    (ra sp bufs : Word)
     (xs : List Word) (cnt : Nat)
     (hpc : s.pc = 0x7800c060#64) (hcode : ∀ f ∈ fns, CodeAt f.base (f.prog.map some) s)
     (hcw : CodeWithin L.textLo L.textHi s)
@@ -490,8 +481,8 @@ theorem spec {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     SafeN G n P s := by
   obtain ⟨fn, hg, hb'⟩ : ∃ fn, fns[104]? = some fn ∧ fn.base = 0x7800c060#64 := ⟨_, rfl, rfl⟩
   refine SafeN.of_contract hok (g := 104) hg (hpc.trans hb'.symm) hcode (Post := Done s sp xs)
-    (fun _ _ hpost => contract s sp bufs xs cnt hxl hokx hstk hcw hdis _ _ (agree_ofParts_regsOf s)
-      hsp hb hc hx rfl hsp.symm hpost) ?_
+    (fun _ _ hpost => write_vectored_contract s sp bufs xs cnt hxl hokx hstk hcw hdis _ _
+      (agree_ofParts_regsOf s) hsp hb hc hx rfl hsp.symm hpost) ?_
   intro t r' m' hag hpc' hdV
   have hd := Done.of_agree (agree_symm hag) hdV
   apply hk

@@ -1,6 +1,6 @@
 import Examples.Rec.RiscV.Image
 import Examples.Spec
-import LprogRiscV.Lsym
+import Examples.Kit
 
 /-!
   # Recursion: `fib`
@@ -14,8 +14,10 @@ import LprogRiscV.Lsym
 
 namespace Examples.Rec.RiscV
 
-open RiscvZkvm.Rv64 Lprog Lprog.RiscV Lprog.RiscV.Machine MachineChecked.RiscV.Lift
-open Examples.Rec.RiscV.Image
+open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog MachineChecked.RiscV.Lift
+open Lprog.RiscV Lprog.RiscV.Machine Examples.Rec.RiscV.Image
+
+theorem hok : ProgOk fns := by decide
 
 /-- From `ra = ret`, `sp = top` and `a0 = k`, with room for `k + 1` frames below `top`. -/
 def FibPre (k : Nat) : Word → Word → (Reg → Word) → MachineState → Prop :=
@@ -166,5 +168,28 @@ theorem fib_contract : ∀ k, k < 2 ^ 63 →
     intro a ha
     obtain ⟨n1, n2, n3, n4⟩ := above_ne htop ha
     simp [n1, n2, n3, n4]
+
+/-- **`fib` on the machine**: `fib k` in `a0` for `a0 = k < 2 ^ 63` with room for `k + 1`
+    32-byte frames below `sp`; `sp`, `s0`, `s1`, `s2` and the memory at and above `sp` kept. -/
+theorem fib_correct {G : MachineState → Prop} {N : Nat} {P : Prop} (s : MachineState) (k : Nat)
+    (hpc : s.pc = 0x1000#64) (hcode : Loaded fns s) (hk : k < 2 ^ 63)
+    (h10 : s.getReg .x10 = BitVec.ofNat 64 k) (hroom : 32 * (k + 1) ≤ (s.getReg .x2).toNat)
+    (hcont : ∀ t, t.pc = s.getReg .x1 &&& ~~~1#64 →
+      t.getReg .x10 = BitVec.ofNat 64 (fibN k) → t.getReg .x2 = s.getReg .x2 →
+      t.getReg .x8 = s.getReg .x8 → t.getReg .x9 = s.getReg .x9 → t.getReg .x18 = s.getReg .x18 →
+      (∀ a, s.getReg .x2 ≤ a → t.getMem a = s.getMem a) → SafeN G N P t) :
+    SafeN G N P s := by
+  obtain ⟨fn, hg, hb⟩ : ∃ fn, fns[0]? = some fn ∧ fn.base = 0x1000#64 := ⟨_, rfl, rfl⟩
+  refine SafeN.of_isa_contract hok hg (hpc.trans hb.symm) hcode (fib_contract k hk)
+    ⟨rfl, rfl, by simpa [regsOf] using h10, by simpa [regsOf] using hroom⟩ ?_
+  rintro t r' m' hag hpc' ⟨r10, r2, r8, r9, r18, rm⟩
+  simp only [regsOf] at r2 r8 r9 r18 rm
+  refine hcont t hpc' ?_ ?_ ?_ ?_ ?_ fun a ha => ?_
+  · rw [← hag.regs, getReg_ofParts]; simpa using r10
+  · rw [← hag.regs, getReg_ofParts]; simpa using r2
+  · rw [← hag.regs, getReg_ofParts]; simpa using r8
+  · rw [← hag.regs, getReg_ofParts]; simpa using r9
+  · rw [← hag.regs, getReg_ofParts]; simpa using r18
+  · rw [← hag.mem]; exact rm a (by simpa using ha)
 
 end Examples.Rec.RiscV

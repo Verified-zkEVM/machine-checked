@@ -18,11 +18,14 @@ elf/                         the binaries
 <Module>/RiscV/Image/        its words, checked against the ELF (Words.lean), and each
                              function's lift (F<i>.lean); written by decompile, do not edit
 <Module>/RiscV/Proofs.lean   specifications and proofs
-Spec.lean                    the functions the specifications are stated with (umax, wsum,
-                             wgcd, ones, sumTo, the SHA-256 round, ...): about words and
-                             lists, with no instruction set in them
-Kit.lean                     facts about a machine state several modules use: the bytes of a
-                             region, a byte or a 32-bit word read after one was written
+Spec.lean                    the functions the specifications are stated with (umax, smax,
+                             clampSpec, wsum, wgcd, ones, sumTo, factN, countDown, the SHA-256
+                             round, ...): about words, numbers and lists, with no instruction
+                             set in them
+Kit.lean                     what several modules use about a machine state: the bytes of a
+                             region, a string (StrAt), a copy (Copied), a sum of doublewords
+                             (sumMem), a byte or a 32-bit word read after one was written,
+                             what an agreeing state reads; and their arithmetic on addresses
 LeanVM/                      a leanVM guest, in the layout of its own generator
 ```
 
@@ -31,11 +34,20 @@ proofs are about that code; the specifications in `Spec.lean` are not.
 
 ## What is verified
 
-### The ladder
+Every function in the tables below (but `sys_write` and `syscall_write`, see
+[Guest code](#guest-code)) has a contract at the low logical program
+(`<function>_contract`, proved with `lsym`) and the same statement about riscv-zkvm's machine
+alone (`<function>_correct`, through `SafeN.of_isa_contract` or `SafeN.of_contract`). That is
+79 functions: 23 in the ladder, 53 in the stress tests and 3 of guest code.
+`scripts/AxiomCheckExamples.lean` prints the axioms of each of their 80 `_correct` theorems
+(the 80th, `gives_correct` in `Arith`, is the step from contract to machine that `Arith`'s
+functions share). Each proof file checks in 3 to 14 seconds on an Apple M3 Max, once its
+imports are built (`Sha256` and `ChaCha20` are the slowest). No
+`maxHeartbeats` or other limit is raised; the one setting changed is the SAT solver's timeout
+for eight `bv_decide` calls in `sha256_round` (see
+[Assumptions worth knowing](#assumptions-worth-knowing)).
 
-Every name in the table is a function with a contract at the low logical program
-(`<function>_contract`, proved with `lsym`) and the same statement about the machine alone
-(`<function>_correct`, through `SafeN.of_isa_contract`).
+### The ladder
 
 | Source | Proofs | Functions |
 | --- | --- | --- |
@@ -49,7 +61,7 @@ Every name in the table is a function with a contract at the low logical program
 | `c/chacha20.c` | [`ChaCha20/RiscV/Proofs.lean`](ChaCha20/RiscV/Proofs.lean) | `quarter_round`, `chacha20_block` |
 | `c/sha256.c` | [`Sha256/RiscV/Proofs.lean`](Sha256/RiscV/Proofs.lean) | `sha256_round`, `sha256_schedule`, `sha256_compress` |
 
-That is 23 functions. Each file checks in 3 to 20 seconds, with no limit raised.
+23 functions.
 
 What the examples exercise:
 
@@ -85,41 +97,54 @@ What the examples exercise:
 
 Small C programs, compiled by clang at `-O2` (`*_o0.c` at `-O0`). Each was chosen to break
 something: every width of load and store, division at its edges, the high half of products, a
-jump table, recursion, a function that never returns, calls through registers, registers kept
-across a call, `-O0` code that keeps everything in memory, and 290 instructions of
-straight-line code. What broke is in [What was found](#what-was-found).
+`switch` meant to become a jump table, recursion, a function that never returns, calls through
+registers, registers kept across a call, `-O0` code that keeps everything in memory, and 290
+instructions of straight-line code. What broke is in [What was found](#what-was-found).
 
-Each function in the table is proved with `lsym` against what C says it computes, as a
-statement at the low logical program (`<function>_spec` or `<function>_contract`). Unlike
-the ladder's, they have no `_correct` theorem about the machine alone.
+Each function in the table is proved against what C says it computes, as a contract at Lprog
+and the same statement about the machine, like the ladder's.
 
 | Source | Proofs | Functions |
 | --- | --- | --- |
-| `c/branches.c` | [`Branches/RiscV/Proofs.lean`](Branches/RiscV/Proofs.lean) | `max2` (a signed branch), `clamp`, `count_down` (a bit length that clang compiles to a population count, by `bv_decide`) |
-| `c/widths.c` | [`Widths/RiscV/Proofs.lean`](Widths/RiscV/Proofs.lean) | `load_s8`, `load_u8`, `load_s16`, `load_u16`, `load_s32`, `load_u32`: loads of every width, signed and unsigned |
-| `c/arith.c` | [`Arith/RiscV/Proofs.lean`](Arith/RiscV/Proofs.lean) | `sdiv`, `srem`, `udiv` (by zero and at `INT64_MIN / -1`), `mulhi`, `smulhi` (the high half of 128-bit products), `rotl`, `abs_branchless` |
-| `c/calls.c` | [`Calls/RiscV/Proofs.lean`](Calls/RiscV/Proofs.lean) | `inc`, `twice_inc` (a call and a tail call with `ra` saved in a frame), `tail_inc`, `apply`, `apply_inc` (a tail call through a register, `jr t1`, to a function passed as a value), `sum4`, `keep` (four registers kept across a call), `stop` (a function that never returns), `checked_div` (a call to it) |
+| `c/branches.c` | [`Branches/RiscV/Proofs.lean`](Branches/RiscV/Proofs.lean) | `add3`, `max2` (a signed branch), `umax2`, `clamp`, `sum` (for `n < 2^61`), `count_down` (a bit length that clang compiles to a population count, by `bv_decide`) |
+| `c/branches_o0.c` | [`BranchesO0/RiscV/Proofs.lean`](BranchesO0/RiscV/Proofs.lean) | the same six at `-O0`: every argument and local through a frame, with the memory outside the frame kept |
+| `c/widths.c` | [`Widths/RiscV/Proofs.lean`](Widths/RiscV/Proofs.lean) | `set_bytes`, `copy_bytes`, `str_len`; `load_s8`, `load_u8`, `load_s16`, `load_u16`, `load_s32`, `load_u32` (loads of every width, signed and unsigned); `store_widths` (stores of every width); `read_le32` (an unaligned little-endian read); `swap` |
+| `c/arith.c` | [`Arith/RiscV/Proofs.lean`](Arith/RiscV/Proofs.lean) | `sdiv`, `srem`, `udiv` (by zero and at `INT64_MIN / -1`), `mulhi`, `smulhi` (the high half of 128-bit products), `rotl`, `popcount`, `abs_branchless` |
+| `c/calls.c` | [`Calls/RiscV/Proofs.lean`](Calls/RiscV/Proofs.lean) | `inc`, `twice_inc` (a call and a tail call with `ra` saved in a frame), `tail_inc`, `fact` (a recursion clang made a loop), `apply`, `apply_inc` (a tail call through a register, `jr t1`, to a function passed as a value), `sum4`, `keep` (four registers kept across a call), `checked_div` (a call to `stop`, which never returns) |
+| `c/calls_o0.c` | [`CallsO0/RiscV/Proofs.lean`](CallsO0/RiscV/Proofs.lean) | the same nine at `-O0`, each keeping the memory outside its frames; `fact` is a real recursion, by induction on the argument |
 | `c/rec.c` | [`Rec/RiscV/Proofs.lean`](Rec/RiscV/Proofs.lean) | `fib`: recursion, by induction on the argument, through a loop around the recursive call, with a frame condition |
-| `c/branches_o0.c`, `c/calls_o0.c`, `c/switch.c`, `c/big.c` | none: `BranchesO0`, `CallsO0`, `Switch` and `Big` have an Image only | |
+| `c/switch.c` | [`Switch/RiscV/Proofs.lean`](Switch/RiscV/Proofs.lean) | `classify`: a dense `switch`, against the C's table of values |
+| `c/big.c` | [`Big/RiscV/Proofs.lean`](Big/RiscV/Proofs.lean) | `mix`: 290 instructions of straight-line code, thirty-two rounds against the C, checked in eight pieces of four rounds |
 
-`branches.c` and `widths.c` were `basics.c` and `mem.c` before they came here, where those
-names are the ladder's. `add3`, the unsigned maximum, the sum of an array and `swap` are proved
-in the ladder, not here.
+53 functions. `stop` itself never returns: its contract, whose postcondition is `False`, is
+proved (`stop_contract`), and it has no `_correct` (see [Not verified](#not-verified)).
+
+`switch.c`'s `classify` was written to be compiled to a jump table, but clang saw that the
+values are `10 + 11k` and compiled it to arithmetic: `sltiu` for `k < 8`, a multiply and an
+add, and a mask that makes the result `-1` otherwise. It has no table and no indirect jump, so
+it does not exercise one. `branches.c` and `widths.c` were `basics.c` and `mem.c` before they
+came here, where those names are the ladder's; `add3`, the maxima, the sum of an array,
+`copy_bytes`, `str_len` and `swap` are proved both here and in the ladder, from different
+binaries.
 
 ### Guest code
 
 Functions of the runtime of an SP1 guest, for every input, down to the machine. The guest is
 `k_u128` (`elf/k_u128.elf`), one of the Rust guests of `scripts/decompile-check/rust/`, built
-for SP1 by rustc. The lift takes 156 of its functions; the Image keeps their words and the four functions below
-(`Sp1Runtime/RiscV/Image.lean` says which). `memcmp` is from an ELF of its own: `c/memcmp.c` is
-`memcmp` as a byte loop, which clang compiles to the twelve instructions rustc's
-`compiler_builtins` has for it in an SP1 guest, with two of the increments in another order.
+for SP1 by rustc. The lift takes 156 of its functions; the Image keeps their words and the
+four functions below (`Sp1Runtime/RiscV/Image.lean` says which). `memcmp` is from an ELF of
+its own: `c/memcmp.c` is `memcmp` as a byte loop, which clang compiles to the twelve
+instructions rustc's `compiler_builtins` has for it in an SP1 guest, with two of the
+increments in another order.
 
 | Source | Proofs | Functions |
 | --- | --- | --- |
-| `c/memcmp.c` (`elf/memcmp.elf`) | [`Sp1Runtime/RiscV/Memcmp.lean`](Sp1Runtime/RiscV/Memcmp.lean) | `memcmp(a, b, n)`, for every length: the byte loop by induction (`loop`), its contract at Lprog (`contract`), and the same statement over riscv-zkvm's machine (`safe`) |
-| `elf/k_u128.elf` | [`Sp1Runtime/RiscV/WriteVectored.lean`](Sp1Runtime/RiscV/WriteVectored.lean) | `write_vectored` of the guest's standard error (`F104`): a loop, a call to `sys_write` (`F24`, `sw_spec`), which tail-calls `syscall_write` (`F11`, `scw_spec`), which makes the system call. Its contract at Lprog (`contract`) and the same statement over the machine (`spec`) |
-| `elf/k_u128.elf` | [`Sp1Runtime/RiscV/Udivti3.lean`](Sp1Runtime/RiscV/Udivti3.lean) | `__udivti3` (`F155`), from a contract of its callee `u128_div_rem`, which is assumed: a far call (`auipc`, `jalr`), with the result returned through a pointer into its frame |
+| `c/memcmp.c` (`elf/memcmp.elf`) | [`Sp1Runtime/RiscV/Memcmp.lean`](Sp1Runtime/RiscV/Memcmp.lean) | `memcmp(a, b, n)`, for every length: the byte loop by induction (`loop`), its contract at Lprog (`memcmp_contract`), and the same statement over riscv-zkvm's machine (`memcmp_correct`) |
+| `elf/k_u128.elf` | [`Sp1Runtime/RiscV/WriteVectored.lean`](Sp1Runtime/RiscV/WriteVectored.lean) | `write_vectored` of the guest's standard error (`F104`): a loop, a call to `sys_write` (`F24`, `sys_write_contract`), which tail-calls `syscall_write` (`F11`, `syscall_write_contract`), which makes the system call. Its contract at Lprog (`write_vectored_contract`) and the same statement over the machine (`write_vectored_correct`) |
+| `elf/k_u128.elf` | [`Sp1Runtime/RiscV/Udivti3.lean`](Sp1Runtime/RiscV/Udivti3.lean) | `__udivti3` (`F155`, `udivti3_contract`, `udivti3_correct`), from a contract of its callee `u128_div_rem`, which is assumed: a far call (`auipc`, `jalr`), with the result returned through a pointer into its frame |
+
+3 functions with a `_correct` (`memcmp`, `write_vectored`, `__udivti3`); `sys_write` and
+`syscall_write` are proved as contracts, through which `write_vectored_correct` goes.
 
 [`LeanVM/`](LeanVM/README.md) is a guest of a second target, leanVM, computing BLAKE2s. Its
 image is loaded and its decoding checked (`LeanVM/Blake2s/Loaded.lean`); nothing about its
@@ -134,43 +159,50 @@ The proofs of all three groups use no `sorry` and no axiom beyond Lean's three a
 (`.github/workflows/ci.yml`) builds them on every pull request, with the framework and the
 tools (`lake build MachineChecked Tools Examples`), and fails on any warning.
 
+### Assumptions worth knowing
+
+Each `_correct` theorem states its hypotheses in full; these are the ones a reader could miss.
+
+- `udivti3_correct` assumes the contract of `u128_div_rem`, the function `__udivti3` calls
+  (`hdiv`). That contract is not proved.
+- `crc32`, `sha256_compress` and `mix` read constant tables, and their theorems assume memory
+  holds them (`TableAt`). The tables are in the binaries' `.rodata`, but Lean does not check
+  them against the ELF; it checks the code (`check_elf_words`).
+- `apply`, in `Calls` and `CallsO0`, is proved for one function pointer: `inc`'s address,
+  `0x1000`.
+- `fact` at `-O0` and `fib` recurse, and need room on the stack for every frame:
+  `48 * (k + 1) ≤ sp` for `fact k`, `32 * (k + 1) ≤ sp` (and `k < 2^63`) for `fib k`.
+- `sum` at `-O2` and `sum_array` walk a pointer to `p + 8 * n`, and `sum_slice` counts the
+  slice's bytes; all three ask `n < 2^61`, so that the byte length does not wrap.
+- `sha256_round`'s eight `bv_decide` calls, one for each word of the result, run with the SAT
+  solver's timeout raised from 10 s to 60 s (`bv_decide (config := { timeout := 60 })`). The
+  slowest takes about 2.6 s on a laptop and over 10 s on a loaded CI runner; the comment in
+  the proof says why the goal is not split instead.
+
 ## Not verified
 
-Every function that is lifted and has no proof, by module. `_start` is each stress test's
-entry, an empty loop.
+Every function that is lifted, or in a binary, and has no `_correct` theorem:
 
-The ladder:
-
-- `RustBasic`: `rust_begin_unwind`, the panic handler: a jump to itself, which none of the
-  others calls.
-
-Nothing of the ladder was left out by the lift: every function of every source has its module.
-The sources use 32-bit arithmetic that clang compiles to `srliw`, `addiw`, `lw` and `sw`, which
-riscv-zkvm's machine has.
-
-Stress tests:
-
-- `Branches`: `add3`, `umax2`, `sum`, `_start`.
-- `BranchesO0` (image only): `add3`, `max2`, `umax2`, `clamp`, `sum`, `count_down`, `_start`.
-- `Widths`: `set_bytes`, `copy_bytes`, `str_len`, `store_widths`, `read_le32`, `swap`,
-  `_start`.
-- `Arith`: `popcount`, `_start`. Four more functions of `arith.c` use 32-bit operations
-  (`add32`, `shl32`, `sra32`, `div32`) and are not lifted at all (finding 2).
-- `Calls`: `fact`, `_start`.
-- `CallsO0` (image only): `inc`, `twice_inc`, `fact`, `apply`, `apply_inc`, `sum4`, `keep`,
-  `tail_inc`, `stop`, `checked_div`, `_start`.
-- `Rec`: `_start`.
-- `Switch` (image only): `classify`, `_start`.
-- `Big` (image only): `mix`, `_start`.
-
-Guest code:
-
-- `Sp1Runtime`: `_start` of `memcmp.elf`. Of `k_u128.elf`, the other 152 functions the lift
-  takes, whose modules are not kept (`build.sh` writes them and keeps five files). One of
-  them is `u128_div_rem`, which `__udivti3` calls: its contract is an assumption of
-  `udivti3_contract`. Three more functions contain `unimp` and are not lifted at all
-  (finding 14).
+- `_start` of each stress test (`Branches`, `BranchesO0`, `Widths`, `Arith`, `Calls`,
+  `CallsO0`, `Rec`, `Switch`, `Big`) and of `memcmp.elf`: an empty loop that never returns,
+  by design.
+- `stop` in `Calls` and `CallsO0`: it never returns, by design. Its contract, with the
+  postcondition `False`, is proved (`stop_contract`).
+- `rust_begin_unwind` in `RustBasic`: the panic handler, a jump to itself, which none of the
+  other functions calls.
+- `add32` (`addw` at `0x1044`), `shl32` (`sllw` at `0x104c`), `sra32` (`sraw` at `0x1054`) and
+  `div32` (`divw` at `0x10a4`) in `Arith`: not lifted, because riscv-zkvm's machine has no
+  32-bit word instructions (finding 2).
+- The SP1 guest's functions other than `memcmp`, `write_vectored` (with `sys_write` and
+  `syscall_write`) and `__udivti3`: of `k_u128.elf`, the other 152 functions the lift takes,
+  whose modules are not kept (`build.sh` writes them and keeps five files), and three more
+  that contain `unimp` and are not lifted at all (finding 14). One of them is `u128_div_rem`,
+  which `__udivti3` calls: its contract is an assumption of `udivti3_correct`.
 - `LeanVM`: loaded, nothing proved.
+
+Nothing else is left out: every other function of every source has its module and its
+`_correct`. The ladder's sources use 32-bit arithmetic that clang compiles to `srliw`, `addiw`,
+`lw` and `sw`, which riscv-zkvm's machine has.
 
 ## What was found
 
@@ -191,7 +223,7 @@ now covers them.
 | 10 | friction | `bv_omega` after `lsym` hangs or fails on facts it proves instantly in isolation: it takes every hypothesis, and `lsym` leaves many (each memory check, each `hret`). | Open. Workaround: state the arithmetic as separate lemmas (as `Rec/RiscV/Proofs.lean` does). |
 | 11 | upstream | Plain `simp` on `(t + 18446744073709551584#64).toNat` (the normal form of `t - 32`) produces a proof the kernel times out on; `bv_omega` proves the same fact at once. | Open, in Lean. Workaround: avoid `simp` on `toNat` of a sum with a large literal. |
 | 12 | friction | Hypotheses `lsym` added shadowed each other: four loads gave `hm✝²`, `hm✝¹`, `hm✝`, `hm`. | Fixed: the latest keeps the plain name and earlier ones are `hm_1`, `hm_2`, … oldest first (likewise `hc_…`, `hret_…`). Only names of that exact form are counted or renamed, so a proof's own `hm_spec` is left alone. `memcmp`'s `rename_i` became `hc_1` (`Tools/Test/Lsym.lean`). |
-| 13 | scale | 290 straight-line instructions (`mix`) take 45 s to step, with `maxHeartbeats` raised tenfold. | Open: planned fix is to use `SafeN.block` in `lsym`. |
+| 13 | scale | 290 straight-line instructions (`mix`) took 45 s to step in one go, with `maxHeartbeats` raised tenfold. | Worked around: `mix` is stepped in eight pieces of four rounds (`rounds_1_4` … `rounds_29_32`), each within the default limits. The planned fix is `SafeN.block` in `lsym`. |
 | 14 | gap | In rustc's output for SP1, the `--proved` lift skips every function containing `unimp` (`0xc0001073`, the illegal instruction compilers emit for a trap, e.g. Rust's `abort` or `unreachable!`): 142 of the 6,738 functions in 41 guests, including each guest's panic machinery, a `main` and several `sort`s. The error said "no instruction of RV64IM". | Message fixed: it names `unimp`. The gap remains: riscv-zkvm's decoder has no instruction for it. The lift could treat it as a trap, with `Equiv.lean` extended. |
 | 15 | friction | A hypothesis passed to `lsym` with the literal `0` does not close a side condition that `simp` has written as `0#128`: the two do not match as a rewrite. | Open. Workaround: write `0#128` in the contract (`Sp1Runtime/RiscV/Udivti3.lean`). |
 
@@ -326,11 +358,10 @@ Habits from these proofs:
   (`sha256_schedule`). State such facts as theorems and use them after `lsym`.
 - **Say what the compiler did.** `add_limbs`'s carry is `s < a` in the binary, where the
   source has `s < carry`; the lemma is about the binary's.
-
-`docs/design/Automation.md` describes `lsym`.
 - **A specification that is not about the machine goes in `Spec.lean`.** A function on words
   or lists (`umax`, `wsum`, `crc32Spec`) says what the source computes on any instruction set.
-  What reads a `MachineState` (`bytesAt`, `StrAt`) stays with the proofs or in `Kit.lean`.
+  What reads a `MachineState` (`bytesAt`, `StrAt`, `sumMem`) goes in `Kit.lean` when two
+  modules use it, and stays with the proofs otherwise. So does a lemma about the machine.
 
 `docs/design/Automation.md` describes `lsym`.
 

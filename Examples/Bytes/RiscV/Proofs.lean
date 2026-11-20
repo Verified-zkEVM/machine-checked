@@ -29,35 +29,7 @@ open Lprog.RiscV Lprog.RiscV.Machine Examples.Bytes.RiscV.Image
 /-- The functions' entries are aligned. -/
 theorem hok : ProgOk fns := by decide
 
-/-! ## Arithmetic the proofs use, apart from the stepped goals -/
-
-theorem add_one_add (p : Word) (i : Nat) :
-    p + 1#64 + BitVec.ofNat 64 i = p + BitVec.ofNat 64 (i + 1) := by
-  rw [BitVec.add_assoc, BitVec.add_comm 1#64, ofNat_succ]
-
-theorem ne_add_succ (p : Word) {i : Nat} (hi : i + 1 < 2 ^ 64) :
-    p ≠ p + BitVec.ofNat 64 (i + 1) := by bv_omega
-
-theorem end_next {k : Nat} (hk : k + 1 < 2 ^ 64) (h : 1#64 = BitVec.ofNat 64 (k + 1)) : k = 0 := by
-  bv_omega
-
-theorem zext_byte_eq_zero (b : BitVec 8) : BitVec.setWidth 64 b = 0#64 ↔ b = 0#8 := by
-  constructor <;> intro h <;> bv_decide
-
 /-! ## `str_len` -/
-
-/-- A string of length `n` at `s`: `n` bytes that are not zero, then a zero. -/
-def StrAt (m : MachineState) (s : Word) (n : Nat) : Prop :=
-  n < 2 ^ 64 ∧ (∀ i < n, m.getByte (s + BitVec.ofNat 64 i) ≠ 0) ∧
-    m.getByte (s + BitVec.ofNat 64 n) = 0
-
-/-- A string has one length. -/
-theorem StrAt.unique {m : MachineState} {s : Word} {n n' : Nat} (h : StrAt m s n)
-    (h' : StrAt m s n') : n' = n := by
-  rcases Nat.lt_trichotomy n' n with hlt | heq | hlt
-  · exact absurd h'.2.2 (h.2.1 n' hlt)
-  · exact heq
-  · exact absurd h.2.2 (h'.2.1 n hlt)
 
 /-- **The loop of `str_len`**, at its head with `j ≤ n` bytes counted. -/
 theorem str_len_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}

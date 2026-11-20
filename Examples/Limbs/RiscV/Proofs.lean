@@ -80,9 +80,6 @@ theorem add_ofNat8_inj (p : Word) {i j : Nat} (hi : 8 * i < 2 ^ 64) (hj : 8 * j 
     (h : p + BitVec.ofNat 64 (8 * i) = p + BitVec.ofNat 64 (8 * j)) : i = j := by
   bv_omega
 
-theorem shl3 (x : Word) : x <<< 3 = BitVec.ofNat 64 (8 * x.toNat) := by
-  bv_omega
-
 /-! ## The loop -/
 
 /-- **One iteration and the invariant.** With `j` limbs added, the carry `c` and the invariant

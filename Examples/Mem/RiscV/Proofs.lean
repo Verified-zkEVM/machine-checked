@@ -28,48 +28,12 @@ theorem hok : ProgOk fns := by decide
 
 /-! ## Bytes -/
 
-/-- Two byte lists of memory are equal when they agree byte by byte. -/
-theorem bytesAt_eq_iff (m m' : MachineState) (a b : Word) (n : Nat) :
-    bytesAt m a n = bytesAt m' b n ↔
-      ∀ i < n, m.getByte (a + BitVec.ofNat 64 i) = m'.getByte (b + BitVec.ofNat 64 i) := by
-  simp [bytesAt, List.map_inj_left]
-
 /-- Whether a store hits code depends on the code alone. -/
 theorem noCodeAt_of_code {m m0 : MachineState} (h : m.code = m0.code) (a : Word) (w : Nat) :
     noCodeAt m a w = noCodeAt m0 a w := by
   simp [noCodeAt, h]
 
-theorem zeroExtend_byte_inj (x y : BitVec 8) (h : BitVec.zeroExtend 64 x = BitVec.zeroExtend 64 y) :
-    x = y := by
-  bv_decide
-
-/-- A machine state reads the bytes of a memory it agrees with. -/
-theorem getByte_of_agree {r' : Reg → BitVec 64} {m' t : MachineState} (h : Agree (ofParts r' m') t)
-    (x : Word) : t.getByte x = m'.getByte x := by
-  simp only [MachineState.getByte, ← h.mem, getMem_ofParts]
-
-theorem add_ofNat_inj (a : Word) {i j : Nat} (hi : i < 2 ^ 64) (hj : j < 2 ^ 64)
-    (h : a + BitVec.ofNat 64 i = a + BitVec.ofNat 64 j) : i = j := by
-  bv_omega
-
-theorem ofNat_inj {i j : Nat} (hi : i < 2 ^ 64) (hj : j < 2 ^ 64)
-    (h : BitVec.ofNat 64 i = BitVec.ofNat 64 j) : i = j := by
-  bv_omega
-
-theorem ofNat_eq_zero {x : Nat} (hx : x < 2 ^ 64) (h : BitVec.ofNat 64 x = 0#64) : x = 0 := by
-  bv_omega
-
-theorem ofNat_add_neg_one {x : Nat} (h : 0 < x) :
-    BitVec.ofNat 64 x + 18446744073709551615#64 = BitVec.ofNat 64 (x - 1) := by
-  bv_omega
-
 /-! ## `copy_bytes` -/
-
-/-- What `copy_bytes(dst, src, n)` leaves in the memory `m'`, from the memory `m`. -/
-def Copied (m : MachineState) (dst src : Word) (n : Nat) (m' : MachineState) : Prop :=
-  bytesAt m' dst n = bytesAt m src n ∧
-  (∀ x, (∀ i < n, x ≠ dst + BitVec.ofNat 64 i) → m'.getByte x = m.getByte x) ∧
-  m'.code = m.code
 
 /-- **The copy loop**, at its head with `j < n` bytes copied, on the register file. -/
 theorem copy_loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}

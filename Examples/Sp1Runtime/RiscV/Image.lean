@@ -16,9 +16,27 @@
   * `F155`: `__udivti3`, at 0x7800ed88 (`Udivti3.lean`)
 
   `memcmp` is from an ELF of its own (`MemcmpImage.lean`).
+
+  `hok`, that the functions' entries are aligned, is here, once, for `WriteVectored.lean` and
+  `Udivti3.lean`.
 -/
 
 import Examples.Sp1Runtime.RiscV.Image.F11
 import Examples.Sp1Runtime.RiscV.Image.F24
 import Examples.Sp1Runtime.RiscV.Image.F104
 import Examples.Sp1Runtime.RiscV.Image.F155
+import MachineChecked.RiscV.Lift.Transfer
+
+namespace Examples.Sp1Runtime.RiscV.Image
+
+open MachineChecked.RiscV.Lift
+
+/-- The functions' entries are aligned. -/
+theorem hok : ProgOk fns := by
+  have h : ∀ w ∈ words, w.2.1 % 4 = 0 := by decide +kernel
+  intro f hf
+  obtain ⟨⟨name, base, ws⟩, hw, rfl⟩ := List.mem_map.mp hf
+  have hb : base % 4 = 0 := h _ hw
+  simp only [BitVec.toNat_ofNat]; omega
+
+end Examples.Sp1Runtime.RiscV.Image
