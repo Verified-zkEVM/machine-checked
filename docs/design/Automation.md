@@ -198,13 +198,12 @@ this.
 
 **`--to lean`** (item 6, first step). Each instruction's lift depends only on it, its
 predecessor, its index and the function at the address it calls (`liftFrom`, `liftFn_congr`),
-not on decoding the function again. And
-`--proved` checks a function's parts by `kernel_eq` (`Eq.refl`, evaluated by the kernel)
-instead of `decide +kernel`: on zip-2005's three largest functions the check is about 2.5 times
-faster and the module 30 to 35% faster (16 s to 11 s for the largest); elaborating the term is
-now about two thirds of the time. The whole-program route keeps `decide`, since there the
-kernel's unfolding of `program.lift` to compare it with a term is slower than evaluating the
-decision.
+not on decoding the function again. And `--proved` checks a function's parts by `kernel_eq`
+(`Eq.refl`, evaluated by the kernel) instead of `decide +kernel`: on zip-2005's three largest
+functions the check is about 2.5 times faster and the module 30 to 35% faster (16 s to 11 s for
+the largest); elaborating the term is now about two thirds of the time. The whole-program route
+keeps `decide`, since there the kernel's unfolding of `program.lift` to compare it with a term
+is slower than evaluating the decision.
 
 ## Known limitations and open problems
 
