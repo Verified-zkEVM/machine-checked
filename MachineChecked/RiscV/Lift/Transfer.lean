@@ -285,16 +285,19 @@ theorem fetch (h : At fs exit fr rest regs m t f k) : t.code t.pc = some (f.prog
   fetch_at (h.sim.code f (List.mem_of_getElem? h.hf)) h.hk h.tpc
 
 theorem body (h : At fs exit fr rest regs m t f k) :
-    ((liftProg fs)[fr.fn]?.map (·.body)) = some (bodyOf fs f) ∧
-      (bodyOf fs f)[fr.pc]? = some (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) := by
+    ((liftProg fs)[fr.fn]?.map (·.body)) = some (bodyOf (entryOf fs) (List.range fs.length) f) ∧
+      (bodyOf (entryOf fs) (List.range fs.length) f)[fr.pc]? =
+        some (liftI (entryOf fs) (List.range fs.length) f.prog.length k
+          (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) := by
   refine ⟨by simp [getElem?_liftProg h.hf, liftFn], ?_⟩
-  rw [h.hpc]; exact body_odd fs f h.hk
+  rw [h.hpc]; exact body_odd _ _ f h.hk
 
 /-- The step of the lifted instruction. -/
 theorem step_iff (h : At fs exit fr rest regs m t f k) (o : Outcome (State rvIsa × List Unit)) :
     rvIsa.step (liftProg fs) sp1Ctx ⟨fr :: rest, regs, m⟩ o ↔
-      rvIsa.stepI (liftProg fs) sp1Ctx (bodyOf fs f) fr rest regs m
-        (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) o :=
+      rvIsa.stepI (liftProg fs) sp1Ctx (bodyOf (entryOf fs) (List.range fs.length) f) fr rest
+        regs m (liftI (entryOf fs) (List.range fs.length) f.prog.length k
+          (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) o :=
   Lprog.SafeN.step_eq (getElem?_liftProg h.hf) h.body.2 o
 
 /-- Machine states after a step that keeps the code still hold the program. -/
@@ -353,7 +356,8 @@ variable {fs : List Fn} {exit : Word} {fr : Frame} {rest : List Frame}
 abbrev StepIs (fs : List Fn) (fr : Frame) (rest : List Frame) (regs : Reg → BitVec 64) (m : MachineState)
     (f : Fn) (L : LinstrR (Op Reg) Reg) : Prop :=
   ∀ o, rvIsa.step (liftProg fs) sp1Ctx ⟨fr :: rest, regs, m⟩ o ↔
-    rvIsa.stepI (liftProg fs) sp1Ctx (bodyOf fs f) fr rest regs m L o
+    rvIsa.stepI (liftProg fs) sp1Ctx (bodyOf (entryOf fs) (List.range fs.length) f) fr rest regs
+      m L o
 
 theorem back_abort (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong) (hstep : StepIs fs fr rest regs m f .Labort) :
     False :=
@@ -416,14 +420,14 @@ theorem back_branch (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong) (h
         (hstep _).2 (by simp [Isa.stepI, hcond])⟩
     · exact ⟨_, .inl (h.jump (hag.trans (agree_setPC t _)) (by simp) hlt
         (by simp only [pc_setPC]; rw [h.tpc, haddr])),
-        (hstep _).2 (by simp [Isa.stepI, hcond, labelIdx_body fs f hlt])⟩
+        (hstep _).2 (by simp [Isa.stepI, hcond, labelIdx_body _ _ f hlt])⟩
   · exact (back_abort hL hstep).elim
 
 theorem back_jal (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong)
     (h : At fs exit fr rest regs m t f k) {rd : Reg} {off : BitVec 21}
     (hfetch : t.code t.pc = some (.JAL rd off))
     (hstep : StepIs fs fr rest regs m f
-      (liftJal fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) rd off)) :
+      (liftJal (entryOf fs) f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) rd off)) :
     ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   rw [stepSp1_ctl hfetch rfl (by simp) (by simp)] at ht'
@@ -439,7 +443,7 @@ theorem back_jal (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, 
       obtain ⟨haddr, hlt⟩ := jump_addr (base := f.base) hj
       exact ⟨_, .inl (h.jump hag' (by simp [execInstrBr]) hlt
         (by simp only [execInstrBr, pc_setPC]; rw [h.tpc, haddr])),
-        (hstep _).2 (by simp [Isa.stepI, labelIdx_body fs f hlt])⟩
+        (hstep _).2 (by simp [Isa.stepI, labelIdx_body _ _ f hlt])⟩
     · split at hstep
       · next g hg =>
         obtain ⟨fn, hfn, hbase⟩ := entryOf_spec hg
@@ -472,7 +476,8 @@ theorem back_jal (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, 
 theorem back_jalr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs, m⟩ .wrong)
     (h : At fs exit fr rest regs m t f k) {rd rs : Reg} {off : BitVec 12}
     (hfetch : t.code t.pc = some (.JALR rd rs off))
-    (hstep : StepIs fs fr rest regs m f (liftJalr fs (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) rd rs off)) :
+    (hstep : StepIs fs fr rest regs m f (liftJalr (entryOf fs) (List.range fs.length)
+      (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) rd rs off)) :
     ∀ t', stepSp1 t = some t' → Next fs exit ⟨fr :: rest, regs, m⟩ t' := by
   intro t' ht'
   rw [stepSp1_ctl hfetch rfl (by simp) (by simp)] at ht'
@@ -504,7 +509,9 @@ theorem back_jalr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs,
             by rw [hpc, h.sim.chain.2.1 (by simp)]; exact hchain, by simp⟩, hs1⟩
       · exact (hL ((hstep _).2 (by simp [Isa.stepI, hra]))).elim
     · by_cases hsp : regs .x2 = fr.top
-      · cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (jalrCands fs (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) rs off)) with
+      · cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off)
+          (jalrCands (entryOf fs) (List.range fs.length) (f.base + BitVec.ofNat 64 (4 * k))
+            (prevAt none f.prog k) rs off)) with
         | none => exact (hL ((hstep _).2 (by simp only [Isa.stepI, hsp, hc]; simp))).elim
         | some g =>
           obtain ⟨fn, hfn, hbase⟩ := callee_indirect hc
@@ -516,7 +523,9 @@ theorem back_jalr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs,
     by_cases h1 : rd = .x1
     · subst h1
       rw [ite_eq_left rfl] at hstep
-      cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off) (jalrCands fs (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) rs off)) with
+      cases hc : rvIsa.callee (liftProg fs) regs (.indirect (jalrTgt rs off)
+        (jalrCands (entryOf fs) (List.range fs.length) (f.base + BitVec.ofNat 64 (4 * k))
+          (prevAt none f.prog k) rs off)) with
       | none => exact (hL ((hstep _).2 (by simp only [Isa.stepI, hc]))).elim
       | some g =>
         obtain ⟨fn, hfn, hbase⟩ := callee_indirect hc
@@ -543,7 +552,8 @@ theorem back_ecall (h : At fs exit fr rest regs m t f k)
     (hstep _).2 ⟨rfl, t, h.sim.agree, hfetch, by simp [ht']⟩⟩
 
 theorem accept_ecall (h : At fs exit fr rest regs m t f k)
-    (hbody : (bodyOf fs f)[fr.pc]? = some (.Lext 0)) (ha : Accepted t) :
+    (hbody : (bodyOf (entryOf fs) (List.range fs.length) f)[fr.pc]? = some (.Lext 0))
+    (ha : Accepted t) :
     (lsys fs).accept ⟨fr :: rest, regs, m⟩ := by
   have hag := h.sim.agree
   refine Or.inr ⟨0, Lprog.SafeN.fetch_eq (getElem?_liftProg h.hf) hbody, ?_, ?_⟩
@@ -558,7 +568,8 @@ theorem back_instr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs
       (Accepted t → (lsys fs).accept ⟨fr :: rest, regs, m⟩) := by
   have hfetch := h.fetch
   have hstep : StepIs fs fr rest regs m f
-      (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) := h.step_iff
+      (liftI (entryOf fs) (List.range fs.length) f.prog.length k
+        (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) := h.step_iff
   have hbody := h.body.2
   generalize f.prog[k]'h.hk = i at hfetch hstep hbody
   by_cases hop : opnOk i = true
@@ -604,7 +615,8 @@ theorem trap_instr (h : At fs exit fr rest regs m t f k) (hnone : stepSp1 t = no
       (¬ (lsys fs).accept ⟨fr :: rest, regs, m⟩ ∧ (lsys fs).step ⟨fr :: rest, regs, m⟩ .trap) := by
   have hfetch := h.fetch
   have hstep : StepIs fs fr rest regs m f
-      (liftI fs f.prog.length k (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) := h.step_iff
+      (liftI (entryOf fs) (List.range fs.length) f.prog.length k
+        (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) := h.step_iff
   have hbody := h.body.2
   have hf := getElem?_liftProg h.hf
   have hag := h.sim.agree
@@ -673,8 +685,9 @@ theorem Sim.split (hs : Sim fs exit ⟨fr :: rest, regs, m⟩ t) :
   obtain ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩ := hchain
   obtain ⟨k, hk | hk⟩ : ∃ k, fr.pc = 2 * k ∨ fr.pc = 2 * k + 1 := ⟨fr.pc / 2, by omega⟩
   · by_cases hkl : k < f.prog.length
-    · have hi : (liftFn fs f).body[fr.pc]? = some (.Llabel .internal k) := by
-        rw [hk]; exact body_even fs f hkl
+    · have hi : (liftFn (entryOf fs) (List.range fs.length) f).body[fr.pc]? =
+          some (.Llabel .internal k) := by
+        rw [hk]; exact body_even _ _ f hkl
       have hst := Lprog.SafeN.step_eq (c := sp1Ctx) (rest := rest) (regs := regs)
         (m := m) (getElem?_liftProg hf) hi
       exact .inr (.inl ⟨f, k,
@@ -684,7 +697,8 @@ theorem Sim.split (hs : Sim fs exit ⟨fr :: rest, regs, m⟩ t) :
         hst⟩)
     · refine .inr (.inr ?_)
       simp only [Isa.step, getElem?_liftProg hf]
-      rw [show (liftFn fs f).body = bodyOf fs f from rfl, body_end fs f (by omega)]
+      rw [show (liftFn (entryOf fs) (List.range fs.length) f).body =
+        bodyOf (entryOf fs) (List.range fs.length) f from rfl, body_end _ _ f (by omega)]
       trivial
   · exact .inl ⟨f, k, ⟨hag, hcode, ⟨⟨f, hf, hle, htpc⟩, hfr, hrest⟩, hne⟩, hf, by omega, hk,
       by rw [htpc, hk]; congr 2; omega⟩

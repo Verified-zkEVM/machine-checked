@@ -197,7 +197,8 @@ a million). Time grows with the square of the length; `SafeN.block` (item 2) is 
 this.
 
 **`--to lean`** (item 6, first step). Each instruction's lift depends only on it, its
-predecessor, its index and `entryOf` (`liftFrom`), not on decoding the function again. And
+predecessor, its index and the function at the address it calls (`liftFrom`, `liftFn_congr`),
+not on decoding the function again. And
 `--proved` checks a function's parts by `kernel_eq` (`Eq.refl`, evaluated by the kernel)
 instead of `decide +kernel`: on zip-2005's three largest functions the check is about 2.5 times
 faster and the module 30 to 35% faster (16 s to 11 s for the largest); elaborating the term is

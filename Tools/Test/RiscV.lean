@@ -647,12 +647,43 @@ def fnsC : List Fn :=
    { name := "g", base := 0x2000, prog := [.JALR .x0 .x1 0] }]
 
 -- `auipc ra` then `jalr ra`: the one function at the address
-#guard jalrCands fnsC 0x1004 (some (.AUIPC .x1 1)) .x1 0 == [1]
+#guard jalrCands (entryOf fnsC) (List.range 2) 0x1004 (some (.AUIPC .x1 1)) .x1 0 == [1]
 -- the offset of `jalr` counts: 0x2000 + 4 is no function's entry, so every function
-#guard jalrCands fnsC 0x1004 (some (.AUIPC .x1 1)) .x1 4 == [0, 1]
+#guard jalrCands (entryOf fnsC) (List.range 2) 0x1004 (some (.AUIPC .x1 1)) .x1 4 == [0, 1]
 -- a register `auipc` did not set: every function
-#guard jalrCands fnsC 0x1008 (some (.JALR .x1 .x1 0)) .x5 0 == [0, 1]
+#guard jalrCands (entryOf fnsC) (List.range 2) 0x1008 (some (.JALR .x1 .x1 0)) .x5 0 == [0, 1]
 -- nothing before it (the first instruction of a function): every function
-#guard jalrCands fnsC 0x2000 none .x1 0 == [0, 1]
+#guard jalrCands (entryOf fnsC) (List.range 2) 0x2000 none .x1 0 == [0, 1]
+
+/-! ## The lift of a function from its own code (`Fn.targets`, `getElem?_liftProg_of_targets`)
+
+  `f` above asks for the function at 0x2000 alone: its last `jalr` follows no `auipc`. `h` at
+  0x3000 calls `g` by `jal ra`, jumps inside itself, returns, and tail-calls `f` by `jal x0`. -/
+
+/-- `jal ra, g; jal x0, +8; ret; jal x0, f`. -/
+def hJ : Fn :=
+  { name := "h", base := 0x3000,
+    prog := [.JAL .x1 (-0x1000), .JAL .x0 8, .JALR .x0 .x1 0, .JAL .x0 (-0x200c)] }
+
+def fnsJ : List Fn := fnsC ++ [hJ]
+
+-- the paired `jalr` asks; the bare one does not
+#guard (fnsC[0]?.map Fn.targets) == some [0x2000]
+-- the call and the tail call ask; the jump inside the function and the return do not
+#guard hJ.targets == [0x2000, 0x1000]
+
+/-- A table of `h`'s two callees, in place of the program. -/
+def tblJ (a : BitVec 64) : Option Nat :=
+  if a == 0x2000 then some 1 else if a == 0x1000 then some 0 else none
+
+/-- `h` in the program is `h` lifted with its own table. The agreement is checked as a `Bool`:
+    as a `Prop`, `decide` goes through `DecidableEq` on addresses, which the kernel is slow on. -/
+example : (liftProg fnsJ)[2]? = some (liftFn tblJ (List.range 3) hJ) :=
+  getElem?_liftProg_of_targets rfl fun a ha => beq_iff_eq.mp <| List.all_eq_true.mp
+    (by decide +kernel : (hJ.targets.all fun a => entryOf fnsJ a == tblJ a) = true) a ha
+
+-- the table is needed: with no callee, the call is `Labort`, not a call of `g`
+#guard (liftFn (fun _ => none) (List.range 3) hJ).body[1]? matches some LinstrR.Labort
+#guard ((liftProg fnsJ)[2]?.bind (·.body[1]?)) matches some (LinstrR.Lcall _ (.direct 1))
 
 end Tools.Test.RiscV

@@ -20,7 +20,7 @@ def F : Fn :=
 
 def fs : List Fn := [F]
 
-theorem hf : (liftProg fs)[0]? = some (liftFn fs F) := rfl
+theorem hf : (liftProg fs)[0]? = some (liftFn (entryOf fs) (List.range fs.length) F) := rfl
 
 /-- `f` returns with `a0` 7 if `a1` was 0, and 8 otherwise. -/
 theorem f_spec {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
@@ -43,8 +43,8 @@ def F' : Fn :=
 
 def fs' : List Fn := [F', G']
 
-theorem hf0 : (liftProg fs')[0]? = some (liftFn fs' F') := rfl
-theorem hf1 : (liftProg fs')[1]? = some (liftFn fs' G') := rfl
+theorem hf0 : (liftProg fs')[0]? = some (liftFn (entryOf fs') (List.range fs'.length) F') := rfl
+theorem hf1 : (liftProg fs')[1]? = some (liftFn (entryOf fs') (List.range fs'.length) G') := rfl
 
 /-- `g`'s contract: `a0` is 5, and every other register is kept. -/
 theorem g_spec {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
@@ -96,7 +96,7 @@ def L : Fn := ⟨"l", 0x1000, [.LD .x10 .x11 0, .JALR .x0 .x1 0], 0⟩
 
 def ls : List Fn := [L]
 
-theorem hl : (liftProg ls)[0]? = some (liftFn ls L) := rfl
+theorem hl : (liftProg ls)[0]? = some (liftFn (entryOf ls) (List.range ls.length) L) := rfl
 
 theorem l_safe {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
     {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
@@ -115,7 +115,7 @@ def W : Fn := ⟨"w", 0x1000, [.ADDI .x10 .x10 1, .JAL .x0 0x1ffffc], 0⟩
 
 def ws : List Fn := [W]
 
-theorem hw : (liftProg ws)[0]? = some (liftFn ws W) := rfl
+theorem hw : (liftProg ws)[0]? = some (liftFn (entryOf ws) (List.range ws.length) W) := rfl
 
 theorem w_head {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
     {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
@@ -154,7 +154,7 @@ def L2 : Fn := ⟨"l2", 0x1000, [.LD .x10 .x11 0, .LD .x12 .x11 8, .JALR .x0 .x1
 
 def l2s : List Fn := [L2]
 
-theorem hl2 : (liftProg l2s)[0]? = some (liftFn l2s L2) := rfl
+theorem hl2 : (liftProg l2s)[0]? = some (liftFn (entryOf l2s) (List.range l2s.length) L2) := rfl
 
 theorem l2_safe {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {ret top : Word}
     {rest : List Frame} (regs : Reg → BitVec 64) (m : MachineState)
