@@ -17,13 +17,16 @@
   * `NS.lean`, which imports them all, and names in a comment each symbol of code that is not
     a function of `fns` (`functions`), with the reason.
 
+  The written modules import `Tools.KernelEq` and `Tools.ElfWords`, not this module, which
+  imports all of `Lean` and the other routes.
+
   The theorem of a function is checked in parts: the kernel checks that the lift's name,
   address and stack bound (`f<i>_head`) and its body in parts of `chunk` instructions
   (`f<i>_parts`, by `chunks`) are the term's, by `kernel_eq` (`Eq.refl`, checked by evaluation
   in the kernel alone: faster than deciding the equation, which compares every field through
-  `DecidableEq`), and `getElem?_eq_of_chunks` gives the whole. A whole
-  body at once would go deeper than the kernel allows by default on a function of thousands of
-  instructions; in parts, nothing needs a limit raised.
+  `DecidableEq`), and `getElem?_eq_of_chunks` gives the whole (all three in `Tools.KernelEq`).
+  A whole body at once would go deeper than the kernel allows by default on a function of
+  thousands of instructions; in parts, nothing needs a limit raised.
 
   The terms are data for the kernel, not code to run: the modules are `noncomputable`, since
   the code generator does not take terms this large. Long lists are written as `List.flatten`
@@ -32,11 +35,7 @@
 
   ## Main definitions
 
-  * `functions`, `wordsOf`: the functions the `--proved` lift takes (those whose words each
-    decode, or are `unimp`, which it lifts as a trap), and their words
-  * `chunks`, `flatten_chunks`, `getElem?_eq_of_chunks`
-  * `check_elf_words`, `check_elf_input`: the checks of a written module against the ELF
-  * `kernel_eq`: an equation proved by `Eq.refl`, for the kernel to check
+  * `check_elf_input`: the check of a written module of the other routes against the ELF
   * `commentSafe`, `validNs`: what may go into a written module as text
   * `emit` (`--proved`), `emitRoute` (the other routes)
 -/
@@ -45,6 +44,8 @@ import Lean
 import RiscvZkvm.Interpreter
 import MachineChecked.RiscV.Lift.Lift
 import Tools.Elf
+import Tools.ElfWords
+import Tools.KernelEq
 import Tools.Program
 
 namespace Tools.ToLean
@@ -52,175 +53,6 @@ namespace Tools.ToLean
 open Lean Elab Command Meta
 open RiscvZkvm.Rv64 RiscvZkvm.Interpreter
 open _root_.Lprog MachineChecked.RiscV.Lift Tools.Elf
-
-/-! ## The functions of an ELF -/
-
-/-- `unimp` (`csrrw zero, cycle, zero`): the illegal instruction a compiler writes for a trap
-    (Rust's `abort`, `unreachable!`). riscv-zkvm's decoder has no instruction for it, and the
-    machine has no step there, as an illegal instruction does on hardware: the lift takes it as
-    a trap. -/
-def unimp : BitVec 32 := 0xc0001073#32
-
-/-- A word the `--proved` lift takes: an instruction, or `unimp`. -/
-def taken (w : BitVec 32) : Bool := (decode w).isSome || w == unimp
-
-/-- Why a function's words are not taken, said of the first that is not: one of the 32-bit
-    operations of RV64IM that riscv-zkvm's machine lacks (`Lift/Decode.lean`), which has no
-    step there while hardware runs it, so that a trap there would be a false reading; or a word
-    that is no instruction of RV64IM at all. -/
-def undecoded (base : Nat) (ws : List (BitVec 32)) : String :=
-  match (ws.zipIdx).find? (fun (w, _) => !taken w) with
-  | none => "a word does not decode"
-  | some (w, k) =>
-    let addr := s!"0x{String.ofList (Nat.toDigits 16 (base + 4 * k))}"
-    match wordOps w with
-    | some (name, _) => s!"`{name}` at {addr}, a 32-bit operation riscv-zkvm's machine does not \
-        run: the `--proved` lift does not take it (`--to lprog` without `--proved` does)"
-    | none =>
-      s!"the word 0x{String.ofList (Nat.toDigits 16 w.toNat)} at {addr} is no instruction of \
-        RV64IM"
-
-/-- The functions of an image the `--proved` lift takes, from its symbols of code
-    (`symbols`), and the names of the symbols whose code it leaves out (`Symbols.lost` and the
-    functions it does not take), each with the reason. -/
-def functions (img : Elf64Image) (syms : Symbols) : Array Fn × Array String :=
-    Id.run do
-  let mut fs : Array Fn := #[]
-  let mut skipped : Array String := syms.lost.toArray
-  for sym in syms.fns do
-    if sym.addr % 4 != 0 || sym.size % 4 != 0 then
-      skipped := skipped.push s!"{sym.name}: not word-aligned"
-    else if !img.segments.any (fun s => s.executable && s.vaddr ≤ sym.addr &&
-        sym.addr + sym.size ≤ s.vaddr + s.data.size) then
-      skipped := skipped.push s!"{sym.name}: not in an executable segment"
-    else match wordsAt img sym.addr (sym.size / 4) with
-      | .error e => skipped := skipped.push s!"{sym.name}: {e}"
-      | .ok ws =>
-        if ws.all taken then
-          fs := fs.push
-            { name := sym.name, base := BitVec.ofNat 64 sym.addr, prog := ws.map decode }
-        else skipped := skipped.push s!"{sym.name}: {undecoded sym.addr ws}"
-  return (fs, skipped)
-
-/-- The words of each function the `--proved` lift takes: its name, its address and its
-    words, in the order `functions` gives. -/
-def wordsOf (bytes : ByteArray) : Except String (List (String × Nat × List Nat)) := do
-  let img ← parseElf64 bytes
-  let (fs, _) := functions img (← symbols bytes)
-  fs.toList.mapM fun f => do
-    let ws ← wordsAt img f.base.toNat f.prog.length
-    pure (f.name, f.base.toNat, ws.map (·.toNat))
-
-/-! ## A function's theorem in parts -/
-
-section
-variable {α : Type}
-
-/-- `l` in parts of `k`, at most `n` of them. -/
-def chunksAux (k : Nat) : Nat → List α → List (List α)
-  | 0, _ => []
-  | n + 1, l => if l.isEmpty then [] else l.take k :: chunksAux k n (l.drop k)
-
-/-- `l` in parts of `k`, the last perhaps shorter. -/
-def chunks (k : Nat) (l : List α) : List (List α) := chunksAux k l.length l
-
-theorem flatten_chunksAux {k : Nat} (hk : 0 < k) :
-    ∀ (n : Nat) (l : List α), l.length ≤ n → (chunksAux k n l).flatten = l
-  | 0, l, h => by
-    rw [List.length_eq_zero_iff.mp (Nat.le_zero.mp h)]; rfl
-  | n + 1, l, h => by
-    unfold chunksAux
-    split
-    · next he => simp [List.isEmpty_iff.mp he]
-    · rw [List.flatten_cons, flatten_chunksAux hk n (l.drop k) (by simp; omega)]
-      exact List.take_append_drop k l
-
-theorem flatten_chunks {k : Nat} (hk : 0 < k) (l : List α) : (chunks k l).flatten = l :=
-  flatten_chunksAux hk _ l (Nat.le_refl _)
-
-end
-
-/-- The parts of `chunk` instructions a function's theorem is checked in. -/
-def chunk : Nat := 128
-
-/-- **A function of a program, from its parts.** If the `i`th function of `p` has `f`'s name,
-    address and stack bound, and its body in parts of `chunk` is `cs`, whose concatenation is
-    `f`'s body, then it is `f`. The two facts are checked apart: the instances that decide
-    them are found apart, and not together. -/
-theorem getElem?_eq_of_chunks {Op Reg : Type} {p : Lprog Op Reg} {i : Nat} {f : Lfundef Op Reg}
-    {cs : List (Lcmd Op Reg)}
-    (hh : (p[i]?).map (fun g => (g.name, g.addr, g.depth)) = some (f.name, f.addr, f.depth))
-    (hc : (p[i]?).map (fun g => chunks chunk g.body) = some cs)
-    (hf : f.body = cs.flatten) : p[i]? = some f := by
-  cases hp : p[i]? with
-  | none => simp [hp] at hh
-  | some g =>
-    simp only [hp, Option.map_some, Option.some.injEq, Prod.mk.injEq] at hh hc
-    obtain ⟨hn, ha, hd⟩ := hh
-    have hb : g.body = f.body := by
-      rw [hf, ← hc, flatten_chunks (by decide)]
-    cases g; cases f
-    simp_all
-
-/-! ## The check against the ELF -/
-
-/-- `xs` in groups of 128. -/
-def groups {β : Type} (xs : List β) : List (List β) :=
-  (List.range ((xs.length + 127) / 128)).map fun k => (xs.drop (128 * k)).take 128
-
-/-- A list of naturals as the emitter writes it: a literal of at most 128, or `List.flatten`
-    of such literals (of literals). The check builds the same term, so that the kernel compares
-    the words with the ELF's by unfolding constants, not by evaluating. -/
-def natListExpr (xs : List Nat) : Expr :=
-  let lit (ys : List Nat) : Expr := toExpr ys
-  let ty := mkConst ``Nat
-  let flat (e : Expr) : Expr := mkApp2 (mkConst ``List.flatten [0]) ty e
-  let listOf (es : List Expr) (t : Expr) : Expr :=
-    es.foldr (fun e acc => mkApp3 (mkConst ``List.cons [0]) t e acc) (mkApp (mkConst ``List.nil [0]) t)
-  if xs.length ≤ 128 then lit xs
-  else
-    let parts := (groups xs).map lit
-    let lty := mkApp (mkConst ``List [0]) ty
-    if parts.length ≤ 128 then flat (listOf parts lty)
-    else
-      let llty := mkApp (mkConst ``List [0]) lty
-      flat (mkApp2 (mkConst ``List.flatten [0]) lty (listOf ((groups parts).map (listOf · lty)) llty))
-
-/-- The words of an ELF as the term the emitter writes for `words`. -/
-def wordsExpr (ws : List (String × Nat × List Nat)) : Expr :=
-  let natList := mkApp (mkConst ``List [0]) (mkConst ``Nat)
-  let inner := mkApp2 (mkConst ``Prod [0, 0]) (mkConst ``Nat) natList
-  let outer := mkApp2 (mkConst ``Prod [0, 0]) (mkConst ``String) inner
-  ws.foldr (fun (n, b, xs) acc =>
-      mkApp3 (mkConst ``List.cons [0]) outer
-        (mkApp4 (mkConst ``Prod.mk [0, 0]) (mkConst ``String) inner (toExpr n)
-          (mkApp4 (mkConst ``Prod.mk [0, 0]) (mkConst ``Nat) natList (toExpr b) (natListExpr xs)))
-        acc)
-    (mkApp (mkConst ``List.nil [0]) outer)
-
-/-- `check_elf_words words "PATH"` reads the ELF at `PATH` (from where the module is built)
-    and adds `words_eq_elf : words = …`, with the words of each function the `--proved` lift
-    takes, for the kernel to check. It fails if the ELF cannot be read or its words are not
-    `words`. -/
-syntax (name := checkElfWords) "check_elf_words " ident str : command
-
-@[command_elab checkElfWords]
-def elabCheckElfWords : CommandElab := fun stx => do
-  let some path := stx[2].isStrLit? | throwUnsupportedSyntax
-  let declName ← liftCoreM <| realizeGlobalConstNoOverloadWithInfo stx[1]
-  let bytes ← match ← (IO.FS.readBinFile path).toBaseIO with
-    | .ok b => pure b
-    | .error e => throwError "check_elf_words: cannot read {path}: {e}"
-  let ws ← match wordsOf bytes with
-    | .ok ws => pure ws
-    | .error e => throwError "check_elf_words: {path}: {e}"
-  let ty := mkApp (mkConst ``List [0]) (mkApp2 (mkConst ``Prod [0, 0]) (mkConst ``String)
-    (mkApp2 (mkConst ``Prod [0, 0]) (mkConst ``Nat) (mkApp (mkConst ``List [0]) (mkConst ``Nat))))
-  let thm := (declName.getPrefix).str (declName.getString! ++ "_eq_elf")
-  liftCoreM <| addDecl <| .thmDecl {
-    name := thm, levelParams := []
-    type := mkApp3 (mkConst ``Eq [1]) ty (mkConst declName) (wordsExpr ws)
-    value := mkApp2 (mkConst ``Eq.refl [1]) ty (mkConst declName) }
 
 /-! ## The emitter -/
 
@@ -294,9 +126,10 @@ def header (ns what : String) (imports : List String) : String :=
 
 def footer (ns : String) : String := s!"\nend\n\nend {ns}\n"
 
-/-- The words module. -/
+/-- The words module. It imports `Tools.KernelEq` and `Tools.ElfWords`, not `Tools.ToLean`,
+    and so neither do the `F<i>`. -/
 def wordsModule (ns elfPath : String) (ws : List (String × Nat × List Nat)) : String := Id.run do
-  let mut s := header ns "Words" ["Tools.ToLean"]
+  let mut s := header ns "Words" ["Tools.KernelEq", "Tools.ElfWords"]
   for h : k in [0 : ws.length] do
     let (_, _, xs) := ws[k]
     s := s ++ s!"def w{k} : List Nat :=\n    {chunked (xs.map toString)}\n"
@@ -398,34 +231,6 @@ RISC-V, AArch64 or x86-64, and `--to lean --pancake` the Pancake program `--to p
   terms of Flapjack's syntax, and `pancake_eq : program.toPancake = .ok (decls, notes)`, by
   `kernel_eq`: one theorem for the whole program, since lift 2 is of the whole program.
 -/
-
-/-- `kernel_eq name : a = b` adds the theorem `name : a = b`, proved by `Eq.refl a` for the
-    kernel to check: definitional equality, decided by evaluation where it must be, with no
-    instance of `Decidable` (Flapjack's syntax has none) and no check by the elaborator first,
-    which would be slower than the kernel's. -/
-syntax (name := kernelEq) "kernel_eq " ident " : " term : command
-
-@[command_elab kernelEq]
-def elabKernelEq : CommandElab := fun stx => do
-  let name := (← getCurrNamespace) ++ stx[1].getId
-  let (ty, lhs) ← liftTermElabM do
-    -- an error in the statement fails the command, not a theorem stated with `sorry`
-    let ty ← instantiateMVars (← Term.withoutErrToSorry (Term.elabType stx[3]))
-    Term.synthesizeSyntheticMVarsNoPostponing
-    let ty ← instantiateMVars ty
-    let some (_, lhs, _) := ty.eq? | throwError "kernel_eq: {ty} is not an equation"
-    if ty.hasMVar then throwError "kernel_eq: {ty} has holes"
-    pure (ty, lhs)
-  let some (α, _, _) := ty.eq? | throwError "kernel_eq: not an equation"
-  let u ← liftTermElabM do
-    let s ← inferType α
-    match (← whnf s) with
-    | .sort u => pure u
-    | _ => throwError "kernel_eq: not a type"
-  liftCoreM <| addDecl <| .thmDecl {
-    name, levelParams := []
-    type := ty
-    value := mkApp2 (mkConst ``Eq.refl [u]) α lhs }
 
 /-- A list of `n` naturals' term, as `natListExpr`; for the flat memory. -/
 def natTy : Expr := mkConst ``Nat

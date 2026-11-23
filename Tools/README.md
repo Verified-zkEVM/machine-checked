@@ -4,7 +4,8 @@ Build-time tools that turn an ELF into Lean data, into an Lprog program (layer 0
 Pancake program (layer 1). They are layer -1 of the [roadmap](../ROADMAP.md) and are
 **untrusted**: whatever they emit as Lean is re-checked by the kernel, and nothing in
 `MachineChecked/` imports them. The modules `decompile --to lean` writes (in `Examples/`)
-import `Tools.ToLean`, for the check of their words against the ELF.
+import `Tools.KernelEq` and `Tools.ElfWords`, for `kernel_eq` and the check of their words
+against the ELF.
 
 | file | command | what it does |
 | --- | --- | --- |
@@ -12,7 +13,8 @@ import `Tools.ToLean`, for the check of their words against the ELF.
 | `Infer.lean` | `lake exe infer-contracts ELF NM OUT.tsv STACKTOP PROTLO PROTHI [LEANDIR MODPREFIX IMGPREFIX LAYOUT [REGISTRY [CFI [STATICS]]]]` | For every function, bottom-up over the call graph, infers an interface (`Check.Iface`) and a certificate; with `LEANDIR`, emits them as Lean for the checker to re-check. |
 | `FrameSweep.lean` | `lake exe frame-sweep ELF NM OUT.tsv` | Runs the frame analysis on every function and reports which annotations check, and why the others do not. |
 | `Decompile.lean` | `lake exe decompile …` | The decompiler. See [below](#decompile). |
-| `ToLean.lean` | library; commands `check_elf_words`, `check_elf_input`, `kernel_eq` | Implements `decompile --to lean`: the modules it writes, the lemmas their theorems rest on, and the check of their input against the ELF. |
+| `ToLean.lean` | library; command `check_elf_input` | Implements `decompile --to lean`: the modules it writes, and the check of the other routes' input against the ELF. |
+| `KernelEq.lean`, `ElfWords.lean` | library; commands `kernel_eq`, `check_elf_words` | What the modules `--to lean --proved` writes use of the tool: `kernel_eq` and the lemmas a function's theorem is built from its parts with; the functions the `--proved` lift takes, their words, and the check of the words against the ELF. They import `Lean.Elab.Command`, the lift and the ELF reader, not all of `Lean`, so that a written module does not load the tool. |
 | `Program.lean` | library | Reads an ELF into the input of the whole-program lift (`inputOf`), and builds each instruction set's program from it. `decompile` lifts this; `--to lean` modules are checked against it. |
 | `Fjimg.lean` | library | The text format of a Flapjack image. |
 | `Elf.lean` | library | ELF and symbol-table helpers shared by the tools. |
@@ -128,8 +130,8 @@ The kernel checks that each term is the lift of `fns`. How the term was produced
 trusted. What remains trusted:
 
 - **The words literal is the ELF's.** The kernel cannot read files, so `check_elf_words` reads
-  the ELF at build time with the tool's own reader (`Elf.lean`'s `symbols`, and `ToLean.lean`'s
-  `functions` and `wordsOf`). The path is written as given on the command line and resolved
+  the ELF at build time with the tool's own reader (`Elf.lean`'s `symbols`, and
+  `ElfWords.lean`'s `functions` and `wordsOf`). The path is written as given on the command line and resolved
   from where the module is built, so give it relative to that directory (the repository root,
   for `lake build`). Lake does not track the ELF: if it
   changes, rebuild the words module by hand.
@@ -190,7 +192,7 @@ faster than function size:
 | `k_iter` (bare AArch64) | `--to lean` | input in 6 s; 29 of 35 functions, up to 14 min each (21 KB); the six largest (30 to 125 KB) unfinished after 40 min |
 | blake2s (RISC-V) | `--to lean --pancake` | terms elaborate in 2 s; `pancake_eq` unfinished after 30 min (mostly memory) |
 | two-instruction functions, each ISA | `Test/ToLean.lean` | each lift, a changed AArch64 term refuted, lift 2 and its names by `kernel_eq`, false equations refused; seconds, in CI |
-| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; with `unimp` in `_start`, every function taken, also under `--all`; with `addw` there, the function named as left out and `--all` refused; `--all` taking a label that is only a name; in CI |
+| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; with `unimp` in `_start`, every function taken, also under `--all`; with `addw` there, the function named as left out and `--all` refused; `--all` taking a label that is only a name; a function's module imports neither `Tools.ToLean` nor `Lean`; in CI |
 
 The fix planned is to check a certificate the tool writes (labels, live flags) instead of
 re-evaluating the lift ([`Packages.md`](../docs/design/Packages.md) step 3a).

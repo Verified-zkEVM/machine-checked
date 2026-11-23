@@ -19,8 +19,8 @@ The code is split across four Lake packages ([`docs/design/Packages.md`](../docs
 | [`pancake`](../pancake/README.md) | `Pancake.*` | Pancake as the decompiler writes it | Flapjack |
 
 The last three are meant to be all a proof about a decompiled program needs. Today the modules
-`decompile --to lean` writes also import `Tools.ToLean` and the RISC-V lift from the root
-package ([`docs/design/Packages.md`](../docs/design/Packages.md)).
+`decompile --to lean` writes also import `Tools.KernelEq`, `Tools.ElfWords` and the RISC-V
+lift from the root package ([`docs/design/Packages.md`](../docs/design/Packages.md)).
 
 ```
   layer 2     spec refinement           Refine/              not started
