@@ -124,6 +124,6 @@ accept. Besides the witnesses [`CONTRIBUTING.md`](../CONTRIBUTING.md#proofs) ask
 
 - **Every code word decodes**, over all the code the machine can fetch, as one `Bool` equation.
   The written `words` hold only the functions the lift took, so read the image's code
-  (`gen-image` writes each text symbol's words; code outside a symbol needs your own reader).
+  (`gen-image` writes it: `image.code` tiles every executable segment).
 - **Run the statement's own machine.** Execute the definitions the theorem is about on real
   inputs and see each verdict: accept on a valid input, reject on a corrupted one.
