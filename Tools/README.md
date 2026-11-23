@@ -58,7 +58,9 @@ headings, in [`RiscV/LIMITS.md`](../MachineChecked/RiscV/LIMITS.md),
 
 ### From an ELF
 
-The ELF must not be stripped: its text symbols are the functions. The pipeline is:
+The ELF must not be stripped: its text symbols are the functions. For the build settings that
+decide what the proved lift takes from a Rust program, see
+[`docs/RustBuilds.md`](../docs/RustBuilds.md). The pipeline is:
 
 1. **Lift 1**, the lift of linked programs (`lprog/Lprog/Linked.lean`), with each instruction
    set's lift of one instruction:
