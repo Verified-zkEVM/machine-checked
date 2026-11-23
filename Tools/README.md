@@ -182,7 +182,7 @@ faster than function size:
 | `k_iter` (bare AArch64) | `--to lean` | input in 6 s; 29 of 35 functions, up to 14 min each (21 KB); the six largest (30 to 125 KB) unfinished after 40 min |
 | blake2s (RISC-V) | `--to lean --pancake` | terms elaborate in 2 s; `pancake_eq` unfinished after 30 min (mostly memory) |
 | two-instruction functions, each ISA | `Test/ToLean.lean` | each lift, a changed AArch64 term refuted, lift 2 and its names by `kernel_eq`, false equations refused; seconds, in CI |
-| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; in CI |
+| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; in CI |
 
 The fix planned is to check a certificate the tool writes (labels, live flags) instead of
 re-evaluating the lift ([`Packages.md`](../docs/design/Packages.md) step 3a).
@@ -210,7 +210,7 @@ instruction set's manual, worked out by hand, not from the code under test. To r
 | `X86.lean` | 392 | | The x86-64 decoder and lift from bytes: prefixes and addressing forms, flags at every size, partial register writes, shifts, division, the stack, string instructions with `rep`. |
 | `Dead.lean` | 45 | | Dropping unread flag writes: what is dropped and kept, and that a body runs the same before and after. |
 | `Text.lean` | 55 | | The Lprog text format: each instruction kind parsed back from its text; malformed text rejected. |
-| `Elf.lean` | 55 | | The ELF reader on a small hand-made file and on truncated and malformed ones: each gives an error, none crashes. |
+| `Elf.lean` | 64 | | The ELF reader on a small hand-made file and on truncated and malformed ones: each gives an error, none crashes. The function list: an unsized `_start` that is the last symbol, aliases, local labels, a label and a function past `.text`. |
 | `Structure.lean` | 6 | | Control-flow structuring on small graphs: a switch is never a two-way choice or an exit. |
 | `ToLean.lean` | 29 | 10 | `decompile --to lean`: a body checked in parts, a function's theorem from its parts, a changed term refuted by the kernel, symbol names escaped in comments, accepted namespaces; the other routes on one small function per instruction set. |
 | `Lsym.lean` | 6, and one `#guard_msgs` | 19 | `lsym` (`lprog/Lprog/Tactic.lean`) on small RISC-V functions: a branch, two paths, a return; a call through the callee's specification and through a contract (`Isa.Contract`); the address normal form; the names of the hypotheses it adds. |

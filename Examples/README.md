@@ -393,8 +393,5 @@ To compile, `build.sh` needs clang with the RISC-V target, a RISC-V linker (`RV_
 Rust reaches RV64IM through LLVM IR: rustc writes the IR and clang compiles it, so that the
 code has no compressed instructions, which riscv-zkvm's machine does not have.
 
-`decompile` reports `__SDATA_BEGIN__: not in an executable segment` for some of the binaries.
-It is a symbol GNU ld defines, not a function, and nothing of the source is left out.
-
 For a binary of your own, see "Adding an example" in
 [`CONTRIBUTING.md`](../CONTRIBUTING.md).

@@ -71,7 +71,7 @@ def lprogText (p : Lprog (Op Reg) Reg) (skipped : Array String) (ends : Nat := 0
     throw "the text does not read back as the program (a symbol the format cannot hold?)"
   let (instrs, aborts) := coverage p
   let summary := s!"{p.length} functions, {instrs - ends} instructions, {aborts - ends} of them " ++
-    s!"`abort` (not covered by the lift), {skipped.size} functions left out"
+    s!"`abort` (not covered by the lift), {skipped.size} symbols left out"
   let header := s!"# decompile --to lprog: {summary}\n" ++
     String.join (skipped.toList.map fun s => s!"# left out: {s}\n")
   return (summary, header ++ text)
@@ -96,7 +96,7 @@ def render (target : String) (p : Lprog (Op Reg) Reg) (ends : Nat) (skipped : Ar
       | _ => false).length
     let summary := s!"{p.length} functions ({looped} of them as a loop over their blocks), " ++
       s!"{instrs - ends} instructions, {all - ends} of them `abort` (not covered by the lift), " ++
-      s!"{skipped.size} functions left out"
+      s!"{skipped.size} symbols left out"
     return (summary, s!"// decompile --to pancake: {summary}\n" ++
       String.join (skipped.toList.map fun s => s!"// left out: {s}\n") ++ legend p ++
       String.join (traps.zipIdx.map fun (t, k) => s!"// trap {k}: {t}\n") ++ "\n" ++ text)
@@ -135,7 +135,7 @@ def elfProved (elfPath : String) (out? : Option String) : IO UInt32 := do
 def toLean (elfPath outDir ns : String) : IO UInt32 := do
   try
     let (n, k, skipped) ← Tools.ToLean.emit elfPath outDir ns
-    IO.println s!"decompile: {n} functions, {k} instructions, {skipped.size} functions left out, as {(Tools.ToLean.nsPath outDir ns).addExtension "lean"} and {Tools.ToLean.nsPath outDir ns}/"
+    IO.println s!"decompile: {n} functions, {k} instructions, {skipped.size} symbols left out, as {(Tools.ToLean.nsPath outDir ns).addExtension "lean"} and {Tools.ToLean.nsPath outDir ns}/"
     for r in skipped do IO.println s!"  left out: {r}"
     return 0
   catch e => IO.eprintln s!"decompile: {e}"; return 1

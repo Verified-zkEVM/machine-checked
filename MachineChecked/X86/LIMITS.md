@@ -9,8 +9,10 @@ The tool is tested, not proved; see [How far it is tested](#how-far-it-is-tested
 ## What it accepts
 
 - **A statically linked, little-endian ELF64 executable with its symbol table.** Functions
-  are its sized text symbols. Stripped files, relocatable files and position-independent
-  executables are refused.
+  are its sized text symbols, one per address, and its global text symbols without a size,
+  each up to the next symbol or the end of its section; every other symbol of code is reported
+  with the reason, but for an untyped label without a size outside its section, which is no
+  code. Stripped files, relocatable files and position-independent executables are refused.
 - **The integer instructions of x86-64 in 64-bit mode**, as this repository's decoder reads
   them (`Lift/Instr.lean`); Kraken's model has no decoder. No x87, MMX, SSE or AVX: build for
   a target without them (`x86_64-unknown-none`), or the program gives up at the first such

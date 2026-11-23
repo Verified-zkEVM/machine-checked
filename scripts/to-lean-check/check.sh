@@ -5,6 +5,9 @@
 # and builds every module they write, so that the kernel checks each theorem in them. Then
 # changes one number in each route's input or output and checks that the module no longer
 # builds: a word (`Words.lean`), a byte (`Code.lean`), and lift 2's notes (`Pancake.lean`).
+# Last, the function list: an unsized `_start` that is the last symbol of `.text` is taken,
+# a local label without a size is reported, a label past `.text` is neither, and a function
+# past `.text` is reported.
 #
 # Run from anywhere, after `lake build decompile Tools`. CI runs it.
 set -euo pipefail
@@ -63,3 +66,20 @@ refused P/Words '[5244179,' '[5244180,'
 refused W/Code '[19, 5, 80,' '[19, 5, 81,'
 refused K/Pancake '"f_main, after label 1:' '"f_main, after label 2:'
 echo "to-lean-check: a changed word, byte or note is refused"
+
+# Decompile the ELF `WriteElf $1` writes, as namespace `$2`; what it prints must contain each
+# of the lines after.
+listed() {
+  local flag=$1 ns=$2; shift 2
+  lake env lean --run scripts/to-lean-check/WriteElf.lean "$flag" "$OUT/$ns.elf"
+  lake exe decompile --to lean --proved "$OUT/$ns.elf" "$OUT" "$ns" > "$OUT/log"
+  for l in "$@"; do
+    if ! grep -qF "$l" "$OUT/log"; then cat "$OUT/log"; echo "to-lean-check: $ns: no $l"; exit 1; fi
+  done
+}
+listed --start-last S '3 functions, 4 instructions, 1 symbols left out' \
+  'left out: zz: a local label without a size'
+listed --label-past X '3 functions, 4 instructions, 0 symbols left out'
+listed --func-past Y '3 functions, 4 instructions, 1 symbols left out' \
+  'left out: zz: outside its section'
+echo "to-lean-check: last unsized _start taken; local label, function past .text reported"

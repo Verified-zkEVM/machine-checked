@@ -58,7 +58,7 @@ def symtab : List Nat :=
   sym 1 0x12 1 0x10000 8 ++          -- main: global function in .text
   sym 6 0x02 1 0x10008 4 ++          -- helper: local function
   sym 13 0x10 1 0x1000c 0 ++         -- _start: global, untyped, no size
-  sym 20 0x00 1 0x10010 0 ++         -- zz: local, untyped, no size (only where _start ends)
+  sym 20 0x00 1 0x10010 0 ++         -- zz: local, untyped, no size, at the end of .text: no code
   sym 23 0x00 1 0x10004 4 ++         -- .Lx: a local label
   sym 27 0x11 1 0x10000 8 ++         -- obj: an object
   sym 31 0x12 0 0 0 ++               -- ext: undefined
@@ -97,6 +97,17 @@ def bad (off : Nat) (xs : List Nat) : ByteArray := bytesOf (put good off xs)
 /-- The first `n` bytes of the file. -/
 def cut (n : Nat) : ByteArray := bytesOf (good.take n)
 
+/-- The file with `zz` global and past `.text`, where a linker puts `_end`. -/
+def labelPast : ByteArray :=
+  bytesOf (put (put good (0x110 + 4 * 24 + 4) [0x10]) (0x110 + 4 * 24 + 8) (le 8 0x11000))
+
+/-- The file with `zz` a global function past `.text`. -/
+def funcPast : ByteArray :=
+  bytesOf (put (put good (0x110 + 4 * 24 + 4) [0x12]) (0x110 + 4 * 24 + 8) (le 8 0x11000))
+
+/-- The file with `zz` at 0x10000, so that `_start` is the last symbol of `.text`. -/
+def startLast : ByteArray := bad (0x110 + 4 * 24 + 8) (le 8 0x10000)
+
 def isErr {α : Type} : Except String α → Bool
   | .error _ => true
   | .ok _ => false
@@ -104,8 +115,11 @@ def isErr {α : Type} : Except String α → Bool
 /-- The functions of a file, as address, size and name. -/
 def syms (bs : ByteArray) : Option (List (Nat × Nat × String)) :=
   match symbols bs with
-  | .ok l => some (l.map fun s => (s.addr, s.size, s.name))
+  | .ok (l, _) => some (l.map fun s => (s.addr, s.size, s.name))
   | .error _ => none
+
+/-- The symbols of code of a file that are not functions, with the reasons. -/
+def rest (bs : ByteArray) : Option (List String) := (symbols bs).toOption.map (·.2)
 
 /-- The segments of a file, as address, file bytes, size in memory, writable, executable. -/
 def segs (bs : ByteArray) : Option (List (Nat × List UInt8 × Nat × Bool × Bool)) :=
@@ -150,9 +164,18 @@ def segs (bs : ByteArray) : Option (List (Nat × List UInt8 × Nat × Bool × Bo
 
 /-! ## Symbols -/
 
--- the functions: main and helper as sized; _start, global with no size, up to zz; no label,
--- object, undefined or absolute symbol, nor one outside code
+-- the functions: main and helper as sized; _start, global with no size, up to the end of
+-- .text; no label, object, undefined or absolute symbol, nor one outside code; zz, at the end
+-- of .text, is no code, so it is not reported either
 #guard syms elf == some [(0x10000, 8, "main"), (0x10008, 4, "helper"), (0x1000c, 4, "_start")]
+#guard rest elf == some []
+-- zz global and past .text, as a linker puts `_end`: still no code
+#guard syms labelPast == syms elf && rest labelPast == some []
+-- zz a function past .text: not taken, and reported
+#guard syms funcPast == syms elf && rest funcPast == some ["zz: outside its section"]
+-- zz at 0x10000: _start, global with no size, is the last symbol and extends to the end of
+-- .text; zz, a local label without a size, is reported
+#guard syms startLast == syms elf && rest startLast == some ["zz: a local label without a size"]
 -- a symbol table with no symbols but the null one
 #guard syms (bad (0x240 + 3 * 64 + 0x20) (le 8 24)) == some []
 -- no section headers
@@ -239,14 +262,26 @@ def segs (bs : ByteArray) : Option (List (Nat × List UInt8 × Nat × Bool × Bo
 -- lines that are not four fields, or with numbers that are not lowercase hexadecimal
 #guard (parseNm "garbage\n0000000000010000 T main\n0001000G 0008 T f\n00010000 0008 T g h\n\n").isEmpty
 #guard (parseNm "0000ABCD 0008 T f\n").isEmpty
--- two symbols at one address: the first sized one
-#guard (functionsOf [(0x100, 8, true, "a"), (0x100, 16, true, "b")]).map (·.name) == ["a"]
--- a global symbol without a size and nothing after it: left out
-#guard (functionsOf [(0x100, 0, true, "a")]).isEmpty
--- a local symbol without a size: left out
-#guard (functionsOf [(0x100, 0, false, "a"), (0x200, 4, false, "b")]).map (·.name) == ["b"]
+-- two symbols at one address: the first sized one; the other is reported
+#guard (functionsOf [(0x100, 8, true, "a"), (0x100, 16, true, "b")]).1.map (·.name) == ["a"]
+#guard (functionsOf [(0x100, 8, true, "a"), (0x100, 16, true, "b")]).2 ==
+  ["b: at 0x100, the address of `a`, taken under that name"]
+-- a global symbol without a size at a sized one's address: reported
+#guard (functionsOf [(0x100, 0, true, "a"), (0x100, 8, true, "b")]).2 ==
+  ["a: at 0x100, the address of `b`, taken under that name"]
+-- a global symbol without a size and nothing after it: reported, or up to the end of its
+-- section
+#guard (functionsOf [(0x100, 0, true, "a")]).1.isEmpty
+#guard (functionsOf [(0x100, 0, true, "a")]).2 ==
+  ["a: no size, and no symbol or end of section after it"]
+#guard (functionsOf [(0x100, 0, true, "a")] [0x140]).1.map (fun s => (s.addr, s.size)) ==
+  [(0x100, 0x40)]
+-- a local symbol without a size: reported
+#guard (functionsOf [(0x100, 0, false, "a"), (0x200, 4, false, "b")]).1.map (·.name) == ["b"]
+#guard (functionsOf [(0x100, 0, false, "a"), (0x200, 4, false, "b")]).2 ==
+  ["a: a local label without a size"]
 -- sorted by address
-#guard (functionsOf [(0x300, 4, true, "c"), (0x100, 4, true, "a"), (0x200, 4, true, "b")]).map
+#guard (functionsOf [(0x300, 4, true, "c"), (0x100, 4, true, "a"), (0x200, 4, true, "b")]).1.map
   (·.name) == ["a", "b", "c"]
 -- hexadecimal numerals
 #guard parseHex? "ff" == some 255 && parseHex? "0" == some 0 && parseHex? "" == none &&
