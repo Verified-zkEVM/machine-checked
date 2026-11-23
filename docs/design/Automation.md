@@ -181,10 +181,10 @@ address arithmetic.
 
 On the stress tests the lift itself held: every operation matched C at its edges (division
 by zero and overflow, high halves of products) and every load's extension. On the 41 Rust
-guests built for SP1, the `--proved` lift leaves out 177 of 6,738 functions: 142 for `unimp` (the
-illegal instruction rustc emits for a trap) and 35 for the 32-bit operations riscv-zkvm's
-machine lacks. A guest's `__udivti3` composes with its callee's contract through a result
-returned in memory.
+guests built for SP1, the `--proved` lift left out 177 of 6,738 functions: 142 for `unimp` (the
+illegal instruction rustc emits for a trap), which it now lifts as a trap, and 35 for the
+32-bit operations riscv-zkvm's machine lacks. A guest's `__udivti3` composes with its callee's
+contract through a result returned in memory.
 
 **Cost on straight-line code** (a body of `addi`s and a return):
 
@@ -226,8 +226,9 @@ decision.
   SP1, with a transfer theorem to the machine; the x86-64 test runs over a model of memory
   (doublewords by address). Proofs about AArch64 or x86-64 binaries need such an instance and a
   theorem like RISC-V's `transfer`.
-- **`unimp` and 32-bit operations** leave functions out of the `--proved` lift. Taking `unimp`
-  as a trap would be the larger gain.
+- **32-bit operations** leave functions out of the `--proved` lift. `unimp` is lifted as a
+  trap (`Op.trap`), which `SafeN` counts as safe: a function that reaches one meets every
+  contract there, as at a refused memory access.
 - **Memory regions** have no shared vocabulary at Lprog yet (#21).
 
 ## Next steps

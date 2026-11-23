@@ -98,8 +98,9 @@ has a type or a name. The output is about as long as the disassembly.
 uncovered instruction becomes `abort`, and a function containing a word riscv-zkvm does not
 decode is left out, with the instruction, address and reason in a comment. This includes the
 nine RV64IM 32-bit operations riscv-zkvm's machine does not run (`addw`, `sllw`, `sraw`,
-`sraiw`, `mulw`, `divw`, `divuw`, `remw`, `remuw`), which clang emits for `int` arithmetic, and
-`unimp`.
+`sraiw`, `mulw`, `divw`, `divuw`, `remw`, `remuw`), which clang emits for `int` arithmetic. The
+one word it takes without decoding it is `unimp`, the illegal instruction compilers write for a
+trap: it becomes `trap`, where the machine has no step and the Lprog program traps.
 
 In both lifts the Lprog text is parsed back and compared with the program before it is
 written. `Lprog.parse_print` proves the round trip from tokens; this check covers the step

@@ -132,7 +132,7 @@ binaries.
 
 Functions of the runtime of an SP1 guest, for every input, down to the machine. The guest is
 `k_u128` (`elf/k_u128.elf`), one of the Rust guests of `scripts/decompile-check/rust/`, built
-for SP1 by rustc. The lift takes 156 of its functions; the Image keeps their words and the
+for SP1 by rustc. The lift takes all 159 of its functions; the Image keeps their words and the
 four functions below (`Sp1Runtime/RiscV/Image.lean` says which). `memcmp` is from an ELF of
 its own: `c/memcmp.c` is `memcmp` as a byte loop, which clang compiles to the twelve
 instructions rustc's `compiler_builtins` has for it in an SP1 guest, with two of the
@@ -141,8 +141,8 @@ increments in another order.
 | Source | Proofs | Functions |
 | --- | --- | --- |
 | `c/memcmp.c` (`elf/memcmp.elf`) | [`Sp1Runtime/RiscV/Memcmp.lean`](Sp1Runtime/RiscV/Memcmp.lean) | `memcmp(a, b, n)`, for every length: the byte loop by induction (`loop`), its contract at Lprog (`memcmp_contract`), and the same statement over riscv-zkvm's machine (`memcmp_correct`) |
-| `elf/k_u128.elf` | [`Sp1Runtime/RiscV/WriteVectored.lean`](Sp1Runtime/RiscV/WriteVectored.lean) | `write_vectored` of the guest's standard error (`F104`): a loop, a call to `sys_write` (`F24`, `sys_write_contract`), which tail-calls `syscall_write` (`F11`, `syscall_write_contract`), which makes the system call. Its contract at Lprog (`write_vectored_contract`) and the same statement over the machine (`write_vectored_correct`) |
-| `elf/k_u128.elf` | [`Sp1Runtime/RiscV/Udivti3.lean`](Sp1Runtime/RiscV/Udivti3.lean) | `__udivti3` (`F155`, `udivti3_contract`, `udivti3_correct`), from a contract of its callee `u128_div_rem`, which is assumed: a far call (`auipc`, `jalr`), with the result returned through a pointer into its frame |
+| `elf/k_u128.elf` | [`Sp1Runtime/RiscV/WriteVectored.lean`](Sp1Runtime/RiscV/WriteVectored.lean) | `write_vectored` of the guest's standard error (`F107`): a loop, a call to `sys_write` (`F24`, `sys_write_contract`), which tail-calls `syscall_write` (`F11`, `syscall_write_contract`), which makes the system call. Its contract at Lprog (`write_vectored_contract`) and the same statement over the machine (`write_vectored_correct`) |
+| `elf/k_u128.elf` | [`Sp1Runtime/RiscV/Udivti3.lean`](Sp1Runtime/RiscV/Udivti3.lean) | `__udivti3` (`F158`, `udivti3_contract`, `udivti3_correct`), from a contract of its callee `u128_div_rem`, which is assumed: a far call (`auipc`, `jalr`), with the result returned through a pointer into its frame |
 
 3 functions with a `_correct` (`memcmp`, `write_vectored`, `__udivti3`); `sys_write` and
 `syscall_write` are proved as contracts, through which `write_vectored_correct` goes.
@@ -195,10 +195,11 @@ Every function that is lifted, or in a binary, and has no `_correct` theorem:
   `div32` (`divw` at `0x10a4`) in `Arith`: not lifted, because riscv-zkvm's machine has no
   32-bit word instructions (finding 2).
 - The SP1 guest's functions other than `memcmp`, `write_vectored` (with `sys_write` and
-  `syscall_write`) and `__udivti3`: of `k_u128.elf`, the other 152 functions the lift takes,
-  whose modules are not kept (`build.sh` writes them and keeps five files), and three more
-  that contain `unimp` and are not lifted at all (finding 14). One of them is `u128_div_rem`,
-  which `__udivti3` calls: its contract is an assumption of `udivti3_correct`.
+  `syscall_write`) and `__udivti3`: of `k_u128.elf`, the other 155 functions the lift takes,
+  whose modules are not kept (`build.sh` writes them and keeps five files). Three of them are
+  the runtime's panic functions, which contain `unimp` and are lifted with a trap there
+  (finding 14). One is `u128_div_rem`, which `__udivti3` calls: its contract is an
+  assumption of `udivti3_correct`.
 - `LeanVM`: loaded, nothing proved.
 
 Nothing else is left out: every other function of every source has its module and its
@@ -225,7 +226,7 @@ now covers them.
 | 11 | upstream | Plain `simp` on `(t + 18446744073709551584#64).toNat` (the normal form of `t - 32`) produces a proof the kernel times out on; `bv_omega` proves the same fact at once. | Open, in Lean. Workaround: avoid `simp` on `toNat` of a sum with a large literal. |
 | 12 | friction | Hypotheses `lsym` added shadowed each other: four loads gave `hm✝²`, `hm✝¹`, `hm✝`, `hm`. | Fixed: the latest keeps the plain name and earlier ones are `hm_1`, `hm_2`, … oldest first (likewise `hc_…`, `hret_…`). Only names of that exact form are counted or renamed, so a proof's own `hm_spec` is left alone. `memcmp`'s `rename_i` became `hc_1` (`Tools/Test/Lsym.lean`). |
 | 13 | scale | 290 straight-line instructions (`mix`) took 45 s to step in one go, with `maxHeartbeats` raised tenfold. | Worked around: `mix` is stepped in eight pieces of four rounds (`rounds_1_4` … `rounds_29_32`), each within the default limits. The planned fix is `SafeN.block` in `lsym`. |
-| 14 | gap | In rustc's output for SP1, the `--proved` lift skips every function containing `unimp` (`0xc0001073`, the illegal instruction compilers emit for a trap, e.g. Rust's `abort` or `unreachable!`): 142 of the 6,738 functions in 41 guests, including each guest's panic machinery, a `main` and several `sort`s. The error said "no instruction of RV64IM". | Message fixed: it names `unimp`. The gap remains: riscv-zkvm's decoder has no instruction for it. The lift could treat it as a trap, with `Equiv.lean` extended. |
+| 14 | gap | In rustc's output for SP1, the `--proved` lift skips every function containing `unimp` (`0xc0001073`, the illegal instruction compilers emit for a trap, e.g. Rust's `abort` or `unreachable!`): 142 of the 6,738 functions in 41 guests, including each guest's panic machinery, a `main` and several `sort`s. The error said "no instruction of RV64IM". | Fixed: a function's words are `Option Instr`, and `unimp` is lifted as a trap (`Op.trap`), which `Transfer.lean` and `Equiv.lean` carry to the machine, stuck there too. A trap is safe for `SafeN`, so a path to one needs no proof. |
 | 15 | friction | A hypothesis passed to `lsym` with the literal `0` does not close a side condition that `simp` has written as `0#128`: the two do not match as a rewrite. | Open. Workaround: write `0#128` in the contract (`Sp1Runtime/RiscV/Udivti3.lean`). |
 
 ### What held
@@ -256,6 +257,8 @@ The 41 Rust guests of `scripts/decompile-check/rust/`, built for SP1 by rustc at
 | `sraiw` | 5 |
 | `sllw`, `divuw` | 4 each |
 | `divw`, `remuw` | 1 each |
+
+These counts are from before `unimp` was lifted as a trap: the 142 of the first row are now taken.
 
 `--to lean --proved` on six of them, every module built (so the kernel checked each
 function's lift), eight at a time on an Apple M3 Max:

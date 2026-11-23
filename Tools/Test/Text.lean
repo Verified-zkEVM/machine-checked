@@ -48,6 +48,7 @@ def every : List I :=
     .Lopn (.load .x6 .b8 false (.reg .x2)),
     .Lopn (.store .b2 (.reg .x2) (.imm 0xffff)),
     .Lopn .skip,
+    .Lopn .trap,
     .Lgoto 0,
     .Lcond (.cmp "eq" (.reg .x5) (.imm 0)) 0,
     .Lcond (.cmp "lt" (.reg .x5) (.imm (-2048))) 7,

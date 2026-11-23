@@ -25,7 +25,7 @@ open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog Lprog.Ri
 
 /-- The functions `fs` are in the machine's code, each at its address. -/
 def Loaded (fs : List Fn) (s : MachineState) : Prop :=
-  ∀ f ∈ fs, CodeAt f.base (f.prog.map some) s
+  ∀ f ∈ fs, CodeAt f.base f.prog s
 
 /-- **A contract over the machine.** A machine at the entry of function `g`, with the program
     loaded and the contract's precondition true of its registers and memory, is safe if every

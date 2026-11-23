@@ -54,7 +54,9 @@ theorem reaches_block {base : Word} {prog : List Instr} (hall : prog.all isPure 
       have hpure : isPure prog[k] = true := List.all_eq_true.mp hall _ (List.getElem_mem hkl)
       have hs : isStraight prog[k] = true := by simp [isPure] at hpure; exact hpure.1
       have hop := opnOk_of_isPure hpure
-      refine Lprog.Ascent.Reaches.step (stepSp1_ctl (fetch_at hc hkl hupc) (isStraight_isMemAccess hs)
+      have hfetch : u.code u.pc = some prog[k] :=
+        (fetch_at hc (by simpa) hupc).trans (List.getElem_map _)
+      refine Lprog.Ascent.Reaches.step (stepSp1_ctl hfetch (isStraight_isMemAccess hs)
         (isStraight_ne_ecall hs) (isStraight_ne_ebreak hs)) ?_
       have := ih (k + 1) (execInstrBr u prog[k]) (by omega)
         (codeAt_of_code_eq (code_execInstrBr_opn hop) hc)

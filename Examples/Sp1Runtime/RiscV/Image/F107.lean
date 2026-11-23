@@ -1,5 +1,5 @@
 /-
-  Examples.Sp1Runtime.RiscV.Image.F104
+  Examples.Sp1Runtime.RiscV.Image.F107
 
   Written by `decompile --to lean`. Do not edit: the theorems below check it.
 -/
@@ -13,7 +13,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Interpreter Lprog MachineChecked.RiscV.Lift Tools.
 -- data for the kernel, not code to run: the code generator does not take terms this large
 noncomputable section
 
-def f104_0 : Lcmd (Op Reg) Reg :=
+def f107_0 : Lcmd (Op Reg) Reg :=
   [LinstrR.Llabel (LabelKind.internal) 0, LinstrR.Lopn
   (Op.set
     (Reg.x2)
@@ -100,19 +100,19 @@ def f104_0 : Lcmd (Op Reg) Reg :=
     (Expr.bin (BinOp.add) (Expr.reg (Reg.x2)) (Expr.imm 0x0000000000000020#64))), LinstrR.Llabel (LabelKind.internal) 26, LinstrR.Lret]
 
 /-- The function "_RNvYNtNtNtNtCsaFPe17dgLU6_3std3sys5stdio4zkvm6StderrNtNtBa_2io5Write14write_vectoredBa_", lifted. -/
-def f104 : Lfundef (Op Reg) Reg :=
+def f107 : Lfundef (Op Reg) Reg :=
   { name := "_RNvYNtNtNtNtCsaFPe17dgLU6_3std3sys5stdio4zkvm6StderrNtNtBa_2io5Write14write_vectoredBa_", addr := 2013315168, depth := 0,
-    body := List.flatten [f104_0] }
+    body := List.flatten [f107_0] }
 
-kernel_eq f104_head : (liftProg fns)[104]?.map (fun g => (g.name, g.addr, g.depth)) =
-    some (f104.name, f104.addr, f104.depth)
+kernel_eq f107_head : (liftProg fns)[107]?.map (fun g => (g.name, g.addr, g.depth)) =
+    some (f107.name, f107.addr, f107.depth)
 
-kernel_eq f104_parts : (liftProg fns)[104]?.map (fun g => chunks chunk g.body) =
-    some [f104_0]
+kernel_eq f107_parts : (liftProg fns)[107]?.map (fun g => chunks chunk g.body) =
+    some [f107_0]
 
-/-- **`f104` is the lift of the ELF's words.** -/
-theorem f104_eq : (liftProg fns)[104]? = some f104 :=
-  getElem?_eq_of_chunks f104_head f104_parts rfl
+/-- **`f107` is the lift of the ELF's words.** -/
+theorem f107_eq : (liftProg fns)[107]? = some f107 :=
+  getElem?_eq_of_chunks f107_head f107_parts rfl
 
 end
 
