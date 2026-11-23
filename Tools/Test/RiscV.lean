@@ -655,7 +655,7 @@ def fnsC : List Fn :=
 -- nothing before it (the first instruction of a function): every function
 #guard jalrCands (entryOf fnsC) (List.range 2) 0x2000 none .x1 0 == [0, 1]
 
-/-! ## The lift of a function from its own code (`Fn.targets`, `getElem?_liftProg_of_targets`)
+/-! ## A function of the `--proved` lift from its own code (`Fn.callTargets`)
 
   `f` above asks for the function at 0x2000 alone: its last `jalr` follows no `auipc`. `h` at
   0x3000 calls `g` by `jal ra`, jumps inside itself, returns, and tail-calls `f` by `jal x0`. -/
@@ -668,19 +668,18 @@ def hJ : Fn :=
 def fnsJ : List Fn := fnsC ++ [hJ]
 
 -- the paired `jalr` asks; the bare one does not
-#guard (fnsC[0]?.map Fn.targets) == some [0x2000]
+#guard (fnsC[0]?.map Fn.callTargets) == some [0x2000]
 -- the call and the tail call ask; the jump inside the function and the return do not
-#guard hJ.targets == [0x2000, 0x1000]
+#guard hJ.callTargets == [0x2000, 0x1000]
 
 /-- A table of `h`'s two callees, in place of the program. -/
 def tblJ (a : BitVec 64) : Option Nat :=
   if a == 0x2000 then some 1 else if a == 0x1000 then some 0 else none
 
-/-- `h` in the program is `h` lifted with its own table. The agreement is checked as a `Bool`:
-    as a `Prop`, `decide` goes through `DecidableEq` on addresses, which the kernel is slow on. -/
+/-- `h` in the program is `h` lifted with its own table: the two resolvers give the same
+    answers on `h`'s call targets, by evaluation. -/
 example : (liftProg fnsJ)[2]? = some (liftFn tblJ (List.range 3) hJ) :=
-  getElem?_liftProg_of_targets rfl fun a ha => beq_iff_eq.mp <| List.all_eq_true.mp
-    (by decide +kernel : (hJ.targets.all fun a => entryOf fnsJ a == tblJ a) = true) a ha
+  getElem?_liftProg_of_callTargets rfl (List.map_inj_left.mp rfl)
 
 -- the table is needed: with no callee, the call is `Labort`, not a call of `g`
 #guard (liftFn (fun _ => none) (List.range 3) hJ).body[1]? matches some LinstrR.Labort

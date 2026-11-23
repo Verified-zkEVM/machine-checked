@@ -25,8 +25,8 @@
   each address it calls (`entry`), and the candidates of a computed jump it does not resolve
   (`all`). `liftFn entry all f` takes them as arguments, under the names `Lprog.Linked.Cx`
   gives them, and `liftProg fs` lifts every function with `entryOf fs` and every index of `fs`.
-  `Fn.targets f` lists the addresses at which the lift of `f` applies `entry`, and
-  `getElem?_liftProg_of_targets` gives function `i` of `liftProg fs` from `fs[i]` and any
+  `Fn.callTargets f` lists the addresses at which the lift of `f` applies `entry`, and
+  `getElem?_liftProg_of_callTargets` gives function `i` of `liftProg fs` from `fs[i]` and any
   resolver that agrees with `entryOf fs` there: a function's lift can be checked from its own
   code and a table of the functions it calls.
 
@@ -36,10 +36,10 @@
 
   The correctness of the lift, by simulation, is `RiscV/Lift/Transfer.lean`.
 
-  ## Main results
+  ## Main definitions and results
 
-  * `liftFn`, `liftProg`, `Fn.targets`
-  * `liftFn_congr`, `getElem?_liftProg_of_targets`
+  * `liftFn`, `liftProg`, `Fn.callTargets`
+  * `liftFn_congr`, `getElem?_liftProg_of_callTargets`
 -/
 
 import LprogRiscV.Sp1Ctx
@@ -95,7 +95,8 @@ def liftJal (entry : Word → Option Nat) (len k : Nat) (pc : Word) (rd : Reg) (
   else .Labort
 
 /-- The address a `jalr _, off(rs)` at `pc` jumps to, when the instruction before it, `prev`,
-    is the `auipc` that sets `rs`, as in the `call` and `tail` pseudo-instructions. -/
+    is the `auipc` that sets `rs`, as in the `call` and `tail` pseudo-instructions
+    (`Whole.paired` is the same for the lift of linked programs). -/
 def jalrPaired (pc : Word) (prev : Option Instr) (rs : Reg) (off : BitVec 12) : Option Word :=
   match prev with
   | some (.AUIPC rd imm) =>
@@ -348,7 +349,7 @@ theorem callee_direct {fs : List Fn} {regs : Reg → BitVec 64} {f : Nat} (h : f
 /-- The address whose function the lift of instruction `i` asks `entry` for, if it asks: the
     target of a `jal ra`, of a `jal x0` that leaves the function, and of a `jalr` that calls
     or tail-calls after the `auipc` of its register. -/
-def targetOf (len k : Nat) (pc : Word) (prev : Option Instr) : Instr → Option Word
+def callTargetOf (len k : Nat) (pc : Word) (prev : Option Instr) : Instr → Option Word
   | .JAL rd off =>
     if rd = .x0 then
       if jumpOk k len (signExtend21 off) then none else some (pc + signExtend21 off)
@@ -361,14 +362,15 @@ def targetOf (len k : Nat) (pc : Word) (prev : Option Instr) : Instr → Option 
   | _ => none
 
 /-- The addresses the lift of the instructions from index `k` on asks `entry` for, in order. -/
-def targetsFrom (base : Word) (len : Nat) : Nat → Option Instr → List Instr → List Word
+def callTargetsFrom (base : Word) (len : Nat) : Nat → Option Instr → List Instr → List Word
   | _, _, [] => []
   | k, prev, i :: is =>
-    (targetOf len k (base + BitVec.ofNat 64 (4 * k)) prev i).toList ++
-      targetsFrom base len (k + 1) (some i) is
+    (callTargetOf len k (base + BitVec.ofNat 64 (4 * k)) prev i).toList ++
+      callTargetsFrom base len (k + 1) (some i) is
 
-/-- **The addresses a function's lift asks for**: where its calls and tail calls go. -/
-def Fn.targets (f : Fn) : List Word := targetsFrom f.base f.prog.length 0 none f.prog
+/-- **The addresses a function's lift asks for**: where its calls and tail calls go, one per
+    call site. -/
+def Fn.callTargets (f : Fn) : List Word := callTargetsFrom f.base f.prog.length 0 none f.prog
 
 theorem jalrCands_congr {entry entry' : Word → Option Nat} {all : List Nat} {pc : Word}
     {prev : Option Instr} {rs : Reg} {off : BitVec 12}
@@ -381,7 +383,7 @@ theorem jalrCands_congr {entry entry' : Word → Option Nat} {all : List Nat} {p
 
 theorem liftI_congr {entry entry' : Word → Option Nat} {all : List Nat} {len k : Nat}
     {pc : Word} {prev : Option Instr} {i : Instr}
-    (h : ∀ a ∈ targetOf len k pc prev i, entry a = entry' a) :
+    (h : ∀ a ∈ callTargetOf len k pc prev i, entry a = entry' a) :
     liftI entry all len k pc prev i = liftI entry' all len k pc prev i := by
   unfold liftI
   split
@@ -389,53 +391,45 @@ theorem liftI_congr {entry entry' : Word → Option Nat} {all : List Nat} {len k
   · cases i with
     | JAL rd off =>
       simp only [liftCtl, liftJal]
-      simp only [targetOf] at h
-      split
-      · next h0 =>
-        split
-        · rfl
-        · next h1 => rw [h _ (by simp [h0, h1])]
-      · split
-        · next h1 => rw [h _ (by simp [h1])]
-        · rfl
+      simp only [callTargetOf] at h
+      by_cases h0 : rd = .x0 <;> by_cases h1 : rd = .x1 <;>
+        by_cases hj : jumpOk k len (signExtend21 off) = true <;> simp_all
     | JALR rd rs off =>
       simp only [liftCtl, liftJalr]
-      simp only [targetOf] at h
-      split
-      · next h0 =>
-        split
-        · rfl
-        · next h1 =>
-          rw [jalrCands_congr fun a ha => h a (by simpa only [h0, h1, ↓reduceIte] using ha)]
-      · split
-        · next h1 => rw [jalrCands_congr fun a ha => h a (by simpa [h1] using ha)]
-        · rfl
+      simp only [callTargetOf] at h
+      split <;> split <;> first
+        | rfl
+        | rw [jalrCands_congr (by simpa only [*, ↓reduceIte] using h)]
+        | rw [jalrCands_congr (by simpa [*] using h)]
     | _ => rfl
 
 theorem liftFrom_congr {entry entry' : Word → Option Nat} {all : List Nat} {base : Word}
     {len : Nat} :
     ∀ (k : Nat) (prev : Option Instr) (is : List Instr),
-      (∀ a ∈ targetsFrom base len k prev is, entry a = entry' a) →
+      (∀ a ∈ callTargetsFrom base len k prev is, entry a = entry' a) →
       liftFrom entry all base len k prev is = liftFrom entry' all base len k prev is
   | _, _, [], _ => rfl
   | k, prev, i :: is, h => by
-    simp only [targetsFrom, List.mem_append, Option.mem_toList] at h
+    simp only [callTargetsFrom, List.mem_append, Option.mem_toList] at h
     simp only [liftFrom]
     rw [liftI_congr fun a ha => h a (.inl ha),
       liftFrom_congr (k + 1) (some i) is fun a ha => h a (.inr ha)]
 
-/-- **The lift of a function depends on the program only through the functions at its
+/-- **The lift of a function depends on the program only through the functions at its call
     targets**: two resolvers that agree there give the same lift. -/
 theorem liftFn_congr {entry entry' : Word → Option Nat} {all : List Nat} {f : Fn}
-    (h : ∀ a ∈ f.targets, entry a = entry' a) : liftFn entry all f = liftFn entry' all f := by
+    (h : ∀ a ∈ f.callTargets, entry a = entry' a) :
+    liftFn entry all f = liftFn entry' all f := by
   simp only [liftFn, liftFrom_congr 0 none f.prog h]
 
 /-- **A function of a lifted program, from its own code.** Function `i` of `liftProg fs` is
     the lift of `fs[i]` alone with any resolver that agrees with the program's entries at the
-    addresses it calls. -/
-theorem getElem?_liftProg_of_targets {fs : List Fn} {i : Nat} {f : Fn}
+    addresses it calls. A client states the agreement as
+    `f.callTargets.map (entryOf fs) = f.callTargets.map entry`, which the kernel evaluates, and
+    passes `List.map_inj_left.mp` of it. -/
+theorem getElem?_liftProg_of_callTargets {fs : List Fn} {i : Nat} {f : Fn}
     {entry : Word → Option Nat} (hf : fs[i]? = some f)
-    (h : ∀ a ∈ f.targets, entryOf fs a = entry a) :
+    (h : ∀ a ∈ f.callTargets, entryOf fs a = entry a) :
     (liftProg fs)[i]? = some (liftFn entry (List.range fs.length) f) := by
   rw [getElem?_liftProg hf, liftFn_congr h]
 

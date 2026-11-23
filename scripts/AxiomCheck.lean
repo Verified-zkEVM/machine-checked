@@ -29,7 +29,7 @@ import Examples
 #print axioms MachineChecked.RiscV.Lift.lsafe_write
 #print axioms MachineChecked.RiscV.Lift.corres_block
 #print axioms MachineChecked.RiscV.Lift.liftFn_congr
-#print axioms MachineChecked.RiscV.Lift.getElem?_liftProg_of_targets
+#print axioms MachineChecked.RiscV.Lift.getElem?_liftProg_of_callTargets
 
 -- decompile --to lean: a function's theorem from its parts
 #print axioms Tools.ToLean.flatten_chunks
