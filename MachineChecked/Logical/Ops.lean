@@ -229,7 +229,9 @@ def loadBytes (a : Exp W) : Nat → Exp W
 /-- An operation. Pancake loads and stores a word, four bytes and a byte; two bytes go by
     bytes. A trap ends its block (`blocks`, in `Lift.lean`), so it is no statement of one. -/
 def op : Op Reg → M (List (Prog W))
-  | .skip | .trap => pure []
+  | .skip => pure []
+  -- unreachable from `blocks`, which ends the block at a trap
+  | .trap => pure []
   | .set d e => do
     let (ps, x) ← expr e
     pure (ps ++ [gset (RegText.name d) x])

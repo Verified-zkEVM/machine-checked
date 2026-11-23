@@ -40,7 +40,8 @@ open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog
 open Lprog.Ascent (Outcome)
 
 /-- A function of an image: its name, its address, its decoded words and a stack bound for
-    contracts. A word that decodes to no instruction is `none`. -/
+    contracts. A word that decodes to no instruction is `none`. The lift takes every `none` as
+    a trap; the tool writes one only for `unimp` (`Tools.ToLean.taken`). -/
 structure Fn where
   name : String
   base : Word
@@ -137,7 +138,7 @@ theorem liftI_eq_ext {fs : List Fn} {len k n : Nat} {pc : Word} {prev oi : Optio
     (h : liftI fs len k pc prev oi = .Lext n) : oi = some .ECALL := by
   obtain _ | i := oi
   · cases h
-  suffices i = .ECALL by rw [this]
+  refine congrArg some ?_
   simp only [liftI] at h
   split at h
   · cases h

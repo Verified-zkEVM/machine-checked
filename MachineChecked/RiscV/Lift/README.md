@@ -1,7 +1,7 @@
 # RiscV/Lift
 
 Lift 1 for RISC-V (layer 0 to layer 0.5 of the [roadmap](../../../ROADMAP.md)): riscv-zkvm's
-decoded instructions into Lprog, with proofs that anything proved of the lifted program holds
+decoded words into Lprog, with proofs that anything proved of the lifted program holds
 of the machine, and that the two are equivalent to an observer.
 
 What a proof at Lprog needs of RISC-V is in the package

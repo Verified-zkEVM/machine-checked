@@ -258,7 +258,8 @@ The 41 Rust guests of `scripts/decompile-check/rust/`, built for SP1 by rustc at
 | `sllw`, `divuw` | 4 each |
 | `divw`, `remuw` | 1 each |
 
-These counts are from before `unimp` was lifted as a trap: the 142 of the first row are now taken.
+These counts are from before `unimp` was lifted as a trap: the 142 of the first row are now
+taken.
 
 `--to lean --proved` on six of them, every module built (so the kernel checked each
 function's lift), eight at a time on an Apple M3 Max:

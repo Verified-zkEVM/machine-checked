@@ -7,7 +7,8 @@
     python3 scripts/automation-stats.py PROVED.lprog DEFAULT.lprog
 
 An instruction is a `label` and the commands after it. It is straight-line if its commands are
-only `set`, `load` and `store`; a block is a run of straight-line instructions, one after
+only `set`, `load` and `store`; a `trap` (a word that is no instruction) is counted, and ends
+a block like any other command. A block is a run of straight-line instructions, one after
 another in a function. A call is a `call` (it returns); a tail call is a `tail`; a computed one
 of either has `via` and its candidates, `N` then `N` function indices. A loop is a backward
 branch: an `if` or `goto` to a label at or before its own.
@@ -55,6 +56,7 @@ def stats(path):
     computed = []
     loops = 0
     aborts = 0
+    traps = 0
     for f in fns:
         run = 0
         for i, ins in enumerate(f):
@@ -75,6 +77,8 @@ def stats(path):
                     tails += 1
                 elif op == "abort":
                     aborts += 1
+                elif op == "trap":
+                    traps += 1
                 if op in ("call", "tail") and cands(c) is not None:
                     computed.append(cands(c))
                 if op in ("if", "goto") and int(c.split()[-1], 0) <= here:
@@ -93,6 +97,7 @@ def stats(path):
         "of them with one candidate": sum(1 for c in computed if c == 1),
         "loops": loops,
         "aborts": aborts,
+        "traps": traps,
         "median function": median(len(f) for f in fns),
         "largest function": max(len(f) for f in fns),
     }
@@ -107,7 +112,7 @@ def main():
           f"the longest {p['longest block']}")
     print(f"calls {p['calls']}, tail calls {p['tail calls']}; computed, of both: "
           f"{p['computed calls and tail calls']}, {p['of them with one candidate']} with one candidate")
-    print(f"loops {p['loops']}, aborts {p['aborts']}")
+    print(f"loops {p['loops']}, aborts {p['aborts']}, traps {p['traps']}")
     print(f"function size: median {p['median function']}, the largest {p['largest function']}")
     if len(sys.argv) > 2:
         d = stats(sys.argv[2])

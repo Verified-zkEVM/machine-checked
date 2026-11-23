@@ -57,7 +57,8 @@ open _root_.Lprog MachineChecked.RiscV.Lift Tools.Elf
 
 /-- `unimp` (`csrrw zero, cycle, zero`): the illegal instruction a compiler writes for a trap
     (Rust's `abort`, `unreachable!`). riscv-zkvm's decoder has no instruction for it, and the
-    machine has no step there, as on hardware: the lift takes it as a trap. -/
+    machine has no step there, as an illegal instruction does on hardware: the lift takes it as
+    a trap. -/
 def unimp : BitVec 32 := 0xc0001073#32
 
 /-- A word the `--proved` lift takes: an instruction, or `unimp`. -/

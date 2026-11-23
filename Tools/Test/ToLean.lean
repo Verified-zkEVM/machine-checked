@@ -39,6 +39,19 @@ operation riscv-zkvm's machine lacks, nor the word 0, which is no instruction. -
 
 #guard taken 0x00008067#32 && taken unimp && !taken 0x00c5853b#32 && !taken 0#32
 
+/-- Three one-word functions at `0x1000`: `ret`, `unimp`, `addw a0, a1, a2`. -/
+def img3 : Elf64Image :=
+  -- a segment: its address, its bytes, its size in memory, writable, executable
+  ⟨0x1000, #[⟨0x1000, ⟨#[0x67, 0x80, 0, 0, 0x73, 0x10, 0, 0xc0, 0x3b, 0x85, 0xc5, 0]⟩, 12,
+    false, true⟩], none⟩
+
+def syms3 : List Tools.Elf.Sym := [⟨0x1000, 4, "r"⟩, ⟨0x1004, 4, "u"⟩, ⟨0x1008, 4, "w"⟩]
+
+-- `ret` and `unimp` are taken, `unimp` as `none`; `addw` leaves its function out
+#guard (functions img3 syms3).1.toList.map (fun f => (f.name, f.prog)) ==
+  [("r", [some (.JALR .x0 .x1 0)]), ("u", [none])]
+#guard (functions img3 syms3).2.size == 1
+
 /-! ## A small program -/
 
 /-- `addi sp, sp, -16; addi a0, zero, 7; addi sp, sp, 16; ret` at `0x1000`. -/

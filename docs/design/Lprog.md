@@ -251,6 +251,9 @@ Milestone A follows §1–§5, §7 and §8 with these departures:
   (`HALT`) and exit code 0, or an empty stack. It makes no events yet.
 - **`Labort`.** An instruction the lift does not cover lifts to `Labort`, which goes `wrong`. A
   proof that reaches one fails rather than silently stopping.
+- **`Op.trap`.** A word that decodes to no instruction (`unimp`) lifts to `Lopn .trap`, which
+  traps as the machine does there (§3); it is not `Labort`, since the machine does reach it and
+  stops.
 - **The postcondition is a predicate of the final state**, `Q : σ → Prop`, not a `Prop`.
   `RiscV.SafeN` is the instance at `fun _ => P`, so its statement is unchanged.
 - **The transfer quantifies over every budget** (`AllSafe` in `RiscV/Lift/Transfer.lean`):
@@ -267,7 +270,7 @@ Milestone A follows §1–§5, §7 and §8 with these departures:
   `wrong`, which a safety proof excludes. The control-flow premise of §2 is a hypothesis of the
   rules (`lsafe_call`, `lsafe_tail`: the register holds some function's base).
 - **A lifted function carries its address.** `Fn` (`RiscV/Lift/Lift.lean`) is `{name, base,
-  prog, depth}`, with the decoded instructions as constants in the case file; `ProgOk` asks only
+  prog, depth}`, with the decoded words as constants in the case file; `ProgOk` asks only
   that bases are 4-aligned.
 - **Return-address alignment is required only of inner frames** (`RetOk`): the outermost
   frame's return value is the caller's, unconstrained, and the machine continues at

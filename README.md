@@ -97,7 +97,7 @@ lake exe decompile --to lprog   guest.elf out.lprog        # Lprog text
 lake exe decompile --to lprog --proved guest.elf           # RISC-V: the lift the theorems are about
 ```
 
-Code the lift does not cover becomes an explicit trap (`l_trap(n)` / `abort`) rather than
+Code the lift does not cover becomes an explicit stop (`l_trap(n)` / `abort`) rather than
 being dropped, so the output either behaves like the binary or says where it stops. The
 `--proved` lift is stricter: a function with an instruction it cannot take is left out whole,
 and the output says which instruction and why (with `--to lean`, in the root module too;

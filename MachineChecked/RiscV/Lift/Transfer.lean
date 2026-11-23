@@ -138,8 +138,7 @@ theorem pc_sp1Ecall {s s' : MachineState} (hf : s.code s.pc = some .ECALL) (h : 
 theorem fetch_at {base : Word} {prog : List (Option Instr)} {t : MachineState} {k : Nat}
     (hcode : CodeAt base prog t) (hk : k < prog.length)
     (hpc : t.pc = base + BitVec.ofNat 64 (4 * k)) : t.code t.pc = prog[k] := by
-  rw [hpc, hcode k hk]
-  simp [hk]
+  simp [hpc, hcode k hk, hk]
 
 /-- The address a well-formed jump reaches. -/
 theorem jump_addr {base : Word} {k len : Nat} {off : Word} (h : jumpOk k len off = true) :

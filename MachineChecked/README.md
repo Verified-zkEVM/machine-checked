@@ -64,7 +64,7 @@ package ([`docs/design/Packages.md`](../docs/design/Packages.md)).
 The final theorem is always stated at layer 0, as `SafeN` over riscv-zkvm's `stepSp1`
 (`RiscV/Safe.lean`), from the state the loader builds for the ELF. There are two routes to it:
 
-- **Through the lift** (the intended route). A function's decoded instructions are lifted to
+- **Through the lift** (the intended route). A function's decoded words are lifted to
   an Lprog body (`RiscV/Lift/Lift.lean`). A contract is proved for the body with the rules of
   `lprog/Lprog/Sem.lean` and `RiscV/Lift/Rules.lean`, and the transfer theorem carries it down
   to `stepSp1` (`RiscV/Lift/Transfer.lean`, `SafeN.of_contract`; `RiscV/Lift/Contract.lean`,

@@ -75,6 +75,9 @@ The `--proved` lift of zip-2005, counted from its Lprog text by `scripts/automat
 | aborts | 2 (default lift: 316; an earlier count, by hand, found 99 that control may reach, most after a call of a panic function, which does not return) | item 5 |
 | functions left out | 3, the panic machinery | small |
 
+These counts are from before `unimp` was lifted as a trap: the three functions left out contain
+`unimp` and are now taken, with `trap`s, which `automation-stats.py` counts.
+
 ## `lsym` today
 
 `lsym` lives in [`lprog/Lprog/Tactic.lean`](../../lprog/Lprog/Tactic.lean) (its module docstring

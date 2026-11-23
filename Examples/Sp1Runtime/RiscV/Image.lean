@@ -3,11 +3,11 @@
 
   Written by hand, unlike the other modules' `Image.lean`: the modules of the SP1 guest
   `Examples/elf/k_u128.elf` that are kept. `decompile --to lean --proved` writes one module for
-  each of the 159 functions of the guest that it lifts, and an index that imports them all. Only the functions
-  that have proofs are in the repository, with the words they are checked against, so that
-  `lake build Examples` does not build 155 modules nothing uses. `Examples/build.sh Sp1Runtime`
-  writes these five again and leaves this file alone. The functions, by index (`f<i>`,
-  `f<i>_eq`):
+  each of the 159 functions of the guest that it lifts, and an index that imports them all.
+  Only the functions that have proofs are in the repository, with the words they are checked
+  against, so that `lake build Examples` does not build 155 modules nothing uses.
+  `Examples/build.sh Sp1Runtime` writes these five again and leaves this file alone. The
+  functions, by index (`f<i>`, `f<i>_eq`):
 
   * `Words`: the words of all 159 functions, checked against the ELF (`words_eq_elf`)
   * `F11`: `syscall_write`, at 0x780042ec (`WriteVectored.lean`)

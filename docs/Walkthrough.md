@@ -70,7 +70,7 @@ check_elf_words words "Examples/elf/rustbasic.elf"
 
 /-- The functions the words decode to. -/
 def fns : List Fn := words.map fun (name, base, ws) =>
-  { name, base := BitVec.ofNat 64 base, prog := ((ws.map (BitVec.ofNat 32)).mapM decode).getD [] }
+  { name, base := BitVec.ofNat 64 base, prog := (ws.map (BitVec.ofNat 32)).map decode }
 ```
 
 `gcd`'s words are `w2`, six numbers; the first, `363107`, is `0x00058a63`, the `beqz` above.
