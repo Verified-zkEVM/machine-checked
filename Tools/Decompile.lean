@@ -108,7 +108,7 @@ end
 def usage : String :=
   "usage: decompile --to lprog|pancake ELF [OUT]\n" ++
   "       decompile --to lprog --proved ELF [OUT]\n" ++
-  "       decompile --to lean --proved ELF OUTDIR NAMESPACE\n" ++
+  "       decompile --to lean --proved [--all] ELF OUTDIR NAMESPACE\n" ++
   "       decompile --to lean [--pancake] ELF OUTDIR NAMESPACE\n" ++
   "       decompile --to lprog|pancake IMAGE.fjimg [OUT]\n" ++
   "       decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS\n" ++
@@ -134,10 +134,11 @@ def elfProved (elfPath : String) (out? : Option String) : IO UInt32 := do
   | .error e => IO.eprintln s!"decompile: {e}"; return 1
 
 /-- `--to lean`: the `--proved` lift of the ELF at `elfPath` as Lean modules under `outDir`, in
-    namespace `ns` (`Tools/ToLean.lean`). -/
-def toLean (elfPath outDir ns : String) : IO UInt32 := do
+    namespace `ns` (`Tools/ToLean.lean`); with `all` (`--all`), an error if anything is left
+    out. -/
+def toLean (elfPath outDir ns : String) (all : Bool) : IO UInt32 := do
   try
-    let (n, k, skipped, names) ← Tools.ToLean.emit elfPath outDir ns
+    let (n, k, skipped, names) ← Tools.ToLean.emit elfPath outDir ns all
     IO.println s!"decompile: {n} functions, {k} instructions, {skipped.size} symbols left out, as {(Tools.ToLean.nsPath outDir ns).addExtension "lean"} and {Tools.ToLean.nsPath outDir ns}/"
     for r in skipped do IO.println s!"  left out: {r}"
     for r in names do IO.println s!"  not a function: {r}"
@@ -262,7 +263,8 @@ def main (args : List String) : IO UInt32 := do
   | ["--table", isa, run] => table isa (some run)
   | ["--to", "lprog", "--proved", path] => elfProved path none
   | ["--to", "lprog", "--proved", path, o] => elfProved path (some o)
-  | ["--to", "lean", "--proved", path, out, ns] => toLean path out ns
+  | ["--to", "lean", "--proved", path, out, ns] => toLean path out ns false
+  | ["--to", "lean", "--proved", "--all", path, out, ns] => toLean path out ns true
   | ["--to", "lean", "--pancake", path, out, ns] => toLeanRoute path out ns true
   | ["--to", "lean", path, out, ns] => toLeanRoute path out ns false
   | "--to" :: target :: path :: rest =>
