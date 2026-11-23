@@ -14,7 +14,8 @@ machine. There are three groups:
 src/c/, src/rust/            the sources
 build.sh                     compile every source and write every Image
 elf/                         the binaries
-<Module>/RiscV/Image.lean    the binary as Lean: the list of its functions by index
+<Module>/RiscV/Image.lean    the binary as Lean: the list of its functions by index, and
+                             of what the --proved lift leaves out
 <Module>/RiscV/Image/        its words, checked against the ELF (Words.lean), and each
                              function's lift (F<i>.lean); written by decompile, do not edit
 <Module>/RiscV/Proofs.lean   specifications and proofs
