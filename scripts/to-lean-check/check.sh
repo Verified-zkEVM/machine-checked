@@ -12,7 +12,8 @@
 # `_start`, it checks that the root module of `--proved` names the function left out, and that
 # `--all` refuses it and the function past `.text`, and writes nothing, but takes the ELF whose
 # local label is only a name. (The main ELF's `_start` ends in `unimp`, which is lifted as a
-# trap: `--all` takes it.)
+# trap: `--all` takes it.) Then it checks that a function's module of `--proved` imports
+# neither `Tools.ToLean` nor all of `Lean`.
 #
 # Run from anywhere, after `lake build decompile Tools`. CI runs it.
 set -euo pipefail
@@ -112,3 +113,11 @@ done
 # a name that is not a function (here a local label inside `main`) leaves no code out
 lake exe decompile --to lean --proved --all "$OUT/S.elf" "$OUT" N > /dev/null
 echo "to-lean-check: what is left out is named in the root module, and refused by --all"
+
+# a function's module does not load the tool, nor all of `Lean`
+printf '%s\n' 'import P.F0' 'open Lean in' '#eval show CoreM Unit from do' \
+  '  for m in [`Tools.ToLean, `Lean] do' \
+  '    if ((← getEnv).getModuleIdx? m).isSome then throwError "P.F0 imports {m}"' \
+  > "$OUT/Imports.lean"
+build Imports
+echo "to-lean-check: P.F0 imports neither Tools.ToLean nor Lean"

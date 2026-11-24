@@ -4,7 +4,8 @@
   Written by `decompile --to lean`. Do not edit: the theorems below check it.
 -/
 
-import Tools.ToLean
+import Tools.KernelEq
+import Tools.ElfWords
 
 namespace Examples.ChaCha20.RiscV.Image
 
