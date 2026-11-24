@@ -146,7 +146,7 @@ the move, the port is a fork, with its upstream commit recorded.
 
 **Keeping up.** A scheduled CI job is to build against each upstream's latest commit and open a
 pull request moving the pin when that builds. The real cost is the Lean version: everything in
-one build is on one release. This repository is on v4.36.0-rc2, catcrypt-compiler on v4.35,
+one build is on one release. This repository is on v4.36.0, catcrypt-compiler on v4.35,
 Flapjack on v4.33.1 with a branch for v4.36. #16 proposes a common stable release with
 catcrypt-compiler, moved together; Flapjack is not party to #16 and is to be asked.
 
