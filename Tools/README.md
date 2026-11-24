@@ -215,7 +215,7 @@ instruction set's manual, worked out by hand, not from the code under test. To r
 | file | `#guard`s | theorems and examples | what |
 | --- | --- | --- | --- |
 | `Run.lean` | | | Helper: runs one instruction's lift on concrete registers and byte memory, and reports how it ends (next instruction, branch target, give up, `wrong`, or leaving the function). |
-| `RiscV.lean` | 218 | | `decodeWord` and the whole-program RV64IM lift: each `*w` instruction, division by zero and overflow, loads and stores of each width, `x0`, branches, calls and far calls (`auipc` + `jalr`), computed jumps, and the `--proved` lift's call candidates (`jalrCands`). |
+| `RiscV.lean` | 222 | 1 | `decodeWord` and the whole-program RV64IM lift: each `*w` instruction, division by zero and overflow, loads and stores of each width, `x0`, branches, calls and far calls (`auipc` + `jalr`), computed jumps, the `--proved` lift's call candidates (`jalrCands`), and a function of the `--proved` lift from its own code and a table of its callees (`Fn.callTargets`, `getElem?_liftProg_of_callTargets`). |
 | `Arm.lean` | 342 | | The AArch64 lift from instruction words: flags through the conditions that read them, logical immediates, bitfields, conditional select and compare, loads and stores with writeback, branches. |
 | `X86.lean` | 392 | | The x86-64 decoder and lift from bytes: prefixes and addressing forms, flags at every size, partial register writes, shifts, division, the stack, string instructions with `rep`. |
 | `Dead.lean` | 45 | | Dropping unread flag writes: what is dropped and kept, and that a body runs the same before and after. |
