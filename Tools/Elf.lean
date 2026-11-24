@@ -30,17 +30,27 @@ def parseHex? (s : String) : Option Nat :=
     else if 'a' ≤ c && c ≤ 'f' then some (16 * v + (c.toNat - 'a'.toNat + 10))
     else none) (some 0)
 
+/-- The symbols of code of an ELF, sorted out: the functions, the symbols whose code no
+    function holds (`lost`), and the other names of code that a function holds (`names`: a
+    second name of a function, a label inside one). Each of the last two with the reason. Only
+    `lost` is code left out. -/
+structure Symbols where
+  fns : List Sym
+  lost : List String := []
+  names : List String := []
+
 /-- The functions among text symbols, each given as address, size, whether it is global,
     and name: the sized ones, one per address, and the global ones without a size (`_start`,
     hand-written assembly), which extend to the next text symbol or, if none follows, to the
     end of their section, the least of `ends` after them. Every other symbol is given with
-    the reason it is not a function: a second name for an address taken, a local label
-    without a size, or a symbol without a size that nothing ends. -/
+    the reason it is not a function (a second name for an address taken, a local label
+    without a size, or a symbol without a size that nothing ends): among `names` if a function
+    holds its address, so that its code is taken, and among `lost` if not. -/
 def functionsOf (syms : List (Nat × Nat × Bool × String)) (ends : List Nat := []) :
-    List Sym × List String := Id.run do
+    Symbols := Id.run do
   let mut taken : Std.HashMap Nat String := {}
   let mut out : Array Sym := #[]
-  let mut rest : Array String := #[]
+  let mut rest : Array (Nat × String) := #[]
   let mut unsized : Array (Nat × String) := #[]
   let starts := syms.map (·.1)
   let alias (n : String) (addr : Nat) (f : String) : String :=
@@ -48,24 +58,27 @@ def functionsOf (syms : List (Nat × Nat × Bool × String)) (ends : List Nat :=
   for (addr, size, global, n) in syms do
     if size > 0 then
       match taken[addr]? with
-      | some f => rest := rest.push (alias n addr f)
+      | some f => rest := rest.push (addr, alias n addr f)
       | none =>
         taken := taken.insert addr n
         out := out.push { addr, size, name := n }
     else if global then unsized := unsized.push (addr, n)
-    else rest := rest.push s!"{n}: a local label without a size"
+    else rest := rest.push (addr, s!"{n}: a local label without a size")
   for (addr, n) in unsized do
     if let some f := taken[addr]? then
-      rest := rest.push (alias n addr f); continue
+      rest := rest.push (addr, alias n addr f); continue
     let some next := ((starts ++ ends).filter (· > addr)).min?
-      | rest := rest.push s!"{n}: no size, and no symbol or end of section after it"
+      | rest := rest.push (addr, s!"{n}: no size, and no symbol or end of section after it")
     taken := taken.insert addr n
     out := out.push { addr, size := next - addr, name := n }
-  return (out.toList.mergeSort (·.addr ≤ ·.addr), rest.toList)
+  let held (a : Nat) := out.any fun s => s.addr ≤ a && a < s.addr + s.size
+  return { fns := out.toList.mergeSort (·.addr ≤ ·.addr)
+           lost := (rest.filter (!held ·.1)).toList.map (·.2)
+           names := (rest.filter (held ·.1)).toList.map (·.2) }
 
 /-- Sized `t`/`T` symbols from `llvm-nm -S` output, one per address, local labels dropped. -/
 def parseNm (txt : String) : List Sym :=
-  Prod.fst <| functionsOf <| (txt.splitOn "\n").filterMap fun line =>
+  Symbols.fns <| functionsOf <| (txt.splitOn "\n").filterMap fun line =>
     match line.splitOn " " |>.filter (· ≠ "") with
     | [a, s, k, n] =>
       if (k == "t" || k == "T") && !n.startsWith ".L" then
@@ -79,8 +92,8 @@ def parseNm (txt : String) : List Sym :=
     of code that are not functions, each with the reason. A symbol of code is a function or an
     untyped label in a section that holds code, at an address inside that section: an untyped
     label without a size that a linker puts at or past the section's end (`__SDATA_BEGIN__`,
-    `_end`) is not code, and any other symbol outside its section is given as one. -/
-def symbols (bs : ByteArray) : Except String (List Sym × List String) := do
+    `_end`) is not code, and any other symbol outside its section is lost. -/
+def symbols (bs : ByteArray) : Except String Symbols := do
   let u (o n : Nat) := Elf.readUIntLE bs o n
   let shoff ← u 0x28 8
   let shentsize ← u 0x3A 2
@@ -117,8 +130,8 @@ def symbols (bs : ByteArray) : Except String (List Sym × List String) := do
         outside := outside.push s!"{name}: outside its section"; continue
       out := out.push (value, size, info / 16 != 0, name)
       ends := ends.push stop
-  let (fs, rest) := functionsOf out.toList ends.toList
-  return (fs, outside.toList ++ rest)
+  let s := functionsOf out.toList ends.toList
+  return { s with lost := outside.toList ++ s.lost }
 
 /-- The `n` little-endian 32-bit words at virtual address `addr`, from the segment holding them. -/
 def wordsAt (img : Elf64Image) (addr n : Nat) : Except String (List (BitVec 32)) := do

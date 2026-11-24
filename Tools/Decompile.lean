@@ -64,7 +64,8 @@ def coverage (p : Lprog (Op Reg) Reg) : Nat × Nat :=
 /-- An Lprog program as text, checked to read back, under a header. `ends` is the number of
     `abort`s that only end a part of a function (the guard after its last instruction): they
     are no instruction of the binary, and are counted neither as one nor as not covered. -/
-def lprogText (p : Lprog (Op Reg) Reg) (skipped : Array String) (ends : Nat := 0) :
+def lprogText (p : Lprog (Op Reg) Reg) (skipped : Array String) (ends : Nat := 0)
+    (names : List String := []) :
     Except String (String × String) := do
   let text := toText p
   if (ofText text : Option (Lprog (Op Reg) Reg)) != some p then
@@ -73,7 +74,8 @@ def lprogText (p : Lprog (Op Reg) Reg) (skipped : Array String) (ends : Nat := 0
   let summary := s!"{p.length} functions, {instrs - ends} instructions, {aborts - ends} of them " ++
     s!"`abort` (not covered by the lift), {skipped.size} symbols left out"
   let header := s!"# decompile --to lprog: {summary}\n" ++
-    String.join (skipped.toList.map fun s => s!"# left out: {s}\n")
+    String.join (skipped.toList.map fun s => s!"# left out: {s}\n") ++
+    String.join (names.map fun s => s!"# not a function: {s}\n")
   return (summary, header ++ text)
 
 /-- Lines that say what a Pancake program is of: which function is which. -/
@@ -124,8 +126,9 @@ def elfProved (elfPath : String) (out? : Option String) : IO UInt32 := do
   let bytes ← IO.FS.readBinFile elfPath
   let r : Except String (String × String) := do
     let img ← parseElf64 bytes
-    let (fs, skipped) := functions img (← symbols bytes)
-    lprogText (liftProg fs.toList) skipped
+    let syms ← symbols bytes
+    let (fs, skipped) := functions img syms
+    lprogText (liftProg fs.toList) skipped (names := syms.names)
   match r with
   | .ok (summary, text) => emit out? summary text; return 0
   | .error e => IO.eprintln s!"decompile: {e}"; return 1
@@ -134,9 +137,10 @@ def elfProved (elfPath : String) (out? : Option String) : IO UInt32 := do
     namespace `ns` (`Tools/ToLean.lean`). -/
 def toLean (elfPath outDir ns : String) : IO UInt32 := do
   try
-    let (n, k, skipped) ← Tools.ToLean.emit elfPath outDir ns
+    let (n, k, skipped, names) ← Tools.ToLean.emit elfPath outDir ns
     IO.println s!"decompile: {n} functions, {k} instructions, {skipped.size} symbols left out, as {(Tools.ToLean.nsPath outDir ns).addExtension "lean"} and {Tools.ToLean.nsPath outDir ns}/"
     for r in skipped do IO.println s!"  left out: {r}"
+    for r in names do IO.println s!"  not a function: {r}"
     return 0
   catch e => IO.eprintln s!"decompile: {e}"; return 1
 
