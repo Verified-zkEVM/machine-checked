@@ -59,7 +59,7 @@ rev = "af5c59c5ba5d6a9bc52658d429f24a117c9cbaee"
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
-rev = "v4.36.0-rc2"
+rev = "v4.36.0"
 
 # The framework: ISA-independent definitions at the top level, RISC-V under `MachineChecked.RiscV`.
 [[lean_lib]]

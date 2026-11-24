@@ -37,7 +37,7 @@ How it differs from RISC-V:
   instructions (for example the rest of BMI1 and BMI2, `BT`, `XCHG`) are to be contributed to
   Kraken when a target needs them.
 - **Toolchain:** Kraken follows Lean nightlies and uses the module system. It does not build on
-  Lean v4.35.0; this repository uses v4.36.0-rc2.
+  Lean v4.35.0; this repository uses v4.36.0.
 
 `MachineChecked/X86/Kraken.lean` imports `Kraken.X64.Semantics` and nothing else from Kraken.
 It replaces the transcription of Jasmin's x86 semantics used before.
