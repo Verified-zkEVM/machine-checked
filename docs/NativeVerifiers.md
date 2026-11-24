@@ -79,6 +79,10 @@ and the build that makes them beside `Examples/build.sh`. It is a Lake library o
 its own CI job: it depends on #837's specification packages and is some 150 functions per
 image, and `lake build Examples` should need neither.
 
+When the six theorems are proved, the directory goes to leanVM as a pull request beside #837,
+with this repository as a dependency, so that the two can be compared there. So it imports
+nothing of the other examples.
+
 ## Milestones
 
 Each milestone ends in something checked. M0.5 is the gate; M1 to M3 are infrastructure; M4
