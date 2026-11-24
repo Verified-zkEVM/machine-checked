@@ -36,7 +36,7 @@ a RISC-V (RV64IM), AArch64 or x86-64 binary to Lprog (`--to lprog`) and on to Pa
 lake exe decompile --to pancake GUEST.elf [OUT.pnk]
 lake exe decompile --to lprog   GUEST.elf [OUT.lprog]
 lake exe decompile --to lprog --proved GUEST.elf [OUT.lprog]      # RISC-V: the lift the theorems are about
-lake exe decompile --to lean --proved GUEST.elf OUTDIR NAMESPACE   # the same, as Lean modules
+lake exe decompile --to lean --proved [--all] GUEST.elf OUTDIR NAMESPACE # the same, as Lean
 lake exe decompile --to lean GUEST.elf OUTDIR NAMESPACE            # the --to lprog program, as Lean
 lake exe decompile --to lean --pancake GUEST.elf OUTDIR NAMESPACE  # the --to pancake program, as Lean
 lake exe decompile --to lprog|pancake IMAGE.fjimg [OUT]            # a Flapjack image
@@ -114,7 +114,14 @@ from text.
 | --- | --- |
 | `OUTDIR/NS/Words.lean` | Each function's words, and `check_elf_words words "GUEST.elf"`, which reads the ELF when the module is built and adds `words_eq_elf` (the words equal the ELF's) for the kernel to check. `fns` is the functions the words decode to. |
 | `OUTDIR/NS/F<i>.lean` | The `i`th function's lift as a term `f<i>`, and `f<i>_eq : (liftProg fns)[i]? = some f<i>`. The kernel checks the name, address and stack bound (`f<i>_head`) and the body in parts of 128 instructions (`f<i>_parts`) by evaluation (`kernel_eq`); `getElem?_eq_of_chunks` combines them. No kernel limit needs raising. |
-| `OUTDIR/NS.lean` | Imports everything, and lists each function index with its symbol and address. Proofs name functions by index. |
+| `OUTDIR/NS.lean` | Imports everything, and lists each function index with its symbol and address, and each symbol of code left out with the reason. Proofs name functions by index. |
+
+A function left out is not in `fns`, so nothing proved is about it. What is left out is every
+symbol of code whose code is not a function of `fns`: a function the lift does not take, and a
+symbol no function holds (`Symbols.lost` in `Elf.lean`). The root module lists these, and,
+apart, the other names of code that a function of `fns` holds (a second name of one, a label
+inside one), which leave nothing out. With `--all`, `decompile` writes nothing and fails if
+anything is left out, for a build that must cover all of its code.
 
 The kernel checks that each term is the lift of `fns`. How the term was produced is not
 trusted. What remains trusted:
@@ -182,7 +189,7 @@ faster than function size:
 | `k_iter` (bare AArch64) | `--to lean` | input in 6 s; 29 of 35 functions, up to 14 min each (21 KB); the six largest (30 to 125 KB) unfinished after 40 min |
 | blake2s (RISC-V) | `--to lean --pancake` | terms elaborate in 2 s; `pancake_eq` unfinished after 30 min (mostly memory) |
 | two-instruction functions, each ISA | `Test/ToLean.lean` | each lift, a changed AArch64 term refuted, lift 2 and its names by `kernel_eq`, false equations refused; seconds, in CI |
-| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; in CI |
+| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; with `unimp` in `_start`, the function named as left out and `--all` refused, and `--all` taking a label that is only a name; in CI |
 
 The fix planned is to check a certificate the tool writes (labels, live flags) instead of
 re-evaluating the lift ([`Packages.md`](../docs/design/Packages.md) step 3a).

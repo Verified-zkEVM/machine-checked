@@ -5,9 +5,12 @@
 # and builds every module they write, so that the kernel checks each theorem in them. Then
 # changes one number in each route's input or output and checks that the module no longer
 # builds: a word (`Words.lean`), a byte (`Code.lean`), and lift 2's notes (`Pancake.lean`).
-# Last, the function list: an unsized `_start` that is the last symbol of `.text` is taken,
+# Then the function list: an unsized `_start` that is the last symbol of `.text` is taken,
 # a local label without a size inside a function is named but not left out, a label past
 # `.text` is neither, and a function past `.text` is left out.
+# Last, on the ELF with `unimp` in `_start`, it checks that the root module of `--proved`
+# names the function left out, and that `--all` refuses it and the function past `.text`, and
+# writes nothing, but takes the ELF whose local label is only a name.
 #
 # Run from anywhere, after `lake build decompile Tools`. CI runs it.
 set -euo pipefail
@@ -47,7 +50,7 @@ refused() {
 }
 
 lake env lean --run scripts/to-lean-check/WriteElf.lean "$OUT/t.elf"
-lake exe decompile --to lean --proved "$OUT/t.elf" "$OUT" P
+lake exe decompile --to lean --proved --all "$OUT/t.elf" "$OUT" P
 lake exe decompile --to lean "$OUT/t.elf" "$OUT" W
 lake exe decompile --to lean --pancake "$OUT/t.elf" "$OUT" K
 
@@ -83,3 +86,27 @@ listed --label-past X '3 functions, 4 instructions, 0 symbols left out'
 listed --func-past Y '3 functions, 4 instructions, 1 symbols left out' \
   'left out: zz: outside its section'
 echo "to-lean-check: last unsized _start taken; local label named; function past .text left out"
+
+# what is left out is named in the root module; with `--all`, it is an error
+if grep -q 'not functions of' "$OUT/P.lean"; then
+  cat "$OUT/P.lean"; echo "to-lean-check: P.lean names a function left out"; exit 1
+fi
+lake env lean --run scripts/to-lean-check/WriteElf.lean --unimp "$OUT/u.elf"
+lake exe decompile --to lean --proved "$OUT/u.elf" "$OUT" U
+if ! grep -q '^  \* "_start: `unimp` at 0x1000c' "$OUT/U.lean"; then
+  cat "$OUT/U.lean"; echo "to-lean-check: U.lean does not name _start as left out"; exit 1
+fi
+build U/Words
+for f in "$OUT"/U/F*.lean; do build "U/$(basename "$f" .lean)"; done
+build U
+for e in u Y; do
+  if lake exe decompile --to lean --proved --all "$OUT/$e.elf" "$OUT" V; then
+    echo "to-lean-check: --all writes $e.elf, which has a symbol left out"; exit 1
+  fi
+  if [ -e "$OUT/V" ] || [ -e "$OUT/V.lean" ]; then
+    echo "to-lean-check: --all failed on $e.elf, but wrote V"; exit 1
+  fi
+done
+# a name that is not a function (here a local label inside `main`) leaves no code out
+lake exe decompile --to lean --proved --all "$OUT/S.elf" "$OUT" N > /dev/null
+echo "to-lean-check: what is left out is named in the root module, and refused by --all"

@@ -14,7 +14,8 @@
     the kernel to check; a module whose words are not the ELF's does not build;
   * `NS/F<i>.lean`, one per function: its lift as a readable term (`f<i>`), and the theorem
     `f<i>_eq : (liftProg fns)[i]? = some f<i>`;
-  * `NS.lean`, which imports them all.
+  * `NS.lean`, which imports them all, and names in a comment each symbol of code that is not
+    a function of `fns` (`functions`), with the reason.
 
   The theorem of a function is checked in parts: the kernel checks that the lift's name,
   address and stack bound (`f<i>_head`) and its body in parts of `chunk` instructions
@@ -325,15 +326,30 @@ def removeOnError {α : Type} (dir : System.FilePath) (act : IO α) : IO α :=
     try IO.FS.removeDirAll dir catch _ => pure ()
     throw e
 
+/-- What the root module says of the symbols of code that are not functions of `fns`: each
+    with the reason, or nothing if there is none. -/
+def leftOutComment (skipped : Array String) (names : List String := []) : String :=
+  (if skipped.isEmpty then "" else
+    "\n  Symbols of code that are not functions of `fns`:\n\n" ++
+      String.join (skipped.toList.map (s!"  * {commentSafe ·}\n"))) ++
+  (if names.isEmpty then "" else
+    "\n  Other names of code, whose code is a function's of `fns`:\n\n" ++
+      String.join (names.map (s!"  * {commentSafe ·}\n")))
+
 /-- **Write the modules** for the ELF at `elfPath` (as the modules will name it, from where
     they are built) under `outDir`, in namespace `ns`. Gives the number of functions and of
-    instructions, the names of the symbols of code left out, each with the reason, and the
-    other names of code taken (`Symbols.names`). -/
-def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String × List String) := do
+    instructions, the names of the symbols of code left out (`functions`), each with the
+    reason, and the other names of code taken (`Symbols.names`). With `all`, anything left out
+    is an error, and nothing is written; other names are not. -/
+def emit (elfPath outDir ns : String) (all : Bool := false) :
+    IO (Nat × Nat × Array String × List String) := do
   let bytes ← IO.FS.readBinFile elfPath
   let img ← IO.ofExcept (parseElf64 bytes)
   let syms ← IO.ofExcept (symbols bytes)
   let (fs, skipped) := functions img syms
+  if all && !skipped.isEmpty then
+    throw <| IO.userError (s!"--all: {skipped.size} symbols left out, nothing written" ++
+      String.join (skipped.toList.map (s!"\n  left out: {·}")))
   let ws ← IO.ofExcept (wordsOf bytes)
   unless validNs ns do
     throw <| IO.userError s!"the namespace {repr ns} is not a namespace of components separated by `.`, each an ASCII letter in upper case followed by ASCII letters, digits and `_`"
@@ -353,7 +369,7 @@ def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String × List S
       s!"  * `F{i}`: {commentSafe f.name}, at 0x{String.ofList (Nat.toDigits 16 f.base.toNat)}\n")
     IO.FS.writeFile (dir.addExtension "lean")
       (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it. The functions, by \
-        index (`f<i>`, `f<i>_eq`):\n\n{table}-/\n\n" ++
+        index (`f<i>`, `f<i>_eq`):\n\n{table}{leftOutComment skipped syms.names}-/\n\n" ++
         String.join ((List.range p.length).map (s!"import {ns}.F{·}\n")))
     return (fs.size, (fs.toList.map (·.prog.length)).sum, skipped, syms.names)
 
