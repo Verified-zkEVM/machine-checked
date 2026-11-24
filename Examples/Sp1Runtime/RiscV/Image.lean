@@ -15,16 +15,10 @@
   * `F107`: `write_vectored` of the standard error, at 0x7800c060 (`WriteVectored.lean`)
   * `F158`: `__udivti3`, at 0x7800ed88 (`Udivti3.lean`)
 
-  Left out of `fns` (`decompile` gives each with the reason): three functions that contain
-  `unimp`,
-
-  * `_RNvCsgG40wm8spDe_7___rustc10rust_panic`, at 0x7800b054
-  * `_RNvNtCsaFPe17dgLU6_3std9panicking15panic_with_hook`, at 0x7800b47c
-  * `_RINvNtNtCsaFPe17dgLU6_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_5alloc8rust_oom0zEB6_`,
-    at 0x7800bdc0
-
-  Not left out, though not functions of `fns` either: twelve second names of functions it
-  takes, at their addresses.
+  Nothing of the guest's code is left out of `fns`: its three functions that contain `unimp`
+  (`rust_panic`, `panic_with_hook`, and `__rust_end_short_backtrace` of `rust_oom`) are lifted,
+  with a trap there. Not functions of `fns`, though no code is left out: twelve second names of
+  functions it takes, at their addresses (`decompile` gives each).
 
   `memcmp` is from an ELF of its own (`MemcmpImage.lean`).
 

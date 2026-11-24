@@ -48,9 +48,9 @@ def img3 : Elf64Image :=
 def syms3 : List Tools.Elf.Sym := [⟨0x1000, 4, "r"⟩, ⟨0x1004, 4, "u"⟩, ⟨0x1008, 4, "w"⟩]
 
 -- `ret` and `unimp` are taken, `unimp` as `none`; `addw` leaves its function out
-#guard (functions img3 syms3).1.toList.map (fun f => (f.name, f.prog)) ==
+#guard (functions img3 { fns := syms3 }).1.toList.map (fun f => (f.name, f.prog)) ==
   [("r", [some (.JALR .x0 .x1 0)]), ("u", [none])]
-#guard (functions img3 syms3).2.size == 1
+#guard (functions img3 { fns := syms3 }).2.size == 1
 
 /-! ## A small program -/
 

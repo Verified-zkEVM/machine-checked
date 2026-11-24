@@ -8,9 +8,11 @@
 # Then the function list: an unsized `_start` that is the last symbol of `.text` is taken,
 # a local label without a size inside a function is named but not left out, a label past
 # `.text` is neither, and a function past `.text` is left out.
-# Last, on the ELF with `unimp` in `_start`, it checks that the root module of `--proved`
-# names the function left out, and that `--all` refuses it and the function past `.text`, and
-# writes nothing, but takes the ELF whose local label is only a name.
+# Last, on the ELF with `addw` (a 32-bit operation the `--proved` lift does not take) in
+# `_start`, it checks that the root module of `--proved` names the function left out, and that
+# `--all` refuses it and the function past `.text`, and writes nothing, but takes the ELF whose
+# local label is only a name. (The main ELF's `_start` ends in `unimp`, which is lifted as a
+# trap: `--all` takes it.)
 #
 # Run from anywhere, after `lake build decompile Tools`. CI runs it.
 set -euo pipefail
@@ -91,9 +93,9 @@ echo "to-lean-check: last unsized _start taken; local label named; function past
 if grep -q 'not functions of' "$OUT/P.lean"; then
   cat "$OUT/P.lean"; echo "to-lean-check: P.lean names a function left out"; exit 1
 fi
-lake env lean --run scripts/to-lean-check/WriteElf.lean --unimp "$OUT/u.elf"
+lake env lean --run scripts/to-lean-check/WriteElf.lean --addw "$OUT/u.elf"
 lake exe decompile --to lean --proved "$OUT/u.elf" "$OUT" U
-if ! grep -q '^  \* "_start: `unimp` at 0x1000c' "$OUT/U.lean"; then
+if ! grep -q '^  \* "_start: `ADDW` at 0x1000c' "$OUT/U.lean"; then
   cat "$OUT/U.lean"; echo "to-lean-check: U.lean does not name _start as left out"; exit 1
 fi
 build U/Words

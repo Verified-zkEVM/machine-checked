@@ -231,7 +231,10 @@ decision.
   theorem like RISC-V's `transfer`.
 - **32-bit operations** leave functions out of the `--proved` lift. `unimp` is lifted as a
   trap (`Op.trap`), which `SafeN` counts as safe: a function that reaches one meets every
-  contract there, as at a refused memory access.
+  contract there, as at a refused memory access. So a contract says nothing of whether a panic
+  is reachable (a function that panics on every input meets every contract); that a panic is
+  not reached is a property beyond `SafeN` (#11). Before, a function with `unimp` was left out,
+  and a call to it was `Labort`, which a proof had to show unreachable.
 - **Memory regions** have no shared vocabulary at Lprog yet (#21).
 
 ## Next steps
