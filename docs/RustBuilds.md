@@ -5,13 +5,13 @@ allocator, for `decompile --proved`, and what goes wrong without each setting. N
 required: the lift takes rustc's output as it is. Two items decide whether every function is
 lifted today, the 32-bit operations and jump tables, and go away when the lift covers them
 ([#68](https://github.com/Verified-zkEVM/machine-checked/issues/68),
-[#3](https://github.com/Verified-zkEVM/machine-checked/issues/3)); the rest make proofs
-smaller, or keep them valid across rebuilds. Flags do not
-reach a prebuilt library: against one (SP1's `std`) the panic, jump-table and inlining items
-cover only your own crates. `-Z` flags need nightly, and `-C llvm-args` are LLVM's own options:
-check them when the toolchain moves. The figures are from one program of about 230 functions,
-built for RV64IM with Cargo; [`Examples/build.sh`](../Examples/build.sh)
-builds through LLVM IR and clang instead, where all but the Cargo items apply.
+[#3](https://github.com/Verified-zkEVM/machine-checked/issues/3)); the rest make proofs smaller,
+or keep them valid across rebuilds. Flags do not reach a prebuilt library: against one (SP1's
+`std`) the panic, jump-table and inlining items cover only your own crates. `-Z` flags need
+nightly, and `-C llvm-args` are LLVM's own options: check them when the toolchain moves. The
+figures are from one program of about 230 functions, built for RV64IM with Cargo;
+[`Examples/build.sh`](../Examples/build.sh) builds through LLVM IR and clang instead, where all
+but the Cargo items apply.
 
 ## What the lift takes
 
@@ -30,12 +30,13 @@ builds through LLVM IR and clang instead, where all but the Cargo items apply.
 
 - **Either panic strategy is lifted.** `unimp`, which rustc writes at a panic site under
   immediate abort and after a call that does not return, is lifted as a trap; a
-  `#[panic_handler]` that halts through `ecall` with an exit code that does not accept is
-  lifted as that system call. Both end the run without accepting, which is safe for `SafeN`, so a contract says nothing of whether a panic is reachable
+  `#[panic_handler]` that halts through `ecall` with an exit code that does not accept is lifted
+  as that system call. Both end the run without accepting, which is safe for `SafeN`, so a
+  contract says nothing of whether a panic is reachable
   ([`Automation.md`](design/Automation.md)): no proof has to show a panic unreachable, and none
   does. With a handler, a contract for it with postcondition `False` (as `stop_contract` in
-  [`Examples/Calls`](../Examples/Calls/RiscV/Proofs.lean)) lets `lsym … using` close each
-  panic path at the call.
+  [`Examples/Calls`](../Examples/Calls/RiscV/Proofs.lean)) lets `lsym … using` close each panic
+  path at the call.
 
 ## Jump tables
 
