@@ -328,10 +328,13 @@ def removeOnError {α : Type} (dir : System.FilePath) (act : IO α) : IO α :=
 
 /-- What the root module says of the symbols of code that are not functions of `fns`: each
     with the reason, or nothing if there is none. -/
-def leftOutComment (skipped : Array String) : String :=
-  if skipped.isEmpty then "" else
+def leftOutComment (skipped : Array String) (names : List String := []) : String :=
+  (if skipped.isEmpty then "" else
     "\n  Symbols of code that are not functions of `fns`:\n\n" ++
-      String.join (skipped.toList.map (s!"  * {commentSafe ·}\n"))
+      String.join (skipped.toList.map (s!"  * {commentSafe ·}\n"))) ++
+  (if names.isEmpty then "" else
+    "\n  Other names of code, whose code is a function's of `fns`:\n\n" ++
+      String.join (names.map (s!"  * {commentSafe ·}\n")))
 
 /-- **Write the modules** for the ELF at `elfPath` (as the modules will name it, from where
     they are built) under `outDir`, in namespace `ns`. Gives the number of functions and of
@@ -366,7 +369,7 @@ def emit (elfPath outDir ns : String) (all : Bool := false) :
       s!"  * `F{i}`: {commentSafe f.name}, at 0x{String.ofList (Nat.toDigits 16 f.base.toNat)}\n")
     IO.FS.writeFile (dir.addExtension "lean")
       (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it. The functions, by \
-        index (`f<i>`, `f<i>_eq`):\n\n{table}{leftOutComment skipped}-/\n\n" ++
+        index (`f<i>`, `f<i>_eq`):\n\n{table}{leftOutComment skipped syms.names}-/\n\n" ++
         String.join ((List.range p.length).map (s!"import {ns}.F{·}\n")))
     return (fs.size, (fs.toList.map (·.prog.length)).sum, skipped, syms.names)
 

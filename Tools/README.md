@@ -117,10 +117,11 @@ from text.
 | `OUTDIR/NS.lean` | Imports everything, and lists each function index with its symbol and address, and each symbol of code left out with the reason. Proofs name functions by index. |
 
 A function left out is not in `fns`, so nothing proved is about it. What is left out is every
-symbol of code that is not a function of `fns`: a function the lift does not take, and a symbol
-that is no function (a second name of one, a local label without a size; `Elf.lean`'s
-`symbols`). With `--all`, `decompile` writes nothing and fails if anything is left out, for a
-build that must cover every symbol of its code.
+symbol of code whose code is not a function of `fns`: a function the lift does not take, and a
+symbol no function holds (`Symbols.lost` in `Elf.lean`). The root module lists these, and,
+apart, the other names of code that a function of `fns` holds (a second name of one, a label
+inside one), which leave nothing out. With `--all`, `decompile` writes nothing and fails if
+anything is left out, for a build that must cover all of its code.
 
 The kernel checks that each term is the lift of `fns`. How the term was produced is not
 trusted. What remains trusted:
@@ -188,7 +189,7 @@ faster than function size:
 | `k_iter` (bare AArch64) | `--to lean` | input in 6 s; 29 of 35 functions, up to 14 min each (21 KB); the six largest (30 to 125 KB) unfinished after 40 min |
 | blake2s (RISC-V) | `--to lean --pancake` | terms elaborate in 2 s; `pancake_eq` unfinished after 30 min (mostly memory) |
 | two-instruction functions, each ISA | `Test/ToLean.lean` | each lift, a changed AArch64 term refuted, lift 2 and its names by `kernel_eq`, false equations refused; seconds, in CI |
-| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; with `unimp` in `_start`, the function named as left out and `--all` refused; in CI |
+| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; with `unimp` in `_start`, the function named as left out and `--all` refused, and `--all` taking a label that is only a name; in CI |
 
 The fix planned is to check a certificate the tool writes (labels, live flags) instead of
 re-evaluating the lift ([`Packages.md`](../docs/design/Packages.md) step 3a).

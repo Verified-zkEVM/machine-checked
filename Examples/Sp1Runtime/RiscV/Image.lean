@@ -15,7 +15,7 @@
   * `F104`: `write_vectored` of the standard error, at 0x7800c060 (`WriteVectored.lean`)
   * `F155`: `__udivti3`, at 0x7800ed88 (`Udivti3.lean`)
 
-  Not functions of `fns` (`decompile` gives each with the reason): three functions that contain
+  Left out of `fns` (`decompile` gives each with the reason): three functions that contain
   `unimp`,
 
   * `_RNvCsgG40wm8spDe_7___rustc10rust_panic`, at 0x7800b054
@@ -23,7 +23,8 @@
   * `_RINvNtNtCsaFPe17dgLU6_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_5alloc8rust_oom0zEB6_`,
     at 0x7800bdc0
 
-  and twelve second names of functions it takes, at their addresses.
+  Not left out, though not functions of `fns` either: twelve second names of functions it
+  takes, at their addresses.
 
   `memcmp` is from an ELF of its own (`MemcmpImage.lean`).
 
