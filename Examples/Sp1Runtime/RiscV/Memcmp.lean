@@ -176,7 +176,7 @@ theorem memcmp_contract {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa �
 theorem memcmp_correct {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
     (ra a b : Word)
     (n : Nat) (hn : n < 2 ^ 64)
-    (hpc : s.pc = 0x1000#64) (hcode : ∀ f ∈ fns, CodeAt f.base (f.prog.map some) s)
+    (hpc : s.pc = 0x1000#64) (hcode : ∀ f ∈ fns, CodeAt f.base f.prog s)
     (hra : s.getReg .x1 = ra) (h10 : s.getReg .x10 = a) (h11 : s.getReg .x11 = b)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 n)
     (hva : ∀ i < n, isValidMemAddrSp1 (a + BitVec.ofNat 64 i) = true)

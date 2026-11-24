@@ -643,8 +643,8 @@ def JALR16T1 := [0xe7, 0x00, 0x03, 0x01]
 
 def fnsC : List Fn :=
   [{ name := "f", base := 0x1000,
-     prog := [.AUIPC .x1 1, .JALR .x1 .x1 0, .JALR .x0 .x5 0] },
-   { name := "g", base := 0x2000, prog := [.JALR .x0 .x1 0] }]
+     prog := [some (.AUIPC .x1 1), some (.JALR .x1 .x1 0), some (.JALR .x0 .x5 0)] },
+   { name := "g", base := 0x2000, prog := [some (.JALR .x0 .x1 0)] }]
 
 -- `auipc ra` then `jalr ra`: the one function at the address
 #guard jalrCands fnsC 0x1004 (some (.AUIPC .x1 1)) .x1 0 == [1]
@@ -654,5 +654,20 @@ def fnsC : List Fn :=
 #guard jalrCands fnsC 0x1008 (some (.JALR .x1 .x1 0)) .x5 0 == [0, 1]
 -- nothing before it (the first instruction of a function): every function
 #guard jalrCands fnsC 0x2000 none .x1 0 == [0, 1]
+
+/-! ## A word that is no instruction, in the `--proved` lift
+
+  `beq a1, zero, +8; unimp; ret`: the word `decode` gives `none` for lifts to a trap. -/
+
+def fnsT : List Fn :=
+  [{ name := "t", base := 0x1000,
+     prog := [some (.BEQ .x11 .x0 8), none, some (.JALR .x0 .x1 0)] }]
+
+#guard (liftProg fnsT).map (·.body) ==
+  [[.Llabel .internal 0, .Lcond (.cmp "eq" (.reg .x11) (.imm 0)) 2,
+    .Llabel .internal 1, .Lopn .trap,
+    .Llabel .internal 2, .Lret]]
+-- `unimp` is a word `decode` gives `none` for
+#guard RiscvZkvm.Interpreter.decode 0xc0001073#32 == none
 
 end Tools.Test.RiscV

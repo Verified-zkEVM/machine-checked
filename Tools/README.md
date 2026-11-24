@@ -98,8 +98,9 @@ has a type or a name. The output is about as long as the disassembly.
 uncovered instruction becomes `abort`, and a function containing a word riscv-zkvm does not
 decode is left out, with the instruction, address and reason in a comment. This includes the
 nine RV64IM 32-bit operations riscv-zkvm's machine does not run (`addw`, `sllw`, `sraw`,
-`sraiw`, `mulw`, `divw`, `divuw`, `remw`, `remuw`), which clang emits for `int` arithmetic, and
-`unimp`.
+`sraiw`, `mulw`, `divw`, `divuw`, `remw`, `remuw`), which clang emits for `int` arithmetic. The
+one word it takes without decoding it is `unimp`, the illegal instruction compilers write for a
+trap: it becomes `trap`, where the machine has no step and the Lprog program traps.
 
 In both lifts the Lprog text is parsed back and compared with the program before it is
 written. `Lprog.parse_print` proves the round trip from tokens; this check covers the step
@@ -189,7 +190,7 @@ faster than function size:
 | `k_iter` (bare AArch64) | `--to lean` | input in 6 s; 29 of 35 functions, up to 14 min each (21 KB); the six largest (30 to 125 KB) unfinished after 40 min |
 | blake2s (RISC-V) | `--to lean --pancake` | terms elaborate in 2 s; `pancake_eq` unfinished after 30 min (mostly memory) |
 | two-instruction functions, each ISA | `Test/ToLean.lean` | each lift, a changed AArch64 term refuted, lift 2 and its names by `kernel_eq`, false equations refused; seconds, in CI |
-| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; with `unimp` in `_start`, the function named as left out and `--all` refused, and `--all` taking a label that is only a name; in CI |
+| the small ELF of `Test/Elf.lean` (RISC-V, 3 functions) | all three routes, `scripts/to-lean-check/check.sh` | every module written and built; a changed word, byte or note refused; the function list of an unsized last `_start`, of a label and of a function past `.text`; with `unimp` in `_start`, every function taken, also under `--all`; with `addw` there, the function named as left out and `--all` refused; `--all` taking a label that is only a name; in CI |
 
 The fix planned is to check a certificate the tool writes (labels, live flags) instead of
 re-evaluating the lift ([`Packages.md`](../docs/design/Packages.md) step 3a).

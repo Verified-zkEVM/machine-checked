@@ -42,8 +42,8 @@ def ehdr : List Nat :=
 def phdr : List Nat :=
   le 4 1 ++ le 4 5 ++ le 8 0x100 ++ le 8 0x10000 ++ le 8 0x10000 ++ le 8 16 ++ le 8 32 ++ le 8 0x1000
 
-/-- The code: `li a0, 5`, `add a0, a0, a0`, `ret`, `nop`. -/
-def code : List Nat := le 4 0x00500513 ++ le 4 0x00a50533 ++ le 4 0x00008067 ++ le 4 0x00000013
+/-- The code: `li a0, 5`, `add a0, a0, a0`, `ret`, `unimp`. -/
+def code : List Nat := le 4 0x00500513 ++ le 4 0x00a50533 ++ le 4 0x00008067 ++ le 4 0xc0001073
 
 /-- A symbol: name offset, `st_info` (binding × 16 + type), section, value, size. -/
 def sym (name info shndx value size : Nat) : List Nat :=
@@ -152,10 +152,10 @@ def segs (bs : ByteArray) : Option (List (Nat × List UInt8 × Nat × Bool × Bo
 
 -- the four words at 0x10000, little-endian
 #guard ((parseElf64 elf).toOption.map fun img => (wordsAt img 0x10000 4).toOption) ==
-  some (some [0x00500513, 0x00a50533, 0x00008067, 0x00000013])
+  some (some [0x00500513, 0x00a50533, 0x00008067, 0xc0001073])
 -- the last word
 #guard ((parseElf64 elf).toOption.map fun img => (wordsAt img 0x1000c 1).toOption) ==
-  some (some [0x00000013])
+  some (some [0xc0001073])
 -- none
 #guard ((parseElf64 elf).toOption.map fun img => (wordsAt img 0x10000 0).toOption) == some (some [])
 -- past the file bytes of the segment (into `.bss`): an error

@@ -32,13 +32,33 @@ open RiscvZkvm.Rv64 RiscvZkvm.Interpreter Lprog MachineChecked.RiscV.Lift Tools.
 #guard (chunks 128 (List.range 1000)).flatten == List.range 1000
 #guard (chunks 128 (List.range 1000)).all (·.length ≤ 128)
 
+/-! ## The words the `--proved` lift takes
+
+An instruction, and `unimp`, which it lifts as a trap; not `addw` (`0x00c5853b`), a 32-bit
+operation riscv-zkvm's machine lacks, nor the word 0, which is no instruction. -/
+
+#guard taken 0x00008067#32 && taken unimp && !taken 0x00c5853b#32 && !taken 0#32
+
+/-- Three one-word functions at `0x1000`: `ret`, `unimp`, `addw a0, a1, a2`. -/
+def img3 : Elf64Image :=
+  -- a segment: its address, its bytes, its size in memory, writable, executable
+  ⟨0x1000, #[⟨0x1000, ⟨#[0x67, 0x80, 0, 0, 0x73, 0x10, 0, 0xc0, 0x3b, 0x85, 0xc5, 0]⟩, 12,
+    false, true⟩], none⟩
+
+def syms3 : List Tools.Elf.Sym := [⟨0x1000, 4, "r"⟩, ⟨0x1004, 4, "u"⟩, ⟨0x1008, 4, "w"⟩]
+
+-- `ret` and `unimp` are taken, `unimp` as `none`; `addw` leaves its function out
+#guard (functions img3 { fns := syms3 }).1.toList.map (fun f => (f.name, f.prog)) ==
+  [("r", [some (.JALR .x0 .x1 0)]), ("u", [none])]
+#guard (functions img3 { fns := syms3 }).2.size == 1
+
 /-! ## A small program -/
 
 /-- `addi sp, sp, -16; addi a0, zero, 7; addi sp, sp, 16; ret` at `0x1000`. -/
 def fns : List Fn :=
   [{ name := "f", base := 0x1000
-     prog := (([0xff010113, 0x00700513, 0x01010113, 0x00008067] : List Nat).map
-       (BitVec.ofNat 32) |>.mapM decode).getD [] }]
+     prog := ([0xff010113, 0x00700513, 0x01010113, 0x00008067] : List Nat).map
+       (BitVec.ofNat 32) |>.map decode }]
 
 #guard (fns.head?.map (·.prog.length)) == some 4
 

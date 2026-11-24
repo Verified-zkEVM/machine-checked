@@ -3,28 +3,22 @@
 
   Written by hand, unlike the other modules' `Image.lean`: the modules of the SP1 guest
   `Examples/elf/k_u128.elf` that are kept. `decompile --to lean --proved` writes one module for
-  each of the 156 functions of the guest that it lifts, and an index that imports them all. Only the functions
-  that have proofs are in the repository, with the words they are checked against, so that
-  `lake build Examples` does not build 152 modules nothing uses. `Examples/build.sh Sp1Runtime`
-  writes these five again and leaves this file alone. The functions, by index (`f<i>`,
-  `f<i>_eq`):
+  each of the 159 functions of the guest that it lifts, and an index that imports them all.
+  Only the functions that have proofs are in the repository, with the words they are checked
+  against, so that `lake build Examples` does not build 155 modules nothing uses.
+  `Examples/build.sh Sp1Runtime` writes these five again and leaves this file alone. The
+  functions, by index (`f<i>`, `f<i>_eq`):
 
-  * `Words`: the words of all 156 functions, checked against the ELF (`words_eq_elf`)
+  * `Words`: the words of all 159 functions, checked against the ELF (`words_eq_elf`)
   * `F11`: `syscall_write`, at 0x780042ec (`WriteVectored.lean`)
   * `F24`: `sys_write`, at 0x78004eec (`WriteVectored.lean`)
-  * `F104`: `write_vectored` of the standard error, at 0x7800c060 (`WriteVectored.lean`)
-  * `F155`: `__udivti3`, at 0x7800ed88 (`Udivti3.lean`)
+  * `F107`: `write_vectored` of the standard error, at 0x7800c060 (`WriteVectored.lean`)
+  * `F158`: `__udivti3`, at 0x7800ed88 (`Udivti3.lean`)
 
-  Left out of `fns` (`decompile` gives each with the reason): three functions that contain
-  `unimp`,
-
-  * `_RNvCsgG40wm8spDe_7___rustc10rust_panic`, at 0x7800b054
-  * `_RNvNtCsaFPe17dgLU6_3std9panicking15panic_with_hook`, at 0x7800b47c
-  * `_RINvNtNtCsaFPe17dgLU6_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_5alloc8rust_oom0zEB6_`,
-    at 0x7800bdc0
-
-  Not left out, though not functions of `fns` either: twelve second names of functions it
-  takes, at their addresses.
+  Nothing of the guest's code is left out of `fns`: its three functions that contain `unimp`
+  (`rust_panic`, `panic_with_hook`, and `__rust_end_short_backtrace` of `rust_oom`) are lifted,
+  with a trap there. Not functions of `fns`, though no code is left out: twelve second names of
+  functions it takes, at their addresses (`decompile` gives each).
 
   `memcmp` is from an ELF of its own (`MemcmpImage.lean`).
 
@@ -34,8 +28,8 @@
 
 import Examples.Sp1Runtime.RiscV.Image.F11
 import Examples.Sp1Runtime.RiscV.Image.F24
-import Examples.Sp1Runtime.RiscV.Image.F104
-import Examples.Sp1Runtime.RiscV.Image.F155
+import Examples.Sp1Runtime.RiscV.Image.F107
+import Examples.Sp1Runtime.RiscV.Image.F158
 import MachineChecked.RiscV.Lift.Transfer
 
 namespace Examples.Sp1Runtime.RiscV.Image

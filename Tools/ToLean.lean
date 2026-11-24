@@ -32,7 +32,8 @@
 
   ## Main definitions
 
-  * `functions`, `wordsOf`: the functions the `--proved` lift takes, and their words
+  * `functions`, `wordsOf`: the functions the `--proved` lift takes (those whose words each
+    decode, or are `unimp`, which it lifts as a trap), and their words
   * `chunks`, `flatten_chunks`, `getElem?_eq_of_chunks`
   * `check_elf_words`, `check_elf_input`: the checks of a written module against the ELF
   * `kernel_eq`: an equation proved by `Eq.refl`, for the kernel to check
@@ -54,12 +55,21 @@ open _root_.Lprog MachineChecked.RiscV.Lift Tools.Elf
 
 /-! ## The functions of an ELF -/
 
-/-- Why a function's words do not decode, said of the first that does not: one of the 32-bit
-    operations of RV64IM that riscv-zkvm's machine lacks (`Lift/Decode.lean`), which the
-    `--proved` lift cannot take since its theorems are about that machine, or a word that is no
-    instruction of RV64IM at all. -/
+/-- `unimp` (`csrrw zero, cycle, zero`): the illegal instruction a compiler writes for a trap
+    (Rust's `abort`, `unreachable!`). riscv-zkvm's decoder has no instruction for it, and the
+    machine has no step there, as an illegal instruction does on hardware: the lift takes it as
+    a trap. -/
+def unimp : BitVec 32 := 0xc0001073#32
+
+/-- A word the `--proved` lift takes: an instruction, or `unimp`. -/
+def taken (w : BitVec 32) : Bool := (decode w).isSome || w == unimp
+
+/-- Why a function's words are not taken, said of the first that is not: one of the 32-bit
+    operations of RV64IM that riscv-zkvm's machine lacks (`Lift/Decode.lean`), which has no
+    step there while hardware runs it, so that a trap there would be a false reading; or a word
+    that is no instruction of RV64IM at all. -/
 def undecoded (base : Nat) (ws : List (BitVec 32)) : String :=
-  match (ws.zipIdx).find? (fun (w, _) => (decode w).isNone) with
+  match (ws.zipIdx).find? (fun (w, _) => !taken w) with
   | none => "a word does not decode"
   | some (w, k) =>
     let addr := s!"0x{String.ofList (Nat.toDigits 16 (base + 4 * k))}"
@@ -67,13 +77,8 @@ def undecoded (base : Nat) (ws : List (BitVec 32)) : String :=
     | some (name, _) => s!"`{name}` at {addr}, a 32-bit operation riscv-zkvm's machine does not \
         run: the `--proved` lift does not take it (`--to lprog` without `--proved` does)"
     | none =>
-      -- `unimp`, `csrrw zero, cycle, zero`: the illegal instruction a compiler writes for a trap
-      -- (Rust's `abort`, `unreachable!`)
-      if w == 0xc0001073#32 then
-        s!"`unimp` at {addr}, the illegal instruction a compiler writes for a trap: riscv-zkvm's \
-          decoder has no instruction for it, so the `--proved` lift does not take the function \
-          (`--to lprog` without `--proved` takes it, with `abort` there)"
-      else s!"the word 0x{String.ofList (Nat.toDigits 16 w.toNat)} at {addr} is no instruction of RV64IM"
+      s!"the word 0x{String.ofList (Nat.toDigits 16 w.toNat)} at {addr} is no instruction of \
+        RV64IM"
 
 /-- The functions of an image the `--proved` lift takes, from its symbols of code
     (`symbols`), and the names of the symbols whose code it leaves out (`Symbols.lost` and the
@@ -90,9 +95,11 @@ def functions (img : Elf64Image) (syms : Symbols) : Array Fn × Array String :=
       skipped := skipped.push s!"{sym.name}: not in an executable segment"
     else match wordsAt img sym.addr (sym.size / 4) with
       | .error e => skipped := skipped.push s!"{sym.name}: {e}"
-      | .ok ws => match ws.mapM decode with
-        | some prog => fs := fs.push { name := sym.name, base := BitVec.ofNat 64 sym.addr, prog }
-        | none => skipped := skipped.push s!"{sym.name}: {undecoded sym.addr ws}"
+      | .ok ws =>
+        if ws.all taken then
+          fs := fs.push
+            { name := sym.name, base := BitVec.ofNat 64 sym.addr, prog := ws.map decode }
+        else skipped := skipped.push s!"{sym.name}: {undecoded sym.addr ws}"
   return (fs, skipped)
 
 /-- The words of each function the `--proved` lift takes: its name, its address and its
@@ -298,7 +305,9 @@ def wordsModule (ns elfPath : String) (ws : List (String × Nat × List Nat)) : 
   s := s ++ s!"-- the words are the ELF's: `words_eq_elf`, checked when this module is built\n"
   s := s ++ s!"check_elf_words words {repr elfPath}\n\n"
   s := s ++ "/-- The functions the words decode to. -/\n"
-  s := s ++ "def fns : List Fn := words.map fun (name, base, ws) =>\n  { name, base := BitVec.ofNat 64 base, prog := ((ws.map (BitVec.ofNat 32)).mapM decode).getD [] }\n"
+  s := s ++ "def fns : List Fn := words.map fun (name, base, ws) =>\n"
+  s := s ++ "  { name, base := BitVec.ofNat 64 base, " ++
+    "prog := (ws.map (BitVec.ofNat 32)).map decode }\n"
   return s ++ footer ns
 
 /-- The module of the `i`th function, lifted to `fd`. -/

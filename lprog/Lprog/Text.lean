@@ -311,6 +311,7 @@ def printOp : Op Reg → List Tok
       printExpr a
   | .store w a e => .sym "store" :: .sym (widthName w) :: (printExpr a ++ printExpr e)
   | .skip => [.sym "skip"]
+  | .trap => [.sym "trap"]
 
 def printInstr : LinstrR (Op Reg) Reg → List Tok
   | .Lopn op => printOp op
@@ -356,6 +357,7 @@ def parseInstr (n : Nat) : List Tok → Option (LinstrR (Op Reg) Reg × List Tok
     else if s = "load" then parseLoad n ts
     else if s = "store" then parseStore n ts
     else if s = "skip" then some (.Lopn .skip, ts)
+    else if s = "trap" then some (.Lopn .trap, ts)
     else if s = "label" then match ts with
       | .num l :: ts => some (.Llabel .internal l, ts)
       | _ => none
@@ -408,6 +410,7 @@ theorem parseInstr_print (i : LinstrR (Op Reg) Reg) (n : Nat) (ts : List Tok)
       simp [printInstr, printOp, parseInstr, parseStore, widthOf_name,
         fun ts => parseExprN_print a n ts (by omega), fun ts => parseExprN_print e n ts (by omega)]
     | skip => simp [printInstr, printOp, parseInstr]
+    | trap => simp [printInstr, printOp, parseInstr]
   | Llabel kind l => cases kind <;> simp [printInstr, parseInstr]
   | Lgoto l => simp [printInstr, parseInstr]
   | Lcond c l =>

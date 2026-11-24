@@ -11,7 +11,7 @@ import LprogRiscV.Lsym
   back from there. Its contract is proved from a contract of `u128_div_rem`, which is
   assumed here (`hdiv`): the point is how real code composes through a contract, a result
   returned through memory included. Of the guest's modules, only the words and `__udivti3`'s
-  (`F155`) are kept: `u128_div_rem` is not stepped.
+  (`F158`) are kept: `u128_div_rem` is not stepped.
 
   `udivti3_contract` is the contract at Lprog, `udivti3_correct` the same statement over
   riscv-zkvm's machine; both take `u128_div_rem`'s contract as a hypothesis.
@@ -41,14 +41,14 @@ def DivPost : Word → Word → (Reg → Word) → MachineState → (Reg → Wor
       m'.getMem a = m.getMem a
 
 /-- `__udivti3(a, b)`: the 128-bit quotient in `a0` and `a1`, from `u128_div_rem`'s contract. -/
-theorem udivti3_contract (hdiv : rvIsa.Contract (liftProg fns) sp1Ctx 154 DivPre DivPost) :
-    rvIsa.Contract (liftProg fns) sp1Ctx 155
+theorem udivti3_contract (hdiv : rvIsa.Contract (liftProg fns) sp1Ctx 157 DivPre DivPost) :
+    rvIsa.Contract (liftProg fns) sp1Ctx 158
       (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top ∧ regs .x13 ++ regs .x12 ≠ 0#128)
       (fun _ top regs _ r' _ =>
         let q := u128 (regs .x10) (regs .x11) / u128 (regs .x12) (regs .x13)
         r' .x10 = q.truncate 64 ∧ r' .x11 = (q >>> 64).truncate 64 ∧ r' .x2 = top) := by
   intro G N Q ret top rest regs m ⟨hra, hsp, hb⟩ hk
-  lsym f155_eq with [hra, hsp, hb, DivPre, DivPost] using [hdiv]
+  lsym f158_eq with [hra, hsp, hb, DivPre, DivPost] using [hdiv]
   apply hk; simp [lsym_simp]
 
 /-- **`__udivti3(a, b)` on the machine**, for a divisor that is not zero: it returns with the
@@ -56,7 +56,7 @@ theorem udivti3_contract (hdiv : rvIsa.Contract (liftProg fns) sp1Ctx 154 DivPre
 
     This is NOT a proof of `__udivti3` alone: `u128_div_rem`'s contract (`hdiv`) is assumed,
     not proved. `u128_div_rem` is not kept here, and nothing in this repository proves it. -/
-theorem udivti3_correct (hdiv : rvIsa.Contract (liftProg fns) sp1Ctx 154 DivPre DivPost)
+theorem udivti3_correct (hdiv : rvIsa.Contract (liftProg fns) sp1Ctx 157 DivPre DivPost)
     {G : MachineState → Prop} {k : Nat} {P : Prop} (s : MachineState)
     (hpc : s.pc = 0x7800ed88#64) (hcode : Loaded fns s)
     (hb : u128 (s.getReg .x12) (s.getReg .x13) ≠ 0#128)
@@ -67,7 +67,7 @@ theorem udivti3_correct (hdiv : rvIsa.Contract (liftProg fns) sp1Ctx 154 DivPre 
         u128 (s.getReg .x12) (s.getReg .x13)) >>> 64).truncate 64 →
       t.getReg .x2 = s.getReg .x2 → SafeN G k P t) :
     SafeN G k P s := by
-  obtain ⟨fn, hg, hbase⟩ : ∃ fn, fns[155]? = some fn ∧ fn.base = 0x7800ed88#64 := ⟨_, rfl, rfl⟩
+  obtain ⟨fn, hg, hbase⟩ : ∃ fn, fns[158]? = some fn ∧ fn.base = 0x7800ed88#64 := ⟨_, rfl, rfl⟩
   refine SafeN.of_isa_contract hok hg (hpc.trans hbase.symm) hcode (udivti3_contract hdiv)
     ⟨rfl, rfl, by simpa [regsOf, u128] using hb⟩ ?_
   rintro t r' m' hag hpc' ⟨h10, h11, h2⟩
