@@ -249,6 +249,7 @@ Start with:
 - [`Examples/README.md`](Examples/README.md): the examples, what is verified of each, and how
   their proofs are written.
 - [`Tools/README.md`](Tools/README.md): the decompiler and `--to lean`, and what each route trusts.
+- [`docs/RustBuilds.md`](docs/RustBuilds.md): building a Rust program for the proved lift.
 - [`docs/design/Automation.md`](docs/design/Automation.md): `lsym` in practice.
 
 Reference:
