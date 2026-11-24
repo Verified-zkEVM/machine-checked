@@ -1,0 +1,38 @@
+name = "lean-verifiers"
+version = "0.1.0"
+defaultTargets = ["LeanVerifiers"]
+
+# A package of its own, inside machine-checked's `Examples/`: it needs the specifications'
+# packages, which `lake build Examples` should not, and one of them (VCVio) has a library
+# `Examples`, which in one package with machine-checked's would take its modules' names.
+# Nothing here imports `Examples.*`.
+
+# machine-checked: the lifts, Lprog and `lsym`.
+[[require]]
+name = "machine-checked"
+path = "../.."
+
+# Kraken at machine-checked's pin. The specifications' package pins a fork of it for its own
+# proofs, which are not built here.
+[[require]]
+name = "Kraken"
+git = "https://github.com/AeneasVerif/kraken"
+rev = "ebd10ebd800f61d1c7170e06b1eaea2bd9cdea66"
+
+# The specifications: the package `native` of leanEthereum/leanVM#837, at that pull request's
+# head, for its models of the Rust code (`Native`, `NativeRustc`, `NativeRustcVm`) and the
+# statements they are proved against (`Statement`).
+[[require]]
+name = "native"
+git = "https://github.com/kevaundray/leanVM"
+rev = "1eb3a8f9a7ea3d63f9d2c69ef97543bfa8a03ae2"
+subDir = "formal/native"
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.36.0"
+
+[[lean_lib]]
+name = "LeanVerifiers"
+globs = ["LeanVerifiers", "LeanVerifiers.+"]
