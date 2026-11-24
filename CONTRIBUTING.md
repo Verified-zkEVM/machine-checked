@@ -52,7 +52,8 @@ These hold for every change. A pull request that breaks one is not merged.
 - **Untrusted producers, trusted checker.** Tools may generate images, annotations and
   certificates, but the Lean kernel re-checks everything they produce. Nothing in
   `MachineChecked/` imports `Tools/`; proofs in `Examples/` import it only through
-  the modules `decompile --to lean` wrote (`Tools.ToLean`, for `check_elf_words`).
+  the modules `decompile --to lean` wrote (`Tools.KernelEq` and `Tools.ElfWords`, for
+  `kernel_eq` and `check_elf_words`).
 
 ### Semantics and trust
 
@@ -117,8 +118,8 @@ Before opening a pull request:
 2. Confirm the build has no warnings.
 3. Run `#print axioms` on the theorems you added or changed, and add the main ones to
    `scripts/AxiomCheck.lean` (framework) or `scripts/AxiomCheckExamples.lean` (examples).
-4. If you changed a lift, run `check.py limits`; if you changed `Tools/ToLean.lean`, run
-   `scripts/to-lean-check/check.sh`.
+4. If you changed a lift, run `check.py limits`; if you changed `Tools/ToLean.lean`,
+   `Tools/KernelEq.lean` or `Tools/ElfWords.lean`, run `scripts/to-lean-check/check.sh`.
 
 ### Pull requests
 

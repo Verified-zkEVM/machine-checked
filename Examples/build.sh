@@ -75,10 +75,10 @@ stress() {
   lift "$1" "$2"
 }
 
-# The SP1 guest's runtime, from `elf/k_u128.elf`. The guest has 156 functions; the Image keeps
+# The SP1 guest's runtime, from `elf/k_u128.elf`. The guest has 159 functions; the Image keeps
 # the words and the functions that have proofs, and `Image.lean`, which is written by hand,
 # imports them.
-SP1_KEPT="Words F11 F24 F104 F155"
+SP1_KEPT="Words F11 F24 F107 F158"
 sp1runtime() {
   tmp=$(mktemp -d)
   "$DECOMPILE" --to lean --proved "$E/elf/k_u128.elf" "$tmp" Examples.Sp1Runtime.RiscV.Image

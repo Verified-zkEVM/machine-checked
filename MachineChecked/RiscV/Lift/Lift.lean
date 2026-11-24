@@ -4,8 +4,8 @@
   From decoded RISC-V to an Lprog program.
 
   A program is a list of functions of an image, each with its address and its decoded
-  instructions (`Fn`). `liftProg fs` lifts each to an Lprog function: instruction `k` becomes
-  `Llabel k` followed by its lifted form (`liftI`):
+  words (`Fn`). `liftProg fs` lifts each to an Lprog function: word `k` becomes `Llabel k`
+  followed by its lifted form (`liftI`):
 
   * an operation (pure, or a load or store) becomes `Lopn` of its shared operation (`opOf`),
     and `auipc` the constant it computes;
@@ -15,6 +15,8 @@
     `jalr ra` becomes an indirect `Lcall`, and `jalr x0` other than `ret` an indirect `Ltail`,
     with every function of the program as a candidate;
   * `jalr x0, 0(ra)` becomes `Lret`, and `ecall` becomes `Lext`;
+  * a word that decodes to no instruction (`none`; `unimp` is the one compilers write) becomes
+    `Lopn .trap`: the machine has no step there, and the Lprog program traps;
   * anything else becomes `Labort`, which goes `wrong`, so a proof at Lprog shows the program
     never meets one.
 
@@ -37,12 +39,13 @@ open Lprog.RiscV
 open RiscvZkvm.Rv64 MachineChecked.RiscV MachineChecked.RiscV.Sym Lprog
 open Lprog.Ascent (Outcome)
 
-/-- A function of an image: its name, its address, its instructions and a stack bound for
-    contracts. -/
+/-- A function of an image: its name, its address, its decoded words and a stack bound for
+    contracts. A word that decodes to no instruction is `none`. The lift takes every `none` as
+    a trap; the tool writes one only for `unimp` (`Tools.ToLean.taken`). -/
 structure Fn where
   name : String
   base : Word
-  prog : List Instr
+  prog : List (Option Instr)
   depth : Nat := 0
 
 /-- The index of the function whose entry is `a`. -/
@@ -122,16 +125,21 @@ def liftCtl (fs : List Fn) (len k : Nat) (pc : Word) (prev : Option Instr) : Ins
   | .ECALL => .Lext 0
   | _ => .Labort
 
-/-- One instruction, at index `k` of a function of `len` instructions at address `pc`, after
-    the instruction `prev`. An instruction's lift depends on these, and on `fs` only through
-    `entryOf`. -/
-def liftI (fs : List Fn) (len k : Nat) (pc : Word) (prev : Option Instr) (i : Instr) : LinstrR (Op Reg) Reg :=
-  if opnOk i then .Lopn (opOf i) else liftCtl fs len k pc prev i
+/-- One word, at index `k` of a function of `len` words at address `pc`, after the
+    instruction `prev`: a word that is no instruction traps. A word's lift depends on these,
+    and on `fs` only through `entryOf`. -/
+def liftI (fs : List Fn) (len k : Nat) (pc : Word) (prev : Option Instr) :
+    Option Instr → LinstrR (Op Reg) Reg
+  | none => .Lopn .trap
+  | some i => if opnOk i then .Lopn (opOf i) else liftCtl fs len k pc prev i
 
 /-- Only `ecall` lifts to an external call. -/
-theorem liftI_eq_ext {fs : List Fn} {len k n : Nat} {pc : Word} {prev : Option Instr} {i : Instr}
-    (h : liftI fs len k pc prev i = .Lext n) : i = .ECALL := by
-  unfold liftI at h
+theorem liftI_eq_ext {fs : List Fn} {len k n : Nat} {pc : Word} {prev oi : Option Instr}
+    (h : liftI fs len k pc prev oi = .Lext n) : oi = some .ECALL := by
+  obtain _ | i := oi
+  · cases h
+  refine congrArg some ?_
+  simp only [liftI] at h
   split at h
   · cases h
   · cases i <;> first
@@ -140,17 +148,18 @@ theorem liftI_eq_ext {fs : List Fn} {len k n : Nat} {pc : Word} {prev : Option I
          repeat' split at h
          all_goals cases h)
 
-/-- Instructions from index `k` on, after the instruction `prev`, lifted. -/
-def liftFrom (fs : List Fn) (base : Word) (len : Nat) : Nat → Option Instr → List Instr → Lcmd (Op Reg) Reg
+/-- Words from index `k` on, after the instruction `prev`, lifted. -/
+def liftFrom (fs : List Fn) (base : Word) (len : Nat) :
+    Nat → Option Instr → List (Option Instr) → Lcmd (Op Reg) Reg
   | _, _, [] => []
   | k, prev, i :: is =>
     .Llabel .internal k :: liftI fs len k (base + BitVec.ofNat 64 (4 * k)) prev i ::
-      liftFrom fs base len (k + 1) (some i) is
+      liftFrom fs base len (k + 1) i is
 
 /-- The instruction before index `j` of `is`, the first having `prev` before it. -/
-def prevAt (prev : Option Instr) (is : List Instr) : Nat → Option Instr
+def prevAt (prev : Option Instr) (is : List (Option Instr)) : Nat → Option Instr
   | 0 => prev
-  | j + 1 => is[j]?
+  | j + 1 => is[j]?.join
 
 /-- A function, lifted. -/
 def liftFn (fs : List Fn) (f : Fn) : Lfundef (Op Reg) Reg where
@@ -172,24 +181,26 @@ abbrev LSafeN (fs : List Fn) (G : State rvIsa → Prop) (n : Nat) (Q : State rvI
 /-! ## The lifted code -/
 
 theorem length_liftFrom (fs : List Fn) (base : Word) (len : Nat) :
-    ∀ (k : Nat) (prev : Option Instr) (is : List Instr), (liftFrom fs base len k prev is).length = 2 * is.length
+    ∀ (k : Nat) (prev : Option Instr) (is : List (Option Instr)),
+      (liftFrom fs base len k prev is).length = 2 * is.length
   | _, _, [] => rfl
   | k, _, i :: is => by
-    simp only [liftFrom, List.length_cons, length_liftFrom fs base len (k + 1) (some i) is]; omega
+    simp only [liftFrom, List.length_cons, length_liftFrom fs base len (k + 1) i is]; omega
 
 theorem getElem?_liftFrom_even (fs : List Fn) (base : Word) (len : Nat) :
-    ∀ (k : Nat) (prev : Option Instr) (is : List Instr) (j : Nat), j < is.length →
+    ∀ (k : Nat) (prev : Option Instr) (is : List (Option Instr)) (j : Nat), j < is.length →
       (liftFrom fs base len k prev is)[2 * j]? = some (.Llabel .internal (k + j))
   | _, _, [], _, h => absurd h (by simp)
   | k, _, i :: is, 0, _ => by simp [liftFrom]
   | k, _, i :: is, j + 1, h => by
     rw [show 2 * (j + 1) = (2 * j) + 1 + 1 by omega]
     simp only [liftFrom, List.getElem?_cons_succ]
-    rw [getElem?_liftFrom_even fs base len (k + 1) (some i) is j (by simp only [List.length_cons] at h; omega),
+    rw [getElem?_liftFrom_even fs base len (k + 1) i is j
+        (by simp only [List.length_cons] at h; omega),
       show k + 1 + j = k + (j + 1) by omega]
 
 theorem getElem?_liftFrom_odd (fs : List Fn) (base : Word) (len : Nat) :
-    ∀ (k : Nat) (prev : Option Instr) (is : List Instr) (j : Nat) (h : j < is.length),
+    ∀ (k : Nat) (prev : Option Instr) (is : List (Option Instr)) (j : Nat) (h : j < is.length),
       (liftFrom fs base len k prev is)[2 * j + 1]? =
         some (liftI fs len (k + j) (base + BitVec.ofNat 64 (4 * (k + j))) (prevAt prev is j) is[j])
   | _, _, [], _, h => absurd h (by simp)
@@ -197,7 +208,8 @@ theorem getElem?_liftFrom_odd (fs : List Fn) (base : Word) (len : Nat) :
   | k, _, i :: is, j + 1, h => by
     rw [show 2 * (j + 1) + 1 = (2 * j + 1) + 1 + 1 by omega]
     simp only [liftFrom, List.getElem?_cons_succ]
-    rw [getElem?_liftFrom_odd fs base len (k + 1) (some i) is j (by simp only [List.length_cons] at h; omega)]
+    rw [getElem?_liftFrom_odd fs base len (k + 1) i is j
+      (by simp only [List.length_cons] at h; omega)]
     simp only [List.getElem_cons_succ]
     rw [show k + 1 + j = k + (j + 1) by omega]
     congr 2
@@ -206,8 +218,10 @@ theorem getElem?_liftFrom_odd (fs : List Fn) (base : Word) (len : Nat) :
 theorem isLabel_label {Op Reg : Type} (k l : LLabel) :
     isLabel (Op := Op) (Reg := Reg) l (.Llabel .internal k) = (k == l) := rfl
 
-theorem liftI_not_label (fs : List Fn) (len k : Nat) (pc : Word) (prev : Option Instr) (i : Instr)
-    (l : LLabel) : isLabel l (liftI fs len k pc prev i) = false := by
+theorem liftI_not_label (fs : List Fn) (len k : Nat) (pc : Word) (prev oi : Option Instr)
+    (l : LLabel) : isLabel l (liftI fs len k pc prev oi) = false := by
+  obtain _ | i := oi
+  · rfl
   unfold liftI
   split
   · rfl
@@ -216,7 +230,8 @@ theorem liftI_not_label (fs : List Fn) (len k : Nat) (pc : Word) (prev : Option 
 
 /-- Label `l` sits at index `2 (l - k)` of the instructions lifted from index `k`. -/
 theorem labelIdx_liftFrom (fs : List Fn) (base : Word) (len : Nat) :
-    ∀ (k : Nat) (prev : Option Instr) (is : List Instr) (l : Nat), k ≤ l → l < k + is.length →
+    ∀ (k : Nat) (prev : Option Instr) (is : List (Option Instr)) (l : Nat), k ≤ l →
+      l < k + is.length →
       labelIdx (liftFrom fs base len k prev is) l = some (2 * (l - k))
   | _, _, [], _, h1, h2 => absurd h2 (by simp; omega)
   | k, _, i :: is, l, h1, h2 => by
@@ -224,7 +239,7 @@ theorem labelIdx_liftFrom (fs : List Fn) (base : Word) (len : Nat) :
     simp only [liftFrom, List.findIdx?_cons, isLabel_label, liftI_not_label]
     by_cases hkl : k = l
     · subst hkl; simp
-    · have := labelIdx_liftFrom fs base len (k + 1) (some i) is l (by omega)
+    · have := labelIdx_liftFrom fs base len (k + 1) i is l (by omega)
         (by simp only [List.length_cons] at h2; omega)
       unfold labelIdx at this
       simp only [beq_iff_eq, hkl, ite_false, this, Option.map_some, Bool.false_eq_true]

@@ -12,6 +12,13 @@
   * `F6`: "popcount", at 0x1070
   * `F7`: "abs_branchless", at 0x1090
   * `F8`: "_start", at 0x10b4
+
+  Symbols of code that are not functions of `fns`:
+
+  * "add32: `ADDW` at 0x1044, a 32-bit operation riscv-zkvm's machine does not run: the `--proved` lift does not take it (`--to lprog` without `--proved` does)"
+  * "shl32: `SLLW` at 0x104c, a 32-bit operation riscv-zkvm's machine does not run: the `--proved` lift does not take it (`--to lprog` without `--proved` does)"
+  * "sra32: `SRAW` at 0x1054, a 32-bit operation riscv-zkvm's machine does not run: the `--proved` lift does not take it (`--to lprog` without `--proved` does)"
+  * "div32: `DIVW` at 0x10a4, a 32-bit operation riscv-zkvm's machine does not run: the `--proved` lift does not take it (`--to lprog` without `--proved` does)"
 -/
 
 import Examples.Arith.RiscV.Image.F0

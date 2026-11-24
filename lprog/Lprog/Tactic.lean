@@ -186,7 +186,8 @@ macro_rules
     -- (`subst`, not the pattern `rfl`, which the quotation's hygiene would make a name). A
     -- load's or a store's check that `simp` cannot decide stays, as the hypothesis `hm` of what
     -- follows, and the result is substituted all the same; nothing need be shown of it, since
-    -- an operation whose check fails traps (`SafeN.opn'`).
+    -- an operation whose check fails traps (`SafeN.opn'`). An operation `simp` shows gives no
+    -- result (`trap`, a check decided false) closes the path.
     let hm := mkIdent `hm
     -- (the memory's equation first: `subst` of a check, not an equation, can evaluate it)
     let eqs ← `(tactic| first
@@ -197,9 +198,11 @@ macro_rules
          · simp at he))
     let subst ← match lems with
       | some ls =>
-        `(tactic| try (simp [$set:ident, $ls,*, Option.some.injEq, Prod.mk.injEq] at he; $eqs:tactic))
+        `(tactic| try (simp [$set:ident, $ls,*, Option.some.injEq, Prod.mk.injEq] at he
+          <;> $eqs:tactic))
       | none =>
-        `(tactic| try (simp [$set:ident, Option.some.injEq, Prod.mk.injEq] at he; $eqs:tactic))
+        `(tactic| try (simp [$set:ident, Option.some.injEq, Prod.mk.injEq] at he
+          <;> $eqs:tactic))
     -- a call or a tail call, through the first specification that applies. A contract
     -- (`Isa.Contract`) names the callee: the call's target must be shown to reach it
     -- (`callee`, by `rfl`, or by `simp` and `decide`), or the contract is not this call's; the

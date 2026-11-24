@@ -97,10 +97,11 @@ lake exe decompile --to lprog   guest.elf out.lprog        # Lprog text
 lake exe decompile --to lprog --proved guest.elf           # RISC-V: the lift the theorems are about
 ```
 
-Code the lift does not cover becomes an explicit trap (`l_trap(n)` / `abort`) rather than
+Code the lift does not cover becomes an explicit stop (`l_trap(n)` / `abort`) rather than
 being dropped, so the output either behaves like the binary or says where it stops. The
 `--proved` lift is stricter: a function with an instruction it cannot take is left out whole,
-and the output says which instruction and why. What each
+and the output says which instruction and why (with `--to lean`, in the root module too;
+`--all` makes anything left out an error). What each
 instruction set does not cover is listed in its `LIMITS.md`
 ([RISC-V](MachineChecked/RiscV/LIMITS.md), [AArch64](MachineChecked/ARM/LIMITS.md),
 [x86-64](MachineChecked/X86/LIMITS.md)).
@@ -132,7 +133,8 @@ This writes `MyProject/Gen.lean` and `MyProject/Gen/`:
   built (`check_elf_words`), and `fns`, the functions they decode to.
 - `F<i>.lean`: function `i`'s lift as a term `f<i>`, with `f<i>_eq : (liftProg fns)[i]? = some f<i>`,
   checked by the kernel.
-- `Gen.lean`: imports everything, and lists which index is which symbol.
+- `Gen.lean`: imports everything, and lists which index is which symbol, and which symbols of
+  code are not functions of `fns`, and why.
 
 The ELF path is read relative to where the module is built, and the namespace's directory
 (`MyProject/Gen/`) must not already exist. See [`Tools/README.md`](Tools/README.md) for the

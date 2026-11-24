@@ -66,7 +66,7 @@ def before (regs : List Reg) (after : Nat) : LinstrR (Op Reg) Reg → Nat
   | .Lcond c _ => after ||| operandReads regs c
   | .Ligoto e _ => after ||| Expr.reads regs e
   | .Lcall .. | .Ltail _ | .Lret | .Lext _ => 2 ^ regs.length - 1
-  | .Labort => 0
+  | .Lopn .trap | .Labort => 0
 
 end Dead
 
