@@ -74,12 +74,14 @@ def undecoded (base : Nat) (ws : List (BitVec 32)) : String :=
           (`--to lprog` without `--proved` takes it, with `abort` there)"
       else s!"the word 0x{String.ofList (Nat.toDigits 16 w.toNat)} at {addr} is no instruction of RV64IM"
 
-/-- The functions of an image the `--proved` lift takes, and the names of those it does not,
-    each with the reason. -/
-def functions (img : Elf64Image) (syms : List Sym) : Array Fn × Array String := Id.run do
+/-- The functions of an image the `--proved` lift takes, from its symbols of code
+    (`symbols`), and the names of the symbols whose code it leaves out (`Symbols.lost` and the
+    functions it does not take), each with the reason. -/
+def functions (img : Elf64Image) (syms : Symbols) : Array Fn × Array String :=
+    Id.run do
   let mut fs : Array Fn := #[]
-  let mut skipped : Array String := #[]
-  for sym in syms do
+  let mut skipped : Array String := syms.lost.toArray
+  for sym in syms.fns do
     if sym.addr % 4 != 0 || sym.size % 4 != 0 then
       skipped := skipped.push s!"{sym.name}: not word-aligned"
     else if !img.segments.any (fun s => s.executable && s.vaddr ≤ sym.addr &&
@@ -325,11 +327,13 @@ def removeOnError {α : Type} (dir : System.FilePath) (act : IO α) : IO α :=
 
 /-- **Write the modules** for the ELF at `elfPath` (as the modules will name it, from where
     they are built) under `outDir`, in namespace `ns`. Gives the number of functions and of
-    instructions, and the names of the functions left out, each with the reason. -/
-def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String) := do
+    instructions, the names of the symbols of code left out, each with the reason, and the
+    other names of code taken (`Symbols.names`). -/
+def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String × List String) := do
   let bytes ← IO.FS.readBinFile elfPath
   let img ← IO.ofExcept (parseElf64 bytes)
-  let (fs, skipped) := functions img (← IO.ofExcept (symbols bytes))
+  let syms ← IO.ofExcept (symbols bytes)
+  let (fs, skipped) := functions img syms
   let ws ← IO.ofExcept (wordsOf bytes)
   unless validNs ns do
     throw <| IO.userError s!"the namespace {repr ns} is not a namespace of components separated by `.`, each an ASCII letter in upper case followed by ASCII letters, digits and `_`"
@@ -351,7 +355,7 @@ def emit (elfPath outDir ns : String) : IO (Nat × Nat × Array String) := do
       (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it. The functions, by \
         index (`f<i>`, `f<i>_eq`):\n\n{table}-/\n\n" ++
         String.join ((List.range p.length).map (s!"import {ns}.F{·}\n")))
-    return (fs.size, (fs.toList.map (·.prog.length)).sum, skipped)
+    return (fs.size, (fs.toList.map (·.prog.length)).sum, skipped, syms.names)
 
 /-! ## The other routes: the lift of whole programs, and Pancake
 
