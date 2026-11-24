@@ -1,11 +1,16 @@
 # Building a Rust program for the proved lift
 
 What to set when you build a `no_std` Rust program, with its own entry, panic handler and
-allocator, for `decompile --proved`, and what goes wrong without each setting. Flags do not
+allocator, for `decompile --proved`, and what goes wrong without each setting. None of it is
+required: the lift takes rustc's output as it is. Two items decide whether every function is
+lifted today, the 32-bit operations and jump tables, and go away when the lift covers them
+([#68](https://github.com/Verified-zkEVM/machine-checked/issues/68),
+[#3](https://github.com/Verified-zkEVM/machine-checked/issues/3)); the rest make proofs
+smaller, or keep them valid across rebuilds. Flags do not
 reach a prebuilt library: against one (SP1's `std`) the panic, jump-table and inlining items
 cover only your own crates. `-Z` flags need nightly, and `-C llvm-args` are LLVM's own options:
-check them when the toolchain moves. The figures are from one program of about 230 functions
-(198 in its first build), built for RV64IM with Cargo; [`Examples/build.sh`](../Examples/build.sh)
+check them when the toolchain moves. The figures are from one program of about 230 functions,
+built for RV64IM with Cargo; [`Examples/build.sh`](../Examples/build.sh)
 builds through LLVM IR and clang instead, where all but the Cargo items apply.
 
 ## What the lift takes
@@ -14,29 +19,23 @@ builds through LLVM IR and clang instead, where all but the Cargo items apply.
   ([`Tools/README.md`](../Tools/README.md#from-an-elf)). The target `riscv64im-unknown-none-elf`
   gives this, with `-Z build-std=core,alloc` since it has no prebuilt library.
 - **Count what is left out first.** `decompile --to lprog --proved` prints how many functions it
-  left out (naming each, with the word that excluded it) and how many `abort`s it wrote. Both
-  should be zero: an `abort`, which a call into a left-out function also becomes, is a step a
-  proof must show is never taken. Our first build left out 109 of 198, 107 for `unimp`.
+  left out (naming each, with the word that excluded it) and how many `abort`s it wrote, and
+  `decompile --to lean --proved --all` fails if anything is left out. An `abort`, which a call
+  into a left-out function also becomes, is a step a proof must show is never taken.
 - **No 32-bit operations the machine does not run.** A function holding one of the nine
   ([list](../Tools/README.md#from-an-elf)) is left out. `u32` and `i32` arithmetic compiles to
   them (a `u32` division gave `divuw`); compute in `u64` where the result is the same.
 
 ## Panics and halting
 
-- **`panic = "abort"` with a handler that halts.** Immediate abort (`panic = "immediate-abort"`,
-  a nightly Cargo feature) puts an `unimp` at every panic site, which leaves the function out
-  ([`ELF.md`](ELF.md#build-switches) proposes it, for a smaller panic runtime; that holds only
-  once `unimp` is lifted as a trap, [`Examples/README.md`](../Examples/README.md#what-was-found)
-  finding 14). With `panic = "abort"` and a `#[panic_handler]` that halts through `ecall` with
-  an exit code that does not accept, every panic path ends in a call to a function that never
-  returns: prove its contract once, with postcondition `False` (as `stop_contract` in
-  [`Examples/Calls`](../Examples/Calls/RiscV/Proofs.lean)), and `lsym … using` closes each panic
-  path at the call. A halt that does not accept is safe for `SafeN`, so no proof has to show a
-  panic unreachable.
-- **A halt the compiler sees return.** Write the halting `ecall` as an `asm!` without
-  `options(noreturn)`, followed by `loop {}`; after a `noreturn` block the compiler writes an
-  `unimp`. Library code that calls `abort` itself shows up in the left-out list; replace the
-  call (we replaced `core`'s sort).
+- **Either panic strategy is lifted.** `unimp`, which rustc writes at a panic site under
+  immediate abort and after a call that does not return, is lifted as a trap; a
+  `#[panic_handler]` that halts through `ecall` with an exit code that does not accept is
+  lifted as that system call. Both end the run without accepting, which is safe for `SafeN`, so a contract says nothing of whether a panic is reachable
+  ([`Automation.md`](design/Automation.md)): no proof has to show a panic unreachable, and none
+  does. With a handler, a contract for it with postcondition `False` (as `stop_contract` in
+  [`Examples/Calls`](../Examples/Calls/RiscV/Proofs.lean)) lets `lsym … using` close each
+  panic path at the call.
 
 ## Jump tables
 
@@ -95,9 +94,10 @@ Under fat LTO, LLVM decides which functions exist and what their signatures are.
   apart unnoticed. Commit the ELF's sha256 beside the proofs, fail the build when it moves, and
   name it where the top theorem is stated.
 - **Debug information.** [`ELF.md`](ELF.md#results-on-zip-2005s-guest-2026-10-12) found that
-  every debug level changed an SP1 guest's image; in ours `debug = 1` left `.text` and `.rodata`
-  byte-identical, `debug = 2` changed 8 of 229 functions, and `debug = 2` with
-  `-Z inline-mir-preserve-debug=no` changed none. Build it as a second build and compare hashes.
+  every debug level changed an SP1 guest's image; in the program above `debug = 1` left
+  `.text` and `.rodata` byte-identical, `debug = 2` changed 8 of 229 functions, and `debug = 2`
+  with `-Z inline-mir-preserve-debug=no` changed none. Build it as a second build and compare
+  hashes.
 
 ## Relocations
 
@@ -118,12 +118,10 @@ Under fat LTO, LLVM decides which functions exist and what their signatures are.
   lists of `BitVec 64`, `decide` on the `Prop` was still growing at 5.5 GB in the kernel after
   three minutes; the `Bool` form was instant.
 
-A machine that stops on a word it does not decode makes "a run that halts accepting satisfies
-P" hold of every run that reaches such a word, while the real machine may run the word and
-accept. Besides the witnesses [`CONTRIBUTING.md`](../CONTRIBUTING.md#proofs) asks for:
+`SafeN` is partial correctness: a run that traps (at `unimp`, or at a word the machine does
+not decode) or never ends satisfies every postcondition. So a theorem that a run halting
+accepting satisfies P can hold of a machine that never accepts. Besides the witnesses
+[`CONTRIBUTING.md`](../CONTRIBUTING.md#proofs) asks for:
 
-- **Every code word decodes**, over all the code the machine can fetch, as one `Bool` equation.
-  The written `words` hold only the functions the lift took, so read the image's code
-  (`gen-image` writes it: `image.code` tiles every executable segment).
 - **Run the statement's own machine.** Execute the definitions the theorem is about on real
   inputs and see each verdict: accept on a valid input, reject on a corrupted one.
