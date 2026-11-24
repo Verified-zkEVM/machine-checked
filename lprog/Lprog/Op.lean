@@ -4,7 +4,8 @@
   The operations of the low logical program, shared by every instruction set.
 
   An operation writes a register with the value of an expression (`set`), loads from memory
-  into a register (`load`), stores to memory (`store`), or does nothing (`skip`). Expressions
+  into a register (`load`), stores to memory (`store`), does nothing (`skip`), or has no result
+  (`trap`: the machine has no step there, as at an illegal instruction). Expressions
   are 64-bit bitvector terms over registers and immediates (`Lprog.Expr`). Memory is the
   instruction set's:
   an `Mem` gives the load and store of each width, and may refuse an access (a fault), which
@@ -29,6 +30,8 @@ inductive Op (Reg : Type) where
   /-- Store the low `w` bytes of `src` at the address `addr`. -/
   | store (w : Width) (addr : Expr Reg) (src : Expr Reg)
   | skip
+  /-- No result: the machine has no step here, so the run traps (an illegal instruction). -/
+  | trap
   deriving DecidableEq, Repr
 
 /-- An instruction set's memory: the load and store of each width. `none` is a fault. A load
@@ -46,6 +49,7 @@ def Op.eval {Reg M : Type} [DecidableEq Reg] (mem : Mem M) :
       (updReg regs d (if s then (UnOp.sext w).eval v else v), m)
   | .store w a e, regs, m => (mem.store w (a.eval regs) (e.eval regs) m).map fun m' => (regs, m')
   | .skip, regs, m => some (regs, m)
+  | .trap, _, _ => none
 
 /-! ## Conditions -/
 

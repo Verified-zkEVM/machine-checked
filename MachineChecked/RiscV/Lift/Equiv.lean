@@ -255,7 +255,7 @@ theorem equivalent_lift (hok : ProgOk fs) (hex : ExitOut fs exit)
     program it holds, run until `g` returns, is equivalent to the call `⟨g, 0, ra, sp⟩` at
     Lprog, where that never goes `wrong`. -/
 theorem equivalent_of_entry (hok : ProgOk fs) {g : Nat} {fn : Fn} (hg : fs[g]? = some fn)
-    (hpc : t.pc = fn.base) (hcode : ∀ f ∈ fs, CodeAt f.base (f.prog.map some) t)
+    (hpc : t.pc = fn.base) (hcode : ∀ f ∈ fs, CodeAt f.base f.prog t)
     (hex : ExitOut fs (t.getReg .x1))
     (hnw : NoWrong fs ⟨[⟨g, 0, t.getReg .x1, t.getReg .x2⟩], regsOf t, t⟩) :
     Equivalent (msys (t.getReg .x1)) t (lsys fs)

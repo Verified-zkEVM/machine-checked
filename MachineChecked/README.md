@@ -19,8 +19,8 @@ The code is split across four Lake packages ([`docs/design/Packages.md`](../docs
 | [`pancake`](../pancake/README.md) | `Pancake.*` | Pancake as the decompiler writes it | Flapjack |
 
 The last three are meant to be all a proof about a decompiled program needs. Today the modules
-`decompile --to lean` writes also import `Tools.ToLean` and the RISC-V lift from the root
-package ([`docs/design/Packages.md`](../docs/design/Packages.md)).
+`decompile --to lean` writes also import `Tools.KernelEq`, `Tools.ElfWords` and the RISC-V
+lift from the root package ([`docs/design/Packages.md`](../docs/design/Packages.md)).
 
 ```
   layer 2     spec refinement           Refine/              not started
@@ -64,7 +64,7 @@ package ([`docs/design/Packages.md`](../docs/design/Packages.md)).
 The final theorem is always stated at layer 0, as `SafeN` over riscv-zkvm's `stepSp1`
 (`RiscV/Safe.lean`), from the state the loader builds for the ELF. There are two routes to it:
 
-- **Through the lift** (the intended route). A function's decoded instructions are lifted to
+- **Through the lift** (the intended route). A function's decoded words are lifted to
   an Lprog body (`RiscV/Lift/Lift.lean`). A contract is proved for the body with the rules of
   `lprog/Lprog/Sem.lean` and `RiscV/Lift/Rules.lean`, and the transfer theorem carries it down
   to `stepSp1` (`RiscV/Lift/Transfer.lean`, `SafeN.of_contract`; `RiscV/Lift/Contract.lean`,

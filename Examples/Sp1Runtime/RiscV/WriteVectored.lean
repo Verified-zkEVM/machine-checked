@@ -4,7 +4,7 @@
   `write_vectored` of an SP1 guest's standard error, with `lsym`: its contract at Lprog
   (`write_vectored_contract`), and the same statement over riscv-zkvm's machine
   (`write_vectored_correct`), through `SafeN.of_contract`. The code is rustc's, in
-  `Examples/elf/k_u128.elf`: `write_vectored` (`F104`) finds the first slice that is not empty
+  `Examples/elf/k_u128.elf`: `write_vectored` (`F107`) finds the first slice that is not empty
   and calls `sys_write` (`F24`), which tail-calls `syscall_write` (`F11`), which makes the
   system call.
 
@@ -279,7 +279,7 @@ theorem fromCall {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
     (hag : Agree (ofParts regs m) u) (h2 : u.getReg .x2 = sp - 32#64) (h9 : u.getReg .x9 = firstLen xs)
     (hs : Saved s0 sp u) (hrv : s0.getReg .x1 = rv) (htop : sp = top)
     (hdone : ∀ r' m', Done s0 sp xs (ofParts r' m') → LSafeN fns G N Q ⟨rest, r', m'⟩) :
-    LSafeN fns G N Q ⟨⟨104, 40, rv, top⟩ :: rest, regs, m⟩ := by
+    LSafeN fns G N Q ⟨⟨107, 40, rv, top⟩ :: rest, regs, m⟩ := by
   subst htop hrv
   have r2 : regs .x2 = sp - 32#64 := h2 ▸ regs_of_agree hag (by decide)
   have r9 : regs .x9 = firstLen xs := h9 ▸ regs_of_agree hag (by decide)
@@ -289,7 +289,7 @@ theorem fromCall {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
   have v7 := dwordOk hfr (i := 7) (by omega)
   have m9 := hs.ra; have m8 := hs.fp; have m7 := hs.s1
   simp only [lsym_addr, ← mem] at v9 v8 v7 m9 m8 m7
-  lsym f104_eq with [r2, r9, v9, v8, v7, m9]
+  lsym f107_eq with [r2, r9, v9, v8, v7, m9]
   apply hdone
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, fun r hr => ?_, fun a ha => ?_, ?_⟩
   · simp [lsym_simp]
@@ -313,20 +313,21 @@ theorem saved_ofParts {s0 m : MachineState} {sp : Word} {regs r' : Reg → BitVe
 theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {rv top : Word}
     {rest : List Frame} (s0 : MachineState) (sp bufs : Word) (xs : List Word) (n : Nat) {lo hi : Nat}
     (hxl : xs.length = 2 * n) (hok : RegionOk lo hi bufs (2 * n)) (hn : 16 * n < 2 ^ 64)
-    (hcall : ∀ r' m', AtCall s0 sp xs (ofParts r' m') → LSafeN fns G N Q ⟨⟨104, 37, rv, top⟩ :: rest, r', m'⟩) :
+    (hcall : ∀ r' m', AtCall s0 sp xs (ofParts r' m') →
+      LSafeN fns G N Q ⟨⟨107, 37, rv, top⟩ :: rest, r', m'⟩) :
     ∀ k j (regs : Reg → BitVec 64) (m : MachineState), n - j = k → j ≤ n →
       regs .x2 = sp - 32#64 → regs .x8 = sp → regs .x11 = bufs + BitVec.ofNat 64 (16 * j) - 16#64 →
       regs .x12 = BitVec.ofNat 64 (16 * (n - j)) →
       firstLen (xs.drop (2 * j)) = firstLen xs → Region bufs xs (ofParts regs m) →
       Saved s0 sp (ofParts regs m) →
-      LSafeN fns G N Q ⟨⟨104, 14, rv, top⟩ :: rest, regs, m⟩ := by
+      LSafeN fns G N Q ⟨⟨107, 14, rv, top⟩ :: rest, regs, m⟩ := by
   intro k
   induction k with
   | zero =>
     intro j regs m hk hj h2 h8 h11 h12 hfl hreg hs
     obtain rfl : j = n := by omega
     -- every slice is empty: the length is zero
-    lsym f104_eq stop [14, 37] with [h2, h8, h11, h12]
+    lsym f107_eq stop [14, 37] with [h2, h8, h11, h12]
     refine hcall _ _ ⟨?_, ?_, ?_, ?_, saved_ofParts hs fun r hr => ?_⟩
     · simp [getReg_ofParts, lsym_simp, h2]
     · simp [getReg_ofParts, lsym_simp, h8]
@@ -341,7 +342,7 @@ theorem loop {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {rv
     have vl := dwordOk hok (i := 2 * j + 1) (by omega); have vp := dwordOk hok (i := 2 * j) (by omega)
     have ml := hreg (2 * j + 1) (by omega)
     simp only [lsym_addr, getMem_ofParts] at vl vp ml
-    lsym f104_eq stop [14, 37] with [h2, h8, h11, h12, count_dec hjn, vl, vp, ml]
+    lsym f107_eq stop [14, 37] with [h2, h8, h11, h12, count_dec hjn, vl, vp, ml]
     · -- the count is not zero
       exact absurd (ofNat_eq_zero (by omega) hc) (by omega)
     · -- an empty slice: round again
@@ -390,8 +391,9 @@ theorem toCall {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {
     (regs : Reg → BitVec 64) (m : MachineState) (hag : Agree (ofParts regs m) s0)
     (h2 : s0.getReg .x2 = sp) (h11 : s0.getReg .x11 = bufs) (h12 : s0.getReg .x12 = BitVec.ofNat 64 n)
     (hreg : Region bufs xs s0)
-    (hcall : ∀ r' m', AtCall s0 sp xs (ofParts r' m') → LSafeN fns G N Q ⟨⟨104, 37, rv, top⟩ :: rest, r', m'⟩) :
-    LSafeN fns G N Q ⟨⟨104, 0, rv, top⟩ :: rest, regs, m⟩ := by
+    (hcall : ∀ r' m', AtCall s0 sp xs (ofParts r' m') →
+      LSafeN fns G N Q ⟨⟨107, 37, rv, top⟩ :: rest, r', m'⟩) :
+    LSafeN fns G N Q ⟨⟨107, 0, rv, top⟩ :: rest, regs, m⟩ := by
   have hn : 16 * n < 2 ^ 64 := by have := hok.inMem; unfold SP1_MAX_MEMORY at this; omega
   have r2 : regs .x2 = sp := h2 ▸ regs_of_agree hag (by decide)
   have r11 : regs .x11 = bufs := h11 ▸ regs_of_agree hag (by decide)
@@ -409,7 +411,7 @@ theorem toCall {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {
   -- the three cells the prologue saves to, at the addresses `lsym` computes (`lsym_addr`)
   have v9 := ok 9 (by omega); have v8 := ok 8 (by omega); have v7 := ok 7 (by omega)
   simp only [lsym_addr] at v9 v8 v7
-  lsym f104_eq stop [14] with [r2, r11, r12, r1, r8, r9, v9, v8, v7]
+  lsym f107_eq stop [14] with [r2, r11, r12, r1, r8, r9, v9, v8, v7]
   have hu := unch_prologue hfr hag.mem (s0.getReg .x1) (s0.getReg .x8) (s0.getReg .x9)
   refine loop s0 sp bufs xs n hxl hok hn hcall n 0 _ _ (by omega) (Nat.zero_le _) ?_ ?_ ?_ ?_ (by simp)
     (hreg.of_unchanged (hu _) fun r hr => by
@@ -441,7 +443,7 @@ theorem write_vectored_contract {G : State rvIsa → Prop} {N : Nat} {Q : State 
     (h2 : s0.getReg .x2 = sp) (h11 : s0.getReg .x11 = bufs) (h12 : s0.getReg .x12 = BitVec.ofNat 64 cnt)
     (hreg : Region bufs xs s0) (hrv : s0.getReg .x1 = rv) (htop : sp = top)
     (hdone : ∀ r' m', Done s0 sp xs (ofParts r' m') → LSafeN fns G N Q ⟨rest, r', m'⟩) :
-    LSafeN fns G N Q ⟨⟨104, 0, rv, top⟩ :: rest, regs, m⟩ := by
+    LSafeN fns G N Q ⟨⟨107, 0, rv, top⟩ :: rest, regs, m⟩ := by
   have hfr : RegionOk L.textLo L.textHi (sp - 0x50#64) 10 := hstk.frame 10 (by decide)
   refine toCall s0 sp bufs xs cnt hxl hokx hfr hcw hdis regs m hag h2 h11 h12 hreg ?_
   intro rA mA hat
@@ -450,7 +452,7 @@ theorem write_vectored_contract {G : State rvIsa → Prop} {N : Nat} {Q : State 
   have hcwA : CodeWithin L.textLo L.textHi mA := cw_of_code hcw hat.saved.code
   have hstkA := stack_sub hstk
   simp only [getReg_ofParts, reduceCtorEq, ite_false, lsym_addr] at a2 a10 hstkA
-  lsym f104_eq stop [40] with [ScwPre, a2, a10, hcwA, hstkA] using [sys_write_contract (L := L)]
+  lsym f107_eq stop [40] with [ScwPre, a2, a10, hcwA, hstkA] using [sys_write_contract (L := L)]
   -- back from the call
   have a9 := hat.x9
   simp only [getReg_ofParts, reduceCtorEq, ite_false] at a9
@@ -468,7 +470,7 @@ theorem write_vectored_contract {G : State rvIsa → Prop} {N : Nat} {Q : State 
 theorem write_vectored_correct {G : MachineState → Prop} {n : Nat} {P : Prop} (s : MachineState)
     (ra sp bufs : Word)
     (xs : List Word) (cnt : Nat)
-    (hpc : s.pc = 0x7800c060#64) (hcode : ∀ f ∈ fns, CodeAt f.base (f.prog.map some) s)
+    (hpc : s.pc = 0x7800c060#64) (hcode : ∀ f ∈ fns, CodeAt f.base f.prog s)
     (hcw : CodeWithin L.textLo L.textHi s)
     (hra : s.getReg .x1 = ra) (hra1 : ra &&& ~~~1#64 = ra)
     (hsp : s.getReg .x2 = sp) (hstk : StackOk L 0x50 sp)
@@ -479,8 +481,8 @@ theorem write_vectored_correct {G : MachineState → Prop} {n : Nat} {P : Prop} 
     (hk : ∀ t, t.pc = ra → CalleeSaved s t → t.code = s.code → Unchanged (frame sp) s t →
       t.getReg .x10 = 0#64 → t.getReg .x11 = firstLen xs → SafeN G n P t) :
     SafeN G n P s := by
-  obtain ⟨fn, hg, hb'⟩ : ∃ fn, fns[104]? = some fn ∧ fn.base = 0x7800c060#64 := ⟨_, rfl, rfl⟩
-  refine SafeN.of_contract hok (g := 104) hg (hpc.trans hb'.symm) hcode (Post := Done s sp xs)
+  obtain ⟨fn, hg, hb'⟩ : ∃ fn, fns[107]? = some fn ∧ fn.base = 0x7800c060#64 := ⟨_, rfl, rfl⟩
+  refine SafeN.of_contract hok (g := 107) hg (hpc.trans hb'.symm) hcode (Post := Done s sp xs)
     (fun _ _ hpost => write_vectored_contract s sp bufs xs cnt hxl hokx hstk hcw hdis _ _
       (agree_ofParts_regsOf s) hsp hb hc hx rfl hsp.symm hpost) ?_
   intro t r' m' hag hpc' hdV

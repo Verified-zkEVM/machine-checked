@@ -1,5 +1,5 @@
 /-
-  Examples.Sp1Runtime.RiscV.Image.F155
+  Examples.Sp1Runtime.RiscV.Image.F158
 
   Written by `decompile --to lean`. Do not edit: the theorems below check it.
 -/
@@ -13,7 +13,7 @@ open RiscvZkvm.Rv64 RiscvZkvm.Interpreter Lprog MachineChecked.RiscV.Lift Tools.
 -- data for the kernel, not code to run: the code generator does not take terms this large
 noncomputable section
 
-def f155_0 : Lcmd (Op Reg) Reg :=
+def f158_0 : Lcmd (Op Reg) Reg :=
   [LinstrR.Llabel (LabelKind.internal) 0, LinstrR.Lopn
   (Op.set
     (Reg.x2)
@@ -50,7 +50,7 @@ def f155_0 : Lcmd (Op Reg) Reg :=
       (BinOp.and)
       (Expr.bin (BinOp.add) (Expr.reg (Reg.x1)) (Expr.imm 0xfffffffffffff868#64))
       (Expr.imm 0xfffffffffffffffe#64))
-    [154]), LinstrR.Llabel (LabelKind.internal) 11, LinstrR.Lopn
+    [157]), LinstrR.Llabel (LabelKind.internal) 11, LinstrR.Lopn
   (Op.load
     (Reg.x10)
     (Width.b8)
@@ -76,19 +76,19 @@ def f155_0 : Lcmd (Op Reg) Reg :=
     (Expr.bin (BinOp.add) (Expr.reg (Reg.x2)) (Expr.imm 0x0000000000000030#64))), LinstrR.Llabel (LabelKind.internal) 16, LinstrR.Lret]
 
 /-- The function "__udivti3", lifted. -/
-def f155 : Lfundef (Op Reg) Reg :=
+def f158 : Lfundef (Op Reg) Reg :=
   { name := "__udivti3", addr := 2013326728, depth := 0,
-    body := List.flatten [f155_0] }
+    body := List.flatten [f158_0] }
 
-kernel_eq f155_head : (liftProg fns)[155]?.map (fun g => (g.name, g.addr, g.depth)) =
-    some (f155.name, f155.addr, f155.depth)
+kernel_eq f158_head : (liftProg fns)[158]?.map (fun g => (g.name, g.addr, g.depth)) =
+    some (f158.name, f158.addr, f158.depth)
 
-kernel_eq f155_parts : (liftProg fns)[155]?.map (fun g => chunks chunk g.body) =
-    some [f155_0]
+kernel_eq f158_parts : (liftProg fns)[158]?.map (fun g => chunks chunk g.body) =
+    some [f158_0]
 
-/-- **`f155` is the lift of the ELF's words.** -/
-theorem f155_eq : (liftProg fns)[155]? = some f155 :=
-  getElem?_eq_of_chunks f155_head f155_parts rfl
+/-- **`f158` is the lift of the ELF's words.** -/
+theorem f158_eq : (liftProg fns)[158]? = some f158 :=
+  getElem?_eq_of_chunks f158_head f158_parts rfl
 
 end
 

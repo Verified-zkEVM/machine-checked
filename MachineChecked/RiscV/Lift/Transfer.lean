@@ -134,12 +134,11 @@ theorem pc_sp1Ecall {s s' : MachineState} (hf : s.code s.pc = some .ECALL) (h : 
               all_goals first | (simp at h; done) | (simp only [Option.some.injEq] at h; subst h; simp [pc_setPC, execInstrBr])
             · simp at h
 
-/-- The fetch at instruction `k` of a function held at `base`. -/
-theorem fetch_at {base : Word} {prog : List Instr} {t : MachineState} {k : Nat}
-    (hcode : CodeAt base (prog.map some) t) (hk : k < prog.length)
-    (hpc : t.pc = base + BitVec.ofNat 64 (4 * k)) : t.code t.pc = some prog[k] := by
-  rw [hpc, hcode k (by simpa using hk)]
-  simp [hk]
+/-- The fetch at word `k` of a function held at `base`. -/
+theorem fetch_at {base : Word} {prog : List (Option Instr)} {t : MachineState} {k : Nat}
+    (hcode : CodeAt base prog t) (hk : k < prog.length)
+    (hpc : t.pc = base + BitVec.ofNat 64 (4 * k)) : t.code t.pc = prog[k] := by
+  simp [hpc, hcode k hk, hk]
 
 /-- The address a well-formed jump reaches. -/
 theorem jump_addr {base : Word} {k len : Nat} {off : Word} (h : jumpOk k len off = true) :
@@ -194,7 +193,7 @@ def Chain (fs : List Fn) (exit : Word) : List Frame → Word → Prop
     stands for a machine state. -/
 structure Sim (fs : List Fn) (exit : Word) (s : State rvIsa) (t : MachineState) : Prop where
   agree : Agree (ofParts s.regs s.m) t
-  code : ∀ f ∈ fs, CodeAt f.base (f.prog.map some) t
+  code : ∀ f ∈ fs, CodeAt f.base f.prog t
   chain : Chain fs exit s.stack t.pc
   ne : s.stack ≠ []
 
@@ -281,7 +280,7 @@ namespace At
 variable {fs : List Fn} {exit : Word} {fr : Frame} {rest : List Frame} {regs : Reg → BitVec 64}
   {m t : MachineState} {f : Fn} {k : Nat}
 
-theorem fetch (h : At fs exit fr rest regs m t f k) : t.code t.pc = some (f.prog[k]'h.hk) :=
+theorem fetch (h : At fs exit fr rest regs m t f k) : t.code t.pc = f.prog[k]'h.hk :=
   fetch_at (h.sim.code f (List.mem_of_getElem? h.hf)) h.hk h.tpc
 
 theorem body (h : At fs exit fr rest regs m t f k) :
@@ -302,7 +301,7 @@ theorem step_iff (h : At fs exit fr rest regs m t f k) (o : Outcome (State rvIsa
 
 /-- Machine states after a step that keeps the code still hold the program. -/
 theorem code' (h : At fs exit fr rest regs m t f k) {t' : MachineState} (hc : t'.code = t.code) :
-    ∀ g ∈ fs, CodeAt g.base (g.prog.map some) t' :=
+    ∀ g ∈ fs, CodeAt g.base g.prog t' :=
   fun g hg => codeAt_of_code_eq hc (h.sim.code g hg)
 
 /-- Fall through to the next instruction. -/
@@ -571,7 +570,9 @@ theorem back_instr (hok : ProgOk fs) (hL : ¬ (lsys fs).step ⟨fr :: rest, regs
       (liftI (entryOf fs) (List.range fs.length) f.prog.length k
         (f.base + BitVec.ofNat 64 (4 * k)) (prevAt none f.prog k) (f.prog[k]'h.hk)) := h.step_iff
   have hbody := h.body.2
-  generalize f.prog[k]'h.hk = i at hfetch hstep hbody
+  generalize f.prog[k]'h.hk = oi at hfetch hstep hbody
+  obtain _ | i := oi
+  · exact ⟨fun _ ht' => by simp [stepSp1, hfetch] at ht', fun ha => nomatch hfetch.symm.trans ha.1⟩
   by_cases hop : opnOk i = true
   · simp only [liftI, hop, ite_true] at hstep
     refine ⟨back_opn h hfetch hop hstep, fun ha => ?_⟩
@@ -620,7 +621,10 @@ theorem trap_instr (h : At fs exit fr rest regs m t f k) (hnone : stepSp1 t = no
   have hbody := h.body.2
   have hf := getElem?_liftProg h.hf
   have hag := h.sim.agree
-  generalize f.prog[k]'h.hk = i at hfetch hstep hbody
+  generalize f.prog[k]'h.hk = oi at hfetch hstep hbody
+  obtain _ | i := oi
+  · simp only [liftI] at hstep hbody
+    exact .inr ⟨Lprog.SafeN.not_accept hf hbody nofun, (hstep _).2 (by simp [Isa.stepI, Op.eval])⟩
   by_cases hop : opnOk i = true
   · simp only [liftI, hop, ite_true] at hstep hbody
     rw [stepSp1_opn_eq hfetch hop] at hnone
@@ -762,7 +766,7 @@ theorem transfer {fs : List Fn} (hok : ProgOk fs) {G : MachineState → Prop} {N
     budget, where `Q` gives `P` at an accepting state and, once the function has returned, the
     machine's continuation where `jalr` lands, at `ra &&& ~~~1`. -/
 theorem SafeN.of_lift {fs : List Fn} (hok : ProgOk fs) {g : Nat} {fn : Fn} (hg : fs[g]? = some fn)
-    {t : MachineState} (hpc : t.pc = fn.base) (hcode : ∀ f ∈ fs, CodeAt f.base (f.prog.map some) t)
+    {t : MachineState} (hpc : t.pc = fn.base) (hcode : ∀ f ∈ fs, CodeAt f.base f.prog t)
     {Q : State rvIsa → Prop}
     (hL : AllSafe fs Q ⟨[⟨g, 0, t.getReg .x1, t.getReg .x2⟩], regsOf t, t⟩)
     {G : MachineState → Prop} {N : Nat} {P : Prop} (hacc : ∀ s', s'.stack ≠ [] → Q s' → P)
@@ -778,7 +782,7 @@ theorem SafeN.of_lift {fs : List Fn} (hok : ProgOk fs) {g : Nat} {fn : Fn} (hg :
     safe whenever every state it may return in, at `ra &&& ~~~1`, that agrees with one satisfying
     `Post` is. -/
 theorem SafeN.of_contract {fs : List Fn} (hok : ProgOk fs) {g : Nat} {fn : Fn} (hg : fs[g]? = some fn)
-    {t : MachineState} (hpc : t.pc = fn.base) (hcode : ∀ f ∈ fs, CodeAt f.base (f.prog.map some) t)
+    {t : MachineState} (hpc : t.pc = fn.base) (hcode : ∀ f ∈ fs, CodeAt f.base f.prog t)
     {Post : MachineState → Prop}
     (hspec : ∀ (Q : State rvIsa → Prop) k,
       (∀ r' m', Post (ofParts r' m') → LSafeN fs (fun _ => True) k Q ⟨[], r', m'⟩) →

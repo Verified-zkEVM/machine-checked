@@ -73,8 +73,9 @@ def codeOf {I : Type} (bytes : ByteArray) (align : Nat) (decode : ByteArray → 
   -- `machineOf` has checked the machine, and the reader is given the field as it wants it
   let img ← parseElf64 ((bytes.set! 0x12 243).set! 0x13 0)
   let mut parts : Array (String × Array (At I)) := #[]
-  let mut skipped : Array String := #[]
-  for sym in ← symbols bytes do
+  let syms ← symbols bytes
+  let mut skipped : Array String := syms.lost.toArray
+  for sym in syms.fns do
     if sym.addr % align != 0 || sym.size % align != 0 then
       skipped := skipped.push s!"{sym.name}: not word-aligned"
     else match img.segments.find? (fun s => s.executable && s.vaddr ≤ sym.addr &&
@@ -240,8 +241,9 @@ def partsOf (bytes : ByteArray) (align : Nat) :
     Except String (Elf64Image × Array (String × Nat × ByteArray) × Array String) := do
   let img ← parseElf64 ((bytes.set! 0x12 243).set! 0x13 0)
   let mut parts : Array (String × Nat × ByteArray) := #[]
-  let mut skipped : Array String := #[]
-  for sym in ← symbols bytes do
+  let syms ← symbols bytes
+  let mut skipped : Array String := syms.lost.toArray
+  for sym in syms.fns do
     if sym.addr % align != 0 || sym.size % align != 0 then
       skipped := skipped.push s!"{sym.name}: not word-aligned"
     else match img.segments.find? (fun s => s.executable && s.vaddr ≤ sym.addr &&

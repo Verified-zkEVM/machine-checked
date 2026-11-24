@@ -16,7 +16,9 @@ open RiscvZkvm.Rv64 Lprog Lprog.RiscV Lprog.RiscV.Machine MachineChecked.RiscV.L
 /-- `if a1 == 0 { a0 = 7 } else { a0 = 8 }; ret`, at `0x1000`:
     `beq a1, zero, +12; addi a0, zero, 8; jal zero, +8; addi a0, zero, 7; ret`. -/
 def F : Fn :=
-  ⟨"f", 0x1000, [.BEQ .x11 .x0 12, .ADDI .x10 .x0 8, .JAL .x0 8, .ADDI .x10 .x0 7, .JALR .x0 .x1 0], 0⟩
+  ⟨"f", 0x1000,
+    [.BEQ .x11 .x0 12, .ADDI .x10 .x0 8, .JAL .x0 8, .ADDI .x10 .x0 7, .JALR .x0 .x1 0].map some,
+    0⟩
 
 def fs : List Fn := [F]
 
@@ -34,12 +36,15 @@ theorem f_spec {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {
 /-! ## A call through a specification -/
 
 /-- `g`: `a0 = 5`, at `0x2000`. -/
-def G' : Fn := ⟨"g", 0x2000, [.ADDI .x10 .x0 5, .JALR .x0 .x1 0], 0⟩
+def G' : Fn := ⟨"g", 0x2000, [.ADDI .x10 .x0 5, .JALR .x0 .x1 0].map some, 0⟩
 
 /-- `f`: saves `ra` in `s1`, calls `g`, adds one to its result and returns, at `0x1000`:
     `addi s1, ra, 0; jal ra, g; addi a0, a0, 1; addi ra, s1, 0; ret`. -/
 def F' : Fn :=
-  ⟨"f", 0x1000, [.ADDI .x9 .x1 0, .JAL .x1 0xffc, .ADDI .x10 .x10 1, .ADDI .x1 .x9 0, .JALR .x0 .x1 0], 0⟩
+  ⟨"f", 0x1000,
+    [.ADDI .x9 .x1 0, .JAL .x1 0xffc, .ADDI .x10 .x10 1, .ADDI .x1 .x9 0,
+      .JALR .x0 .x1 0].map some,
+    0⟩
 
 def fs' : List Fn := [F', G']
 
@@ -92,7 +97,7 @@ theorem f_contract : rvIsa.Contract (liftProg fs') sp1Ctx 0
 is no goal, since a load whose check fails traps, and a trap is safe. The return's is the only
 goal left. -/
 
-def L : Fn := ⟨"l", 0x1000, [.LD .x10 .x11 0, .JALR .x0 .x1 0], 0⟩
+def L : Fn := ⟨"l", 0x1000, [.LD .x10 .x11 0, .JALR .x0 .x1 0].map some, 0⟩
 
 def ls : List Fn := [L]
 
@@ -111,7 +116,7 @@ theorem l_safe {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop} {
 `loop: addi a0, a0, 1; j loop`: `lsym` comes back to the loop's head and leaves the goal there,
 where it would otherwise step the loop until it ran out of time. -/
 
-def W : Fn := ⟨"w", 0x1000, [.ADDI .x10 .x10 1, .JAL .x0 0x1ffffc], 0⟩
+def W : Fn := ⟨"w", 0x1000, [.ADDI .x10 .x10 1, .JAL .x0 0x1ffffc].map some, 0⟩
 
 def ws : List Fn := [W]
 
@@ -150,7 +155,7 @@ example (sp n : BitVec 64) : sp + n - n = sp := by simp only [lsym_addr]
 `ld a0, 0(a1); ld a2, 8(a1); ret`: two loads, two checks. The earlier is `hm_1`, the later
 `hm`; neither hides the other. -/
 
-def L2 : Fn := ⟨"l2", 0x1000, [.LD .x10 .x11 0, .LD .x12 .x11 8, .JALR .x0 .x1 0], 0⟩
+def L2 : Fn := ⟨"l2", 0x1000, [.LD .x10 .x11 0, .LD .x12 .x11 8, .JALR .x0 .x1 0].map some, 0⟩
 
 def l2s : List Fn := [L2]
 
@@ -176,6 +181,26 @@ theorem l2_safe' {G : State rvIsa → Prop} {N : Nat} {Q : State rvIsa → Prop}
   lsym hl2 with [hra, hsp]
   have _ := hm_spec
   exact hpost _ _ hm_1 hm
+
+/-! ## A trap
+
+`beq a1, zero, +8; unimp; ret`: `unimp` is a word that is no instruction, lifted as a trap. A
+trap is safe, so the path through it needs nothing, and `lsym` leaves only the return: the
+contract says `t` returns only if `a1` was 0. -/
+
+def T : Fn := ⟨"t", 0x1000, [some (.BEQ .x11 .x0 8), none, some (.JALR .x0 .x1 0)], 0⟩
+
+def ts : List Fn := [T]
+
+theorem ht : (liftProg ts)[0]? = some (liftFn (entryOf ts) (List.range ts.length) T) := rfl
+
+/-- `t` returns only if `a1` was 0; otherwise it traps. -/
+theorem t_contract : rvIsa.Contract (liftProg ts) sp1Ctx 0
+    (fun ret top regs _ => regs .x1 = ret ∧ regs .x2 = top)
+    (fun _ _ regs _ _ _ => regs .x11 = 0) := by
+  intro G N Q ret top rest regs m ⟨hra, hsp⟩ hk
+  lsym ht with [hra, hsp]
+  exact hk _ _ (by simpa [lsym_simp] using hc)
 
 #guard numbered `hm `hm_1
 #guard numbered `hret `hret_12

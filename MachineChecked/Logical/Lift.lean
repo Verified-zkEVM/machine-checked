@@ -29,8 +29,9 @@
   * `Lext n` is what the execution environment says (`Env.ext`), given the statement that
     ends the program: `throw l_halt 0`, which `main` catches.
   * Where the Lprog program goes `wrong` (`Labort`, a jump or call outside its candidates,
-    running off the end), the Pancake program does what the environment says (`Env.wrong`),
-    which is told the number of the place; `lift` gives a description of each place.
+    running off the end) or traps (`Op.trap`), the Pancake program does what the environment
+    says (`Env.wrong`), which is told the number of the place; `lift` gives a description of
+    each place.
 
   `main` installs the program (`Env.init`) and calls its entry.
 
@@ -107,6 +108,7 @@ def foldOp (known : List (String × BitVec 64)) : Op Reg → Op Reg × List (Str
   | .load d w s a => (.load d w s (fold known a), known.filter (·.1 != RegText.name d))
   | .store w a e => (.store w (fold known a) (fold known e), known)
   | .skip => (.skip, known)
+  | .trap => (.trap, known)
 
 /-- An operand with a register of known value replaced. -/
 def foldOperand (known : List (String × BitVec 64)) : LOperand Reg → LOperand Reg
@@ -228,6 +230,7 @@ def blocks (cx : Cx Reg) (name : String) (body : Lcmd (Op Reg) Reg) : ExceptT St
       -- how the block ends, if this instruction ends it
       let mut last : Option (List (Prog W) × Term) := none
       match i with
+      | .Lopn .trap => last := some ([← wrongFor "a trap: the machine has no step here"], .exit)
       | .Lopn o =>
         let (o', known') := foldOp known o
         known := known'

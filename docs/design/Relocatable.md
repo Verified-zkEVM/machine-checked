@@ -36,11 +36,14 @@ A module that knows the program proves `fns[i]? = some fn` and
 Nothing new. Tables and call-target lists are written by tools and checked by the kernel
 through the theorem above.
 
+## Decided
+
+- Two arguments, not `Lprog.Linked.Cx`: its `label`, `cands` and `abort` have no use in
+  `liftProg`, and taking it would tie the proved lift to the unproved one's context. The
+  names are `Cx`'s, so the two can be joined later if the proved lift ever needs more.
+
 ## Open choices
 
-- Take `Lprog.Linked.Cx` itself in place of the two arguments, toward one notion of context
-  for the proved lift and the lift of linked programs. Its `label`, `cands` and `abort` have
-  no use in `liftProg` today.
 - Free `all` for a function with no unresolved computed jump, so that a function's check does
   not mention the number of functions.
 

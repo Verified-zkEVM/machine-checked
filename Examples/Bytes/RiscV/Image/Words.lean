@@ -4,7 +4,8 @@
   Written by `decompile --to lean`. Do not edit: the theorems below check it.
 -/
 
-import Tools.ToLean
+import Tools.KernelEq
+import Tools.ElfWords
 
 namespace Examples.Bytes.RiscV.Image
 
@@ -30,7 +31,7 @@ check_elf_words words "Examples/elf/bytes.elf"
 
 /-- The functions the words decode to. -/
 def fns : List Fn := words.map fun (name, base, ws) =>
-  { name, base := BitVec.ofNat 64 base, prog := ((ws.map (BitVec.ofNat 32)).mapM decode).getD [] }
+  { name, base := BitVec.ofNat 64 base, prog := (ws.map (BitVec.ofNat 32)).map decode }
 
 end
 

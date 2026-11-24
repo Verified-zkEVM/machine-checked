@@ -278,7 +278,7 @@ def f11_1 : Lcmd (Op Reg) Reg :=
       (BinOp.and)
       (Expr.bin (BinOp.add) (Expr.reg (Reg.x1)) (Expr.imm 0x0000000000000058#64))
       (Expr.imm 0xfffffffffffffffe#64))
-    [150])]
+    [153])]
 
 /-- The function "syscall_write", lifted. -/
 def f11 : Lfundef (Op Reg) Reg :=
