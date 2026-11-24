@@ -1,8 +1,8 @@
 # LeanVerifiers
 
 rustc's code for the leanXMSS, leanSPHINCS and leanVM verifiers, on AArch64 and x86-64: the
-target of [`docs/NativeVerifiers.md`](../../docs/NativeVerifiers.md). So far the images only
-(milestone M0); nothing is proved yet.
+target of [`docs/NativeVerifiers.md`](../../docs/NativeVerifiers.md). So far the images and the
+specifications (milestone M0); nothing is proved yet.
 
 The code is the assembly [leanEthereum/leanVM#837](https://github.com/leanEthereum/leanVM/pull/837)
 commits (rustc 1.99.1, `opt-level=3`, fat LTO, no SIMD, panics as trap instructions), fetched at
@@ -27,3 +27,25 @@ On x86-64 rustc calls `memcpy` and `memset` through the GOT. The images are link
 `memcpy` and `memset`. What #837 assumes of the loader (`GotAt`) is here a fact about the image,
 to be checked against the ELF with the rest of its constant data
 ([#76](https://github.com/Verified-zkEVM/machine-checked/issues/76)).
+
+## The package
+
+This directory is a Lake package of its own, `lean-verifiers`, built from here:
+
+```sh
+cd Examples/LeanVerifiers
+lake exe cache get      # Mathlib's oleans
+lake build              # the library `LeanVerifiers`
+```
+
+It requires machine-checked by path, for the lifts, Lprog and `lsym`, and the package `native`
+of #837, at that pull request's head, for the specifications: the models of the Rust code
+(`NativeRustc.Xmss.verify_eq`, `NativeRustc.Sphincs.verify_eq`, imported by
+[`LeanVerifiers/Specs.lean`](LeanVerifiers/Specs.lean)) and the statements they are proved
+against. #837's own proofs over Kraken are not built.
+
+It is apart from `lake build Examples` for two reasons. The specifications bring some twenty
+packages with them (VCVio, ArkLib, CompPoly and what they require). And one of them, VCVio, has
+a library `Examples`: in one package with machine-checked's, Lake takes the modules
+`Examples.*` to be VCVio's. So nothing here imports `Examples.*`, and the modules are
+`LeanVerifiers.*`.

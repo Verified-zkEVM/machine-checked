@@ -78,9 +78,11 @@ supportInterpreter = true
 
 # The examples: compiled code, lifted, and the proofs about it, each down to the machine
 # (`Examples/README.md`).
+# `Examples.lean` imports every module of them, and is all this library names: its directory
+# also holds `Examples/LeanVerifiers`, a package of its own.
 [[lean_lib]]
 name = "Examples"
-globs = ["Examples", "Examples.+"]
+globs = ["Examples"]
 
 [[lean_exe]]
 name = "frame-sweep"

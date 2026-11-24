@@ -71,3 +71,41 @@ jobs:
           if [ -n "$bad" ]; then
             echo "::error::non-standard axioms: $bad"; exit 1
           fi
+
+  # rustc's lean verifiers (`Examples/LeanVerifiers`): a package of its own, with the
+  # specifications' packages, which the job above does not fetch.
+  lean-verifiers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: Examples/LeanVerifiers
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Cache .lake
+        uses: actions/cache@v4
+        with:
+          path: |
+            Examples/LeanVerifiers/.lake
+            .lake
+          key: lake-verifiers-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'Examples/LeanVerifiers/lake-manifest.json', 'Examples/LeanVerifiers/lakefile.toml') }}-${{ github.sha }}
+          restore-keys: |
+            lake-verifiers-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'Examples/LeanVerifiers/lake-manifest.json', 'Examples/LeanVerifiers/lakefile.toml') }}-
+
+      - name: Fetch Mathlib's cache
+        run: lake exe cache get
+
+      - name: Build, with no warning
+        run: |
+          set -eo pipefail
+          lake build LeanVerifiers 2>&1 | tee build.log
+          if grep -E '^warning: .*\.lean:' build.log; then
+            echo "::error::the build has warnings"; exit 1
+          fi
