@@ -120,7 +120,7 @@ the route is not clearly cheaper, M3 is rethought before M1 and M2 are built.
 
 **Done.** Both contracts are proved
 ([`Examples/LeanVerifiers`](../Examples/LeanVerifiers/README.md#the-pilot)): 143 lines for
-`memcpy` against #837's 503, and 272 for `keccak_f` against 861, with `lsym` as it was. The
+`memcpy` against #837's 503, and 275 for `keccak_f` against 861, with `lsym` as it was. The
 theorems are weaker than #837's in the ways M1, M2, M4 and #76 close, listed there. Two things
 the pilot adds to the list for M3: the kernel's check of a large function's lift on the
 whole-program route (24 s and 10 GB for `keccak_f`, growing with the function), and loop heads
@@ -178,22 +178,26 @@ for the other two, and `lsym`'s cost per step is flat on the benchmark.
 ### M4. AArch64
 
 - **The judgement** over arm64-semantics' `Step`, with the empty context.
+  *Done:* `MSafeN` in `ARM/Lift/Transfer.lean`, over `mstep`: a step to a running state; a
+  step to a fault, a halt or an exit is a trap. The context of the lifted program is `armCtx`,
+  where an external call goes `wrong`.
 - **The lift proved**, by the M1 framework, for the integer instructions the code uses: about 65
   kinds, listed by `decompile --kinds` on the images.
-  *In progress.* Proved, an instruction at a time
-  ([`ARM/Lift/Sound.lean`](../MachineChecked/ARM/Lift/Sound.lean), `ops_sound`): where the
+  *Done for the kinds the images use.*
+  [`ARM/Lift/Transfer.lean`](../MachineChecked/ARM/Lift/Transfer.lean), `transfer`: `SafeN`
+  at Lprog for a lifted program gives `SafeN` over arm64-semantics' `Step`, by the M1
+  framework. Under it, an instruction at a time
+  ([`ARM/Lift/Sound.lean`](../MachineChecked/ARM/Lift/Sound.lean), `ops_run`): where the
   operations the lift writes for an instruction run, the machine steps to the state they stand
-  for, and does not fault. That covers addition and subtraction, the logical instructions, the
-  moves, conditional select and compare, the bit fields, `extr`, the reversals of bytes and
-  bits, multiplication, unsigned division, the shifts by a register, and the loads and stores
-  in every addressing mode: every kind the two images use that does not transfer control.
-  Still to do: the counts of leading zeros and signs, addition with carry, signed division
-  (none in the images); the instructions that transfer control; and the simulation of a whole
-  program, which gives the transfer theorem.
-  Two things the proof found that the lift must change: the machine faults on a stack pointer
-  that is not aligned when it is the base of an access, so the lift is to check it; and what
-  the proof assumes of a decoded instruction (`Ok`) is to be checked by the lift, so that
-  nothing is assumed of the decoder.
+  for; where they fault, it faults. Every kind the two images use is covered. Not proved, and
+  in neither image: the counts of leading zeros and signs, addition with carry, signed
+  division; a program with one of them is outside the theorem (`Proved`).
+  Two things the proof found and the lift now does: it keeps the stack pointer a multiple of
+  16 wherever it is written, because the machine faults on a stack pointer that is not aligned
+  when it is the base of an access; and it refuses an instruction the proof does not cover
+  (`okI`), so that nothing is assumed of `Arm64.decode`. The theorem is over arm64-semantics'
+  memory, with its permissions; the pilot's contracts are still over a memory of bytes
+  without them, and move to it next.
 - **The ladder** ([`Examples/`](../Examples/README.md)) recompiled for AArch64 and proved: the
   route end to end on small code.
 - **The pilot**: `keccak_f`, `memcpy` and `memset` from the signature image, against #837's

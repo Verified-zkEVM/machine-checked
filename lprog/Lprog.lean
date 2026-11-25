@@ -16,6 +16,7 @@ import Lprog.Contract
 import Lprog.Dead
 import Lprog.Expr
 import Lprog.Linked
+import Lprog.LinkedSpec
 import Lprog.LsymAttr
 import Lprog.Op
 import Lprog.Sem

@@ -17,7 +17,10 @@ def f10_0 : Lcmd (Op Reg) Reg :=
   [LinstrR.Llabel (LabelKind.internal) 0, LinstrR.Lopn
   (Op.set
     (Reg.sp)
-    (Expr.bin (BinOp.sub) (Expr.reg (Reg.sp)) (Expr.imm 0x00000000000000c0#64))), LinstrR.Llabel (LabelKind.internal) 1, LinstrR.Lopn (Op.set (Reg.t0) (Expr.reg (Reg.x28))), LinstrR.Lopn (Op.set (Reg.t1) (Expr.reg (Reg.x27))), LinstrR.Lopn
+    (Expr.bin (BinOp.sub) (Expr.reg (Reg.sp)) (Expr.imm 0x00000000000000c0#64))), LinstrR.Lopn
+  (Op.set
+    (Reg.t0)
+    (Expr.bin (BinOp.and) (Expr.reg (Reg.sp)) (Expr.imm 0x000000000000000f#64))), LinstrR.Lcond (LOperand.cmp "ne" (LOperand.reg (Reg.t0)) (LOperand.imm 0)) 228, LinstrR.Llabel (LabelKind.internal) 1, LinstrR.Lopn (Op.set (Reg.t0) (Expr.reg (Reg.x28))), LinstrR.Lopn (Op.set (Reg.t1) (Expr.reg (Reg.x27))), LinstrR.Lopn
   (Op.store
     (Width.b8)
     (Expr.bin (BinOp.add) (Expr.reg (Reg.sp)) (Expr.imm 0x0000000000000070#64))
@@ -259,13 +262,13 @@ def f10_0 : Lcmd (Op Reg) Reg :=
     (Expr.bin (BinOp.add) (Expr.reg (Reg.t2)) (Expr.imm 0x0000000000000008#64))), LinstrR.Llabel (LabelKind.internal) 38, LinstrR.Lopn
   (Op.set
     (Reg.x11)
-    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x11)) (Expr.reg (Reg.x13)))), LinstrR.Llabel (LabelKind.internal) 39, LinstrR.Lopn
-  (Op.set
-    (Reg.x13)
-    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x6)) (Expr.reg (Reg.x15))))]
+    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x11)) (Expr.reg (Reg.x13))))]
 
 def f10_1 : Lcmd (Op Reg) Reg :=
-  [LinstrR.Llabel (LabelKind.internal) 40, LinstrR.Lopn
+  [LinstrR.Llabel (LabelKind.internal) 39, LinstrR.Lopn
+  (Op.set
+    (Reg.x13)
+    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x6)) (Expr.reg (Reg.x15)))), LinstrR.Llabel (LabelKind.internal) 40, LinstrR.Lopn
   (Op.set
     (Reg.x14)
     (Expr.bin (BinOp.xor) (Expr.reg (Reg.x5)) (Expr.reg (Reg.x21)))), LinstrR.Llabel (LabelKind.internal) 41, LinstrR.Lopn
@@ -557,13 +560,13 @@ def f10_1 : Lcmd (Op Reg) Reg :=
     (Expr.bin (BinOp.xor) (Expr.reg (Reg.x24)) (Expr.reg (Reg.x30)))), LinstrR.Llabel (LabelKind.internal) 99, LinstrR.Lopn
   (Op.set
     (Reg.x24)
-    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x20)) (Expr.reg (Reg.x5)))), LinstrR.Llabel (LabelKind.internal) 100, LinstrR.Lopn
-  (Op.set
-    (Reg.x5)
-    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x7)) (Expr.reg (Reg.x5)))), LinstrR.Llabel (LabelKind.internal) 101]
+    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x20)) (Expr.reg (Reg.x5)))), LinstrR.Llabel (LabelKind.internal) 100]
 
 def f10_2 : Lcmd (Op Reg) Reg :=
   [LinstrR.Lopn
+  (Op.set
+    (Reg.x5)
+    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x7)) (Expr.reg (Reg.x5)))), LinstrR.Llabel (LabelKind.internal) 101, LinstrR.Lopn
   (Op.load
     (Reg.x7)
     (Width.b8)
@@ -844,16 +847,16 @@ def f10_2 : Lcmd (Op Reg) Reg :=
       (Expr.un (UnOp.not) (Expr.reg (Reg.x26))))), LinstrR.Llabel (LabelKind.internal) 160, LinstrR.Lopn
   (Op.set
     (Reg.x16)
-    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x16)) (Expr.reg (Reg.x19)))), LinstrR.Llabel (LabelKind.internal) 161, LinstrR.Lopn
+    (Expr.bin (BinOp.xor) (Expr.reg (Reg.x16)) (Expr.reg (Reg.x19)))), LinstrR.Llabel (LabelKind.internal) 161]
+
+def f10_3 : Lcmd (Op Reg) Reg :=
+  [LinstrR.Lopn
   (Op.set
     (Reg.x14)
     (Expr.bin
       (BinOp.and)
       (Expr.reg (Reg.x23))
-      (Expr.un (UnOp.not) (Expr.reg (Reg.x22))))), LinstrR.Llabel (LabelKind.internal) 162]
-
-def f10_3 : Lcmd (Op Reg) Reg :=
-  [LinstrR.Lopn
+      (Expr.un (UnOp.not) (Expr.reg (Reg.x22))))), LinstrR.Llabel (LabelKind.internal) 162, LinstrR.Lopn
   (Op.set
     (Reg.x19)
     (Expr.bin (BinOp.xor) (Expr.reg (Reg.x9)) (Expr.reg (Reg.x0)))), LinstrR.Llabel (LabelKind.internal) 163, LinstrR.Lopn
@@ -1117,15 +1120,15 @@ def f10_3 : Lcmd (Op Reg) Reg :=
     (Expr.reg (Reg.t1))), LinstrR.Llabel (LabelKind.internal) 212, LinstrR.Lopn
   (Op.set
     (Reg.t2)
-    (Expr.bin (BinOp.add) (Expr.reg (Reg.sp)) (Expr.imm 0x0000000000000080#64))), LinstrR.Lopn (Op.load (Reg.x26) (Width.b8) false (Expr.reg (Reg.t2))), LinstrR.Lopn
+    (Expr.bin (BinOp.add) (Expr.reg (Reg.sp)) (Expr.imm 0x0000000000000080#64)))]
+
+def f10_4 : Lcmd (Op Reg) Reg :=
+  [LinstrR.Lopn (Op.load (Reg.x26) (Width.b8) false (Expr.reg (Reg.t2))), LinstrR.Lopn
   (Op.load
     (Reg.x25)
     (Width.b8)
     false
-    (Expr.bin (BinOp.add) (Expr.reg (Reg.t2)) (Expr.imm 0x0000000000000008#64)))]
-
-def f10_4 : Lcmd (Op Reg) Reg :=
-  [LinstrR.Llabel (LabelKind.internal) 213, LinstrR.Lopn (Op.set (Reg.t0) (Expr.reg (Reg.x23))), LinstrR.Lopn (Op.set (Reg.t1) (Expr.reg (Reg.x18))), LinstrR.Lopn
+    (Expr.bin (BinOp.add) (Expr.reg (Reg.t2)) (Expr.imm 0x0000000000000008#64))), LinstrR.Llabel (LabelKind.internal) 213, LinstrR.Lopn (Op.set (Reg.t0) (Expr.reg (Reg.x23))), LinstrR.Lopn (Op.set (Reg.t1) (Expr.reg (Reg.x18))), LinstrR.Lopn
   (Op.store
     (Width.b8)
     (Expr.bin (BinOp.add) (Expr.reg (Reg.x8)) (Expr.imm 0x00000000000000a0#64))
@@ -1252,7 +1255,10 @@ def f10_4 : Lcmd (Op Reg) Reg :=
     (Expr.reg (Reg.x14))), LinstrR.Llabel (LabelKind.internal) 226, LinstrR.Lopn
   (Op.set
     (Reg.sp)
-    (Expr.bin (BinOp.add) (Expr.reg (Reg.sp)) (Expr.imm 0x00000000000000c0#64))), LinstrR.Llabel (LabelKind.internal) 227, LinstrR.Lret, LinstrR.Labort]
+    (Expr.bin (BinOp.add) (Expr.reg (Reg.sp)) (Expr.imm 0x00000000000000c0#64))), LinstrR.Lopn
+  (Op.set
+    (Reg.t0)
+    (Expr.bin (BinOp.and) (Expr.reg (Reg.sp)) (Expr.imm 0x000000000000000f#64))), LinstrR.Lcond (LOperand.cmp "ne" (LOperand.reg (Reg.t0)) (LOperand.imm 0)) 228, LinstrR.Llabel (LabelKind.internal) 227, LinstrR.Lret, LinstrR.Labort, LinstrR.Llabel (LabelKind.internal) 228, LinstrR.Labort]
 
 /-- The function "_RNvCsndc0WgnAaH_9keccak2568keccak_f", lifted. -/
 def f10 : Lfundef (Op Reg) Reg :=

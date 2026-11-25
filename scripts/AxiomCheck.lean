@@ -18,7 +18,10 @@ import Examples
 #print axioms Lprog.parse_print
 #print axioms Lprog.RiscV.opOf_spec
 #print axioms MachineChecked.RiscV.Lift.transfer
-#print axioms MachineChecked.ARM.Lift.ops_sound
+#print axioms MachineChecked.ARM.Lift.ops_run
+#print axioms MachineChecked.ARM.Lift.back
+#print axioms MachineChecked.ARM.Lift.transfer
+#print axioms MachineChecked.ARM.Lift.SafeN.of_lift
 #print axioms MachineChecked.RiscV.Lift.SafeN.of_lift
 #print axioms MachineChecked.RiscV.Lift.SafeN.of_contract
 #print axioms MachineChecked.RiscV.Lift.SafeN.of_isa_contract
