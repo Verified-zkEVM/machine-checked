@@ -103,6 +103,10 @@ and M6 are the proofs; M5 can run beside M2 to M4.
 - **Constant data** ([#76](https://github.com/Verified-zkEVM/machine-checked/issues/76)): the
   read-only words the functions read, checked against the ELF like code, so a table is a fact,
   not an assumption. Needed on all three instruction sets, starting with the two here.
+  *Done for the two here*: on the whole-program route the image's words are in the generated
+  module, checked against the ELF (`memory_eq_elf`), and a contract assumes only that memory
+  holds them (`Holds program.memory`, used by `keccak_f` for its round constants). RISC-V's
+  `--proved` route is still to do, and the issue stays open for it.
 
 ### M0.5. The early pilot
 
@@ -116,7 +120,7 @@ the route is not clearly cheaper, M3 is rethought before M1 and M2 are built.
 
 **Done.** Both contracts are proved
 ([`Examples/LeanVerifiers`](../Examples/LeanVerifiers/README.md#the-pilot)): 143 lines for
-`memcpy` against #837's 503, and 266 for `keccak_f` against 861, with `lsym` as it was. The
+`memcpy` against #837's 503, and 272 for `keccak_f` against 861, with `lsym` as it was. The
 theorems are weaker than #837's in the ways M1, M2, M4 and #76 close, listed there. Two things
 the pilot adds to the list for M3: the kernel's check of a large function's lift on the
 whole-program route (8 minutes for `keccak_f`), and loop heads given as positions.

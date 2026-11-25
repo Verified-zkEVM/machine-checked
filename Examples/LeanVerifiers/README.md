@@ -80,16 +80,27 @@ Lines are whole files, comments included, on both sides.
 | | #837, AArch64 | here |
 | --- | --- | --- |
 | `memcpy` | 503 lines in 2 files | 143 lines |
-| `keccak_f` | 861 lines in 8 files | 266 lines |
-| shared by the two | 124 lines (`Mem/Common.lean`, shared with `memset`) | 240 lines (`Isa.lean`, `Bytes.lean`) |
+| `keccak_f` | 861 lines in 8 files | 272 lines |
+| shared by the two | 124 lines (`Mem/Common.lean`, shared with `memset`) | 245 lines (`Isa.lean`, `Bytes.lean`) |
 | the executor | 5,766 lines (`Sym`), for AArch64 | `lsym`, as it was, for any instruction set |
-| build of the proofs | not measured: they need #837's fork of Kraken | `memcpy` 2 s, `keccak_f` 73 s |
+| build of the proofs | not measured: they need #837's fork of Kraken | `memcpy` 2 s, `keccak_f` about 1 minute |
 | build of the code | not measured | `memcpy` 20 s, `keccak_f` about 8 minutes of CPU |
 
 So about a third of the lines for each function. One round of `keccak_f` (some 170
 instructions) is one call of `lsym`, and what it leaves in each of 30 registers and slots is
 the model's lane or parity by `bv_decide`. #837's layout of the lanes at the loop head was
 reused; finding it was not part of the cost here.
+
+### Constant data
+
+`keccak_f` reads its round constants from a table in the image. They are not a hypothesis
+copied from a disassembly: the contract's precondition is that memory holds the image
+(`Holds program.memory`), the image's words are in `Signatures/Code.lean`, checked against the
+ELF when it is built (`memory_eq_elf`), and the 24 constants are among them by evaluation
+(`rc_in_image`). This is what
+[#76](https://github.com/Verified-zkEVM/machine-checked/issues/76) asks for, on the
+whole-program route that AArch64 and x86-64 take; the route of RISC-V's proved lift
+(`--proved`) does not have it yet.
 
 ### What the numbers do not say
 
@@ -103,9 +114,6 @@ function:
   as the induction.
 - **The memory is a model**: bytes by address, with no access that faults, so the contracts need
   no condition that the stack or the buffers are mapped, and say nothing of it (M4).
-- **The round constants are assumed** to be in the table at `0x2002b0`, a precondition of
-  `keccak_f_contract` until constant data is checked against the ELF
-  ([#76](https://github.com/Verified-zkEVM/machine-checked/issues/76)).
 - **`keccak_f`'s state is 25 words** at the buffer (`StateAt`), where #837's is 200 bytes; the
   lemma between the two is not here.
 - **Axioms.** `bv_decide` trusts its certificate checker as compiled code, through one axiom for

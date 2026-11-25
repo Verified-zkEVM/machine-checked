@@ -12,9 +12,10 @@
   prologue reads the lanes from the buffer (`prologue`), the epilogue writes them back and
   restores the callee-saved registers (`epilogue`).
 
-  Two things are assumed that the roadmap makes facts: the table of round constants holds
-  them (constant data checked against the ELF, issue #76), and the lift of AArch64 is not
-  proved yet, so nothing follows about the machine.
+  The round constants are not assumed: the precondition is that memory holds the image
+  (`Holds program.memory`), whose words are checked against the ELF, and the table's are among
+  them by evaluation (`rc_in_image`). The lift of AArch64 is not proved yet, so nothing follows
+  about the machine.
 -/
 
 import LeanVerifiers.ARM.Bytes
@@ -234,29 +235,34 @@ theorem epilogue {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Pro
     exact hsame x hx
   · simp [calleeSaved, lsym_simp, h29]
 
+/-- **The round constants are in the image**: the 24 words at `0x2002b0`, by evaluation. -/
+theorem rc_in_image : ∀ i < 24,
+    (2097840#64 + BitVec.ofNat 64 (8 * i), rcAt i) ∈ program.memory := by
+  decide +kernel
+
 /-- `top - 192`, as `lsym` writes it. -/
 theorem frame_eq (top : BitVec 64) : top + 18446744073709551424#64 = top - 192#64 := by
   bv_omega
 
 /-- **`keccak_f(buf)`**: the 25 lanes at `buf` become Keccak-f[1600] of them. Memory changes
     only there and in the 192 bytes below the stack pointer, and the callee-saved registers are
-    as they were. The buffer is outside that frame, and so is the table of round constants at
-    `0x2002b0`, which holds them. -/
+    as they were. Memory holds the image, the buffer is outside the frame, and so is the image's
+    table of round constants at `0x2002b0`. -/
 theorem keccak_f_contract (A : KeccakState) : armIsa.Contract program.lift ctx 10
     (fun ret top regs m => regs .x30 = ret ∧ regs .sp = top ∧ StateAt m (regs .x0) A ∧
       Apart (top - 192#64) (regs .x0) ∧
-      ∀ i < 24, Out (top - 192#64) 192 (2097840#64 + BitVec.ofNat 64 (8 * i)) ∧
-        loadLE m (2097840#64 + BitVec.ofNat 64 (8 * i)) 8 = rcAt i)
+      Holds program.memory m ∧
+      ∀ i < 24, Out (top - 192#64) 192 (2097840#64 + BitVec.ofNat 64 (8 * i)))
     (fun _ top regs m r' m' => StateAt m' (regs .x0) (keccakF1600 A) ∧
       (∀ x, 192 ≤ (x - (top - 192#64)).toNat → 200 ≤ (x - regs .x0).toNat →
         m' x = m x) ∧
       ∀ r ∈ calleeSaved, r' r = regs r) := by
-  intro G N Q ret top rest regs m ⟨hra, hsp, hA, hap, hT⟩ hk
+  intro G N Q ret top rest regs m ⟨hra, hsp, hA, hap, hH, hT⟩ hk
   lsym f10_eq stop [2] with [hra, hsp]
   rw [frame_eq]
   refine prologue A (top - 192#64) _ m (by simp [lsym_simp]) (by simpa [lsym_simp] using hA)
     (by simpa [lsym_simp] using hap) fun r1 m1 h1 => ?_
-  refine rounds A _ m (top - 192#64) (fun i hi => (hT i hi).1) (fun i hi => (hT i hi).2)
+  refine rounds A _ m (top - 192#64) hT (fun i hi => hH _ (rc_in_image i hi))
     (fun r2 m2 h2 => ?_) 24 0 r1 m1 rfl (by decide) h1
   refine epilogue A _ m (top - 192#64) (by simp [lsym_simp, hra]) (by bv_omega)
     (by simpa [lsym_simp] using hap) r2 m2 h2 fun r' m' h h' h'' => ?_

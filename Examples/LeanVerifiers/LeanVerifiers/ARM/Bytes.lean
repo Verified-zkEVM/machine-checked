@@ -188,4 +188,9 @@ theorem storeLE_out0 {p x : BitVec 64} {n : Nat} (hx : n ≤ (x - p).toNat) (m :
     (v : BitVec 64) (hn : 8 ≤ n) : storeLE m p v 8 x = m x :=
   storeLE_of_ne _ _ _ _ _ fun t ht => by bv_omega
 
+/-- **Memory holds an image**: each of its words, as `decompile` reads them from the ELF's
+    loaded segments (`program.memory`, checked against the ELF by `memory_eq_elf`). -/
+def Holds (image : List (BitVec 64 × BitVec 64)) (m : Bytes) : Prop :=
+  ∀ p ∈ image, loadLE m p.1 8 = p.2
+
 end LeanVerifiers.ARM
