@@ -178,10 +178,6 @@ theorem address_post {R2 : Reg → BitVec 64} {m2 : Arm64.Memory} {s2 : Arm64.St
 
 /-! ## Loads -/
 
-theorem updReg_updReg (R : Reg → BitVec 64) (d : Reg) (u v : BitVec 64) :
-    updReg (updReg R d u) d v = updReg R d v := by
-  funext x; simp only [updReg]; split <;> rfl
-
 /-- A read narrower than 64 bits, zero-extended, is of 32 bits. -/
 theorem readSized_low (mem : Arm64.Memory) {sz : MemWidth} (hsz : sz ≠ .X64) (a : BitVec 64) :
     ((mem.readSized sz false a).setWidth 32).setWidth 64 = mem.readSized sz false a := by

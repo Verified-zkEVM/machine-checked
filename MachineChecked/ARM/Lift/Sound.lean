@@ -20,8 +20,8 @@
   * **the stack pointer is aligned** when it is the base of an access. The machine faults
     there if it is not, and the lift does not: the lift is to check it.
 
-  The kinds of instruction proved are those of `Ok`. Not proved yet: the bit fields, `extr`,
-  the reversals and counts, addition with carry and signed division. This is milestone M4 of
+  The kinds of instruction proved are those of `Ok`. Not proved yet: the counts of leading
+  zeros and signs, addition with carry and signed division. This is milestone M4 of
   `docs/NativeVerifiers.md`, in progress; the instructions that transfer control and the
   simulation of the program are to come.
 
@@ -41,6 +41,8 @@ import MachineChecked.ARM.Lift.Sound.Move
 import MachineChecked.ARM.Lift.Sound.Compare
 import MachineChecked.ARM.Lift.Sound.Arith
 import MachineChecked.ARM.Lift.Sound.Memory
+import MachineChecked.ARM.Lift.Sound.Bitfield
+import MachineChecked.ARM.Lift.Sound.Reverse
 
 namespace MachineChecked.ARM.Lift
 
@@ -63,6 +65,9 @@ def Ok (s : Arm64.State) : Instr → Prop
   | .condSelect _ _ dst rn rm _ => Wf dst ∧ Wf rn ∧ Wf rm
   | .condCompareReg _ _ rn rm _ _ => Wf rn ∧ Wf rm
   | .condCompareImm _ _ rn _ _ _ => Wf rn
+  | .bitfield w _ dst rn immr imms => Wf dst ∧ Wf rn ∧ immr < w.bits ∧ imms < w.bits
+  | .extr w dst rn rm lsb => Wf dst ∧ Wf rn ∧ Wf rm ∧ lsb < w.bits
+  | .dataProc1 _ op dst rn => Wf dst ∧ Wf rn ∧ op ≠ .CLZ ∧ op ≠ .CLS
   | .dataProc2 _ op dst rn rm => Wf dst ∧ Wf rn ∧ Wf rm ∧ op ≠ .SDIV
   | .dataProc3 w op dst rn rm ra =>
     Wf dst ∧ Wf rn ∧ Wf rm ∧ Wf ra ∧ (w = .W64 ∨ op = .MADD ∨ op = .MSUB)
@@ -167,6 +172,17 @@ theorem ops_sound (h : Agree regs m s) (svc : Arm64.State → Arm64.State) {i : 
     have e := execCondCompare_eq w isSub true rn .xzr (imm5.zeroExtend 64) nzcv c s
     exact next_of_data (condCompareImm_sound h w isSub hok imm5 nzcv c) hrun
       (by rw [e]; rfl) (by rw [e]; rfl)
+  case bitfield w op dst rn immr imms =>
+    obtain ⟨hd, hn, hr, hi⟩ := hok
+    exact next_of_data (bitfield_sound h s.pc w op hd hn hr hi ho) hrun rfl rfl
+  case extr w dst rn rm lsb =>
+    obtain ⟨hd, hn, hm, hl⟩ := hok
+    cases ho
+    have := extr_sound h w hd hn hm hl
+    cases w <;> exact next_of_data this hrun rfl rfl
+  case dataProc1 w op dst rn =>
+    obtain ⟨hd, hn, hop⟩ := hok
+    exact next_of_data (rev_sound h s.pc w op hd hn hop ho) hrun rfl rfl
   case dataProc2 w op dst rn rm =>
     obtain ⟨hd, hn, hrm, hop⟩ := hok
     cases ho
