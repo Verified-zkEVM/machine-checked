@@ -11,7 +11,8 @@
 
   ## Main results
 
-  * `ldr_sound`
+  * `address_pre`, `address_post`: an addressing mode, before and after the access
+  * `ldr_sound`, `ldrLit_sound`, `ldp_sound`, `str_sound`, `stp_sound`
 -/
 
 import MachineChecked.ARM.Lift.Sound.Basic
@@ -327,6 +328,37 @@ theorem ldp_sound (h : Agree regs m s) (w : RegWidth) (sgn : Bool) {rt1 rt2 : Ar
     · simp only [c1, c2] at hrun
       cases hrun
   · simp only [c1] at hrun
+    cases hrun
+
+/-- The width of a literal load. -/
+def litSize (w : RegWidth) (sgn : Bool) : MemWidth :=
+  if sgn then .W32 else match w with | .W32 => .W32 | .W64 => .X64
+
+/-- **`ldr` and `ldrsw` of a literal.** The signed form is of 64 bits. -/
+theorem ldrLit_sound (h : Agree regs m s) (w : RegWidth) (sgn : Bool) {rt : Arm64.Reg}
+    (hrt : Wf rt) (off : BitVec 64) (hw : sgn = true → w = .W64) {r' : Reg → BitVec 64}
+    {m' : Arm64.Memory}
+    (hrun : run [.load (dest rt) (if w = .W64 ∧ !sgn then Width.b8 else Width.b4) sgn
+      (.imm (s.pc + off))] regs m = some (r', m')) :
+    Agree r' m' (Arm64.execLdrLit w (litSize w sgn) sgn rt off s) ∧
+      (Arm64.execLdrLit w (litSize w sgn) sgn rt off s).status = s.status ∧
+      (Arm64.execLdrLit w (litSize w sgn) sgn rt off s).pc = s.pc + 4#64 := by
+  have hmem : m = s.mem := h.mem
+  have hsz : (if w = .W64 ∧ !sgn then Width.b8 else Width.b4) = width (litSize w sgn) := by
+    cases w <;> cases sgn <;> rfl
+  simp only [hsz, run_load, eval_imm] at hrun
+  by_cases hc : m.canRead (s.pc + off) (litSize w sgn).bytes = true
+  · simp only [hc, ↓reduceIte] at hrun
+    obtain ⟨rfl, rfl⟩ : updReg regs (dest rt) (m.readSized (litSize w sgn) sgn (s.pc + off)) = r' ∧
+        m = m' := by simpa [run] using hrun
+    have hx : Arm64.execLdrLit w (litSize w sgn) sgn rt off s =
+        (s.writeReg64 rt (m.readSized (litSize w sgn) sgn (s.pc + off))).advancePC := by
+      subst hmem
+      cases w <;> cases sgn <;>
+        simp_all [Arm64.execLdrLit, litSize, Arm64.State.writeReg, Arm64.Memory.readSized]
+    rw [hx]
+    exact ⟨(h.dest hrt _).advancePC, rfl, rfl⟩
+  · simp only [hc] at hrun
     cases hrun
 
 /-! ## Permissions after a store -/
