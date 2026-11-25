@@ -12,3 +12,4 @@ import MachineChecked.ARM.Lift.Sound.AddSub
 import MachineChecked.ARM.Lift.Sound.Logical
 import MachineChecked.ARM.Lift.Sound.Move
 import MachineChecked.ARM.Lift.Sound.Compare
+import MachineChecked.ARM.Lift.Sound.Arith
