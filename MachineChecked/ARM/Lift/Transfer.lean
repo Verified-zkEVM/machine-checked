@@ -2,18 +2,48 @@
   MachineChecked.ARM.Lift.Transfer
 
   **The lift of AArch64 is correct**: `SafeN` proved at Lprog for a lifted program gives
-  `SafeN` over arm64-semantics' `Step`. In progress: this file has the two systems, the
-  simulation relation, and how a run of an instruction's operations is steps of the program.
+  `SafeN` over arm64-semantics' `Step`.
+
+  `Sim prog fns exit s t` relates a state of the lifted program to a machine state: the
+  registers and the memory stand for it (`Agree`), it is running, its stack pointer is
+  aligned, it holds the program (it fetches each instruction from memory, `Loaded`), and the
+  activations correspond to its control state: the innermost one is at the label of the
+  instruction the counter is on, each other one resumes where the one above it returns, and
+  the outermost returns to `exit`.
+
+  One machine step from a simulated state is matched at Lprog (`back`) by the label and the
+  commands of the instruction, ending in a simulated state, or in a returned program with
+  the machine at `exit`; a machine that faults is matched by a program that traps. A program
+  that goes `wrong` on the way matches nothing, and the Lprog judgement rules it out: an
+  instruction the lift does not take, a stack pointer written to a value that is not a
+  multiple of 16, a return that is not to the caller, a call out of the program, `svc`. So,
+  by the transfer theorem of any two systems (`Lprog.Ascent.transfer`), `SafeN` at Lprog at
+  every budget gives `SafeN` over the machine (`transfer`), and from a function's entry
+  (`SafeN.of_lift`).
+
+  What is assumed of the program: its instructions are four bytes each, one after another
+  (`ProgOk`), and of kinds that are proved (`Proved`: all the lift takes but `clz`, `cls`,
+  addition with carry and signed division). What is assumed of the machine state: it is
+  running, its stack pointer is aligned, and it holds the program. Nothing is assumed of
+  `Arm64.decode`: the lift refuses what the proof does not cover (`okI`).
+
+  The context is `armCtx`, where an external call goes `wrong`: a program proved safe under
+  it makes none.
 
   ## Main definitions
 
-  * `armCtx`, `lsys`, `mstep`: the lifted program and the machine, as systems
-  * `ProgOk`, `Loaded`, `Chain`, `Sim`, `Ret`: the simulation
+  * `armCtx`, `lsys`, `mstep`, `MSafeN`: the lifted program and the machine, as systems
+  * `ProgOk`, `Proved`, `Loaded`, `Chain`, `Sim`, `Ret`: the simulation
+  * `Here`, `Out`: at an instruction, and what the program does for the machine's step
 
   ## Main results
 
   * `step_of_fetch`: the machine's step at a fetched instruction
   * `steps_ops`: the operations of an instruction, as steps of the program
+  * `noLab_liftI`: no command of an instruction is a label
+  * `Here.out`: one instruction, matched, whichever it is
+  * `back`: one machine step, matched at Lprog
+  * `transfer`, `SafeN.of_lift`: the transfer theorem
 -/
 
 import MachineChecked.ARM.Lift.Sound
@@ -1101,6 +1131,202 @@ theorem out_br (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Arm
   · simp only [hokr] at hc
     exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
 
+/-- **One instruction, matched**, whichever it is. -/
+theorem out (h : Here prog fns exit f k fd fn rv top rest regs m t) {i : Instr}
+    (hi : (f.code[k]'h.hk).instr = some i) (hpr : proved i = true) :
+    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+      (prog.evalInst i t) := by
+  have hcm : Linked.cmds liftI fns f k h.hk =
+      liftI (cxOf fns f) ((withPrev f.code)[k]'(by simpa using h.hk)).2 (f.code[k]'h.hk) := rfl
+  unfold liftI at hcm
+  simp only [hi] at hcm
+  cases i with
+  | b off => exact h.out_b off hcm
+  | bl off => exact h.out_bl off hcm
+  | bCond c off => exact h.out_bCond c off hcm
+  | cbz w nz rt off => exact h.out_cbz w nz rt off hcm
+  | tbz w nz rt b off => exact h.out_tbz w nz rt b off hcm
+  | br rn => exact h.out_br rn hcm
+  | blr rn => exact h.out_blr rn hcm
+  | ret rn => exact h.out_ret rn hcm
+  | system isHalt imm => exact h.out_system isHalt imm hcm
+  | _ => exact h.out_data hpr hcm
+
 end Here
+
+/-! ## One machine step, matched -/
+
+/-- **Every instruction of the program is of a kind that is proved** (`proved`). -/
+def Proved (fns : List Fun) : Prop :=
+  ∀ f ∈ fns, ∀ k (hk : k < f.code.length) (i : Instr), f.code[k].instr = some i → proved i = true
+
+/-- **One machine step, matched at Lprog**: from the label of an instruction, the label and
+    then the instruction's commands. The program goes `wrong` on the way, or matches the
+    machine. -/
+theorem back {prog : Arm64.Program} {fns : List Fun} {exit : BitVec 64} (hok : ProgOk fns)
+    (hpr : Proved fns) {s : State armIsa} {t : Arm64.State} (hs : Sim prog fns exit s t) :
+    GoesWrong (lsys fns) s [] ∨
+      Lprog.Ascent.Matched (lsys fns) (mstep prog) (fun _ => False) (Sim prog fns exit)
+        (Ret prog fns exit) (fun _ _ => False) s t := by
+  obtain ⟨stk, regs, m⟩ := s
+  cases stk with
+  | nil => exact absurd rfl hs.ne
+  | cons fr rest =>
+    obtain ⟨fn, pc, rv, top⟩ := fr
+    obtain ⟨⟨f, hf, k, hk, hpc, htpc⟩, hchain⟩ := hs.chain
+    simp only at hf hpc
+    subst hpc
+    obtain ⟨tail, hfd, htail⟩ := getElem?_liftProgram liftI fns hf
+    have hno : NoLabel (fun z => liftI (cxOf fns f) z.2 z.1) (withPrev f.code) :=
+      fun z _ c hc l => noLab_liftI _ _ _ c hc l
+    rcases Nat.lt_or_eq_of_le hk with hk | rfl
+    · -- at an instruction: its label, then its commands
+      have s0 := step_label (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m) hfd
+        (getElem?_label liftI fns f tail k hk)
+      have hH : Here prog fns exit f k _ fn rv top rest regs m t :=
+        { ok := hok, hf := hf, hk := hk, hfd := hfd
+          cmds := fun j hj => (getElem?_cmd liftI fns f tail k hk j hj).trans
+            (List.getElem?_eq_getElem hj)
+          lbl := fun l hl => labelIdx_label liftI fns f tail hno l hl
+          hab := by
+            rcases labelIdx_abort liftI fns f tail hno htail with h | ⟨j, h1, h2, h3⟩
+            · exact .inl h
+            · exact .inr ⟨j, h1, h2, h3⟩
+          agree := hs.agree, running := hs.running, aligned := hs.aligned, loaded := hs.loaded
+          tpc := htpc, chain := hchain }
+      cases hi : (f.code[k]'hk).instr with
+      | none =>
+        have hc := hH.cmds
+        have hcm : Linked.cmds liftI fns f k hk = [.Labort] := by
+          show liftI _ _ _ = _
+          unfold liftI
+          simp only [hi]
+        rw [hcm] at hc
+        refine .inl ?_
+        simpa using Lprog.Ascent.GoesWrong.of_steps (Steps.one s0)
+          (goesWrong_of (.refl _) (step_abort hfd hc.head))
+      | some i =>
+        have hfetch : prog.fetchMem t.mem t.pc = some i := by
+          rw [← hH.addr]
+          exact hs.loaded f (List.mem_of_getElem? hf) k hk i hi
+        rcases hH.out hi (hpr f (List.mem_of_getElem? hf) k hk i hi) with
+          hw | ⟨hr, s', hs', hsim⟩ | ⟨hnr, s', hs', hna, htr⟩
+        · exact .inl (by simpa using Lprog.Ascent.GoesWrong.of_steps (Steps.one s0) hw)
+        · refine .inr ⟨fun t' ht' => ?_, fun h => h.elim, fun ht' _ => ?_⟩
+          · obtain ⟨hst, -⟩ := ht'
+            rw [step_of_fetch hs.running hfetch] at hst
+            subst hst
+            exact ⟨s', by simpa using (Steps.one s0).trans hs', hsim⟩
+          · obtain ⟨t', hst, hnr⟩ := ht'
+            rw [step_of_fetch hs.running hfetch] at hst
+            subst hst
+            exact absurd hr hnr
+        · refine .inr ⟨fun t' ht' => ?_, fun h => h.elim, fun ht' _ => ?_⟩
+          · obtain ⟨hst, hr⟩ := ht'
+            rw [step_of_fetch hs.running hfetch] at hst
+            subst hst
+            exact absurd hr hnr
+          · exact ⟨s', by simpa using (Steps.one s0).trans hs', hna, htr⟩
+    · -- past the last instruction
+      exact .inl (goesWrong_of (.refl _) (step_abort hfd (getElem?_end liftI fns f tail)))
+
+/-! ## The transfer theorem -/
+
+/-- The judgement over the machine: `Lprog.Ascent.SafeN` at arm64-semantics' step, where no
+    state accepts. -/
+abbrev MSafeN (prog : Arm64.Program) (G : Arm64.State → Prop) (n : Nat)
+    (P : Arm64.State → Prop) (t : Arm64.State) : Prop :=
+  Lprog.Ascent.SafeN (mstep prog) (fun _ => False) G n P t
+
+/-- **The transfer theorem for AArch64.** A simulated state safe at Lprog at every budget
+    makes the machine state safe over arm64-semantics, given the machine's continuation where
+    the program has returned: in a state the returned program stands for, at `exit`. -/
+theorem transfer {prog : Arm64.Program} {fns : List Fun} (hok : ProgOk fns) (hpr : Proved fns)
+    {G : Arm64.State → Prop} {N : Nat} {P : Arm64.State → Prop} {exit : BitVec 64}
+    {Q : State armIsa → Prop}
+    (hret : ∀ s' t', Ret prog fns exit s' t' → Q s' → MSafeN prog G N P t') :
+    ∀ n, n ≤ N → ∀ s t, Sim prog fns exit s t → Lprog.Ascent.AllSafe (lsys fns) Q s →
+      MSafeN prog G n P t :=
+  Lprog.Ascent.transfer (S := Sim prog fns exit) (T := Ret prog fns exit) (U := fun _ _ => False)
+    (fun _ _ hs => back hok hpr hs) (fun _ h => h) (fun _ _ h => h.elim)
+    (fun s' t' hT hL => hret s' t' hT (hL.acc (Or.inl hT.1)))
+
+/-- A machine state seen through Lprog's registers: the lift's own hold zero. -/
+def regsOf (t : Arm64.State) : Reg → BitVec 64
+  | .x0 => t.regs.read 0 | .x1 => t.regs.read 1 | .x2 => t.regs.read 2 | .x3 => t.regs.read 3
+  | .x4 => t.regs.read 4 | .x5 => t.regs.read 5 | .x6 => t.regs.read 6 | .x7 => t.regs.read 7
+  | .x8 => t.regs.read 8 | .x9 => t.regs.read 9 | .x10 => t.regs.read 10
+  | .x11 => t.regs.read 11 | .x12 => t.regs.read 12 | .x13 => t.regs.read 13
+  | .x14 => t.regs.read 14 | .x15 => t.regs.read 15 | .x16 => t.regs.read 16
+  | .x17 => t.regs.read 17 | .x18 => t.regs.read 18 | .x19 => t.regs.read 19
+  | .x20 => t.regs.read 20 | .x21 => t.regs.read 21 | .x22 => t.regs.read 22
+  | .x23 => t.regs.read 23 | .x24 => t.regs.read 24 | .x25 => t.regs.read 25
+  | .x26 => t.regs.read 26 | .x27 => t.regs.read 27 | .x28 => t.regs.read 28
+  | .x29 => t.regs.read 29 | .x30 => t.regs.read 30
+  | .sp => t.sp
+  | .nf => flag t.pstate.n | .zf => flag t.pstate.z | .cf => flag t.pstate.c
+  | .vf => flag t.pstate.v
+  | .t0 | .t1 | .t2 => 0#64
+
+theorem regsOf_gpr (t : Arm64.State) (i : BitVec 5) (hi : i ≠ 31#5) :
+    regsOf t (.ofGpr i) = t.regs.read i := by
+  have key : ∀ n, n < 31 →
+      regsOf t (.ofGpr (BitVec.ofNat 5 n)) = t.regs.read (BitVec.ofNat 5 n) := by
+    intro n hn
+    match n, hn with
+    | 0, _ => rfl
+    | 1, _ => rfl
+    | 2, _ => rfl
+    | 3, _ => rfl
+    | 4, _ => rfl
+    | 5, _ => rfl
+    | 6, _ => rfl
+    | 7, _ => rfl
+    | 8, _ => rfl
+    | 9, _ => rfl
+    | 10, _ => rfl
+    | 11, _ => rfl
+    | 12, _ => rfl
+    | 13, _ => rfl
+    | 14, _ => rfl
+    | 15, _ => rfl
+    | 16, _ => rfl
+    | 17, _ => rfl
+    | 18, _ => rfl
+    | 19, _ => rfl
+    | 20, _ => rfl
+    | 21, _ => rfl
+    | 22, _ => rfl
+    | 23, _ => rfl
+    | 24, _ => rfl
+    | 25, _ => rfl
+    | 26, _ => rfl
+    | 27, _ => rfl
+    | 28, _ => rfl
+    | 29, _ => rfl
+    | 30, _ => rfl
+    | n + 31, h => exact absurd h (by omega)
+  have := key i.toNat (by bv_omega)
+  simpa using this
+
+theorem agree_regsOf (t : Arm64.State) : Agree (regsOf t) t.mem t :=
+  ⟨regsOf_gpr t, rfl, rfl, rfl, rfl, rfl, rfl⟩
+
+/-- **The transfer theorem, from a function's entry.** A running machine at the entry of
+    function `g` of a program it holds, with its stack pointer aligned, is safe if the call of
+    `g` is safe at Lprog at every budget, given the machine's continuation where `g` has
+    returned: in a state the returned program stands for, at the address in `x30`. -/
+theorem SafeN.of_lift {prog : Arm64.Program} {fns : List Fun} (hok : ProgOk fns)
+    (hpr : Proved fns) {g : Nat} {fg : Fun} (hg : fns[g]? = some fg) {t : Arm64.State}
+    (hpc : t.pc = fg.addr) (hrun : t.status = .Running) (hal : t.spAligned = true)
+    (hld : Loaded prog fns t.mem) {Q : State armIsa → Prop}
+    (hL : Lprog.Ascent.AllSafe (lsys fns) Q
+      ⟨[⟨g, 0, t.regs.read 30, t.sp⟩], regsOf t, t.mem⟩)
+    {G : Arm64.State → Prop} {N : Nat} {P : Arm64.State → Prop}
+    (hret : ∀ s' t', Ret prog fns (t.regs.read 30) s' t' → Q s' → MSafeN prog G N P t') :
+    MSafeN prog G N P t :=
+  transfer hok hpr hret N (Nat.le_refl N) ⟨[⟨g, 0, t.regs.read 30, t.sp⟩], regsOf t, t.mem⟩ t
+    ⟨agree_regsOf t, hrun, hal, hld,
+      ⟨⟨fg, hg, 0, Nat.zero_le _, by simp, by simpa using hpc⟩, rfl⟩, by simp⟩ hL
 
 end MachineChecked.ARM.Lift

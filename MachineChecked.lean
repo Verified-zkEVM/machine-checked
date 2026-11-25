@@ -40,6 +40,7 @@ import MachineChecked.ARM.Arm64
 import MachineChecked.ARM.Lift.Lift
 import MachineChecked.ARM.Lift.Table
 import MachineChecked.ARM.Lift.Sound
+import MachineChecked.ARM.Lift.Transfer
 import MachineChecked.ARM.Bare
 import MachineChecked.X86.Kraken
 import MachineChecked.X86.Lift.Instr

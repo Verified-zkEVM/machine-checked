@@ -29,13 +29,19 @@
     `Labort`.
 
   It is checked by running (`scripts/decompile-check`), against another machine than
-  arm64-semantics'. Against arm64-semantics, the operations of the instructions that do not
-  transfer control are proved for all kinds but a few (`Sound.lean`, `ops_sound`); the instructions
-  that transfer control, and the program as a whole, are not yet.
+  arm64-semantics', and proved against arm64-semantics: `Sound.lean` for the operations of an
+  instruction, `Transfer.lean` for a program (`transfer`). What the proof does not cover the
+  lift refuses (`okI`): the function gives up there (`Labort`). Lifted, checked by running
+  and not yet proved are the counts of leading zeros and signs, addition with carry and
+  signed division.
+
+  * **The stack pointer** is kept a multiple of 16: after operations that write it the lift
+    checks it, and gives up if it is not (`spCheck`). The machine faults on a stack pointer
+    that is not aligned when it is the base of an access.
 
   ## Main definitions
 
-  * `liftI`, `liftArm`
+  * `okI`, `spCheck`, `liftI`, `liftArm`
 -/
 
 import MachineChecked.ARM.Arm64
