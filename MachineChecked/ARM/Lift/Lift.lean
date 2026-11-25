@@ -378,53 +378,79 @@ def okI : Instr → Bool
   | .stp _ rt1 rt2 mode => okReg rt1 && okReg rt2 && okMode mode
   | _ => false
 
+/-- Does an operation write the stack pointer? -/
+def writesSp : O → Bool
+  | .set .sp _ | .load .sp .. => true
+  | _ => false
+
 /-- **The stack pointer is aligned** after operations that write it, or the function gives
     up. The machine faults on a stack pointer that is not a multiple of 16 when it is the base
     of an access; the lift keeps it aligned wherever it is written instead, which is what
     compiled code does. -/
 def spCheck (cx : Cx) (os : List O) : Lcmd O Reg :=
-  let writes : O → Bool
-    | .set .sp _ | .load .sp .. => true
-    | _ => false
-  if os.any writes then
+  if os.any writesSp then
     [.Lopn (.set .t0 (band (.reg .sp) (num 15))), .Lcond (.cmp "ne" (.reg .t0) (.imm 0)) cx.abort]
   else []
 
-/-- One instruction. A word that is no instruction is `none`. -/
-def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : Lcmd O Reg :=
-  let pc := i.addr
-  let to (off : BitVec 64) (k : LLabel → Lcmd O Reg) : Lcmd O Reg :=
-    match cx.label (pc + off) with
-    | some l => k l
-    | none => [.Labort]
-  match i.instr with
+/-! ## Control -/
+
+/-- The commands `k l`, at the label `l` of the instruction of this function at address `a`;
+    `Labort` if `a` is none of its instructions. -/
+def toLabel (cx : Cx) (a : BitVec 64) (k : LLabel → Lcmd O Reg) : Lcmd O Reg :=
+  match cx.label a with
+  | some l => k l
   | none => [.Labort]
-  | some (.b off) =>
-    match cx.label (pc + off), cx.entry (pc + off) with
-    | some l, _ => [.Lgoto l]
-    | none, some f => [.Ltail (.direct f)]
-    | none, none => [.Labort]
-  | some (.bl off) =>
-    match cx.entry (pc + off) with
-    | some f => [.Lcall i.next (.direct f)]
-    | none => [.Labort]
-  | some (.bCond c off) => to off (branch c)
-  | some (.cbz w nz rt off) => to off fun l =>
-    let test (r : Reg) : Lcmd O Reg := [.Lcond (.cmp (if nz then "ne" else "eq") (.reg r) (.imm 0)) l]
+
+/-- `b` to address `a`: a jump inside the function, or a tail call to another. -/
+def liftB (cx : Cx) (a : BitVec 64) : Lcmd O Reg :=
+  match cx.label a, cx.entry a with
+  | some l, _ => [.Lgoto l]
+  | none, some f => [.Ltail (.direct f)]
+  | none, none => [.Labort]
+
+/-- `bl` to address `a`, returning to `next`. -/
+def liftBl (cx : Cx) (next a : BitVec 64) : Lcmd O Reg :=
+  match cx.entry a with
+  | some f => [.Lcall next (.direct f)]
+  | none => [.Labort]
+
+/-- `cbz` and `cbnz` to label `l`. -/
+def liftCbz (w : RegWidth) (nz : Bool) (rt : Arm64.Reg) (l : LLabel) : Lcmd O Reg :=
+  let test (r : Reg) : Lcmd O Reg := [.Lcond (.cmp (if nz then "ne" else "eq") (.reg r) (.imm 0)) l]
+  if okReg rt then
     match w, rt with
     | _, .xzr => if nz then [] else [.Lgoto l]
     | .W64, .gpr k => test (.ofGpr k)
     | _, r => .Lopn (.set .t0 (rdw w r)) :: test .t0
-  | some (.tbz _ nz rt b off) => to off fun l =>
+  else [.Labort]
+
+/-- `tbz` and `tbnz` on bit `b`, to label `l`. -/
+def liftTbz (nz : Bool) (rt : Arm64.Reg) (b : Nat) (l : LLabel) : Lcmd O Reg :=
+  if okReg rt ∧ b < 64 then
     [.Lopn (.set .t0 (bit (rd rt) b)), .Lcond (.cmp (if nz then "ne" else "eq") (.reg .t0) (.imm 0)) l]
-  | some (.br rn) => Linked.jump .t2 (rd rn) [] cx.cands cx.all
-  | some (.blr rn) => [.Lcall i.next (.indirect (rd rn) cx.all)]
+  else [.Labort]
+
+/-- An instruction that does not transfer control: its operations, and the check of the stack
+    pointer if they write it. `Labort` if it is not lifted or not `okI`. -/
+def liftOps (cx : Cx) (pc : BitVec 64) (ins : Instr) : Lcmd O Reg :=
+  match ops pc ins with
+  | some os => if okI ins then os.map .Lopn ++ spCheck cx os else [.Labort]
+  | none => [.Labort]
+
+/-- One instruction. A word that is no instruction is `none`. -/
+def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : Lcmd O Reg :=
+  match i.instr with
+  | none => [.Labort]
+  | some (.b off) => liftB cx (i.addr + off)
+  | some (.bl off) => liftBl cx i.next (i.addr + off)
+  | some (.bCond c off) => toLabel cx (i.addr + off) (branch c)
+  | some (.cbz w nz rt off) => toLabel cx (i.addr + off) (liftCbz w nz rt)
+  | some (.tbz _ nz rt b off) => toLabel cx (i.addr + off) (liftTbz nz rt b)
+  | some (.br rn) => if okReg rn then Linked.jump .t2 (rd rn) [] cx.cands cx.all else [.Labort]
+  | some (.blr rn) => if okReg rn then [.Lcall i.next (.indirect (rd rn) cx.all)] else [.Labort]
   | some (.ret rn) => if rn = Arm64.Reg.x30 then [.Lret] else [.Labort]
   | some (.system isHalt _) => [if isHalt then .Labort else .Lext 0]
-  | some ins =>
-    match ops pc ins with
-    | some os => if okI ins then os.map .Lopn ++ spCheck cx os else [.Labort]
-    | none => [.Labort]
+  | some ins => liftOps cx i.addr ins
 
 /-- A function of an AArch64 program. -/
 abbrev Fun := Linked.Fun (Option Instr)
