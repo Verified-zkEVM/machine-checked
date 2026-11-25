@@ -33,7 +33,8 @@
   instruction, `Transfer.lean` for a program (`transfer`). What the proof does not cover the
   lift refuses (`okI`): the function gives up there (`Labort`). Lifted, checked by running
   and not yet proved are the counts of leading zeros and signs, addition with carry and
-  signed division.
+  signed division: `liftArmAll` takes them, and `liftArm`, which the proof is about, does
+  not.
 
   * **The stack pointer** is kept a multiple of 16: after operations that write it the lift
     checks it, and gives up if it is not (`spCheck`). The machine faults on a stack pointer
@@ -41,7 +42,7 @@
 
   ## Main definitions
 
-  * `okI`, `spCheck`, `liftI`, `liftArm`
+  * `okI`, `spCheck`, `proved`, `liftI`, `liftArm`, `liftArmAll`, `ProgOk`
 -/
 
 import MachineChecked.ARM.Arm64
@@ -436,15 +437,28 @@ def liftTbz (nz : Bool) (rt : Arm64.Reg) (b : Nat) (l : LLabel) : Lcmd O Reg :=
     [.Lopn (.set .t0 (bit (rd rt) b)), .Lcond (.cmp (if nz then "ne" else "eq") (.reg .t0) (.imm 0)) l]
   else [.Labort]
 
+/-- **The kinds of instruction whose operations are proved** (`Sound.lean`): all that `ops`
+    takes but the counts of leading zeros and signs, addition with carry and signed
+    division. -/
+def proved : Instr → Bool
+  | .addSubCarry .. => false
+  | .dataProc1 _ op _ _ => !(op matches .CLZ | .CLS)
+  | .dataProc2 _ op _ _ _ => !(op matches .SDIV)
+  | _ => true
+
 /-- An instruction that does not transfer control: its operations, and the check of the stack
-    pointer if they write it. `Labort` if it is not lifted or not `okI`. -/
-def liftOps (cx : Cx) (pc : BitVec 64) (ins : Instr) : Lcmd O Reg :=
+    pointer if they write it. `Labort` if it is not lifted or not `okI`; and, if `strict`, if
+    it is of a kind that is not proved. -/
+def liftOps (strict : Bool) (cx : Cx) (pc : BitVec 64) (ins : Instr) : Lcmd O Reg :=
   match ops pc ins with
-  | some os => if okI ins then os.map .Lopn ++ spCheck cx.abort os else [.Labort]
+  | some os =>
+    if okI ins && (!strict || proved ins) then os.map .Lopn ++ spCheck cx.abort os else [.Labort]
   | none => [.Labort]
 
-/-- One instruction. A word that is no instruction is `none`. -/
-def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : Lcmd O Reg :=
+/-- One instruction. A word that is no instruction is `none`. With `strict`, an instruction of
+    a kind that is not proved is `Labort`: that is the lift the transfer theorem is about. -/
+def liftI (strict : Bool) (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) :
+    Lcmd O Reg :=
   match i.instr with
   | none => [.Labort]
   | some (.b off) => liftB cx (i.addr + off)
@@ -456,12 +470,23 @@ def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : L
   | some (.blr rn) => if okReg rn then [.Lcall i.next (.indirect (rd rn) cx.all)] else [.Labort]
   | some (.ret rn) => if rn = Arm64.Reg.x30 then [.Lret] else [.Labort]
   | some (.system isHalt _) => [if isHalt then .Labort else .Lext 0]
-  | some ins => liftOps cx i.addr ins
+  | some ins => liftOps strict cx i.addr ins
 
 /-- A function of an AArch64 program. -/
 abbrev Fun := Linked.Fun (Option Instr)
 
-/-- **An AArch64 program, lifted.** -/
-def liftArm (fns : List Fun) : Lprog O Reg := Linked.liftProgram liftI fns
+/-- **An AArch64 program, lifted**, by the lift that is proved (`Transfer.lean`): an
+    instruction of a kind that is not proved is `Labort`. -/
+def liftArm (fns : List Fun) : Lprog O Reg := Linked.liftProgram (liftI true) fns
+
+/-- An AArch64 program, lifted, with every kind `ops` takes: the kinds that are not proved are
+    checked by running only. -/
+def liftArmAll (fns : List Fun) : Lprog O Reg := Linked.liftProgram (liftI false) fns
+
+/-- **A program the lift is proved for**: in each function, instructions of four bytes one
+    after another from its address. -/
+def ProgOk (fns : List Fun) : Prop :=
+  ∀ f ∈ fns, ∀ k (hk : k < f.code.length),
+    f.code[k].addr = f.addr + BitVec.ofNat 64 (4 * k) ∧ f.code[k].size = 4
 
 end MachineChecked.ARM.Lift

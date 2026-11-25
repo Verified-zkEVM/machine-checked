@@ -83,14 +83,6 @@ def Ok (s : Arm64.State) : Instr → Prop
       Arm64.checkAddrSPAligned s mode = true
   | _ => False
 
-/-- **The kinds of instruction that are proved**: all that the lift takes but the counts of
-    leading zeros and signs, addition with carry and signed division. -/
-def proved : Instr → Bool
-  | .addSubCarry .. => false
-  | .dataProc1 _ op _ _ => !(op matches .CLZ | .CLS)
-  | .dataProc2 _ op _ _ _ => !(op matches .SDIV)
-  | _ => true
-
 theorem wf_of_okReg {r : Arm64.Reg} (h : okReg r = true) : Wf r := by
   cases r <;> simp_all [okReg, Wf]
 

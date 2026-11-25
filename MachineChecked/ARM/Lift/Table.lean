@@ -126,6 +126,6 @@ def samples : List (Option Instr) :=
 def rows : List (String × Bool) :=
   let cx : Linked.Cx := { label := fun _ => some 0, entry := fun _ => some 0, cands := [], all := [0], abort := 1 }
   samples.map fun i =>
-    (kind i, !(liftI cx none { addr := 0x1000, size := 4, instr := i }).any (· matches .Labort))
+    (kind i, !(liftI false cx none { addr := 0x1000, size := 4, instr := i }).any (· matches .Labort))
 
 end MachineChecked.ARM.Lift.Table

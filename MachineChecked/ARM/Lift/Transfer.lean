@@ -22,10 +22,10 @@
   (`SafeN.of_lift`).
 
   What is assumed of the program: its instructions are four bytes each, one after another
-  (`ProgOk`), and of kinds that are proved (`Proved`: all the lift takes but `clz`, `cls`,
-  addition with carry and signed division). What is assumed of the machine state: it is
-  running, its stack pointer is aligned, and it holds the program. Nothing is assumed of
-  `Arm64.decode`: the lift refuses what the proof does not cover (`okI`).
+  (`ProgOk`), which a program made from an ELF's words is. What is assumed of the machine
+  state: it is running, its stack pointer is aligned, and it holds the program. Nothing is
+  assumed of `Arm64.decode`: the lift refuses what the proof does not cover (`okI`, and the
+  kinds that are not `proved`: `clz`, `cls`, addition with carry and signed division).
 
   The context is `armCtx`, where an external call goes `wrong`: a program proved safe under
   it makes none.
@@ -33,7 +33,7 @@
   ## Main definitions
 
   * `armCtx`, `lsys`, `mstep`, `MSafeN`: the lifted program and the machine, as systems
-  * `ProgOk`, `Proved`, `Loaded`, `Chain`, `Sim`, `Ret`: the simulation
+  * `Loaded`, `Chain`, `Sim`, `Ret`: the simulation
   * `Here`, `Out`: at an instruction, and what the program does for the machine's step
 
   ## Main results
@@ -55,6 +55,9 @@ namespace MachineChecked.ARM.Lift
 open Lprog Lprog.ARM Lprog.Build Lprog.Linked
 open Lprog.Ascent (Outcome Steps GoesWrong System)
 open Arm64 (Instr RegWidth MemWidth AddrMode)
+
+/-- The lift of one instruction that the proof is about: of the kinds that are proved. -/
+abbrev liftT := liftI true
 
 /-! ## The two systems -/
 
@@ -185,8 +188,8 @@ theorem noLab_jump (e : E) (locals : List (BitVec 64 × LLabel)) (fns : List Nat
 
 /-- **No command the lift writes for an instruction is a label**, so a label is found at the
     instruction it names. -/
-theorem noLab_liftI (cx : Cx) (prev : Option (At (Option Instr))) (i : At (Option Instr)) :
-    NoLab (liftI cx prev i) := by
+theorem noLab_liftI (strict : Bool) (cx : Cx) (prev : Option (At (Option Instr))) (i : At (Option Instr)) :
+    NoLab (liftI strict cx prev i) := by
   unfold liftI
   split
   · exact .cons (fun _ => rfl) .nil
@@ -219,12 +222,6 @@ theorem noLab_liftI (cx : Cx) (prev : Option (At (Option Instr))) (i : At (Optio
 
 /-! ## The simulation -/
 
-/-- **A program the lift is proved for**: in each function, instructions of four bytes one
-    after another from its address. -/
-def ProgOk (fns : List Fun) : Prop :=
-  ∀ f ∈ fns, ∀ k (hk : k < f.code.length),
-    f.code[k].addr = f.addr + BitVec.ofNat 64 (4 * k) ∧ f.code[k].size = 4
-
 /-- **The machine holds the program**: it fetches each of its instructions from memory. -/
 def Loaded (prog : Arm64.Program) (fns : List Fun) (mem : Arm64.Memory) : Prop :=
   ∀ f ∈ fns, ∀ k (hk : k < f.code.length) (i : Instr), f.code[k].instr = some i →
@@ -237,7 +234,7 @@ theorem Loaded.keeps {prog : Arm64.Program} {fns : List Fun} {m m' : Arm64.Memor
 /-- Activation `fr` stands for the machine at address `a`: at the label of an instruction of
     its function, or after the last one. -/
 def FrameAt (fns : List Fun) (fr : Frame) (a : BitVec 64) : Prop :=
-  ∃ f, fns[fr.fn]? = some f ∧ ∃ k, k ≤ f.code.length ∧ fr.pc = pos liftI fns f k ∧
+  ∃ f, fns[fr.fn]? = some f ∧ ∃ k, k ≤ f.code.length ∧ fr.pc = pos liftT fns f k ∧
     a = f.addr + BitVec.ofNat 64 (4 * k)
 
 /-- The activations stand for the machine at `a`, each returning where the next one resumes,
@@ -665,8 +662,8 @@ structure Here (prog : Arm64.Program) (fns : List Fun) (exit : BitVec 64) (f : F
   hf : fns[fn]? = some f
   hk : k < f.code.length
   hfd : (liftArm fns)[fn]? = some fd
-  cmds : Cmds fd (pos liftI fns f k + 1) (Linked.cmds liftI fns f k hk)
-  lbl : ∀ l, l < f.code.length → labelIdx fd.body l = some (pos liftI fns f l)
+  cmds : Cmds fd (pos liftT fns f k + 1) (Linked.cmds liftT fns f k hk)
+  lbl : ∀ l, l < f.code.length → labelIdx fd.body l = some (pos liftT fns f l)
   hab : AbortOk fd f.code.length
   agree : Agree regs m t
   running : t.status = .Running
@@ -696,19 +693,19 @@ theorem jump (h : Here prog fns exit f k fd fn rv top rest regs m t) {r' : Reg �
     {m' : Arm64.Memory} {t' : Arm64.State} (hag : Agree r' m' t') (hr : t'.status = .Running)
     (hal : t'.spAligned = true) (hld : Loaded prog fns t'.mem) {l : Nat} (hl : l ≤ f.code.length)
     (hpc : t'.pc = f.addr + BitVec.ofNat 64 (4 * l)) :
-    Sim prog fns exit ⟨⟨fn, pos liftI fns f l, rv, top⟩ :: rest, r', m'⟩ t' :=
+    Sim prog fns exit ⟨⟨fn, pos liftT fns f l, rv, top⟩ :: rest, r', m'⟩ t' :=
   ⟨hag, hr, hal, hld, ⟨⟨f, h.hf, l, hl, rfl, hpc⟩, h.chain⟩, by simp⟩
 
 /-- The next instruction. -/
 theorem step (h : Here prog fns exit f k fd fn rv top rest regs m t) {r' : Reg → BitVec 64}
     {m' : Arm64.Memory} {t' : Arm64.State} (hag : Agree r' m' t') (hr : t'.status = .Running)
     (hal : t'.spAligned = true) (hld : Loaded prog fns t'.mem) (hpc : t'.pc = t.pc + 4#64) :
-    Sim prog fns exit ⟨⟨fn, pos liftI fns f (k + 1), rv, top⟩ :: rest, r', m'⟩ t' :=
+    Sim prog fns exit ⟨⟨fn, pos liftT fns f (k + 1), rv, top⟩ :: rest, r', m'⟩ t' :=
   h.jump hag hr hal hld h.hk (by rw [hpc, h.tpc, addr_succ])
 
 /-- The activations below a call: this one resumes at the next instruction. -/
 theorem below (h : Here prog fns exit f k fd fn rv top rest regs m t) :
-    Chain fns exit (⟨fn, pos liftI fns f (k + 1), rv, top⟩ :: rest) (t.pc + 4#64) :=
+    Chain fns exit (⟨fn, pos liftT fns f (k + 1), rv, top⟩ :: rest) (t.pc + 4#64) :=
   ⟨⟨f, h.hf, k + 1, h.hk, rfl, by rw [h.tpc, addr_succ]⟩, h.chain⟩
 
 /-- Function `g`, entered. -/
@@ -720,14 +717,15 @@ theorem enter (_ : Here prog fns exit f k fd fn rv top rest regs m t) {r' : Reg 
     Sim prog fns exit ⟨⟨g, 0, ret, top'⟩ :: rest', r', m'⟩ t' :=
   ⟨hag, hr, hal, hld, ⟨⟨fg, hg, 0, Nat.zero_le _, by simp, by simpa using hpc⟩, hch⟩, by simp⟩
 
-/-- **An instruction that does not transfer control**, of a kind that is proved. -/
+/-- **An instruction that does not transfer control.** One of a kind that is not proved is
+    `Labort`. -/
 theorem out_data (h : Here prog fns exit f k fd fn rv top rest regs m t) {i : Instr}
-    (hpr : proved i = true)
-    (hl : Linked.cmds liftI fns f k h.hk = liftOps (cxOf fns f) (f.code[k]'h.hk).addr i) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    (hl : Linked.cmds liftT fns f k h.hk =
+      liftOps true (cxOf fns f) (f.code[k]'h.hk).addr i) :
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst i t) := by
   have hc := h.cmds
-  have hps := pos_succ liftI fns f k h.hk
+  have hps := pos_succ liftT fns f k h.hk
   rw [hl] at hc hps
   unfold liftOps at hc hps
   rw [h.addr] at hc hps
@@ -737,21 +735,24 @@ theorem out_data (h : Here prog fns exit f k fd fn rv top rest regs m t) {i : In
     exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
   | some os =>
     rw [ho] at hc hps
-    by_cases hokI : okI i = true
-    · simp only [hokI, ↓reduceIte] at hc hps
-      refine out_ops h.hfd ho hc h.hab (ok_of_okI hokI hpr h.aligned) h.agree h.running h.aligned
-        h.loaded fun Q r' m' t' hQ hag hr hal hld hpc => ?_
-      have : Q = pos liftI fns f (k + 1) := by
+    by_cases hokI : okI i = true ∧ proved i = true
+    · simp only [hokI.1, hokI.2, Bool.not_true, Bool.or_true, Bool.and_self, ↓reduceIte]
+        at hc hps
+      refine out_ops h.hfd ho hc h.hab (ok_of_okI hokI.1 hokI.2 h.aligned) h.agree h.running
+        h.aligned h.loaded fun Q r' m' t' hQ hag hr hal hld hpc => ?_
+      have : Q = pos liftT fns f (k + 1) := by
         rw [hQ, hps]
       rw [this]
       exact h.step hag hr hal hld hpc
-    · simp only [hokI] at hc
+    · have hno : (okI i && (!true || proved i)) = false := by
+        cases h1 : okI i <;> cases h2 : proved i <;> simp_all
+      simp only [hno] at hc
       exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
 
 /-- **`b`**: a jump inside the function, or a tail call. -/
 theorem out_b (h : Here prog fns exit f k fd fn rv top rest regs m t) (off : BitVec 64)
-    (hl : Linked.cmds liftI fns f k h.hk = liftB (cxOf fns f) ((f.code[k]'h.hk).addr + off)) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    (hl : Linked.cmds liftT fns f k h.hk = liftB (cxOf fns f) ((f.code[k]'h.hk).addr + off)) :
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.b off) t) := by
   have hc := h.cmds
   rw [hl, h.addr] at hc
@@ -785,12 +786,12 @@ theorem out_b (h : Here prog fns exit f k fd fn rv top rest regs m t) (off : Bit
 
 /-- **`bl`**: a call. -/
 theorem out_bl (h : Here prog fns exit f k fd fn rv top rest regs m t) (off : BitVec 64)
-    (hl : Linked.cmds liftI fns f k h.hk =
+    (hl : Linked.cmds liftT fns f k h.hk =
       liftBl (cxOf fns f) (f.code[k]'h.hk).next ((f.code[k]'h.hk).addr + off)) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.bl off) t) := by
   have hc := h.cmds
-  have hps := pos_succ liftI fns f k h.hk
+  have hps := pos_succ liftT fns f k h.hk
   rw [hl, h.addr, h.next] at hc
   rw [hl] at hps
   unfold liftBl at hc hps
@@ -806,7 +807,7 @@ theorem out_bl (h : Here prog fns exit f k fd fn rv top rest regs m t) (off : Bi
     obtain ⟨hg, hadr⟩ := entry_sound fns f hent
     have hs := (step_iff (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
       h.hfd hc.head (.ok (⟨⟨g, 0, t.pc + 4#64, regs .sp⟩ ::
-        ⟨fn, pos liftI fns f k + 1 + 1, rv, top⟩ :: rest, updReg regs .x30 (t.pc + 4#64), m⟩,
+        ⟨fn, pos liftT fns f k + 1 + 1, rv, top⟩ :: rest, updReg regs .x30 (t.pc + 4#64), m⟩,
         []))).2 (by simp [Isa.stepI, Isa.callee, hg, Frame.at])
     have hbelow := h.below
     rw [hps] at hbelow
@@ -816,9 +817,9 @@ theorem out_bl (h : Here prog fns exit f k fd fn rv top rest regs m t) (off : Bi
 
 /-- **`ret`** through the link register. -/
 theorem out_ret (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Arm64.Reg)
-    (hl : Linked.cmds liftI fns f k h.hk =
+    (hl : Linked.cmds liftT fns f k h.hk =
       if rn = Arm64.Reg.x30 then [.Lret] else [.Labort]) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.ret rn) t) := by
   have hc := h.cmds
   rw [hl] at hc
@@ -847,10 +848,10 @@ theorem out_ret (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Ar
 /-- **A conditional jump**, once the program has taken it or not as the machine does. -/
 theorem out_cond (h : Here prog fns exit f k fd fn rv top rest regs m t) {b : Bool}
     {off : BitVec 64} {l : LLabel} (hlab : (cxOf fns f).label (t.pc + off) = some l)
-    {r' : Reg → BitVec 64} (hag : Agree r' m t) {Q : Nat} (hQ : pos liftI fns f (k + 1) = Q)
-    (hst : Steps (lsys fns) ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩ []
-      ⟨⟨fn, if b then pos liftI fns f l else Q, rv, top⟩ :: rest, r', m⟩) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    {r' : Reg → BitVec 64} (hag : Agree r' m t) {Q : Nat} (hQ : pos liftT fns f (k + 1) = Q)
+    (hst : Steps (lsys fns) ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩ []
+      ⟨⟨fn, if b then pos liftT fns f l else Q, rv, top⟩ :: rest, r', m⟩) :
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (if b then t.setPC (t.pc + off) else t.advancePC) := by
   cases b with
   | false =>
@@ -866,12 +867,12 @@ theorem out_cond (h : Here prog fns exit f k fd fn rv top rest regs m t) {b : Bo
 /-- **`b.cond`.** -/
 theorem out_bCond (h : Here prog fns exit f k fd fn rv top rest regs m t) (c : Arm64.CondCode)
     (off : BitVec 64)
-    (hl : Linked.cmds liftI fns f k h.hk =
+    (hl : Linked.cmds liftT fns f k h.hk =
       toLabel (cxOf fns f) ((f.code[k]'h.hk).addr + off) (branch c)) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.bCond c off) t) := by
   have hc := h.cmds
-  have hps := pos_succ liftI fns f k h.hk
+  have hps := pos_succ liftT fns f k h.hk
   rw [hl, h.addr] at hc hps
   unfold toLabel at hc hps
   cases hlab : (cxOf fns f).label (t.pc + off) with
@@ -888,12 +889,12 @@ theorem out_bCond (h : Here prog fns exit f k fd fn rv top rest regs m t) (c : A
 /-- **`cbz` and `cbnz`.** -/
 theorem out_cbz (h : Here prog fns exit f k fd fn rv top rest regs m t) (w : RegWidth)
     (nz : Bool) (rt : Arm64.Reg) (off : BitVec 64)
-    (hl : Linked.cmds liftI fns f k h.hk =
+    (hl : Linked.cmds liftT fns f k h.hk =
       toLabel (cxOf fns f) ((f.code[k]'h.hk).addr + off) (liftCbz w nz rt)) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.cbz w nz rt off) t) := by
   have hc := h.cmds
-  have hps := pos_succ liftI fns f k h.hk
+  have hps := pos_succ liftT fns f k h.hk
   rw [hl, h.addr] at hc hps
   unfold toLabel at hc hps
   cases hlab : (cxOf fns f).label (t.pc + off) with
@@ -921,19 +922,19 @@ theorem out_cbz (h : Here prog fns exit f k fd fn rv top rest regs m t) (w : Reg
         rw [hz]
         cases nz with
         | true =>
-          have hc0 : pos liftI fns f (k + 1) = pos liftI fns f k + 1 := by
+          have hc0 : pos liftT fns f (k + 1) = pos liftT fns f k + 1 := by
             cases w <;> simpa using hps
           exact h.out_cond (b := false) hlab h.agree hc0 (.refl _)
         | false =>
-          have hc1 : Cmds fd (pos liftI fns f k + 1) [.Lgoto l] := by
+          have hc1 : Cmds fd (pos liftT fns f k + 1) [.Lgoto l] := by
             cases w <;> simpa using hc
-          exact h.out_cond (b := true) (Q := pos liftI fns f (k + 1)) hlab h.agree rfl
+          exact h.out_cond (b := true) (Q := pos liftT fns f (k + 1)) hlab h.agree rfl
             (Steps.one (step_goto h.hfd hc1.head hj))
       | sp =>
-        have hc2 : Cmds fd (pos liftI fns f k + 1) [.Lopn (.set .t0 (rdw w .sp)),
+        have hc2 : Cmds fd (pos liftT fns f k + 1) [.Lopn (.set .t0 (rdw w .sp)),
             .Lcond (.cmp (if nz then "ne" else "eq") (.reg .t0) (.imm 0)) l] := by
           cases w <;> simpa using hc
-        have hp2 : pos liftI fns f (k + 1) = pos liftI fns f k + 1 + 2 := by
+        have hp2 : pos liftT fns f (k + 1) = pos liftT fns f k + 1 + 2 := by
           cases w <;> simpa using hps
         have := set_test_steps (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
           h.hfd hc2 hj
@@ -942,19 +943,19 @@ theorem out_cbz (h : Here prog fns exit f k fd fn rv top rest regs m t) (w : Reg
       | gpr i =>
         cases w with
         | W32 =>
-          have hc2 : Cmds fd (pos liftI fns f k + 1) [.Lopn (.set .t0 (rdw .W32 (.gpr i))),
+          have hc2 : Cmds fd (pos liftT fns f k + 1) [.Lopn (.set .t0 (rdw .W32 (.gpr i))),
               .Lcond (.cmp (if nz then "ne" else "eq") (.reg .t0) (.imm 0)) l] := by
             simpa using hc
-          have hp2 : pos liftI fns f (k + 1) = pos liftI fns f k + 1 + 2 := by simpa using hps
+          have hp2 : pos liftT fns f (k + 1) = pos liftT fns f k + 1 + 2 := by simpa using hps
           have := set_test_steps (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
             h.hfd hc2 hj
           rw [he] at this
           exact h.out_cond hlab (h.agree.scratch (.inl rfl) _) hp2 this
         | W64 =>
-          have hc1 : Cmds fd (pos liftI fns f k + 1)
+          have hc1 : Cmds fd (pos liftT fns f k + 1)
               [.Lcond (.cmp (if nz then "ne" else "eq") (.reg (.ofGpr i)) (.imm 0)) l] := by
             simpa using hc
-          have hp1 : pos liftI fns f (k + 1) = pos liftI fns f k + 1 + 1 := by simpa using hps
+          have hp1 : pos liftT fns f (k + 1) = pos liftT fns f k + 1 + 1 := by simpa using hps
           have := test_steps (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
             h.hfd hc1.head hj
           have hv : regs (.ofGpr i) = t.readReg .W64 (.gpr i) := by
@@ -967,12 +968,12 @@ theorem out_cbz (h : Here prog fns exit f k fd fn rv top rest regs m t) (w : Reg
 /-- **`tbz` and `tbnz`.** -/
 theorem out_tbz (h : Here prog fns exit f k fd fn rv top rest regs m t) (w : RegWidth)
     (nz : Bool) (rt : Arm64.Reg) (b : Nat) (off : BitVec 64)
-    (hl : Linked.cmds liftI fns f k h.hk =
+    (hl : Linked.cmds liftT fns f k h.hk =
       toLabel (cxOf fns f) ((f.code[k]'h.hk).addr + off) (liftTbz nz rt b)) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.tbz w nz rt b off) t) := by
   have hc := h.cmds
-  have hps := pos_succ liftI fns f k h.hk
+  have hps := pos_succ liftT fns f k h.hk
   rw [hl, h.addr] at hc hps
   unfold toLabel at hc hps
   cases hlab : (cxOf fns f).label (t.pc + off) with
@@ -1005,13 +1006,13 @@ theorem out_tbz (h : Here prog fns exit f k fd fn rv top rest regs m t) (w : Reg
 
 /-- **`blr`**: a call of the function at the address a register holds. -/
 theorem out_blr (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Arm64.Reg)
-    (hl : Linked.cmds liftI fns f k h.hk =
+    (hl : Linked.cmds liftT fns f k h.hk =
       if okReg rn then [.Lcall (f.code[k]'h.hk).next (.indirect (rd rn) (cxOf fns f).all)]
       else [.Labort]) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.blr rn) t) := by
   have hc := h.cmds
-  have hps := pos_succ liftI fns f k h.hk
+  have hps := pos_succ liftT fns f k h.hk
   rw [hl, h.next] at hc
   rw [hl] at hps
   by_cases hokr : okReg rn = true
@@ -1027,7 +1028,7 @@ theorem out_blr (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Ar
       obtain ⟨fg, hg, hadr⟩ := callee_indirect hcal
       have hs := (step_iff (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
         h.hfd hc.head (.ok (⟨⟨g, 0, t.pc + 4#64, regs .sp⟩ ::
-          ⟨fn, pos liftI fns f k + 1 + 1, rv, top⟩ :: rest, updReg regs .x30 (t.pc + 4#64), m⟩,
+          ⟨fn, pos liftT fns f k + 1 + 1, rv, top⟩ :: rest, updReg regs .x30 (t.pc + 4#64), m⟩,
           []))).2 (by simp only [Isa.stepI, hcal]; rfl)
       have hbelow := h.below
       rw [hps] at hbelow
@@ -1039,8 +1040,8 @@ theorem out_blr (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Ar
 /-- **`svc`, `brk` and the like** are not lifted: the program goes `wrong`. -/
 theorem out_system (h : Here prog fns exit f k fd fn rv top rest regs m t) (isHalt : Bool)
     (imm : BitVec 16)
-    (hl : Linked.cmds liftI fns f k h.hk = [if isHalt then .Labort else .Lext 0]) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    (hl : Linked.cmds liftT fns f k h.hk = [if isHalt then .Labort else .Lext 0]) :
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.system isHalt imm) t) := by
   have hc := h.cmds
   rw [hl] at hc
@@ -1057,9 +1058,9 @@ theorem out_tail (h : Here prog fns exit f k fd fn rv top rest regs m t) {Q : Na
     (hc : c = if cands.isEmpty then .Labort else .Ltail (.indirect e cands))
     (hi : fd.body[Q]? = some c) {r' : Reg → BitVec 64} (hag : Agree r' m t) {v : BitVec 64}
     (hv : e.eval r' = v)
-    (hst : Steps (lsys fns) ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩ []
+    (hst : Steps (lsys fns) ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩ []
       ⟨⟨fn, Q, rv, top⟩ :: rest, r', m⟩) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩ (t.setPC v) := by
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩ (t.setPC v) := by
   subst hc
   by_cases hem : cands.isEmpty = true
   · simp only [hem, ↓reduceIte] at hi
@@ -1083,10 +1084,10 @@ theorem out_tail (h : Here prog fns exit f k fd fn rv top rest regs m t) {Q : Na
 /-- **`br`**: a computed jump, to an instruction of the function the program holds the address
     of, or to another function. -/
 theorem out_br (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Arm64.Reg)
-    (hl : Linked.cmds liftI fns f k h.hk =
+    (hl : Linked.cmds liftT fns f k h.hk =
       if okReg rn then Linked.jump .t2 (rd rn) [] (cxOf fns f).cands (cxOf fns f).all
       else [.Labort]) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst (.br rn) t) := by
   have hc := h.cmds
   rw [hl] at hc
@@ -1116,7 +1117,7 @@ theorem out_br (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Arm
             obtain ⟨hlt, -⟩ := label_sound fns f (hmem a l hal)
             exact ⟨_, h.lbl l hlt⟩) with ⟨a, l, j, hal, ha, hjl, hs⟩ | hs
       · obtain ⟨hlt, hadr⟩ := label_sound fns f (hmem a l hal)
-        have hj : j = pos liftI fns f l := by
+        have hj : j = pos liftT fns f l := by
           have := h.lbl l hlt
           rw [hjl] at this
           exact Option.some.inj this
@@ -1133,11 +1134,12 @@ theorem out_br (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Arm
 
 /-- **One instruction, matched**, whichever it is. -/
 theorem out (h : Here prog fns exit f k fd fn rv top rest regs m t) {i : Instr}
-    (hi : (f.code[k]'h.hk).instr = some i) (hpr : proved i = true) :
-    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+    (hi : (f.code[k]'h.hk).instr = some i) :
+    Out prog fns exit ⟨⟨fn, pos liftT fns f k + 1, rv, top⟩ :: rest, regs, m⟩
       (prog.evalInst i t) := by
-  have hcm : Linked.cmds liftI fns f k h.hk =
-      liftI (cxOf fns f) ((withPrev f.code)[k]'(by simpa using h.hk)).2 (f.code[k]'h.hk) := rfl
+  have hcm : Linked.cmds liftT fns f k h.hk =
+      liftI true (cxOf fns f) ((withPrev f.code)[k]'(by simpa using h.hk)).2 (f.code[k]'h.hk) :=
+    rfl
   unfold liftI at hcm
   simp only [hi] at hcm
   cases i with
@@ -1150,21 +1152,17 @@ theorem out (h : Here prog fns exit f k fd fn rv top rest regs m t) {i : Instr}
   | blr rn => exact h.out_blr rn hcm
   | ret rn => exact h.out_ret rn hcm
   | system isHalt imm => exact h.out_system isHalt imm hcm
-  | _ => exact h.out_data hpr hcm
+  | _ => exact h.out_data hcm
 
 end Here
 
 /-! ## One machine step, matched -/
 
-/-- **Every instruction of the program is of a kind that is proved** (`proved`). -/
-def Proved (fns : List Fun) : Prop :=
-  ∀ f ∈ fns, ∀ k (hk : k < f.code.length) (i : Instr), f.code[k].instr = some i → proved i = true
-
 /-- **One machine step, matched at Lprog**: from the label of an instruction, the label and
     then the instruction's commands. The program goes `wrong` on the way, or matches the
     machine. -/
 theorem back {prog : Arm64.Program} {fns : List Fun} {exit : BitVec 64} (hok : ProgOk fns)
-    (hpr : Proved fns) {s : State armIsa} {t : Arm64.State} (hs : Sim prog fns exit s t) :
+    {s : State armIsa} {t : Arm64.State} (hs : Sim prog fns exit s t) :
     GoesWrong (lsys fns) s [] ∨
       Lprog.Ascent.Matched (lsys fns) (mstep prog) (fun _ => False) (Sim prog fns exit)
         (Ret prog fns exit) (fun _ _ => False) s t := by
@@ -1176,20 +1174,20 @@ theorem back {prog : Arm64.Program} {fns : List Fun} {exit : BitVec 64} (hok : P
     obtain ⟨⟨f, hf, k, hk, hpc, htpc⟩, hchain⟩ := hs.chain
     simp only at hf hpc
     subst hpc
-    obtain ⟨tail, hfd, htail⟩ := getElem?_liftProgram liftI fns hf
-    have hno : NoLabel (fun z => liftI (cxOf fns f) z.2 z.1) (withPrev f.code) :=
-      fun z _ c hc l => noLab_liftI _ _ _ c hc l
+    obtain ⟨tail, hfd, htail⟩ := getElem?_liftProgram liftT fns hf
+    have hno : NoLabel (fun z => liftT (cxOf fns f) z.2 z.1) (withPrev f.code) :=
+      fun z _ c hc l => noLab_liftI _ _ _ _ c hc l
     rcases Nat.lt_or_eq_of_le hk with hk | rfl
     · -- at an instruction: its label, then its commands
       have s0 := step_label (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m) hfd
-        (getElem?_label liftI fns f tail k hk)
+        (getElem?_label liftT fns f tail k hk)
       have hH : Here prog fns exit f k _ fn rv top rest regs m t :=
         { ok := hok, hf := hf, hk := hk, hfd := hfd
-          cmds := fun j hj => (getElem?_cmd liftI fns f tail k hk j hj).trans
+          cmds := fun j hj => (getElem?_cmd liftT fns f tail k hk j hj).trans
             (List.getElem?_eq_getElem hj)
-          lbl := fun l hl => labelIdx_label liftI fns f tail hno l hl
+          lbl := fun l hl => labelIdx_label liftT fns f tail hno l hl
           hab := by
-            rcases labelIdx_abort liftI fns f tail hno htail with h | ⟨j, h1, h2, h3⟩
+            rcases labelIdx_abort liftT fns f tail hno htail with h | ⟨j, h1, h2, h3⟩
             · exact .inl h
             · exact .inr ⟨j, h1, h2, h3⟩
           agree := hs.agree, running := hs.running, aligned := hs.aligned, loaded := hs.loaded
@@ -1197,8 +1195,9 @@ theorem back {prog : Arm64.Program} {fns : List Fun} {exit : BitVec 64} (hok : P
       cases hi : (f.code[k]'hk).instr with
       | none =>
         have hc := hH.cmds
-        have hcm : Linked.cmds liftI fns f k hk = [.Labort] := by
-          show liftI _ _ _ = _
+        have hcm : Linked.cmds liftT fns f k hk = [.Labort] := by
+          show liftI true (cxOf fns f) ((withPrev f.code)[k]'(by simpa using hk)).2
+            (f.code[k]'hk) = _
           unfold liftI
           simp only [hi]
         rw [hcm] at hc
@@ -1209,7 +1208,7 @@ theorem back {prog : Arm64.Program} {fns : List Fun} {exit : BitVec 64} (hok : P
         have hfetch : prog.fetchMem t.mem t.pc = some i := by
           rw [← hH.addr]
           exact hs.loaded f (List.mem_of_getElem? hf) k hk i hi
-        rcases hH.out hi (hpr f (List.mem_of_getElem? hf) k hk i hi) with
+        rcases hH.out hi with
           hw | ⟨hr, s', hs', hsim⟩ | ⟨hnr, s', hs', hna, htr⟩
         · exact .inl (by simpa using Lprog.Ascent.GoesWrong.of_steps (Steps.one s0) hw)
         · refine .inr ⟨fun t' ht' => ?_, fun h => h.elim, fun ht' _ => ?_⟩
@@ -1228,7 +1227,7 @@ theorem back {prog : Arm64.Program} {fns : List Fun} {exit : BitVec 64} (hok : P
             exact absurd hr hnr
           · exact ⟨s', by simpa using (Steps.one s0).trans hs', hna, htr⟩
     · -- past the last instruction
-      exact .inl (goesWrong_of (.refl _) (step_abort hfd (getElem?_end liftI fns f tail)))
+      exact .inl (goesWrong_of (.refl _) (step_abort hfd (getElem?_end liftT fns f tail)))
 
 /-! ## The transfer theorem -/
 
@@ -1241,14 +1240,14 @@ abbrev MSafeN (prog : Arm64.Program) (G : Arm64.State → Prop) (n : Nat)
 /-- **The transfer theorem for AArch64.** A simulated state safe at Lprog at every budget
     makes the machine state safe over arm64-semantics, given the machine's continuation where
     the program has returned: in a state the returned program stands for, at `exit`. -/
-theorem transfer {prog : Arm64.Program} {fns : List Fun} (hok : ProgOk fns) (hpr : Proved fns)
+theorem transfer {prog : Arm64.Program} {fns : List Fun} (hok : ProgOk fns)
     {G : Arm64.State → Prop} {N : Nat} {P : Arm64.State → Prop} {exit : BitVec 64}
     {Q : State armIsa → Prop}
     (hret : ∀ s' t', Ret prog fns exit s' t' → Q s' → MSafeN prog G N P t') :
     ∀ n, n ≤ N → ∀ s t, Sim prog fns exit s t → Lprog.Ascent.AllSafe (lsys fns) Q s →
       MSafeN prog G n P t :=
   Lprog.Ascent.transfer (S := Sim prog fns exit) (T := Ret prog fns exit) (U := fun _ _ => False)
-    (fun _ _ hs => back hok hpr hs) (fun _ h => h) (fun _ _ h => h.elim)
+    (fun _ _ hs => back hok hs) (fun _ h => h) (fun _ _ h => h.elim)
     (fun s' t' hT hL => hret s' t' hT (hL.acc (Or.inl hT.1)))
 
 /-- A machine state seen through Lprog's registers: the lift's own hold zero. -/
@@ -1317,7 +1316,7 @@ theorem agree_regsOf (t : Arm64.State) : Agree (regsOf t) t.mem t :=
     `g` is safe at Lprog at every budget, given the machine's continuation where `g` has
     returned: in a state the returned program stands for, at the address in `x30`. -/
 theorem SafeN.of_lift {prog : Arm64.Program} {fns : List Fun} (hok : ProgOk fns)
-    (hpr : Proved fns) {g : Nat} {fg : Fun} (hg : fns[g]? = some fg) {t : Arm64.State}
+    {g : Nat} {fg : Fun} (hg : fns[g]? = some fg) {t : Arm64.State}
     (hpc : t.pc = fg.addr) (hrun : t.status = .Running) (hal : t.spAligned = true)
     (hld : Loaded prog fns t.mem) {Q : State armIsa → Prop}
     (hL : Lprog.Ascent.AllSafe (lsys fns) Q
@@ -1325,7 +1324,7 @@ theorem SafeN.of_lift {prog : Arm64.Program} {fns : List Fun} (hok : ProgOk fns)
     {G : Arm64.State → Prop} {N : Nat} {P : Arm64.State → Prop}
     (hret : ∀ s' t', Ret prog fns (t.regs.read 30) s' t' → Q s' → MSafeN prog G N P t') :
     MSafeN prog G N P t :=
-  transfer hok hpr hret N (Nat.le_refl N) ⟨[⟨g, 0, t.regs.read 30, t.sp⟩], regsOf t, t.mem⟩ t
+  transfer hok hret N (Nat.le_refl N) ⟨[⟨g, 0, t.regs.read 30, t.sp⟩], regsOf t, t.mem⟩ t
     ⟨agree_regsOf t, hrun, hal, hld,
       ⟨⟨fg, hg, 0, Nat.zero_le _, by simp, by simpa using hpc⟩, rfl⟩, by simp⟩ hL
 

@@ -41,8 +41,9 @@ def byteMem : Mem Bytes where
 /-- AArch64 over the shared operations, with that memory. -/
 abbrev armIsa : Isa := Isa.ofOps Reg .x30 .sp Bytes byteMem
 
-/-- No external calls, and nothing accepts: the verifiers make no system call. -/
-def ctx : Context armIsa Unit := ⟨fun _ _ _ _ => False, fun _ _ _ => False⟩
+/-- An external call goes `wrong`, and nothing accepts: the verifiers make no system call, and
+    a function proved safe under this context makes none. -/
+def ctx : Context armIsa Unit := ⟨fun _ _ _ o => o = .wrong, fun _ _ _ => False⟩
 
 attribute [lsym_simp] armIsa byteMem
 

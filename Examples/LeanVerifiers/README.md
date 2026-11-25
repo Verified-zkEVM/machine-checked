@@ -107,15 +107,19 @@ whole-program route that AArch64 and x86-64 take; the route of RISC-V's proved l
 The two theorems are weaker than #837's, in ways the roadmap closes once and not for each
 function:
 
-- **Nothing about the machine yet.** The lift of AArch64 is now proved against arm64-semantics
-  (`MachineChecked/ARM/Lift/Transfer.lean`, `transfer`), over arm64-semantics' memory with its
-  permissions. These two contracts are still about the lifted program over a memory of bytes
-  without them, so the theorem does not apply to them until they move to that memory (M4).
+- **About the machine, with what that assumes.** `memcpy_machine` and `keccak_f_machine`
+  (`ARM/Machine.lean`) are the two contracts over arm64-semantics' `Step`: the lift is proved
+  (`MachineChecked/ARM/Lift/Transfer.lean`), and a function safe over a memory of bytes is
+  safe over the machine's memory with its permissions. They assume the machine holds the
+  image (`Loaded`: it fetches each instruction the tool decoded from the ELF), which is not
+  yet derived from the bytes of the image in memory.
 - **Partial correctness.** A run that never returns meets the contract (M2); #837 proves that
   the function returns. Each loop here would need its measure, which both proofs already have
   as the induction.
-- **The memory is a model**: bytes by address, with no access that faults, so the contracts need
-  no condition that the stack or the buffers are mapped, and say nothing of it (M4).
+- **Nothing says the function does not fault.** The proofs are over bytes by address, with no
+  access that faults; over the machine an access the permissions refuse is a fault, which
+  partial correctness allows. So the theorems need no condition that the stack or the buffers
+  are mapped, and say nothing of it (M2).
 - **`keccak_f`'s state is 25 words** at the buffer (`StateAt`), where #837's is 200 bytes; the
   lemma between the two is not here.
 - **Axioms.** `bv_decide` trusts its certificate checker as compiled code, through one axiom for

@@ -22,6 +22,8 @@ import Examples
 #print axioms MachineChecked.ARM.Lift.back
 #print axioms MachineChecked.ARM.Lift.transfer
 #print axioms MachineChecked.ARM.Lift.SafeN.of_lift
+#print axioms Lprog.allSafe_abs
+#print axioms Tools.Program.progOk_armProgram
 #print axioms MachineChecked.RiscV.Lift.SafeN.of_lift
 #print axioms MachineChecked.RiscV.Lift.SafeN.of_contract
 #print axioms MachineChecked.RiscV.Lift.SafeN.of_isa_contract
