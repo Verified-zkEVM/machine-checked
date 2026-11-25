@@ -80,7 +80,7 @@ Lines are whole files, comments included, on both sides.
 | | #837, AArch64 | here |
 | --- | --- | --- |
 | `memcpy` | 503 lines in 2 files | 143 lines |
-| `keccak_f` | 861 lines in 8 files | 272 lines |
+| `keccak_f` | 861 lines in 8 files | 275 lines |
 | shared by the two | 124 lines (`Mem/Common.lean`, shared with `memset`) | 245 lines (`Isa.lean`, `Bytes.lean`) |
 | the executor | 5,766 lines (`Sym`), for AArch64 | `lsym`, as it was, for any instruction set |
 | build of the proofs | not measured: they need #837's fork of Kraken | `memcpy` 2 s, `keccak_f` about 1 minute |
@@ -107,8 +107,10 @@ whole-program route that AArch64 and x86-64 take; the route of RISC-V's proved l
 The two theorems are weaker than #837's, in ways the roadmap closes once and not for each
 function:
 
-- **Nothing about the machine.** The lift of AArch64 is not proved (M4); the contracts are about
-  the lifted program.
+- **Nothing about the machine yet.** The lift of AArch64 is now proved against arm64-semantics
+  (`MachineChecked/ARM/Lift/Transfer.lean`, `transfer`), over arm64-semantics' memory with its
+  permissions. These two contracts are still about the lifted program over a memory of bytes
+  without them, so the theorem does not apply to them until they move to that memory (M4).
 - **Partial correctness.** A run that never returns meets the contract (M2); #837 proves that
   the function returns. Each loop here would need its measure, which both proofs already have
   as the induction.
