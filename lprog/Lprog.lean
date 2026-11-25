@@ -24,3 +24,4 @@ import Lprog.Syntax
 import Lprog.Tactic
 import Lprog.Text
 import Lprog.X86.Reg
+import Lprog.MemAbs
