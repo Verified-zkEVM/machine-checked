@@ -9,3 +9,5 @@ open LeanVerifiers.ARM
 
 #print axioms memcpy_contract
 #print axioms keccak_f_contract
+#print axioms LeanVerifiers.ARM.memcpy_machine
+#print axioms LeanVerifiers.ARM.keccak_f_machine

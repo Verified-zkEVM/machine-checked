@@ -24,7 +24,7 @@ def at0 : BitVec 64 := 0x401234
 def exec (w : Nat) (init : List (Reg × BitVec 64)) (m : Mem := {})
     (entries : List (BitVec 64) := []) : End Reg :=
   match Arm64.decode (BitVec.ofNat 32 w) with
-  | some i => run (liftI (cx at0 4 entries) none { addr := at0, size := 4, instr := some i }) init m
+  | some i => run (liftI false (cx at0 4 entries) none { addr := at0, size := 4, instr := some i }) init m
   | none => .wrong "does not decode"
 
 /-- Do the registers `want` and the conditions `conds` (as `b.cond` and `csel` read them, 0 or

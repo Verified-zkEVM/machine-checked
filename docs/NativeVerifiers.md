@@ -191,13 +191,17 @@ for the other two, and `lsym`'s cost per step is flat on the benchmark.
   operations the lift writes for an instruction run, the machine steps to the state they stand
   for; where they fault, it faults. Every kind the two images use is covered. Not proved, and
   in neither image: the counts of leading zeros and signs, addition with carry, signed
-  division; a program with one of them is outside the theorem (`Proved`).
+  division; the lift that is proved gives up at one of them.
   Two things the proof found and the lift now does: it keeps the stack pointer a multiple of
   16 wherever it is written, because the machine faults on a stack pointer that is not aligned
   when it is the base of an access; and it refuses an instruction the proof does not cover
-  (`okI`), so that nothing is assumed of `Arm64.decode`. The theorem is over arm64-semantics'
-  memory, with its permissions; the pilot's contracts are still over a memory of bytes
-  without them, and move to it next.
+  (`okI`), so that nothing is assumed of `Arm64.decode`. The lift the theorem is about
+  (`liftArm`) also refuses the kinds that are not proved, so the theorem has no condition on
+  them. The pilot's two contracts are carried over the machine
+  (`Examples/LeanVerifiers/LeanVerifiers/ARM/Machine.lean`, `memcpy_machine`,
+  `keccak_f_machine`): a function safe over a memory of bytes is safe over the machine's
+  memory with its permissions (`Lprog.allSafe_abs`), where a refused access is a trap. Left:
+  that the machine holds the image (`Loaded`) is assumed, not derived from the image's bytes.
 - **The ladder** ([`Examples/`](../Examples/README.md)) recompiled for AArch64 and proved: the
   route end to end on small code.
 - **The pilot**: `keccak_f`, `memcpy` and `memset` from the signature image, against #837's

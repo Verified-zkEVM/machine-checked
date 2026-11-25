@@ -26,13 +26,16 @@ open Lprog MachineChecked.ARM.Lift MachineChecked.Logical Lprog.ARM
 /-- A program: its functions, where it starts, and the words it loads. -/
 abbrev Guest := Logical.Guest.Program (Option Arm64.Instr)
 
-/-- The program as an Lprog program, as the lift writes it: every write of the flags. This is
-    the one to prove a program against, since nothing is proved of the pass below. -/
+/-- The program as an Lprog program, as the lift that is proved writes it: every write of the
+    flags, and `Labort` for an instruction of a kind that is not proved. This is the one to
+    prove a program against. -/
 def Guest.lifted (g : Guest) : Lprog.Lprog (Op Reg) Reg := liftArm g.fns
 
-/-- The program as an Lprog program, without the writes of flags that nothing reads. -/
+/-- The program as an Lprog program, with every kind of instruction the lift takes and without
+    the writes of flags that nothing reads. Nothing is proved of this one. -/
 def Guest.lift (g : Guest) : Lprog.Lprog (Op Reg) Reg :=
-  g.lifted.map fun fd => { fd with body := dropDead [.nf, .zf, .cf, .vf, .t0, .t1, .t2] fd.body }
+  (liftArmAll g.fns).map fun fd =>
+    { fd with body := dropDead [.nf, .zf, .cf, .vf, .t0, .t1, .t2] fd.body }
 
 /-- **The program as a Pancake program**, and the places where it may give up. -/
 def Guest.toPancake (g : Guest) : Except String (List (_root_.Flapjack.Decl Pancake.W) × List String) :=

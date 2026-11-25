@@ -271,6 +271,21 @@ def armProgram (code : List Entry) (entry : Nat) (memory : List (Nat × Nat)) :
   { fns := code.map (funOf (words Arm64.decode)), entry := BitVec.ofNat 64 entry
     memory := memory.map fun (a, w) => (BitVec.ofNat 64 a, BitVec.ofNat 64 w) }
 
+/-- **A program of AArch64 code made from an ELF's words is one the lift is proved for**: its
+    instructions are four bytes each, one after another. -/
+theorem progOk_armProgram (code : List Entry) (entry : Nat) (memory : List (Nat × Nat)) :
+    MachineChecked.ARM.Lift.ProgOk (armProgram code entry memory).fns := by
+  intro f hf k hk
+  obtain ⟨⟨name, addr, bs, ts⟩, -, rfl⟩ := List.mem_map.1 hf
+  simp only [funOf, words, Array.toList_map, Array.toList_range, List.length_map,
+    List.length_range] at hk
+  have h0 : 0 < (bytesOf bs).size / 4 := by omega
+  simp only [funOf, words, Lprog.Linked.Fun.addr, Array.toList_map, Array.toList_range,
+    List.getElem_map, List.getElem_range, List.head?_map, List.head?_range, Option.map_map,
+    and_true]
+  have hne : ¬ (bytesOf bs).size / 4 = 0 := by omega
+  simp [hne, BitVec.ofNat_add]
+
 /-- The program of x86-64 code (a bare guest). -/
 def x86Program (code : List Entry) (entry : Nat) (memory : List (Nat × Nat)) :
     MachineChecked.X86.Guest :=
