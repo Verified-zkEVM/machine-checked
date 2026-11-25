@@ -9,3 +9,4 @@
 
 import MachineChecked.ARM.Lift.Sound.Basic
 import MachineChecked.ARM.Lift.Sound.AddSub
+import MachineChecked.ARM.Lift.Sound.Logical

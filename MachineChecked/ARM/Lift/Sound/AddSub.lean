@@ -85,74 +85,58 @@ theorem addSub_run (h : Agree regs m s) (w : RegWidth) (op : Arm64.AddSubOp) {ds
         | none => s.writeReg w dst p.1) := by
   generalize hxe : a.eval regs = x at hx
   generalize hye : b.eval regs = y at hy
-  have nofl : ∀ (e : E) (v : BitVec 64), e.eval regs = v →
-      ∃ r', run (wr dst e) regs m = some (r', m) ∧ Agree r' m (s.writeReg64 dst v) :=
-    fun e v hv => by obtain ⟨r', h1, h2, -⟩ := wr_run h hd e; exact ⟨r', h1, hv ▸ h2⟩
-  have fl : ∀ (e en ez ec ev : E) (r : BitVec 64) (ps : Arm64.PState), e.eval regs = r →
-      (∀ R, Same regs R → R .t0 = r → en.eval R = flag ps.n ∧ ez.eval R = flag ps.z ∧
-        ec.eval R = flag ps.c ∧ ev.eval R = flag ps.v) →
-      ∃ r', run (.set .t0 e :: .set .nf en :: .set .zf ez :: .set .cf ec :: .set .vf ev ::
-          wr dst (.reg .t0)) regs m = some (r', m) ∧
-        Agree r' m ((s.writeReg64 dst r).setPState ps) := by
-    intro e en ez ec ev r ps he hf
-    obtain ⟨r', h1, h2, -⟩ := wr_run ((h.scratch (.inl rfl) r).flags ps) hd (.reg .t0)
-    refine ⟨r', ?_, by
-      simpa [Expr.eval, updReg, Arm64.State.setPState, Arm64.State.writeReg64] using h2⟩
-    have s0 : Same regs (updReg regs .t0 r) := Same.rfl.upd rfl r
-    have s1 := s0.upd (x := .nf) rfl (flag ps.n)
-    have s2 := s1.upd (x := .zf) rfl (flag ps.z)
-    have s3 := s2.upd (x := .cf) rfl (flag ps.c)
-    simp only [run_set, he]
-    rw [(hf _ s0 rfl).1, (hf _ s1 rfl).2.1, (hf _ s2 rfl).2.2.1, (hf _ s3 rfl).2.2.2]
-    exact h1
   cases op <;> cases w
   · simp only [addSub, Arm64.AddSubOp.setsFlags, Arm64.evalAddSub, trunc]
-    refine nofl _ _ ?_
+    refine result_run h hd ?_
     simp [hxe, hye, Arm64.AddWithCarry32]
     bv_decide
   · simp only [addSub, Arm64.AddSubOp.setsFlags, Arm64.evalAddSub, trunc]
-    refine nofl _ _ ?_
+    refine result_run h hd ?_
     simp [hxe, hye, Arm64.AddWithCarry64]
     bv_decide
   · obtain ⟨h0, hn, hz, hc, hv⟩ := add32 x y (hx rfl) (hy rfl)
-    have := fl (z32 (add a b)) (bit (.reg .t0) 31) (isZero (.reg .t0)) (bit (add a b) 32)
-      (bit (band (bxor a (.reg .t0)) (bxor b (.reg .t0))) 31)
-      _ (Arm64.AddWithCarry32 (x.truncate 32) (y.truncate 32) false).2
+    have := flags_run h hd (e := (z32 (add a b))) (en := (bit (.reg .t0) 31)) (ez := (isZero (.reg .t0)))
+      (ec := (bit (add a b) 32))
+      (ev := (bit (band (bxor a (.reg .t0)) (bxor b (.reg .t0))) 31))
+      (ps := (Arm64.AddWithCarry32 (x.truncate 32) (y.truncate 32) false).2)
       (by simp [hxe, hye]; rfl)
       (fun R hs ht => by
         simp [ha _ _ hs, hb _ _ hs, ht, hxe, hye, hn, hz, hc, hv])
     simpa [addSub, Arm64.AddSubOp.setsFlags, Arm64.evalAddSub, trunc, addSubFlags, setNZ,
       Arm64.State.writeReg, h0, RegWidth.bits] using this
   · obtain ⟨h0, hn, hz, hc, hv⟩ := add64 x y 
-    have := fl (add a b) (bit (.reg .t0) 63) (isZero (.reg .t0)) (.bin .ult (.reg .t0) a)
-      (bit (band (bxor a (.reg .t0)) (bxor b (.reg .t0))) 63)
-      _ (Arm64.AddWithCarry64 x y false).2
+    have := flags_run h hd (e := (add a b)) (en := (bit (.reg .t0) 63)) (ez := (isZero (.reg .t0)))
+      (ec := (.bin .ult (.reg .t0) a))
+      (ev := (bit (band (bxor a (.reg .t0)) (bxor b (.reg .t0))) 63))
+      (ps := (Arm64.AddWithCarry64 x y false).2)
       (by simp [hxe, hye]; rfl)
       (fun R hs ht => by
         simp [ha _ _ hs, hb _ _ hs, ht, hxe, hye, hn, hz, hc, hv])
     simpa [addSub, Arm64.AddSubOp.setsFlags, Arm64.evalAddSub, trunc, addSubFlags, setNZ,
       Arm64.State.writeReg, h0, RegWidth.bits] using this
   · simp only [addSub, Arm64.AddSubOp.setsFlags, Arm64.evalAddSub, trunc]
-    refine nofl _ _ ?_
+    refine result_run h hd ?_
     simp [hxe, hye, Arm64.AddWithCarry32]
     bv_decide
   · simp only [addSub, Arm64.AddSubOp.setsFlags, Arm64.evalAddSub, trunc]
-    refine nofl _ _ ?_
+    refine result_run h hd ?_
     simp [hxe, hye, Arm64.AddWithCarry64]
     bv_decide
   · obtain ⟨h0, hn, hz, hc, hv⟩ := sub32 x y (hx rfl) (hy rfl)
-    have := fl (z32 (sub a b)) (bit (.reg .t0) 31) (isZero (.reg .t0)) (Build.flip (.bin .ult a b))
-      (bit (band (bxor a b) (bxor a (.reg .t0))) 31)
-      _ (Arm64.AddWithCarry32 (x.truncate 32) (~~~(y.truncate 32)) true).2
+    have := flags_run h hd (e := (z32 (sub a b))) (en := (bit (.reg .t0) 31)) (ez := (isZero (.reg .t0)))
+      (ec := (Build.flip (.bin .ult a b)))
+      (ev := (bit (band (bxor a b) (bxor a (.reg .t0))) 31))
+      (ps := (Arm64.AddWithCarry32 (x.truncate 32) (~~~(y.truncate 32)) true).2)
       (by simp [hxe, hye]; rfl)
       (fun R hs ht => by
         simp [ha _ _ hs, hb _ _ hs, ht, hxe, hye, hn, hz, hc, hv])
     simpa [addSub, Arm64.AddSubOp.setsFlags, Arm64.evalAddSub, trunc, addSubFlags, setNZ,
       Arm64.State.writeReg, h0, RegWidth.bits] using this
   · obtain ⟨h0, hn, hz, hc, hv⟩ := sub64 x y 
-    have := fl (sub a b) (bit (.reg .t0) 63) (isZero (.reg .t0)) (Build.flip (.bin .ult a b))
-      (bit (band (bxor a b) (bxor a (.reg .t0))) 63)
-      _ (Arm64.AddWithCarry64 x (~~~y) true).2
+    have := flags_run h hd (e := (sub a b)) (en := (bit (.reg .t0) 63)) (ez := (isZero (.reg .t0)))
+      (ec := (Build.flip (.bin .ult a b)))
+      (ev := (bit (band (bxor a b) (bxor a (.reg .t0))) 63))
+      (ps := (Arm64.AddWithCarry64 x (~~~y) true).2)
       (by simp [hxe, hye]; rfl)
       (fun R hs ht => by
         simp [ha _ _ hs, hb _ _ hs, ht, hxe, hye, hn, hz, hc, hv])

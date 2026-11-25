@@ -252,6 +252,36 @@ theorem Agree.flags (h : Agree regs m s) (ps : Arm64.PState) :
 theorem Agree.advancePC (h : Agree regs m s) : Agree regs m s.advancePC :=
   ⟨h.gpr, h.sp, h.nf, h.zf, h.cf, h.vf, h.mem⟩
 
+/-! ## The two shapes of a data instruction -/
+
+/-- **A result written**, the flags left: the operations of an instruction that computes `e`
+    into `dst`. -/
+theorem result_run (h : Agree regs m s) {dst : Arm64.Reg} (hd : Wf dst) {e : E} {v : BitVec 64}
+    (he : e.eval regs = v) :
+    ∃ r', run (wr dst e) regs m = some (r', m) ∧ Agree r' m (s.writeReg64 dst v) := by
+  obtain ⟨r', h1, h2, -⟩ := wr_run h hd e
+  exact ⟨r', h1, he ▸ h2⟩
+
+/-- **A result and the flags written**: the result goes to `t0`, each flag is computed from
+    the operands and `t0`, and `t0` goes to `dst`. -/
+theorem flags_run (h : Agree regs m s) {dst : Arm64.Reg} (hd : Wf dst) {e en ez ec ev : E}
+    {r : BitVec 64} {ps : Arm64.PState} (he : e.eval regs = r)
+    (hf : ∀ R, Same regs R → R .t0 = r → en.eval R = flag ps.n ∧ ez.eval R = flag ps.z ∧
+      ec.eval R = flag ps.c ∧ ev.eval R = flag ps.v) :
+    ∃ r', run (.set .t0 e :: .set .nf en :: .set .zf ez :: .set .cf ec :: .set .vf ev ::
+        wr dst (.reg .t0)) regs m = some (r', m) ∧
+      Agree r' m ((s.writeReg64 dst r).setPState ps) := by
+  obtain ⟨r', h1, h2, -⟩ := wr_run ((h.scratch (.inl rfl) r).flags ps) hd (.reg .t0)
+  refine ⟨r', ?_, by
+    simpa [Expr.eval, updReg, Arm64.State.setPState, Arm64.State.writeReg64] using h2⟩
+  have s0 : Same regs (updReg regs .t0 r) := Same.rfl.upd rfl r
+  have s1 := s0.upd (x := .nf) rfl (flag ps.n)
+  have s2 := s1.upd (x := .zf) rfl (flag ps.z)
+  have s3 := s2.upd (x := .cf) rfl (flag ps.c)
+  simp only [run_set, he]
+  rw [(hf _ s0 rfl).1, (hf _ s1 rfl).2.1, (hf _ s2 rfl).2.2.1, (hf _ s3 rfl).2.2.2]
+  exact h1
+
 /-! ## Operands -/
 
 /-- A read at a width is of the width. -/
