@@ -320,6 +320,76 @@ where
     [.set .t1 (cond c), .set .t0 (trunc w (if isSub then sub a b else add a b))] ++
     addSubFlags w isSub a b ++ [keep .nf 3, keep .zf 2, keep .cf 1, keep .vf 0]
 
+/-! ## What the lift refuses -/
+
+/-- A register the decoder gives: not general register 31, which it gives as `sp` or `xzr`. -/
+def okReg : Arm64.Reg → Bool
+  | .gpr i => i != 31#5
+  | _ => true
+
+/-- The base of a mode that writes it back. -/
+def writeback : AddrMode → Option Arm64.Reg
+  | .PreIndex b _ | .PostIndex b _ => some b
+  | _ => none
+
+/-- The registers of a mode are ones the decoder gives, the base of a mode that writes it back
+    before the access is not the zero register, and a shift is below 64. -/
+def okMode : AddrMode → Bool
+  | .Offset b _ | .UnscaledOffset b _ | .PostIndex b _ => okReg b
+  | .PreIndex b _ => okReg b && decide (b ≠ .xzr)
+  | .RegOffset b i _ n => okReg b && okReg i && decide (n < 64)
+
+/-- **What the lift asks of an instruction that does not transfer control**, beyond its kind:
+    what the proof of its operations needs (`Sound.lean`), and what `Arm64.decode` gives. An
+    instruction that is not so is `Labort`.
+
+    * Its registers are ones the decoder gives, and its shifts and bit positions are below
+      the width.
+    * With write-back, the register loaded or stored is not the base: the architecture leaves
+      that unpredictable. -/
+def okI : Instr → Bool
+  | .nop => true
+  | .adr _ dst _ => okReg dst
+  | .addSubImm _ _ dst rn _ _ => okReg dst && okReg rn
+  | .addSubShift w _ dst rn rm _ n => okReg dst && okReg rn && okReg rm && decide (n < w.bits)
+  | .addSubExt _ _ dst rn rm _ n => okReg dst && okReg rn && okReg rm && decide (n < 64)
+  | .logicalImm _ _ dst rn _ => okReg dst && okReg rn
+  | .logicalShift w _ dst rn rm _ n => okReg dst && okReg rn && okReg rm && decide (n < w.bits)
+  | .moveWide w _ dst _ hw =>
+    okReg dst && decide (hw = 0 ∨ hw = 16 ∨ (w = .W64 ∧ (hw = 32 ∨ hw = 48)))
+  | .bitfield w _ dst rn immr imms =>
+    okReg dst && okReg rn && decide (immr < w.bits) && decide (imms < w.bits)
+  | .extr w dst rn rm lsb => okReg dst && okReg rn && okReg rm && decide (lsb < w.bits)
+  | .condSelect _ _ dst rn rm _ => okReg dst && okReg rn && okReg rm
+  | .condCompareReg _ _ rn rm _ _ => okReg rn && okReg rm
+  | .condCompareImm _ _ rn _ _ _ => okReg rn
+  | .addSubCarry _ _ dst rn rm => okReg dst && okReg rn && okReg rm
+  | .dataProc1 _ _ dst rn => okReg dst && okReg rn
+  | .dataProc2 _ _ dst rn rm => okReg dst && okReg rn && okReg rm
+  | .dataProc3 w op dst rn rm ra =>
+    okReg dst && okReg rn && okReg rm && okReg ra && decide (w = .W64 ∨ op = .MADD ∨ op = .MSUB)
+  | .ldr w sz _ rt mode =>
+    okReg rt && okMode mode && decide (∀ b ∈ writeback mode, rt ≠ b) &&
+      decide (w = .W32 → sz ≠ .X64)
+  | .ldrLit w sgn rt _ => okReg rt && decide (sgn = true → w = .W64)
+  | .str _ rt mode => okReg rt && okMode mode && decide (∀ b ∈ writeback mode, rt ≠ b)
+  | .ldp _ _ rt1 rt2 mode =>
+    okReg rt1 && okReg rt2 && okMode mode && decide (∀ b ∈ writeback mode, rt1 ≠ b ∧ rt2 ≠ b)
+  | .stp _ rt1 rt2 mode => okReg rt1 && okReg rt2 && okMode mode
+  | _ => false
+
+/-- **The stack pointer is aligned** after operations that write it, or the function gives
+    up. The machine faults on a stack pointer that is not a multiple of 16 when it is the base
+    of an access; the lift keeps it aligned wherever it is written instead, which is what
+    compiled code does. -/
+def spCheck (cx : Cx) (os : List O) : Lcmd O Reg :=
+  let writes : O → Bool
+    | .set .sp _ | .load .sp .. => true
+    | _ => false
+  if os.any writes then
+    [.Lopn (.set .t0 (band (.reg .sp) (num 15))), .Lcond (.cmp "ne" (.reg .t0) (.imm 0)) cx.abort]
+  else []
+
 /-- One instruction. A word that is no instruction is `none`. -/
 def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : Lcmd O Reg :=
   let pc := i.addr
@@ -353,7 +423,7 @@ def liftI (cx : Cx) (_ : Option (At (Option Instr))) (i : At (Option Instr)) : L
   | some (.system isHalt _) => [if isHalt then .Labort else .Lext 0]
   | some ins =>
     match ops pc ins with
-    | some os => os.map .Lopn
+    | some os => if okI ins then os.map .Lopn ++ spCheck cx os else [.Labort]
     | none => [.Labort]
 
 /-- A function of an AArch64 program. -/

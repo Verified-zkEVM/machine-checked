@@ -125,15 +125,15 @@ theorem round_step {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → P
     (hrc0 : loadLE m0 (2097840#64 + BitVec.ofNat 64 (8 * i)) 8 = rcAt i)
     (regs : Reg → BitVec 64) (m : Bytes) (hAt : At A r0 m0 fp i regs m)
     (hnext : i + 1 < 24 → ∀ r' m', At A r0 m0 fp (i + 1) r' m' →
-      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, r', m'⟩)
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 146, ret, top⟩ :: rest, r', m'⟩)
     (hexit : i + 1 = 24 → ∀ r' m', At A r0 m0 fp (i + 1) r' m' →
-      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, r', m'⟩) :
-    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 470, ret, top⟩ :: rest, r', m'⟩) :
+    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 146, ret, top⟩ :: rest, regs, m⟩ := by
   obtain ⟨hsp, h27, hl, hs, hp, hsv, h29, hsame⟩ := hAt
   have hrc := (hT.load_eq hsame).trans hrc0
   simp only [laneRegs, laneSlots, parRegs, savedSlots, List.forall_mem_cons, List.not_mem_nil,
     false_imp_iff, implies_true, and_true] at hl hs hp hsv
-  lsym f10_eq stop [144, 468] with [hsp, h27, hl, hs, hp, hrc, loadLE_storeLE_same,
+  lsym f10_eq stop [146, 470] with [hsp, h27, hl, hs, hp, hrc, loadLE_storeLE_same,
     loadLE_storeLE_off, loadLE_storeLE_out hT]
   · exact hnext (ctr_more hi hc) _ _ (by kf_fields A hi hsame)
   · exact hexit (ctr_last hi hc) _ _ (by kf_fields A hi hsame)
@@ -164,12 +164,12 @@ theorem prologue {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Pro
     (regs : Reg → BitVec 64) (m : Bytes) (hsp : regs .sp = fp) (hA : StateAt m (regs .x0) A)
     (hap : Apart fp (regs .x0))
     (hk : ∀ r' m', At A regs m fp 0 r' m' →
-      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, r', m'⟩) :
-    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 2, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 146, ret, top⟩ :: rest, r', m'⟩) :
+    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 4, ret, top⟩ :: rest, regs, m⟩ := by
   obtain ⟨hA0, hA⟩ := hA
   simp only [bufSlots, List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true,
     and_true] at hA
-  lsym f10_eq stop [144] with [hsp, hA0, hA, loadLE_storeLE_same, loadLE_storeLE_off,
+  lsym f10_eq stop [146] with [hsp, hA0, hA, loadLE_storeLE_same, loadLE_storeLE_off,
     loadLE_storeLE_out hap.zero, fun b hb => loadLE_storeLE_out (hap b hb)]
   refine hk _ _ ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp [lsym_simp, hsp]
@@ -193,10 +193,10 @@ theorem rounds {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Prop}
     (hT : ∀ i < 24, Out fp 192 (2097840#64 + BitVec.ofNat 64 (8 * i)))
     (hrc : ∀ i < 24, loadLE m0 (2097840#64 + BitVec.ofNat 64 (8 * i)) 8 = rcAt i)
     (hexit : ∀ r' m', At A r0 m0 fp 24 r' m' →
-      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, r', m'⟩) :
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 470, ret, top⟩ :: rest, r', m'⟩) :
     ∀ k i (regs : Reg → BitVec 64) (m : Bytes), 24 - i = k → i < 24 →
       At A r0 m0 fp i regs m →
-      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 146, ret, top⟩ :: rest, regs, m⟩ := by
   intro k
   induction k with
   | zero => intro i _ _ hk hi; omega
@@ -214,17 +214,18 @@ set_option maxHeartbeats 2000000 in
 theorem epilogue {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Prop}
     {ret top : BitVec 64} {rest : List Frame} (A : KeccakState) (r0 : Reg → BitVec 64)
     (m0 : Bytes) (fp : BitVec 64) (hra : r0 .x30 = ret) (hfp : fp + 192#64 = top)
+    (htop : top &&& 15#64 = 0#64)
     (hap : Apart fp (r0 .x0)) (regs : Reg → BitVec 64) (m : Bytes)
     (hAt : At A r0 m0 fp 24 regs m)
     (hk : ∀ r' m', StateAt m' (r0 .x0) (keccakF1600 A) →
       (∀ x, 192 ≤ (x - fp).toNat → 200 ≤ (x - r0 .x0).toNat → m' x = m0 x) →
       (∀ r ∈ calleeSaved, r' r = r0 r) →
       armIsa.SafeN program.lifted ctx G N Q ⟨rest, r', m'⟩) :
-    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, regs, m⟩ := by
+    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 470, ret, top⟩ :: rest, regs, m⟩ := by
   obtain ⟨hsp, h27, hl, hs, hp, hsv, h29, hsame⟩ := hAt
   simp only [laneRegs, laneSlots, parRegs, savedSlots, List.forall_mem_cons, List.not_mem_nil,
     false_imp_iff, implies_true, and_true] at hl hs hp hsv
-  lsym f10_eq with [hsp, hl, hs, hsv, hra, hfp, loadLE_storeLE_same, loadLE_storeLE_off,
+  lsym f10_eq with [hsp, hl, hs, hsv, hra, hfp, htop, loadLE_storeLE_same, loadLE_storeLE_off,
     loadLE_storeLE_in hap.zero, fun b hb => loadLE_storeLE_in (hap b hb)]
   refine hk _ _ ⟨?_, ?_⟩ ?_ ?_
   · simp [← roundsTo_24, loadLE_storeLE_same, loadLE_storeLE_0off]
@@ -246,10 +247,11 @@ theorem frame_eq (top : BitVec 64) : top + 18446744073709551424#64 = top - 192#6
 
 /-- **`keccak_f(buf)`**: the 25 lanes at `buf` become Keccak-f[1600] of them. Memory changes
     only there and in the 192 bytes below the stack pointer, and the callee-saved registers are
-    as they were. Memory holds the image, the buffer is outside the frame, and so is the image's
+    as they were. The stack pointer is a multiple of 16, as the machine requires of it. Memory holds the image, the buffer is outside the frame, and so is the image's
     table of round constants at `0x2002b0`. -/
 theorem keccak_f_contract (A : KeccakState) : armIsa.Contract program.lifted ctx 10
-    (fun ret top regs m => regs .x30 = ret ∧ regs .sp = top ∧ StateAt m (regs .x0) A ∧
+    (fun ret top regs m => regs .x30 = ret ∧ regs .sp = top ∧ top &&& 15#64 = 0#64 ∧
+      StateAt m (regs .x0) A ∧
       Apart (top - 192#64) (regs .x0) ∧
       Holds program.memory m ∧
       ∀ i < 24, Out (top - 192#64) 192 (2097840#64 + BitVec.ofNat 64 (8 * i)))
@@ -257,14 +259,15 @@ theorem keccak_f_contract (A : KeccakState) : armIsa.Contract program.lifted ctx
       (∀ x, 192 ≤ (x - (top - 192#64)).toNat → 200 ≤ (x - regs .x0).toNat →
         m' x = m x) ∧
       ∀ r ∈ calleeSaved, r' r = regs r) := by
-  intro G N Q ret top rest regs m ⟨hra, hsp, hA, hap, hH, hT⟩ hk
-  lsym f10_eq stop [2] with [hra, hsp]
+  intro G N Q ret top rest regs m ⟨hra, hsp, htop, hA, hap, hH, hT⟩ hk
+  have hal : (top + 18446744073709551424#64) &&& 15#64 = 0#64 := by bv_decide
+  lsym f10_eq stop [4] with [hra, hsp, hal]
   rw [frame_eq]
   refine prologue A (top - 192#64) _ m (by simp [lsym_simp]) (by simpa [lsym_simp] using hA)
     (by simpa [lsym_simp] using hap) fun r1 m1 h1 => ?_
   refine rounds A _ m (top - 192#64) hT (fun i hi => hH _ (rc_in_image i hi))
     (fun r2 m2 h2 => ?_) 24 0 r1 m1 rfl (by decide) h1
-  refine epilogue A _ m (top - 192#64) (by simp [lsym_simp, hra]) (by bv_omega)
+  refine epilogue A _ m (top - 192#64) (by simp [lsym_simp, hra]) (by bv_omega) htop
     (by simpa [lsym_simp] using hap) r2 m2 h2 fun r' m' h h' h'' => ?_
   refine hk r' m' ⟨by simpa [lsym_simp] using h, by simpa [lsym_simp] using h', ?_⟩
   simpa [calleeSaved, lsym_simp] using h''

@@ -264,6 +264,14 @@ theorem Agree.of_same (h : Agree regs m s) {R : Reg → BitVec 64} (hs : Same re
 theorem Agree.advancePC (h : Agree regs m s) : Agree regs m s.advancePC :=
   ⟨h.gpr, h.sp, h.nf, h.zf, h.cf, h.vf, h.mem⟩
 
+/-- **What running the operations of an instruction says of the machine's step** from `s` to
+    `s'`: where they run, the registers and the memory stand for `s'`, which is no fault and is
+    on the next instruction; where they fault, the machine has faulted. -/
+def Ran (res : Option ((Reg → BitVec 64) × Arm64.Memory)) (s s' : Arm64.State) : Prop :=
+  match res with
+  | some (r', m') => Agree r' m' s' ∧ s'.status = s.status ∧ s'.pc = s.pc + 4#64
+  | none => ∃ msg, s'.status = .Exception msg
+
 /-! ## The two shapes of a data instruction -/
 
 /-- **A result written**, the flags left: the operations of an instruction that computes `e`

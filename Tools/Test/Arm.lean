@@ -101,7 +101,9 @@ def m0 : Mem := memAt 0xfff8
 -- add x0, sp, #16: sp as a source
 #guard ok (exec 0x910043e0 [(sp, 0x8000)]) [(x0, 0x8010)]
 -- mov sp, x1 (add sp, x1, #0)
-#guard ok (exec 0x9100003f [(x1, 0x1234)]) [(sp, 0x1234)]
+#guard ok (exec 0x9100003f [(x1, 0x1230)]) [(sp, 0x1230)]
+-- mov sp, x1 to a value that is not a multiple of 16: the function gives up
+#guard !(exec 0x9100003f [(x1, 0x1234)]).isNext
 -- sub sp, sp, #32
 #guard ok (exec 0xd10083ff [(sp, 0x8000)]) [(sp, 0x7fe0)]
 

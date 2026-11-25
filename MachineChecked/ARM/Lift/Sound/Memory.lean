@@ -3,8 +3,8 @@
 
   The lift of AArch64 against arm64-semantics: loads and stores.
 
-  A load or a store of the lift faults where the machine's permission check fails, so where
-  the operations run the machine does not fault on a permission. The machine faults also on a
+  A load or a store of the lift faults where the machine's permission check fails, and there
+  only: where the operations run the machine does not fault, and where they fault it does. The machine faults also on a
   stack pointer that is not aligned, when it is the base of the access: that is a
   hypothesis here (`Aligned`). With write-back, the register loaded or stored is not the
   base (`Apart`): the architecture leaves that case unpredictable.
@@ -12,7 +12,8 @@
   ## Main results
 
   * `address_pre`, `address_post`: an addressing mode, before and after the access
-  * `ldr_sound`, `ldrLit_sound`, `ldp_sound`, `str_sound`, `stp_sound`
+  * `ldr_run`, `ldrLit_run`, `ldp_run`, `str_run`, `stp_run`: each with both directions
+    (`Ran`): where the operations run, and where they fault
 -/
 
 import MachineChecked.ARM.Lift.Sound.Basic
@@ -117,11 +118,6 @@ def WfMode : AddrMode → Prop
   | .PreIndex b _ => Wf b ∧ b ≠ .xzr
   | .RegOffset b i _ n => Wf b ∧ Wf i ∧ n < 64
 
-/-- The base of a mode that writes it back. -/
-def writeback : AddrMode → Option Arm64.Reg
-  | .PreIndex b _ | .PostIndex b _ => some b
-  | _ => none
-
 /-- The machine state after what a mode does before the access. -/
 def preState (s : Arm64.State) : AddrMode → Arm64.State
   | .PreIndex b off => s.writeReg64 b (s.readReg64 b + off)
@@ -185,16 +181,15 @@ theorem readSized_low (mem : Arm64.Memory) {sz : MemWidth} (hsz : sz ≠ .X64) (
 
 /-- **`ldr`, `ldur` and their signed and narrow forms.** Where the operations run, the machine
     does not fault and its state is what the registers stand for. -/
-theorem ldr_sound (h : Agree regs m s) (w : RegWidth) (sz : MemWidth) (sgn : Bool)
+theorem ldr_run (h : Agree regs m s) (w : RegWidth) (sz : MemWidth) (sgn : Bool)
     {rt : Arm64.Reg} (hrt : Wf rt) {mode : AddrMode} (hm : WfMode mode)
     (hal : Arm64.checkAddrSPAligned s mode = true) (hap : ∀ b ∈ writeback mode, rt ≠ b)
-    (hsz : w = .W32 → sz ≠ .X64) {r' : Reg → BitVec 64} {m' : Arm64.Memory}
-    (hrun : run ((address mode).1 ++ [.load (dest rt) (width sz) sgn (address mode).2.1] ++
+    (hsz : w = .W32 → sz ≠ .X64) :
+    Ran (run ((address mode).1 ++ [.load (dest rt) (width sz) sgn (address mode).2.1] ++
       (if sgn ∧ w = .W32 then [.set (dest rt) (z32 (.reg (dest rt)))] else []) ++
-      (address mode).2.2) regs m = some (r', m')) :
-    Agree r' m' (Arm64.execLdr w sz sgn rt mode s) ∧
-      (Arm64.execLdr w sz sgn rt mode s).status = s.status ∧
-      (Arm64.execLdr w sz sgn rt mode s).pc = s.pc + 4#64 := by
+      (address mode).2.2) regs m) s
+      (Arm64.execLdr w sz sgn rt mode s) := by
+  generalize hrun : run _ regs m = res
   obtain ⟨R1, e1, ha, hA1, -, -⟩ := address_pre h hm
   rw [List.append_assoc, List.append_assoc, run_append, e1] at hrun
   simp only [Option.bind_some, List.cons_append, List.nil_append, run_load, ha] at hrun
@@ -231,7 +226,7 @@ theorem ldr_sound (h : Agree regs m s) (w : RegWidth) (sz : MemWidth) (sgn : Boo
       have hne : rt ≠ b := hap b rfl
       exact readReg64_writeReg64 _ hne hm _)
     rw [e3] at hrun
-    obtain ⟨rfl, rfl⟩ : R3 = r' ∧ m = m' := by simpa using hrun
+    subst hrun
     -- the machine
     have hc' : s.mem.canRead (Arm64.evalAddrMode s mode).1 sz.bytes = true := hmem ▸ hc
     have hx : Arm64.execLdr w sz sgn rt mode s =
@@ -241,9 +236,13 @@ theorem ldr_sound (h : Agree regs m s) (w : RegWidth) (sz : MemWidth) (sgn : Boo
         simp_all [Arm64.execLdr, Arm64.evalAddrMode, preState, postState, Arm64.State.writeReg]
       rw [writeReg64_comm _ (Ne.symm (hap _ rfl))]
     rw [hx]
+    simp only [Ran]
     exact ⟨hA3.advancePC, by cases mode <;> rfl, by cases mode <;> rfl⟩
   · simp only [hc] at hrun
-    cases hrun
+    subst hrun
+    refine ⟨"permission fault", ?_⟩
+    subst hmem
+    cases mode <;> simp_all [Arm64.execLdr, Arm64.evalAddrMode, Arm64.State.setStatus]
 
 theorem dest_ne_t2 (r : Arm64.Reg) : dest r ≠ .t2 := by
   cases r with
@@ -260,20 +259,18 @@ theorem pairSize_width (w : RegWidth) (sgn : Bool) :
   cases w <;> cases sgn <;> rfl
 
 /-- **`ldp` and `ldpsw`.** -/
-theorem ldp_sound (h : Agree regs m s) (w : RegWidth) (sgn : Bool) {rt1 rt2 : Arm64.Reg}
+theorem ldp_run (h : Agree regs m s) (w : RegWidth) (sgn : Bool) {rt1 rt2 : Arm64.Reg}
     (h1 : Wf rt1) (h2 : Wf rt2) {mode : AddrMode} (hm : WfMode mode)
     (hal : Arm64.checkAddrSPAligned s mode = true)
-    (hap : ∀ b ∈ writeback mode, rt1 ≠ b ∧ rt2 ≠ b) {r' : Reg → BitVec 64}
-    {m' : Arm64.Memory}
-    (hrun : run ((address mode).1 ++
+    (hap : ∀ b ∈ writeback mode, rt1 ≠ b ∧ rt2 ≠ b) :
+    Ran (run ((address mode).1 ++
       [.set .t2 (address mode).2.1,
        .load (dest rt1) (if w = .W32 ∨ sgn then Width.b4 else Width.b8) sgn (.reg .t2),
        .load (dest rt2) (if w = .W32 ∨ sgn then Width.b4 else Width.b8) sgn
         (add (.reg .t2) (num (if w = .W32 ∨ sgn then Width.b4 else Width.b8).bytes))] ++
-      (address mode).2.2) regs m = some (r', m')) :
-    Agree r' m' (Arm64.execLdp w sgn rt1 rt2 mode s) ∧
-      (Arm64.execLdp w sgn rt1 rt2 mode s).status = s.status ∧
-      (Arm64.execLdp w sgn rt1 rt2 mode s).pc = s.pc + 4#64 := by
+      (address mode).2.2) regs m) s
+      (Arm64.execLdp w sgn rt1 rt2 mode s) := by
+  generalize hrun : run _ regs m = res
   obtain ⟨R1, e1, ha, hA1, -, -⟩ := address_pre h hm
   have hmem : m = s.mem := h.mem
   generalize hea : (Arm64.evalAddrMode s mode).1 = ea at ha
@@ -308,7 +305,7 @@ theorem ldp_sound (h : Agree regs m s) (w : RegWidth) (sgn : Bool) {rt1 rt2 : Ar
         obtain ⟨n1, n2⟩ := hap b rfl
         exact (readReg64_writeReg64 _ n2 hm _).trans (readReg64_writeReg64 _ n1 hm _))
       rw [e3] at hrun
-      obtain ⟨rfl, rfl⟩ : R3 = r' ∧ m = m' := by simpa using hrun
+      subst hrun
       have hx : Arm64.execLdp w sgn rt1 rt2 mode s =
           (postState s (((preState s mode).writeReg (if sgn then .W64 else w) rt1 v1).writeReg
             (if sgn then .W64 else w) rt2 v2) mode).advancePC := by
@@ -320,42 +317,55 @@ theorem ldp_sound (h : Agree regs m s) (w : RegWidth) (sgn : Bool) {rt1 rt2 : Ar
         all_goals
           exact congrArg _ (writeReg64_rotate s (hap _ rfl).1 (hap _ rfl).2 _ _ _).symm
       rw [hx]
+      simp only [Ran]
       exact ⟨hA3.advancePC, by cases mode <;> rfl, by cases mode <;> rfl⟩
     · simp only [c1, c2] at hrun
-      cases hrun
+      subst hrun
+      refine ⟨"permission fault", ?_⟩
+      subst hea
+      subst hmem
+      cases w <;> cases sgn <;> cases mode <;>
+        simp_all [Arm64.execLdp, pairSize, Arm64.evalAddrMode, Arm64.State.setStatus]
   · simp only [c1] at hrun
-    cases hrun
+    subst hrun
+    refine ⟨"permission fault", ?_⟩
+    subst hea
+    subst hmem
+    cases w <;> cases sgn <;> cases mode <;>
+        simp_all [Arm64.execLdp, pairSize, Arm64.evalAddrMode, Arm64.State.setStatus]
 
 /-- The width of a literal load. -/
 def litSize (w : RegWidth) (sgn : Bool) : MemWidth :=
   if sgn then .W32 else match w with | .W32 => .W32 | .W64 => .X64
 
 /-- **`ldr` and `ldrsw` of a literal.** The signed form is of 64 bits. -/
-theorem ldrLit_sound (h : Agree regs m s) (w : RegWidth) (sgn : Bool) {rt : Arm64.Reg}
-    (hrt : Wf rt) (off : BitVec 64) (hw : sgn = true → w = .W64) {r' : Reg → BitVec 64}
-    {m' : Arm64.Memory}
-    (hrun : run [.load (dest rt) (if w = .W64 ∧ !sgn then Width.b8 else Width.b4) sgn
-      (.imm (s.pc + off))] regs m = some (r', m')) :
-    Agree r' m' (Arm64.execLdrLit w (litSize w sgn) sgn rt off s) ∧
-      (Arm64.execLdrLit w (litSize w sgn) sgn rt off s).status = s.status ∧
-      (Arm64.execLdrLit w (litSize w sgn) sgn rt off s).pc = s.pc + 4#64 := by
+theorem ldrLit_run (h : Agree regs m s) (w : RegWidth) (sgn : Bool) {rt : Arm64.Reg}
+    (hrt : Wf rt) (off : BitVec 64) (hw : sgn = true → w = .W64) :
+    Ran (run [.load (dest rt) (if w = .W64 ∧ !sgn then Width.b8 else Width.b4) sgn
+      (.imm (s.pc + off))] regs m) s
+      (Arm64.execLdrLit w (litSize w sgn) sgn rt off s) := by
+  generalize hrun : run _ regs m = res
   have hmem : m = s.mem := h.mem
   have hsz : (if w = .W64 ∧ !sgn then Width.b8 else Width.b4) = width (litSize w sgn) := by
     cases w <;> cases sgn <;> rfl
   simp only [hsz, run_load, eval_imm] at hrun
   by_cases hc : m.canRead (s.pc + off) (litSize w sgn).bytes = true
   · simp only [hc, ↓reduceIte] at hrun
-    obtain ⟨rfl, rfl⟩ : updReg regs (dest rt) (m.readSized (litSize w sgn) sgn (s.pc + off)) = r' ∧
-        m = m' := by simpa [run] using hrun
+    simp only [run] at hrun
+    subst hrun
     have hx : Arm64.execLdrLit w (litSize w sgn) sgn rt off s =
         (s.writeReg64 rt (m.readSized (litSize w sgn) sgn (s.pc + off))).advancePC := by
       subst hmem
       cases w <;> cases sgn <;>
         simp_all [Arm64.execLdrLit, litSize, Arm64.State.writeReg, Arm64.Memory.readSized]
     rw [hx]
+    simp only [Ran]
     exact ⟨(h.dest hrt _).advancePC, rfl, rfl⟩
   · simp only [hc] at hrun
-    cases hrun
+    subst hrun
+    refine ⟨"permission fault", ?_⟩
+    subst hmem
+    cases w <;> cases sgn <;> simp_all [Arm64.execLdrLit, litSize, Arm64.State.setStatus]
 
 /-! ## Permissions after a store -/
 
@@ -388,14 +398,13 @@ theorem canWrite_writeSized (mem : Arm64.Memory) (sz : MemWidth) (a v b : BitVec
 /-! ## Stores -/
 
 /-- **`str`, `stur` and their narrow forms.** -/
-theorem str_sound (h : Agree regs m s) (sz : MemWidth) {rt : Arm64.Reg} (hrt : Wf rt)
+theorem str_run (h : Agree regs m s) (sz : MemWidth) {rt : Arm64.Reg} (hrt : Wf rt)
     {mode : AddrMode} (hm : WfMode mode) (hal : Arm64.checkAddrSPAligned s mode = true)
-    (hap : ∀ b ∈ writeback mode, rt ≠ b) {r' : Reg → BitVec 64} {m' : Arm64.Memory}
-    (hrun : run ((address mode).1 ++ [.store (width sz) (address mode).2.1 (rd rt)] ++
-      (address mode).2.2) regs m = some (r', m')) :
-    Agree r' m' (Arm64.execStr sz rt mode s) ∧
-      (Arm64.execStr sz rt mode s).status = s.status ∧
-      (Arm64.execStr sz rt mode s).pc = s.pc + 4#64 := by
+    (hap : ∀ b ∈ writeback mode, rt ≠ b) :
+    Ran (run ((address mode).1 ++ [.store (width sz) (address mode).2.1 (rd rt)] ++
+      (address mode).2.2) regs m) s
+      (Arm64.execStr sz rt mode s) := by
+  generalize hrun : run _ regs m = res
   obtain ⟨R1, e1, ha, hA1, -, -⟩ := address_pre h hm
   have hv : (rd rt).eval R1 = s.readReg64 rt := by
     rw [rd_eval hA1 hrt]
@@ -409,7 +418,7 @@ theorem str_sound (h : Agree regs m s) (sz : MemWidth) {rt : Arm64.Reg} (hrt : W
     obtain ⟨R3, e3, hA3⟩ := address_post (s := s) (hA1.setMem m1) hm (fun b off hb => by
       subst hb; rfl)
     rw [e3] at hrun
-    obtain ⟨rfl, rfl⟩ : R3 = r' ∧ m1 = m' := by simpa using hrun
+    subst hrun
     have hc' : s.mem.canWrite (Arm64.evalAddrMode s mode).1 sz.bytes = true := hmem ▸ hc
     have hx : Arm64.execStr sz rt mode s =
         (postState s ((preState s mode).setMem m1) mode).advancePC := by
@@ -417,22 +426,25 @@ theorem str_sound (h : Agree regs m s) (sz : MemWidth) {rt : Arm64.Reg} (hrt : W
       cases mode <;>
         simp_all [Arm64.execStr, Arm64.evalAddrMode, preState, postState] <;> rfl
     rw [hx]
+    simp only [Ran]
     exact ⟨hA3.advancePC, by cases mode <;> rfl, by cases mode <;> rfl⟩
   · simp only [hc] at hrun
-    cases hrun
+    subst hrun
+    refine ⟨"permission fault", ?_⟩
+    subst hmem
+    cases mode <;> simp_all [Arm64.execStr, Arm64.evalAddrMode, Arm64.State.setStatus]
 
 /-- **`stp`.** -/
-theorem stp_sound (h : Agree regs m s) (w : RegWidth) {rt1 rt2 : Arm64.Reg} (h1 : Wf rt1)
+theorem stp_run (h : Agree regs m s) (w : RegWidth) {rt1 rt2 : Arm64.Reg} (h1 : Wf rt1)
     (h2 : Wf rt2) {mode : AddrMode} (hm : WfMode mode)
-    (hal : Arm64.checkAddrSPAligned s mode = true) {r' : Reg → BitVec 64} {m' : Arm64.Memory}
-    (hrun : run ([.set .t0 (rd rt1), .set .t1 (rd rt2)] ++ (address mode).1 ++
+    (hal : Arm64.checkAddrSPAligned s mode = true) :
+    Ran (run ([.set .t0 (rd rt1), .set .t1 (rd rt2)] ++ (address mode).1 ++
       [.store (if w = .W32 then Width.b4 else Width.b8) (address mode).2.1 (.reg .t0),
        .store (if w = .W32 then Width.b4 else Width.b8)
         (add (address mode).2.1 (num (if w = .W32 then Width.b4 else Width.b8).bytes))
-        (.reg .t1)] ++ (address mode).2.2) regs m = some (r', m')) :
-    Agree r' m' (Arm64.execStp w rt1 rt2 mode s) ∧
-      (Arm64.execStp w rt1 rt2 mode s).status = s.status ∧
-      (Arm64.execStp w rt1 rt2 mode s).pc = s.pc + 4#64 := by
+        (.reg .t1)] ++ (address mode).2.2) regs m) s
+      (Arm64.execStp w rt1 rt2 mode s) := by
+  generalize hrun : run _ regs m = res
   have hmem : m = s.mem := h.mem
   have hA0 : Agree (updReg (updReg regs .t0 (s.readReg64 rt1)) .t1 (s.readReg64 rt2)) m s :=
     (h.scratch (.inl rfl) _).scratch (.inr (.inl rfl)) _
@@ -459,7 +471,7 @@ theorem stp_sound (h : Agree regs m s) (w : RegWidth) {rt1 rt2 : Arm64.Reg} (h1 
       obtain ⟨R3, e3, hA3⟩ := address_post (s := s) (hA1.setMem m2) hm (fun b off hb => by
         subst hb; rfl)
       rw [e3] at hrun
-      obtain ⟨rfl, rfl⟩ : R3 = r' ∧ m2 = m' := by simpa using hrun
+      subst hrun
       have c2' : m.canWrite (ea + BitVec.ofNat 64 (pairSize w false).bytes)
           (pairSize w false).bytes = true := by
         rw [← hm1, canWrite_writeSized] at c2; exact c2
@@ -471,10 +483,24 @@ theorem stp_sound (h : Agree regs m s) (w : RegWidth) {rt1 rt2 : Arm64.Reg} (h1 
           simp [Arm64.execStp, Arm64.evalAddrMode, preState, postState, pairSize, hal, c1, c2']
             <;> rfl
       rw [hx]
+      simp only [Ran]
       exact ⟨hA3.advancePC, by cases mode <;> rfl, by cases mode <;> rfl⟩
     · simp only [c2] at hrun
-      cases hrun
+      rw [← hm1, canWrite_writeSized] at c2
+      subst hrun
+      refine ⟨"permission fault", ?_⟩
+      subst hea
+      subst hmem
+      cases w <;> cases mode <;>
+        simp only [Arm64.evalAddrMode, pairSize, Bool.false_eq_true, ite_false] at c1 c2 <;>
+        simp [Arm64.execStp, Arm64.evalAddrMode, hal, c1, c2, Arm64.State.setStatus]
   · simp only [c1] at hrun
-    cases hrun
+    subst hrun
+    refine ⟨"permission fault", ?_⟩
+    subst hea
+    subst hmem
+    cases w <;> cases mode <;>
+      simp only [Arm64.evalAddrMode, pairSize, Bool.false_eq_true, ite_false] at c1 <;>
+      simp [Arm64.execStp, Arm64.evalAddrMode, hal, c1, Arm64.State.setStatus]
 
 end MachineChecked.ARM.Lift
