@@ -249,6 +249,14 @@ theorem Agree.flags (h : Agree regs m s) (ps : Arm64.PState) :
     simpa [updReg, h1, h2, h3, h4, Arm64.State.setPState] using h.gpr i hi
   all_goals simp [updReg, Arm64.State.setPState, h.sp]
 
+/-- The registers stand for the machine state with its flags set, whatever was written to
+    the lift's own registers, when the flags hold the new values. -/
+theorem Agree.of_same (h : Agree regs m s) {R : Reg → BitVec 64} (hs : Same regs R)
+    (ps : Arm64.PState) (hn : R .nf = flag ps.n) (hz : R .zf = flag ps.z)
+    (hc : R .cf = flag ps.c) (hv : R .vf = flag ps.v) : Agree R m (s.setPState ps) :=
+  ⟨fun i hi => (hs _ (by revert i; decide)).trans (h.gpr i hi), (hs _ rfl).trans h.sp, hn, hz,
+    hc, hv, h.mem⟩
+
 theorem Agree.advancePC (h : Agree regs m s) : Agree regs m s.advancePC :=
   ⟨h.gpr, h.sp, h.nf, h.zf, h.cf, h.vf, h.mem⟩
 
@@ -261,6 +269,15 @@ theorem result_run (h : Agree regs m s) {dst : Arm64.Reg} (hd : Wf dst) {e : E} 
     ∃ r', run (wr dst e) regs m = some (r', m) ∧ Agree r' m (s.writeReg64 dst v) := by
   obtain ⟨r', h1, h2, -⟩ := wr_run h hd e
   exact ⟨r', h1, he ▸ h2⟩
+
+/-- **A result written at a width**, and the machine a step on. -/
+theorem result_sound (h : Agree regs m s) {dst : Arm64.Reg} (hd : Wf dst) {e : E} (w : RegWidth)
+    {res : BitVec 64}
+    (he : e.eval regs = match w with | .W32 => (res.truncate 32).zeroExtend 64 | .W64 => res) :
+    ∃ r', run (wr dst e) regs m = some (r', m) ∧
+      Agree r' m (s.writeReg w dst res).advancePC := by
+  obtain ⟨r', h1, h2⟩ := result_run h hd he
+  exact ⟨r', h1, h2.advancePC⟩
 
 /-- **A result and the flags written**: the result goes to `t0`, each flag is computed from
     the operands and `t0`, and `t0` goes to `dst`. -/

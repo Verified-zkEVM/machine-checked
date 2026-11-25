@@ -70,6 +70,55 @@ theorem add32 (x y : BitVec 64) (hx : x = (x.setWidth 32).setWidth 64)
   simp only [Arm64.AddWithCarry32, flag]
   refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> bv_decide
 
+/-- The flags of `x + y` or `x - y` at a width. -/
+def addSubPs (w : RegWidth) (isSub : Bool) (x y : BitVec 64) : Arm64.PState :=
+  match w, isSub with
+  | .W32, true => (Arm64.AddWithCarry32 (x.truncate 32) (~~~(y.truncate 32)) true).2
+  | .W32, false => (Arm64.AddWithCarry32 (x.truncate 32) (y.truncate 32) false).2
+  | .W64, true => (Arm64.AddWithCarry64 x (~~~y) true).2
+  | .W64, false => (Arm64.AddWithCarry64 x y false).2
+
+/-- `x + y` or `x - y` at a width. -/
+def addSubVal (w : RegWidth) (isSub : Bool) (x y : BitVec 64) : BitVec 64 :=
+  match w, isSub with
+  | .W32, true => ((x - y).setWidth 32).setWidth 64
+  | .W32, false => ((x + y).setWidth 32).setWidth 64
+  | .W64, true => x - y
+  | .W64, false => x + y
+
+theorem addSubVal_eval (w : RegWidth) (isSub : Bool) (a b : E) :
+    (trunc w (if isSub then sub a b else add a b)).eval regs =
+      addSubVal w isSub (a.eval regs) (b.eval regs) := by
+  cases w <;> cases isSub <;> simp [addSubVal]
+
+/-- **The flags of an addition or a subtraction**, the result being in `t0`: each of the four
+    expressions is worth the machine's flag. -/
+theorem addSubFlags_eval (w : RegWidth) (isSub : Bool) {a b : E} (ha : Pure a) (hb : Pure b)
+    (hx : w = .W32 → a.eval regs = ((a.eval regs).setWidth 32).setWidth 64)
+    (hy : w = .W32 → b.eval regs = ((b.eval regs).setWidth 32).setWidth 64)
+    {R : Reg → BitVec 64} (hs : Same regs R)
+    (ht : R .t0 = addSubVal w isSub (a.eval regs) (b.eval regs)) :
+    let ps := addSubPs w isSub (a.eval regs) (b.eval regs)
+    (bit (.reg .t0) (w.bits - 1) : E).eval R = flag ps.n ∧
+    (isZero (.reg .t0) : E).eval R = flag ps.z ∧
+    (if isSub then Build.flip (.bin .ult a b)
+      else if w = .W32 then bit (add a b) 32 else .bin .ult (.reg .t0) a : E).eval R = flag ps.c ∧
+    (bit (if isSub then band (bxor a b) (bxor a (.reg .t0))
+      else band (bxor a (.reg .t0)) (bxor b (.reg .t0))) (w.bits - 1) : E).eval R = flag ps.v := by
+  have ea := ha _ _ hs
+  have eb := hb _ _ hs
+  generalize a.eval regs = x at hx ht ea ⊢
+  generalize b.eval regs = y at hy ht eb ⊢
+  cases w <;> cases isSub <;> simp only [addSubVal] at ht
+  · obtain ⟨-, hn, hz, hc, hv⟩ := add32 x y (hx rfl) (hy rfl)
+    simp [RegWidth.bits, addSubPs, ht, ea, eb, hn, hz, hc, hv]
+  · obtain ⟨-, hn, hz, hc, hv⟩ := sub32 x y (hx rfl) (hy rfl)
+    simp [RegWidth.bits, addSubPs, ht, ea, eb, hn, hz, hc, hv]
+  · obtain ⟨-, hn, hz, hc, hv⟩ := add64 x y
+    simp [RegWidth.bits, addSubPs, ht, ea, eb, hn, hz, hc, hv]
+  · obtain ⟨-, hn, hz, hc, hv⟩ := sub64 x y
+    simp [RegWidth.bits, addSubPs, ht, ea, eb, hn, hz, hc, hv]
+
 /-- **An addition or a subtraction**, with its flags if it sets them: the operations run, and
     the registers stand for the machine state with the result and the flags written. `a` and
     `b` are operands of the width that read machine registers only. -/
