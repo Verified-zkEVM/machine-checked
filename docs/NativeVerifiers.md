@@ -123,7 +123,8 @@ the route is not clearly cheaper, M3 is rethought before M1 and M2 are built.
 `memcpy` against #837's 503, and 272 for `keccak_f` against 861, with `lsym` as it was. The
 theorems are weaker than #837's in the ways M1, M2, M4 and #76 close, listed there. Two things
 the pilot adds to the list for M3: the kernel's check of a large function's lift on the
-whole-program route (8 minutes for `keccak_f`), and loop heads given as positions.
+whole-program route (24 s and 10 GB for `keccak_f`, growing with the function), and loop heads
+given as positions.
 
 ### M1. One transfer theorem for any instruction set
 

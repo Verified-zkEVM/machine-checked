@@ -13,7 +13,7 @@
 
   ## Main definitions
 
-  * `Guest`, `Guest.lift`, `Guest.toPancake`
+  * `Guest`, `Guest.lifted`, `Guest.lift`, `Guest.toPancake`
 -/
 
 import MachineChecked.X86.Lift.Lift
@@ -27,9 +27,13 @@ open Lprog MachineChecked.X86.Lift MachineChecked.Logical Lprog.X86
 /-- A program: its functions, where it starts, and the words it loads. -/
 abbrev Guest := Logical.Guest.Program (Option Instr)
 
+/-- The program as an Lprog program, as the lift writes it: every write of the flags. This is
+    the one to prove a program against, since nothing is proved of the pass below. -/
+def Guest.lifted (g : Guest) : Lprog.Lprog (Op Reg) Reg := liftX86 g.fns
+
 /-- The program as an Lprog program, without the writes of flags that nothing reads. -/
 def Guest.lift (g : Guest) : Lprog.Lprog (Op Reg) Reg :=
-  (liftX86 g.fns).map fun fd => { fd with body := dropDead [.cf, .zf, .sf, .ovf, .pf, .t0, .t1, .t2, .t3, .t4, .t5] fd.body }
+  g.lifted.map fun fd => { fd with body := dropDead [.cf, .zf, .sf, .ovf, .pf, .t0, .t1, .t2, .t3, .t4, .t5] fd.body }
 
 /-- **The program as a Pancake program**, and the places where it may give up. -/
 def Guest.toPancake (g : Guest) : Except String (List (_root_.Flapjack.Decl Pancake.W) × List String) :=

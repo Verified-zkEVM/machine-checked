@@ -125,10 +125,10 @@ theorem round_step {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → P
     (hrc0 : loadLE m0 (2097840#64 + BitVec.ofNat 64 (8 * i)) 8 = rcAt i)
     (regs : Reg → BitVec 64) (m : Bytes) (hAt : At A r0 m0 fp i regs m)
     (hnext : i + 1 < 24 → ∀ r' m', At A r0 m0 fp (i + 1) r' m' →
-      armIsa.SafeN program.lift ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, r', m'⟩)
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, r', m'⟩)
     (hexit : i + 1 = 24 → ∀ r' m', At A r0 m0 fp (i + 1) r' m' →
-      armIsa.SafeN program.lift ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, r', m'⟩) :
-    armIsa.SafeN program.lift ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, r', m'⟩) :
+    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, regs, m⟩ := by
   obtain ⟨hsp, h27, hl, hs, hp, hsv, h29, hsame⟩ := hAt
   have hrc := (hT.load_eq hsame).trans hrc0
   simp only [laneRegs, laneSlots, parRegs, savedSlots, List.forall_mem_cons, List.not_mem_nil,
@@ -164,8 +164,8 @@ theorem prologue {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Pro
     (regs : Reg → BitVec 64) (m : Bytes) (hsp : regs .sp = fp) (hA : StateAt m (regs .x0) A)
     (hap : Apart fp (regs .x0))
     (hk : ∀ r' m', At A regs m fp 0 r' m' →
-      armIsa.SafeN program.lift ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, r', m'⟩) :
-    armIsa.SafeN program.lift ctx G N Q ⟨⟨10, 2, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, r', m'⟩) :
+    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 2, ret, top⟩ :: rest, regs, m⟩ := by
   obtain ⟨hA0, hA⟩ := hA
   simp only [bufSlots, List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true,
     and_true] at hA
@@ -193,10 +193,10 @@ theorem rounds {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Prop}
     (hT : ∀ i < 24, Out fp 192 (2097840#64 + BitVec.ofNat 64 (8 * i)))
     (hrc : ∀ i < 24, loadLE m0 (2097840#64 + BitVec.ofNat 64 (8 * i)) 8 = rcAt i)
     (hexit : ∀ r' m', At A r0 m0 fp 24 r' m' →
-      armIsa.SafeN program.lift ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, r', m'⟩) :
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, r', m'⟩) :
     ∀ k i (regs : Reg → BitVec 64) (m : Bytes), 24 - i = k → i < 24 →
       At A r0 m0 fp i regs m →
-      armIsa.SafeN program.lift ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 144, ret, top⟩ :: rest, regs, m⟩ := by
   intro k
   induction k with
   | zero => intro i _ _ hk hi; omega
@@ -219,8 +219,8 @@ theorem epilogue {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Pro
     (hk : ∀ r' m', StateAt m' (r0 .x0) (keccakF1600 A) →
       (∀ x, 192 ≤ (x - fp).toNat → 200 ≤ (x - r0 .x0).toNat → m' x = m0 x) →
       (∀ r ∈ calleeSaved, r' r = r0 r) →
-      armIsa.SafeN program.lift ctx G N Q ⟨rest, r', m'⟩) :
-    armIsa.SafeN program.lift ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨rest, r', m'⟩) :
+    armIsa.SafeN program.lifted ctx G N Q ⟨⟨10, 468, ret, top⟩ :: rest, regs, m⟩ := by
   obtain ⟨hsp, h27, hl, hs, hp, hsv, h29, hsame⟩ := hAt
   simp only [laneRegs, laneSlots, parRegs, savedSlots, List.forall_mem_cons, List.not_mem_nil,
     false_imp_iff, implies_true, and_true] at hl hs hp hsv
@@ -248,7 +248,7 @@ theorem frame_eq (top : BitVec 64) : top + 18446744073709551424#64 = top - 192#6
     only there and in the 192 bytes below the stack pointer, and the callee-saved registers are
     as they were. Memory holds the image, the buffer is outside the frame, and so is the image's
     table of round constants at `0x2002b0`. -/
-theorem keccak_f_contract (A : KeccakState) : armIsa.Contract program.lift ctx 10
+theorem keccak_f_contract (A : KeccakState) : armIsa.Contract program.lifted ctx 10
     (fun ret top regs m => regs .x30 = ret ∧ regs .sp = top ∧ StateAt m (regs .x0) A ∧
       Apart (top - 192#64) (regs .x0) ∧
       Holds program.memory m ∧

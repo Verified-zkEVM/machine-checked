@@ -130,16 +130,16 @@ def f2 : Lfundef (Op Reg) Reg :=
   { name := "memcpy", addr := 2164312, depth := 0,
     body := List.flatten [f2_0] }
 
-theorem f2_head : program.lift[2]?.map (fun g => (g.name, g.addr, g.depth)) =
+theorem f2_head : program.lifted[2]?.map (fun g => (g.name, g.addr, g.depth)) =
     some (f2.name, f2.addr, f2.depth) := by
   decide +kernel
 
-theorem f2_parts : program.lift[2]?.map (fun g => chunks chunk g.body) =
+theorem f2_parts : program.lifted[2]?.map (fun g => chunks chunk g.body) =
     some [f2_0] := by
   decide +kernel
 
 /-- **`f2` is the lift of the ELF's code.** -/
-theorem f2_eq : program.lift[2]? = some f2 :=
+theorem f2_eq : program.lifted[2]? = some f2 :=
   getElem?_eq_of_chunks f2_head f2_parts rfl
 
 end
