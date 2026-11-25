@@ -43,6 +43,7 @@ import MachineChecked.ARM.Lift.Sound.Arith
 import MachineChecked.ARM.Lift.Sound.Memory
 import MachineChecked.ARM.Lift.Sound.Bitfield
 import MachineChecked.ARM.Lift.Sound.Reverse
+import MachineChecked.ARM.Lift.Sound.Code
 
 namespace MachineChecked.ARM.Lift
 

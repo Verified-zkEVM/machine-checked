@@ -384,12 +384,12 @@ def writesSp : O → Bool
   | _ => false
 
 /-- **The stack pointer is aligned** after operations that write it, or the function gives
-    up. The machine faults on a stack pointer that is not a multiple of 16 when it is the base
+    up, at the label `ab`. The machine faults on a stack pointer that is not a multiple of 16 when it is the base
     of an access; the lift keeps it aligned wherever it is written instead, which is what
     compiled code does. -/
-def spCheck (cx : Cx) (os : List O) : Lcmd O Reg :=
+def spCheck (ab : LLabel) (os : List O) : Lcmd O Reg :=
   if os.any writesSp then
-    [.Lopn (.set .t0 (band (.reg .sp) (num 15))), .Lcond (.cmp "ne" (.reg .t0) (.imm 0)) cx.abort]
+    [.Lopn (.set .t0 (band (.reg .sp) (num 15))), .Lcond (.cmp "ne" (.reg .t0) (.imm 0)) ab]
   else []
 
 /-! ## Control -/
@@ -434,7 +434,7 @@ def liftTbz (nz : Bool) (rt : Arm64.Reg) (b : Nat) (l : LLabel) : Lcmd O Reg :=
     pointer if they write it. `Labort` if it is not lifted or not `okI`. -/
 def liftOps (cx : Cx) (pc : BitVec 64) (ins : Instr) : Lcmd O Reg :=
   match ops pc ins with
-  | some os => if okI ins then os.map .Lopn ++ spCheck cx os else [.Labort]
+  | some os => if okI ins then os.map .Lopn ++ spCheck cx.abort os else [.Labort]
   | none => [.Labort]
 
 /-- One instruction. A word that is no instruction is `none`. -/
