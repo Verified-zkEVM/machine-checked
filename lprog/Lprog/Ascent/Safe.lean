@@ -69,6 +69,14 @@ theorem detStep_of_none {f : σ → Option σ} {s : σ} (h : f s = none) {o : Ou
 theorem detStep_ne_wrong {f : σ → Option σ} {s : σ} : ¬ detStep f s .wrong := by
   unfold detStep; split <;> simp
 
+theorem detStep_ok_iff {f : σ → Option σ} {s t : σ} : detStep f s (.ok t) ↔ f s = some t := by
+  cases h : f s with
+  | none => simp [detStep, h]
+  | some u => simp [detStep, h, eq_comm]
+
+theorem detStep_trap_iff {f : σ → Option σ} {s : σ} : detStep f s .trap ↔ f s = none := by
+  cases h : f s <;> simp [detStep, h]
+
 /-! ## Events -/
 
 /-- A step with events, its events forgotten. -/

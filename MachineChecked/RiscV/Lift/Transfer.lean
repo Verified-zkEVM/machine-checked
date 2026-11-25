@@ -16,8 +16,9 @@
   steps, a label and the instruction, ending in a simulated state, or in a returned program
   with the machine at `exit`; a machine that is stuck accepting is matched by an Lprog state
   that accepts, and one stuck otherwise by a trap (`Matched`). An Lprog step to `wrong`
-  matches nothing, and the Lprog judgement rules it out. So, by induction on the machine's budget, `SafeN` at Lprog at every budget gives
-  `SafeN` over `stepSp1` (`transfer`), and from a function's entry (`SafeN.of_lift`) the
+  matches nothing, and the Lprog judgement rules it out. So, by the transfer theorem of any two
+  systems (`Lprog.Ascent.transfer`), `SafeN` at Lprog at every budget gives `SafeN` over
+  `stepSp1` (`transfer`), and from a function's entry (`SafeN.of_lift`) the
   machine is safe if it is safe from every state the function may return to `ra` in.
 
   ## Main definitions
@@ -32,6 +33,7 @@
 -/
 
 import MachineChecked.RiscV.Lift.Lift
+import Lprog.Ascent.Transfer
 
 namespace MachineChecked.RiscV.Lift
 
@@ -225,37 +227,9 @@ theorem aligned_add {base : Word} (hb : base.toNat % 4 = 0) (j : Nat) :
 /-- The lifted program under SP1, as a system. -/
 abbrev lsys (fs : List Fn) : Lprog.Ascent.System (State rvIsa) Unit := rvIsa.system (liftProg fs) sp1Ctx
 
-/-- Safe at Lprog along every run, at every budget. -/
-def AllSafe (fs : List Fn) (Q : State rvIsa → Prop) (s : State rvIsa) : Prop :=
-  ∀ k, LSafeN fs (fun _ => True) k Q s
-
-section AllSafe
-
-variable {fs : List Fn} {Q : State rvIsa → Prop} {s t : State rvIsa}
-
-theorem AllSafe.next {es : List Unit} (h : AllSafe fs Q s)
-    (hs : rvIsa.step (liftProg fs) sp1Ctx s (.ok (t, es))) : AllSafe fs Q t :=
-  fun k => Lprog.Ascent.SafeN.next trivial ⟨es, hs⟩ (h (k + 1))
-
-theorem AllSafe.not_wrong (h : AllSafe fs Q s) (hs : rvIsa.step (liftProg fs) sp1Ctx s .wrong) : False :=
-  Lprog.Ascent.SafeN.not_wrong trivial hs (h 2)
-
-theorem AllSafe.acc (h : AllSafe fs Q s) (ha : rvIsa.accept (liftProg fs) sp1Ctx s) : Q s :=
-  Lprog.Ascent.SafeN.of_accept trivial ha (h 1)
-
-theorem AllSafe.steps {tr : List Unit} {s' : State rvIsa} (h : AllSafe fs Q s)
-    (hs : Lprog.Ascent.Steps (lsys fs) s tr s') : AllSafe fs Q s' := by
-  induction hs with
-  | refl => exact h
-  | step h1 _ ih => exact ih (h.next h1)
-
-theorem AllSafe.not_goesWrong {tr : List Unit} (h : AllSafe fs Q s)
-    (hw : Lprog.Ascent.GoesWrong (lsys fs) s tr) : False := by
-  obtain ⟨tr', -, hb⟩ := hw
-  obtain ⟨u, hs, hw⟩ := Lprog.Ascent.Behaves.wrong_iff.1 hb
-  exact (h.steps hs).not_wrong hw
-
-end AllSafe
+/-- Safe at Lprog along every run, at every budget: `Lprog.Ascent.AllSafe`, with its lemmas. -/
+abbrev AllSafe (fs : List Fn) (Q : State rvIsa → Prop) (s : State rvIsa) : Prop :=
+  Lprog.Ascent.AllSafe (lsys fs) Q s
 
 /-- A returned Lprog state stands for the machine at `exit`, where `jalr` lands. -/
 def Ret (exit : Word) (s : State rvIsa) (t : MachineState) : Prop :=
@@ -742,24 +716,15 @@ theorem transfer {fs : List Fn} (hok : ProgOk fs) {G : MachineState → Prop} {N
     {exit : Word} {Q : State rvIsa → Prop} (hacc : ∀ s', s'.stack ≠ [] → Q s' → P)
     (hret : ∀ s' t', s'.stack = [] → Agree (ofParts s'.regs s'.m) t' → t'.pc = exit &&& ~~~1#64 →
       Q s' → SafeN G N P t') :
-    ∀ n, n ≤ N → ∀ s t, Sim fs exit s t → AllSafe fs Q s → SafeN G n P t := by
-  intro n
-  induction n with
-  | zero => intros; exact SafeN.zero
-  | succ n ih =>
-    intro hn s t hs hL
-    rcases back_step hok hs with hw | ⟨hnext, hacc', -⟩
-    · exact (hL.not_goesWrong hw).elim
-    cases hst : stepSp1 t with
-    | none =>
-      exact SafeN.stuck hst fun ha =>
-        let ⟨s', hs', hne, ha'⟩ := hacc' ha
-        hacc s' hne ((hL.steps hs').acc ha')
-    | some t' =>
-      refine SafeN.step (not_accepted_of_step hst) hst ?_
-      obtain ⟨s', hs', hsim | ⟨hnil, hag, hpc⟩⟩ := hnext t' hst
-      · exact ih (by omega) s' t' hsim (hL.steps hs')
-      · exact SafeN.mono (by omega) (hret s' t' hnil hag hpc ((hL.steps hs').acc (Or.inl hnil)))
+    ∀ n, n ≤ N → ∀ s t, Sim fs exit s t → AllSafe fs Q s → SafeN G n P t :=
+  Lprog.Ascent.transfer (S := Sim fs exit) (T := Ret exit) (U := fun s' _ => s'.stack ≠ [])
+    (fun _ _ hs => (back_step hok hs).imp id fun ⟨h1, h2, h3⟩ =>
+      ⟨fun t' ht' => h1 t' (Lprog.Ascent.detStep_ok_iff.1 ht'),
+        fun ha => let ⟨s', hs', hne, ha'⟩ := h2 ha; ⟨s', hs', ha', hne⟩,
+        fun ht hna => h3 (Lprog.Ascent.detStep_trap_iff.1 ht) hna⟩)
+    (fun _ => Lprog.Ascent.detStep_ne_wrong)
+    (fun s' _ hne _ hq => hacc s' hne hq)
+    (fun s' t' ⟨hnil, hag, hpc⟩ hL => hret s' t' hnil hag hpc (hL.acc (Or.inl hnil)))
 
 /-- **The transfer theorem, from a function's entry.** A machine at the entry of function `g`
     of a lifted program it holds is safe if the call `⟨g, 0, ra, sp⟩` is safe at Lprog at every

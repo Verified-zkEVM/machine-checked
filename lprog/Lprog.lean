@@ -9,6 +9,7 @@ import Lprog.Ascent.Corres
 import Lprog.Ascent.Refine
 import Lprog.Ascent.Run
 import Lprog.Ascent.Safe
+import Lprog.Ascent.Transfer
 import Lprog.Block
 import Lprog.Build
 import Lprog.Contract
