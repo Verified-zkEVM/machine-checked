@@ -331,12 +331,13 @@ def codeModule (ns elfPath : String) (i : Tools.Program.Input) : String := Id.ru
   s := s ++ s!"check_elf_input code entry memory {repr elfPath}\n"
   return s ++ footer ns
 
-/-- The module of the `i`th function of `program.lift`, lifted to `fd`. Its parts are checked
+/-- The module of the `i`th function of `program.lift` (or of `program.lifted`, with `lift`
+    so named), lifted to `fd`. Its parts are checked
     by `decide +kernel`, not `kernel_eq` as the `--proved` lift's are: the kernel's unfolding of
     `program.lift` (its tree maps) to compare it with a term can take far longer than
     evaluating the decision. -/
 def liftModule {Reg : Type} [Repr Reg] (m : Tools.Program.Machine) (ns : String) (n i : Nat)
-    (fd : Lfundef (Op Reg) Reg) : String := Id.run do
+    (fd : Lfundef (Op Reg) Reg) (lift : String := "lift") : String := Id.run do
   let (_, regNs) := machineInfo m
   let short' (x : String) : String := (short x).replace regNs "Reg."
   let mut s := headerOf m ns s!"F{i}" [s!"{ns}.Code"]
@@ -346,12 +347,12 @@ def liftModule {Reg : Type} [Repr Reg] (m : Tools.Program.Machine) (ns : String)
   let names := (List.range parts.length).map (s!"f{i}_{·}")
   s := s ++ s!"/-- The function {commentSafe fd.name}, lifted. -/\n"
   s := s ++ s!"def f{i} : Lfundef (Op Reg) Reg :=\n  \{ name := {repr fd.name}, addr := {fd.addr.toNat}, depth := {fd.depth},\n    body := List.flatten [{", ".intercalate names}] }\n\n"
-  s := s ++ s!"theorem f{i}_head : program.lift[{i}]?.map (fun g => (g.name, g.addr, g.depth)) =\n" ++
+  s := s ++ s!"theorem f{i}_head : program.{lift}[{i}]?.map (fun g => (g.name, g.addr, g.depth)) =\n" ++
     s!"    some (f{i}.name, f{i}.addr, f{i}.depth) := by\n  decide +kernel\n\n"
-  s := s ++ s!"theorem f{i}_parts : program.lift[{i}]?.map (fun g => chunks chunk g.body) =\n" ++
+  s := s ++ s!"theorem f{i}_parts : program.{lift}[{i}]?.map (fun g => chunks chunk g.body) =\n" ++
     s!"    some [{", ".intercalate names}] := by\n  decide +kernel\n\n"
   s := s ++ s!"/-- **`f{i}` is the lift of the ELF's code.** -/\n"
-  s := s ++ s!"theorem f{i}_eq : program.lift[{i}]? = some f{i} :=\n  getElem?_eq_of_chunks f{i}_head f{i}_parts rfl\n"
+  s := s ++ s!"theorem f{i}_eq : program.{lift}[{i}]? = some f{i} :=\n  getElem?_eq_of_chunks f{i}_head f{i}_parts rfl\n"
   return s ++ footer ns
 
 /-- The statements of a right-nested `seq` chain: `.seq a (.seq b c)` is `[a, b, c]`. -/
@@ -397,9 +398,12 @@ def pancakeModule (m : Tools.Program.Machine) (ns : String)
   return s ++ footer ns
 
 /-- **Write the modules of the other routes** for the ELF at `elfPath` under `outDir`, in
-    namespace `ns`: the Lprog program, or with `pancake` the Pancake program. Gives the number
-    of functions and the names of those left out, each with the reason. -/
-def emitRoute (elfPath outDir ns : String) (pancake : Bool) : IO (Nat × Array String) := do
+    namespace `ns`: the Lprog program, or with `pancake` the Pancake program. With `flags`, the
+    Lprog program keeps every write of the flags (`program.lifted`, for AArch64 and x86-64;
+    RISC-V has none to drop). Gives the number of functions and the names of those left out,
+    each with the reason. -/
+def emitRoute (elfPath outDir ns : String) (pancake : Bool) (flags : Bool := false) :
+    IO (Nat × Array String) := do
   let bytes ← IO.FS.readBinFile elfPath
   let i ← IO.ofExcept (Tools.Program.inputOf bytes)
   unless validNs ns do
@@ -419,14 +423,17 @@ def emitRoute (elfPath outDir ns : String) (pancake : Bool) : IO (Nat × Array S
         IO.FS.writeFile (dir / "Pancake.lean") (pancakeModule i.machine ns decls notes)
         pure ["Pancake"]
       else do
-        let write {Reg : Type} [Repr Reg] (p : Lprog.Lprog (Op Reg) Reg) : IO (List String) := do
+        let write {Reg : Type} [Repr Reg] (p : Lprog.Lprog (Op Reg) Reg)
+            (lift : String := "lift") : IO (List String) := do
           for h : k in [0 : p.length] do
-            IO.FS.writeFile (dir / s!"F{k}.lean") (liftModule i.machine ns i.code.length k p[k])
+            IO.FS.writeFile (dir / s!"F{k}.lean") (liftModule i.machine ns i.code.length k p[k] lift)
           pure ((List.range p.length).map (s!"F{·}"))
-        match i.machine with
-        | .riscv => write (Tools.Program.riscvProgram i.code i.entry i.memory).lift
-        | .arm => write (Tools.Program.armProgram i.code i.entry i.memory).lift
-        | .x86 => write (Tools.Program.x86Program i.code i.entry i.memory).lift
+        match i.machine, flags with
+        | .riscv, _ => write (Tools.Program.riscvProgram i.code i.entry i.memory).lift
+        | .arm, false => write (Tools.Program.armProgram i.code i.entry i.memory).lift
+        | .arm, true => write (Tools.Program.armProgram i.code i.entry i.memory).lifted "lifted"
+        | .x86, false => write (Tools.Program.x86Program i.code i.entry i.memory).lift
+        | .x86, true => write (Tools.Program.x86Program i.code i.entry i.memory).lifted "lifted"
     IO.FS.writeFile (dir.addExtension "lean")
       (s!"/-\n  {ns}\n\n  Written by `decompile --to lean`: every module of it.\n-/\n\n" ++
         String.join (mods.map (s!"import {ns}.{·}\n")))

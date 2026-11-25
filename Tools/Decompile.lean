@@ -109,7 +109,8 @@ def usage : String :=
   "usage: decompile --to lprog|pancake ELF [OUT]\n" ++
   "       decompile --to lprog --proved ELF [OUT]\n" ++
   "       decompile --to lean --proved [--all] ELF OUTDIR NAMESPACE\n" ++
-  "       decompile --to lean [--pancake] ELF OUTDIR NAMESPACE\n" ++
+  "       decompile --to lprog --flags ELF [OUT]\n" ++
+  "       decompile --to lean [--pancake|--flags] ELF OUTDIR NAMESPACE\n" ++
   "       decompile --to lprog|pancake IMAGE.fjimg [OUT]\n" ++
   "       decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS\n" ++
   "       decompile --table riscv|aarch64|x86-64 [KINDS]\n" ++
@@ -148,29 +149,33 @@ def toLean (elfPath outDir ns : String) (all : Bool) : IO UInt32 := do
 /-- `--to lean` by the lift of whole programs: the program `--to lprog` gives as Lean modules
     under `outDir`, in namespace `ns`, or with `pancake` the one `--to pancake` gives
     (`Tools/ToLean.lean`). -/
-def toLeanRoute (elfPath outDir ns : String) (pancake : Bool) : IO UInt32 := do
+def toLeanRoute (elfPath outDir ns : String) (pancake : Bool) (flags : Bool := false) :
+    IO UInt32 := do
   try
-    let (n, skipped) ← Tools.ToLean.emitRoute elfPath outDir ns pancake
+    let (n, skipped) ← Tools.ToLean.emitRoute elfPath outDir ns pancake flags
     IO.println s!"decompile: {n} functions, {skipped.size} symbols left out, as {(Tools.ToLean.nsPath outDir ns).addExtension "lean"} and {Tools.ToLean.nsPath outDir ns}/"
     for r in skipped do IO.println s!"  left out: {r}"
     return 0
   catch e => IO.eprintln s!"decompile: {e}"; return 1
 
-/-- An ELF, to Lprog or on to Pancake, by the lift of whole programs. -/
-def elfTo (target elfPath : String) (out? : Option String) : IO UInt32 := do
+/-- An ELF, to Lprog or on to Pancake, by the lift of whole programs. With `flags`, the Lprog
+    program keeps the writes of flags that nothing reads (`Guest.lifted`): the program the
+    modules of `--to lean --flags` are about. -/
+def elfTo (target elfPath : String) (out? : Option String) (flags : Bool := false) :
+    IO UInt32 := do
   let bytes ← IO.FS.readBinFile elfPath
   let r : Except String (String × String) := do
     let i ← inputOf bytes
     match i.machine with
     | .x86 =>
       let g := x86Program i.code i.entry i.memory
-      render target g.lift g.fns.length i.skipped g.toPancake
+      render target (if flags then g.lifted else g.lift) g.fns.length i.skipped g.toPancake
     | .riscv =>
       let g := riscvProgram i.code i.entry i.memory
       render target g.lift (g.fns.map fun f => (Whole.parts g.fns f).length).sum i.skipped g.toPancake
     | .arm =>
       let g := armProgram i.code i.entry i.memory
-      render target g.lift g.fns.length i.skipped g.toPancake
+      render target (if flags then g.lifted else g.lift) g.fns.length i.skipped g.toPancake
   match r with
   | .ok (summary, text) => emit out? summary text; return 0
   | .error e => IO.eprintln s!"decompile: {e}"; return 1
@@ -266,7 +271,10 @@ def main (args : List String) : IO UInt32 := do
   | ["--to", "lean", "--proved", path, out, ns] => toLean path out ns false
   | ["--to", "lean", "--proved", "--all", path, out, ns] => toLean path out ns true
   | ["--to", "lean", "--pancake", path, out, ns] => toLeanRoute path out ns true
+  | ["--to", "lean", "--flags", path, out, ns] => toLeanRoute path out ns false true
   | ["--to", "lean", path, out, ns] => toLeanRoute path out ns false
+  | ["--to", "lprog", "--flags", path] => elfTo "lprog" path none true
+  | ["--to", "lprog", "--flags", path, o] => elfTo "lprog" path (some o) true
   | "--to" :: target :: path :: rest =>
     if target != "lprog" && target != "pancake" || rest.length > 1 then
       IO.eprintln usage; return 2
