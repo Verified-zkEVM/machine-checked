@@ -335,6 +335,19 @@ theorem flag_ne_zero (b : Bool) : (flag b != 0#64) = b := by cases b <;> decide
 
 theorem flag_eq_zero (b : Bool) : (flag b == 0#64) = !b := by cases b <;> decide
 
+/-- A bit of a value, tested. -/
+theorem bit_ne_zero (v : BitVec 64) (b : Nat) :
+    ((v >>> b) &&& 1#64 != 0#64) = v.getLsbD b := by
+  have e : v.getLsbD b = (v >>> b).getLsbD 0 := by simp
+  rw [e]
+  generalize v >>> b = u
+  have : (u &&& 1#64 != 0#64) = u.getLsbD 0 := by bv_decide
+  exact this
+
+theorem bit_eq_zero (v : BitVec 64) (b : Nat) :
+    ((v >>> b) &&& 1#64 == 0#64) = !v.getLsbD b := by
+  rw [← bit_ne_zero]; simp [bne]
+
 /-- **A test of a register against zero**: a jump to the label, or on to the next command. -/
 theorem test_steps (hfd : (liftArm fns)[fn]? = some fd) {ne : Bool} {r : Reg} {l : LLabel}
     {j : Nat}
@@ -449,6 +462,41 @@ theorem branch_steps {t : Arm64.State} (hfd : (liftArm fns)[fn]? = some fd) (c :
     refine ⟨updReg regs .t0 ((cond .LE).eval regs), hag.scratch (.inl rfl) _, ?_⟩
     simpa [hce, flag_ne_zero, branch] using this
 
+/-- **The comparisons of a computed jump** with the addresses it may reach in the function: a
+    jump to the label of one that is the target, or on past them all. -/
+theorem conds_steps (hfd : (liftArm fns)[fn]? = some fd) (locals : List (BitVec 64 × LLabel))
+    (hc : Cmds fd P (locals.map fun (a, l) =>
+      .Lcond (.cmp "eq" (.reg .t2) (.imm (a.toNat : Int))) l))
+    (hj : ∀ a l, (a, l) ∈ locals → ∃ j, labelIdx fd.body l = some j) :
+    (∃ a l j, (a, l) ∈ locals ∧ regs .t2 = a ∧ labelIdx fd.body l = some j ∧
+      Steps (lsys fns) ⟨⟨fn, P, rv, top⟩ :: rest, regs, m⟩ []
+        ⟨⟨fn, j, rv, top⟩ :: rest, regs, m⟩) ∨
+    Steps (lsys fns) ⟨⟨fn, P, rv, top⟩ :: rest, regs, m⟩ []
+      ⟨⟨fn, P + locals.length, rv, top⟩ :: rest, regs, m⟩ := by
+  induction locals generalizing P with
+  | nil => exact .inr (.refl _)
+  | cons al ls ih =>
+    obtain ⟨a, l⟩ := al
+    have hi : fd.body[P]? = some (.Lcond (.cmp "eq" (.reg .t2) (.imm (a.toNat : Int))) l) :=
+      hc.head
+    have hce : condEval (.cmp "eq" (.reg .t2) (.imm (a.toNat : Int))) regs =
+        some (regs .t2 == a) := by
+      simp [condEval, operandVal, cmpEval, BitVec.ofInt_natCast]
+    obtain ⟨j, hjl⟩ := hj a l List.mem_cons_self
+    by_cases ht : regs .t2 = a
+    · exact .inl ⟨a, l, j, List.mem_cons_self, ht, hjl,
+        Steps.one (step_cond_true hfd hi (hce.trans (by simp [ht])) hjl)⟩
+    · have s1 := step_cond_false (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
+        hfd hi (hce.trans (by simp [ht]))
+      rcases ih (P := P + 1) hc.tail (fun a l h => hj a l (List.mem_cons_of_mem _ h)) with
+        ⟨a', l', j', hm, he, hl', hs⟩ | hs
+      · exact .inl ⟨a', l', j', List.mem_cons_of_mem _ hm, he, hl',
+          by simpa using (Steps.one s1).trans hs⟩
+      · refine .inr ?_
+        have := (Steps.one s1).trans hs
+        simp only [List.length_cons, List.append_nil] at this ⊢
+        rwa [show P + (ls.length + 1) = P + 1 + ls.length by omega]
+
 end tests
 
 /-! ## One instruction, matched -/
@@ -554,6 +602,22 @@ theorem Agree.setPC {regs : Reg → BitVec 64} {m : Arm64.Memory} {s : Arm64.Sta
 
 @[simp] theorem length_liftArm (fns : List Fun) : (liftArm fns).length = fns.length := by
   simp [liftArm, liftProgram]
+
+/-- The address of a function of the lifted program is its address. -/
+theorem addrAt_liftArm (fns : List Fun) (g : Nat) :
+    armIsa.addrAt (liftArm fns) g = (fns[g]?).map (·.addr) := by
+  simp [Isa.addrAt, liftArm, liftProgram, List.getElem?_map]
+  cases fns[g]? <;> rfl
+
+/-- **A function an indirect call finds** is the one at the address called. -/
+theorem callee_indirect {fns : List Fun} {regs : Reg → BitVec 64} {e : E} {cands : List Nat}
+    {g : Nat} (h : armIsa.callee (liftArm fns) regs (.indirect e cands) = some g) :
+    ∃ fg, fns[g]? = some fg ∧ fg.addr = e.eval regs := by
+  have := List.find?_some h
+  rw [addrAt_liftArm] at this
+  cases hg : fns[g]? with
+  | none => simp [hg] at this
+  | some fg => exact ⟨fg, rfl, by simpa [hg] using this⟩
 
 /-! ## At an instruction -/
 
@@ -790,6 +854,252 @@ theorem out_bCond (h : Here prog fns exit f k fd fn rv top rest regs m t) (c : A
     obtain ⟨r', hag, hst⟩ := branch_steps (rv := rv) (top := top) (rest := rest) h.hfd c hc
       h.agree (h.lbl l hlt)
     exact h.out_cond hlab hag hps hst
+
+/-- **`cbz` and `cbnz`.** -/
+theorem out_cbz (h : Here prog fns exit f k fd fn rv top rest regs m t) (w : RegWidth)
+    (nz : Bool) (rt : Arm64.Reg) (off : BitVec 64)
+    (hl : Linked.cmds liftI fns f k h.hk =
+      toLabel (cxOf fns f) ((f.code[k]'h.hk).addr + off) (liftCbz w nz rt)) :
+    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+      (prog.evalInst (.cbz w nz rt off) t) := by
+  have hc := h.cmds
+  have hps := pos_succ liftI fns f k h.hk
+  rw [hl, h.addr] at hc hps
+  unfold toLabel at hc hps
+  cases hlab : (cxOf fns f).label (t.pc + off) with
+  | none =>
+    rw [hlab] at hc
+    exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
+  | some l =>
+    rw [hlab] at hc hps
+    obtain ⟨hlt, -⟩ := label_sound fns f hlab
+    have hj := h.lbl l hlt
+    -- the machine's test
+    have hm : prog.evalInst (.cbz w nz rt off) t =
+        if (if nz then t.readReg w rt != 0#64 else t.readReg w rt == 0#64)
+        then t.setPC (t.pc + off) else t.advancePC := by
+      cases nz <;> simp [Arm64.Program.evalInst, Arm64.execInstWithSvc, bne]
+    rw [hm]
+    unfold liftCbz at hc hps
+    by_cases hokr : okReg rt = true
+    · simp only [hokr, ↓reduceIte] at hc hps
+      have hwf := wf_of_okReg hokr
+      have he := rdw_eval h.agree w hwf
+      cases rt with
+      | xzr =>
+        have hz : t.readReg w .xzr = 0#64 := by cases w <;> rfl
+        rw [hz]
+        cases nz with
+        | true =>
+          have hc0 : pos liftI fns f (k + 1) = pos liftI fns f k + 1 := by
+            cases w <;> simpa using hps
+          exact h.out_cond (b := false) hlab h.agree hc0 (.refl _)
+        | false =>
+          have hc1 : Cmds fd (pos liftI fns f k + 1) [.Lgoto l] := by
+            cases w <;> simpa using hc
+          exact h.out_cond (b := true) (Q := pos liftI fns f (k + 1)) hlab h.agree rfl
+            (Steps.one (step_goto h.hfd hc1.head hj))
+      | sp =>
+        have hc2 : Cmds fd (pos liftI fns f k + 1) [.Lopn (.set .t0 (rdw w .sp)),
+            .Lcond (.cmp (if nz then "ne" else "eq") (.reg .t0) (.imm 0)) l] := by
+          cases w <;> simpa using hc
+        have hp2 : pos liftI fns f (k + 1) = pos liftI fns f k + 1 + 2 := by
+          cases w <;> simpa using hps
+        have := set_test_steps (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
+          h.hfd hc2 hj
+        rw [he] at this
+        exact h.out_cond hlab (h.agree.scratch (.inl rfl) _) hp2 this
+      | gpr i =>
+        cases w with
+        | W32 =>
+          have hc2 : Cmds fd (pos liftI fns f k + 1) [.Lopn (.set .t0 (rdw .W32 (.gpr i))),
+              .Lcond (.cmp (if nz then "ne" else "eq") (.reg .t0) (.imm 0)) l] := by
+            simpa using hc
+          have hp2 : pos liftI fns f (k + 1) = pos liftI fns f k + 1 + 2 := by simpa using hps
+          have := set_test_steps (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
+            h.hfd hc2 hj
+          rw [he] at this
+          exact h.out_cond hlab (h.agree.scratch (.inl rfl) _) hp2 this
+        | W64 =>
+          have hc1 : Cmds fd (pos liftI fns f k + 1)
+              [.Lcond (.cmp (if nz then "ne" else "eq") (.reg (.ofGpr i)) (.imm 0)) l] := by
+            simpa using hc
+          have hp1 : pos liftI fns f (k + 1) = pos liftI fns f k + 1 + 1 := by simpa using hps
+          have := test_steps (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
+            h.hfd hc1.head hj
+          have hv : regs (.ofGpr i) = t.readReg .W64 (.gpr i) := by
+            rw [← he]; simp [rdw, rd, trunc]
+          rw [hv] at this
+          exact h.out_cond hlab h.agree hp1 this
+    · simp only [hokr] at hc
+      exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
+
+/-- **`tbz` and `tbnz`.** -/
+theorem out_tbz (h : Here prog fns exit f k fd fn rv top rest regs m t) (w : RegWidth)
+    (nz : Bool) (rt : Arm64.Reg) (b : Nat) (off : BitVec 64)
+    (hl : Linked.cmds liftI fns f k h.hk =
+      toLabel (cxOf fns f) ((f.code[k]'h.hk).addr + off) (liftTbz nz rt b)) :
+    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+      (prog.evalInst (.tbz w nz rt b off) t) := by
+  have hc := h.cmds
+  have hps := pos_succ liftI fns f k h.hk
+  rw [hl, h.addr] at hc hps
+  unfold toLabel at hc hps
+  cases hlab : (cxOf fns f).label (t.pc + off) with
+  | none =>
+    rw [hlab] at hc
+    exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
+  | some l =>
+    rw [hlab] at hc hps
+    obtain ⟨hlt, -⟩ := label_sound fns f hlab
+    have hj := h.lbl l hlt
+    unfold liftTbz at hc hps
+    by_cases hok : okReg rt = true ∧ b < 64
+    · simp only [hok, and_self, ↓reduceIte] at hc hps
+      have he : (bit (rd rt) b : E).eval regs = (t.readReg64 rt >>> b) &&& 1#64 := by
+        rw [eval_bit, rd_eval h.agree (wf_of_okReg hok.1), Nat.mod_eq_of_lt (by omega)]
+      have hm : prog.evalInst (.tbz w nz rt b off) t =
+          if (if nz then (t.readReg64 rt >>> b) &&& 1#64 != 0#64
+            else (t.readReg64 rt >>> b) &&& 1#64 == 0#64)
+          then t.setPC (t.pc + off) else t.advancePC := by
+        rw [bit_ne_zero, bit_eq_zero]
+        cases nz <;> cases hb : (t.readReg64 rt).getLsbD b <;>
+          simp [Arm64.Program.evalInst, Arm64.execInstWithSvc, hb]
+      rw [hm]
+      have := set_test_steps (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
+        h.hfd hc hj
+      rw [he] at this
+      exact h.out_cond hlab (h.agree.scratch (.inl rfl) _) (by simpa using hps) this
+    · simp only [hok, ↓reduceIte] at hc
+      exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
+
+/-- **`blr`**: a call of the function at the address a register holds. -/
+theorem out_blr (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Arm64.Reg)
+    (hl : Linked.cmds liftI fns f k h.hk =
+      if okReg rn then [.Lcall (f.code[k]'h.hk).next (.indirect (rd rn) (cxOf fns f).all)]
+      else [.Labort]) :
+    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+      (prog.evalInst (.blr rn) t) := by
+  have hc := h.cmds
+  have hps := pos_succ liftI fns f k h.hk
+  rw [hl, h.next] at hc
+  rw [hl] at hps
+  by_cases hokr : okReg rn = true
+  · simp only [hokr, ↓reduceIte] at hc hps
+    have hv := rd_eval h.agree (wf_of_okReg hokr)
+    have hag' : Agree (updReg regs .x30 (t.pc + 4#64)) m (prog.evalInst (.blr rn) t) :=
+      (h.agree.dest (r := .gpr 30#5) (show (30#5 : BitVec 5) ≠ 31#5 by decide) _).setPC _
+    cases hcal : armIsa.callee (liftArm fns) regs (.indirect (rd rn) (cxOf fns f).all) with
+    | none =>
+      exact .inl (goesWrong_of (.refl _) ((step_iff h.hfd hc.head _).2
+        (by simp only [Isa.stepI, hcal])))
+    | some g =>
+      obtain ⟨fg, hg, hadr⟩ := callee_indirect hcal
+      have hs := (step_iff (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m)
+        h.hfd hc.head (.ok (⟨⟨g, 0, t.pc + 4#64, regs .sp⟩ ::
+          ⟨fn, pos liftI fns f k + 1 + 1, rv, top⟩ :: rest, updReg regs .x30 (t.pc + 4#64), m⟩,
+          []))).2 (by simp only [Isa.stepI, hcal]; rfl)
+      have hbelow := h.below
+      rw [hps] at hbelow
+      exact .inr (.inl ⟨h.running, _, Steps.one hs,
+        .inl (h.enter hag' h.running h.aligned h.loaded hg (hadr.trans hv).symm hbelow)⟩)
+  · simp only [hokr] at hc
+    exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
+
+/-- **`svc`, `brk` and the like** are not lifted: the program goes `wrong`. -/
+theorem out_system (h : Here prog fns exit f k fd fn rv top rest regs m t) (isHalt : Bool)
+    (imm : BitVec 16)
+    (hl : Linked.cmds liftI fns f k h.hk = [if isHalt then .Labort else .Lext 0]) :
+    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+      (prog.evalInst (.system isHalt imm) t) := by
+  have hc := h.cmds
+  rw [hl] at hc
+  cases isHalt with
+  | true => exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
+  | false =>
+    exact .inl (goesWrong_of (.refl _) ((step_iff h.hfd hc.head _).2 (by
+      simp [Isa.stepI, armCtx])))
+
+/-- **A tail call through an address**, once the program is at it: the function at the
+    address, entered. -/
+theorem out_tail (h : Here prog fns exit f k fd fn rv top rest regs m t) {Q : Nat} {e : E}
+    {cands : List Nat} {c : LinstrR O Reg}
+    (hc : c = if cands.isEmpty then .Labort else .Ltail (.indirect e cands))
+    (hi : fd.body[Q]? = some c) {r' : Reg → BitVec 64} (hag : Agree r' m t) {v : BitVec 64}
+    (hv : e.eval r' = v)
+    (hst : Steps (lsys fns) ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩ []
+      ⟨⟨fn, Q, rv, top⟩ :: rest, r', m⟩) :
+    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩ (t.setPC v) := by
+  subst hc
+  by_cases hem : cands.isEmpty = true
+  · simp only [hem, ↓reduceIte] at hi
+    exact .inl (goesWrong_of hst (step_abort h.hfd hi))
+  · simp only [hem, Bool.false_eq_true, ↓reduceIte] at hi
+    by_cases hsp : r' .sp = top
+    · cases hcal : armIsa.callee (liftArm fns) r' (.indirect e cands) with
+      | none =>
+        exact .inl (goesWrong_of hst ((step_iff h.hfd hi _).2
+          (by simp only [Isa.stepI, hcal]; simp [hsp])))
+      | some g =>
+        obtain ⟨fg, hg, hadr⟩ := callee_indirect hcal
+        have hs := (step_iff (rv := rv) (top := top) (rest := rest) (regs := r') (m := m)
+          h.hfd hi (.ok (⟨⟨g, 0, rv, top⟩ :: rest, r', m⟩, []))).2
+          (by simp only [Isa.stepI, hcal]; simp [hsp])
+        exact .inr (.inl ⟨h.running, _, by simpa using hst.trans (Steps.one hs),
+          .inl (h.enter (t' := t.setPC v) (hag.setPC _) h.running h.aligned h.loaded hg
+            (hv ▸ hadr.symm) h.chain)⟩)
+    · exact .inl (goesWrong_of hst ((step_iff h.hfd hi _).2 (by simp [Isa.stepI, hsp])))
+
+/-- **`br`**: a computed jump, to an instruction of the function the program holds the address
+    of, or to another function. -/
+theorem out_br (h : Here prog fns exit f k fd fn rv top rest regs m t) (rn : Arm64.Reg)
+    (hl : Linked.cmds liftI fns f k h.hk =
+      if okReg rn then Linked.jump .t2 (rd rn) [] (cxOf fns f).cands (cxOf fns f).all
+      else [.Labort]) :
+    Out prog fns exit ⟨⟨fn, pos liftI fns f k + 1, rv, top⟩ :: rest, regs, m⟩
+      (prog.evalInst (.br rn) t) := by
+  have hc := h.cmds
+  rw [hl] at hc
+  by_cases hokr : okReg rn = true
+  · simp only [hokr, ↓reduceIte] at hc
+    have hv := rd_eval h.agree (wf_of_okReg hokr)
+    unfold Linked.jump at hc
+    split at hc
+    · exact h.out_tail rfl hc.head h.agree hv (.refl _)
+    · simp only [List.append_nil, List.cons_append, List.nil_append] at hc
+      have s1 := step_opn (rv := rv) (top := top) (rest := rest) (regs := regs) (m := m) h.hfd
+        hc.head (r' := updReg regs .t2 (t.readReg64 rn)) (m' := m) (by simp [Op.eval, hv])
+      have hag' : Agree (updReg regs .t2 (t.readReg64 rn)) m t :=
+        h.agree.scratch (.inr (.inr rfl)) _
+      have hmem : ∀ a l, (a, l) ∈ (cxOf fns f).cands → (cxOf fns f).label a = some l := by
+        intro a l hal
+        obtain ⟨a', -, ha'⟩ := List.mem_filterMap.1 hal
+        cases hla : (labelsOf f.code)[a']? with
+        | none => simp [hla] at ha'
+        | some l' =>
+          simp only [hla, Option.map_some, Option.some.injEq, Prod.mk.injEq] at ha'
+          obtain ⟨rfl, rfl⟩ := ha'
+          exact hla
+      rcases conds_steps (rv := rv) (top := top) (rest := rest)
+          (regs := updReg regs .t2 (t.readReg64 rn)) (m := m) h.hfd _ hc.tail.left
+          (fun a l hal => by
+            obtain ⟨hlt, -⟩ := label_sound fns f (hmem a l hal)
+            exact ⟨_, h.lbl l hlt⟩) with ⟨a, l, j, hal, ha, hjl, hs⟩ | hs
+      · obtain ⟨hlt, hadr⟩ := label_sound fns f (hmem a l hal)
+        have hj : j = pos liftI fns f l := by
+          have := h.lbl l hlt
+          rw [hjl] at this
+          exact Option.some.inj this
+        subst hj
+        have ha' : t.readReg64 rn = a := by simpa [updReg] using ha
+        exact .inr (.inl ⟨h.running, _, by simpa using (Steps.one s1).trans hs,
+          .inl (h.jump (t' := t.setPC (t.readReg64 rn)) (hag'.setPC _) h.running h.aligned
+            h.loaded (Nat.le_of_lt hlt)
+            (ha'.trans (hadr.symm.trans (h.ok f (List.mem_of_getElem? h.hf) l hlt).1)))⟩)
+      · exact h.out_tail (e := .reg .t2) rfl hc.tail.right.head hag' (by simp [updReg])
+          (by simpa using (Steps.one s1).trans hs)
+  · simp only [hokr] at hc
+    exact .inl (goesWrong_of (.refl _) (step_abort h.hfd hc.head))
 
 end Here
 
