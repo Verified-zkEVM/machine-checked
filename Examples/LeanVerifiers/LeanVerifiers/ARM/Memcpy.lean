@@ -30,12 +30,12 @@ theorem byte_loop {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Pr
     (dst src : BitVec 64) (n : Nat) (hn : n < 2 ^ 64)
     (hdis : ∀ i < n, ∀ j < n, dst + BitVec.ofNat 64 i ≠ src + BitVec.ofNat 64 j)
     (hpost : ∀ r' m', Copied m0 dst src n m' → Kept r0 r' →
-      armIsa.SafeN program.lift ctx G N Q ⟨rest, r', m'⟩) :
+      armIsa.SafeN program.lifted ctx G N Q ⟨rest, r', m'⟩) :
     ∀ k j (regs : Reg → BitVec 64) (m : Bytes), n - j = k → j < n →
       regs .x8 = dst + BitVec.ofNat 64 j → regs .x1 = src + BitVec.ofNat 64 j →
       regs .x2 = BitVec.ofNat 64 (n - j) → regs .x30 = ret → regs .sp = top → Kept r0 regs →
       Copied m0 dst src j m →
-      armIsa.SafeN program.lift ctx G N Q ⟨⟨2, 16, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨2, 16, ret, top⟩ :: rest, regs, m⟩ := by
   intro k
   induction k with
   | zero => intro j _ _ hk hj; omega
@@ -68,12 +68,12 @@ theorem word_loop {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Pr
     (dst src : BitVec 64) (n : Nat) (hn : n < 2 ^ 64) (h8 : n % 8 = 0)
     (hdis : ∀ i < n, ∀ j < n, dst + BitVec.ofNat 64 i ≠ src + BitVec.ofNat 64 j)
     (hpost : ∀ r' m', Copied m0 dst src n m' → Kept r0 r' →
-      armIsa.SafeN program.lift ctx G N Q ⟨rest, r', m'⟩) :
+      armIsa.SafeN program.lifted ctx G N Q ⟨rest, r', m'⟩) :
     ∀ k j (regs : Reg → BitVec 64) (m : Bytes), n / 8 - j = k → 8 * j < n →
       regs .x8 = BitVec.ofNat 64 (8 * j) → regs .x0 = dst → regs .x1 = src →
       regs .x2 = BitVec.ofNat 64 n → regs .x30 = ret → regs .sp = top → Kept r0 regs →
       Copied m0 dst src (8 * j) m →
-      armIsa.SafeN program.lift ctx G N Q ⟨⟨2, 37, ret, top⟩ :: rest, regs, m⟩ := by
+      armIsa.SafeN program.lifted ctx G N Q ⟨⟨2, 37, ret, top⟩ :: rest, regs, m⟩ := by
   intro k
   induction k with
   | zero => intro j _ _ hk hj; omega
@@ -104,7 +104,7 @@ theorem word_loop {G : State armIsa → Prop} {N : Nat} {Q : State armIsa → Pr
 /-- **`memcpy(dst, src, n)`**: the `n` bytes at `dst` become those at `src`, no other byte
     changes, and no register but the scratch ones does (so `x0` is still `dst`). No address is
     in both regions. -/
-theorem memcpy_contract : armIsa.Contract program.lift ctx 2
+theorem memcpy_contract : armIsa.Contract program.lifted ctx 2
     (fun ret top regs _ => regs .x30 = ret ∧ regs .sp = top ∧
       ∀ i < (regs .x2).toNat, ∀ j < (regs .x2).toNat,
         regs .x0 + BitVec.ofNat 64 i ≠ regs .x1 + BitVec.ofNat 64 j)

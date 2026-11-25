@@ -59,7 +59,7 @@ before the rest is built.
 
 | file | what |
 | --- | --- |
-| [`LeanVerifiers/ARM/Signatures/`](LeanVerifiers/ARM/Signatures) | the image and the two functions' lifts, written by `decompile --to lean` and checked against the ELF's bytes by the kernel |
+| [`LeanVerifiers/ARM/Signatures/`](LeanVerifiers/ARM/Signatures) | the image and the two functions' lifts, written by `decompile --to lean --flags` and checked against the ELF's bytes by the kernel |
 | [`LeanVerifiers/ARM/Isa.lean`](LeanVerifiers/ARM/Isa.lean) | AArch64 as an instance for `lsym`, over a memory of bytes |
 | [`LeanVerifiers/ARM/Bytes.lean`](LeanVerifiers/ARM/Bytes.lean) | bytes and words read after bytes and words written |
 | [`LeanVerifiers/ARM/Memcpy.lean`](LeanVerifiers/ARM/Memcpy.lean) | `memcpy_contract`, for every length |
@@ -68,7 +68,7 @@ before the rest is built.
 The generated modules are made, from this directory, by
 
 ```sh
-../../.lake/build/bin/decompile --to lean ../elf/lean_signatures_a64.elf <dir> LeanVerifiers.ARM.Signatures
+../../.lake/build/bin/decompile --to lean --flags ../elf/lean_signatures_a64.elf <dir> LeanVerifiers.ARM.Signatures
 ```
 
 of which `Code.lean`, `F2.lean` (`memcpy`) and `F10.lean` (`keccak_f`) are kept.
@@ -84,7 +84,7 @@ Lines are whole files, comments included, on both sides.
 | shared by the two | 124 lines (`Mem/Common.lean`, shared with `memset`) | 245 lines (`Isa.lean`, `Bytes.lean`) |
 | the executor | 5,766 lines (`Sym`), for AArch64 | `lsym`, as it was, for any instruction set |
 | build of the proofs | not measured: they need #837's fork of Kraken | `memcpy` 2 s, `keccak_f` about 1 minute |
-| build of the code | not measured | `memcpy` 20 s, `keccak_f` about 8 minutes of CPU |
+| build of the code | not measured | `memcpy` 1 s, `keccak_f` 24 s and 10 GB |
 
 So about a third of the lines for each function. One round of `keccak_f` (some 170
 instructions) is one call of `lsym`, and what it leaves in each of 30 registers and slots is
@@ -121,7 +121,12 @@ function:
   Lean's three only. The identities are of `xor`, `and`, `not` and rotations, and can be proved
   without it.
 
-And two costs that will matter at 150 functions: the kernel's check of a function's lift
-against the image is slow on the whole-program route (8 minutes for `keccak_f`'s 575
-instructions), and a loop head is given to `lsym` as a position in the lifted body, counted by
-hand.
+And two costs that will matter at 150 functions. The kernel's check of a function's lift
+against the image is heavy on the whole-program route: 24 s and 10 GB for `keccak_f`'s 575
+instructions, and it grows with the function, so the largest (6,000 instructions) need the
+check in parts, as RISC-V's `--proved` route has it. And a loop head is given to `lsym` as a
+position in the lifted body, counted by hand.
+
+The program is the lift itself, with every write of the flags (`program.lifted`, `--flags`):
+the pass that drops the writes nothing reads is not proved, and tripled the cost of the
+check.

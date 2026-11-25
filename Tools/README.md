@@ -41,6 +41,8 @@ lake exe decompile --to lprog --proved GUEST.elf [OUT.lprog]      # RISC-V: the 
 lake exe decompile --to lean --proved [--all] GUEST.elf OUTDIR NAMESPACE # the same, as Lean
 lake exe decompile --to lean GUEST.elf OUTDIR NAMESPACE            # the --to lprog program, as Lean
 lake exe decompile --to lean --pancake GUEST.elf OUTDIR NAMESPACE  # the --to pancake program, as Lean
+lake exe decompile --to lprog --flags GUEST.elf [OUT.lprog]        # keeping every write of the flags
+lake exe decompile --to lean --flags GUEST.elf OUTDIR NAMESPACE    # that program, as Lean
 lake exe decompile --to lprog|pancake IMAGE.fjimg [OUT]            # a Flapjack image
 lake exe decompile --table riscv|aarch64|x86-64 [KINDS]            # the instruction table of a LIMITS.md
 lake exe decompile --kinds riscv|aarch64|x86-64 INSTRUCTIONS       # write a KINDS file from a run's instructions
@@ -168,7 +170,15 @@ rejects the function's statement. `Test/ToLean.lean` checks the latter on a smal
 
 `decompile --to lean GUEST.elf OUTDIR NS` writes the program `--to lprog` gives (RISC-V,
 AArch64 or x86-64); `--to lean --pancake` writes the program `--to pancake` gives. Neither lift
-is proved. The terms are checked against the lift as for `--proved`:
+is proved. The terms are checked against the lift as for `--proved`.
+
+On AArch64 and x86-64, `--to lprog` drops the writes of flags that nothing reads
+(`Guest.lift`, by `Lprog.dropDead`). With `--flags`, `--to lprog` and `--to lean` keep them:
+the program is the lift itself (`Guest.lifted`), and the modules' theorems are about
+`program.lifted`. That is the program to prove against: nothing is proved of the pass that
+drops the writes, and the kernel is slow to evaluate it (for a function of 575 instructions,
+the check of its module took 203 s and 30 GB with the pass and 24 s and 10 GB without).
+
 
 | module | contents |
 | --- | --- |

@@ -1259,16 +1259,16 @@ def f10 : Lfundef (Op Reg) Reg :=
   { name := "_RNvCsndc0WgnAaH_9keccak2568keccak_f", addr := 2176616, depth := 0,
     body := List.flatten [f10_0, f10_1, f10_2, f10_3, f10_4] }
 
-theorem f10_head : program.lift[10]?.map (fun g => (g.name, g.addr, g.depth)) =
+theorem f10_head : program.lifted[10]?.map (fun g => (g.name, g.addr, g.depth)) =
     some (f10.name, f10.addr, f10.depth) := by
   decide +kernel
 
-theorem f10_parts : program.lift[10]?.map (fun g => chunks chunk g.body) =
+theorem f10_parts : program.lifted[10]?.map (fun g => chunks chunk g.body) =
     some [f10_0, f10_1, f10_2, f10_3, f10_4] := by
   decide +kernel
 
 /-- **`f10` is the lift of the ELF's code.** -/
-theorem f10_eq : program.lift[10]? = some f10 :=
+theorem f10_eq : program.lifted[10]? = some f10 :=
   getElem?_eq_of_chunks f10_head f10_parts rfl
 
 end
