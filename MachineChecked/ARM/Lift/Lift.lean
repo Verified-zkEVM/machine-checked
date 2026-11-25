@@ -28,8 +28,10 @@
     `x30` is a return; `svc` is the external call. `brk` and whatever else is not above are
     `Labort`.
 
-  Nothing is proved of it. It is checked by running (`scripts/decompile-check`), against
-  another machine than arm64-semantics'.
+  It is checked by running (`scripts/decompile-check`), against another machine than
+  arm64-semantics'. Against arm64-semantics, the operations of the instructions that do not
+  transfer control are proved for most kinds (`Sound.lean`, `ops_sound`); the instructions
+  that transfer control, and the program as a whole, are not yet.
 
   ## Main definitions
 

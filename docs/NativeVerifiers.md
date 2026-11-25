@@ -180,6 +180,18 @@ for the other two, and `lsym`'s cost per step is flat on the benchmark.
 - **The judgement** over arm64-semantics' `Step`, with the empty context.
 - **The lift proved**, by the M1 framework, for the integer instructions the code uses: about 65
   kinds, listed by `decompile --kinds` on the images.
+  *In progress.* Proved, an instruction at a time
+  ([`ARM/Lift/Sound.lean`](../MachineChecked/ARM/Lift/Sound.lean), `ops_sound`): where the
+  operations the lift writes for an instruction run, the machine steps to the state they stand
+  for, and does not fault. That covers addition and subtraction, the logical instructions, the
+  moves, conditional select and compare, multiplication, unsigned division, the shifts by a
+  register, and the loads and stores in every addressing mode. Still to do: the bit fields,
+  `extr`, the reversals and counts, addition with carry, signed division; the instructions that
+  transfer control; and the simulation of a whole program, which gives the transfer theorem.
+  Two things the proof found that the lift must change: the machine faults on a stack pointer
+  that is not aligned when it is the base of an access, so the lift is to check it; and what
+  the proof assumes of a decoded instruction (`Ok`) is to be checked by the lift, so that
+  nothing is assumed of the decoder.
 - **The ladder** ([`Examples/`](../Examples/README.md)) recompiled for AArch64 and proved: the
   route end to end on small code.
 - **The pilot**: `keccak_f`, `memcpy` and `memset` from the signature image, against #837's
