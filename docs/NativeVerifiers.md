@@ -114,6 +114,13 @@ two functions.
 *Done when* both contracts are proved and the numbers are written down. This is the gate: if
 the route is not clearly cheaper, M3 is rethought before M1 and M2 are built.
 
+**Done.** Both contracts are proved
+([`Examples/LeanVerifiers`](../Examples/LeanVerifiers/README.md#the-pilot)): 143 lines for
+`memcpy` against #837's 503, and 266 for `keccak_f` against 861, with `lsym` as it was. The
+theorems are weaker than #837's in the ways M1, M2, M4 and #76 close, listed there. Two things
+the pilot adds to the list for M3: the kernel's check of a large function's lift on the
+whole-program route (8 minutes for `keccak_f`), and loop heads given as positions.
+
 ### M1. One transfer theorem for any instruction set
 
 RISC-V's simulation (`MachineChecked/RiscV/Lift/Transfer.lean`) is written against `stepSp1`.

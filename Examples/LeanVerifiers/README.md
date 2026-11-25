@@ -2,7 +2,8 @@
 
 rustc's code for the leanXMSS, leanSPHINCS and leanVM verifiers, on AArch64 and x86-64: the
 target of [`docs/NativeVerifiers.md`](../../docs/NativeVerifiers.md). So far the images and the
-specifications (milestone M0); nothing is proved yet.
+specifications (milestone M0), and the pilot (M0.5, [below](#the-pilot)): `memcpy` and `keccak_f`
+of the AArch64 signature image, proved at Lprog.
 
 The code is the assembly [leanEthereum/leanVM#837](https://github.com/leanEthereum/leanVM/pull/837)
 commits (rustc 1.99.1, `opt-level=3`, fat LTO, no SIMD, panics as trap instructions), fetched at
@@ -49,3 +50,70 @@ packages with them (VCVio, ArkLib, CompPoly and what they require). And one of t
 a library `Examples`: in one package with machine-checked's, Lake takes the modules
 `Examples.*` to be VCVio's. So nothing here imports `Examples.*`, and the modules are
 `LeanVerifiers.*`.
+
+## The pilot
+
+Milestone M0.5: two functions of `lean_signatures_a64.elf`, each with its contract at Lprog,
+proved with `lsym` on the lift, to compare the cost with #837's for the same two functions
+before the rest is built.
+
+| file | what |
+| --- | --- |
+| [`LeanVerifiers/ARM/Signatures/`](LeanVerifiers/ARM/Signatures) | the image and the two functions' lifts, written by `decompile --to lean` and checked against the ELF's bytes by the kernel |
+| [`LeanVerifiers/ARM/Isa.lean`](LeanVerifiers/ARM/Isa.lean) | AArch64 as an instance for `lsym`, over a memory of bytes |
+| [`LeanVerifiers/ARM/Bytes.lean`](LeanVerifiers/ARM/Bytes.lean) | bytes and words read after bytes and words written |
+| [`LeanVerifiers/ARM/Memcpy.lean`](LeanVerifiers/ARM/Memcpy.lean) | `memcpy_contract`, for every length |
+| [`LeanVerifiers/ARM/KeccakF.lean`](LeanVerifiers/ARM/KeccakF.lean) | `keccak_f_contract`, against `keccakF1600` |
+
+The generated modules are made, from this directory, by
+
+```sh
+../../.lake/build/bin/decompile --to lean ../elf/lean_signatures_a64.elf <dir> LeanVerifiers.ARM.Signatures
+```
+
+of which `Code.lean`, `F2.lean` (`memcpy`) and `F10.lean` (`keccak_f`) are kept.
+
+### The numbers
+
+Lines are whole files, comments included, on both sides.
+
+| | #837, AArch64 | here |
+| --- | --- | --- |
+| `memcpy` | 503 lines in 2 files | 143 lines |
+| `keccak_f` | 861 lines in 8 files | 266 lines |
+| shared by the two | 124 lines (`Mem/Common.lean`, shared with `memset`) | 240 lines (`Isa.lean`, `Bytes.lean`) |
+| the executor | 5,766 lines (`Sym`), for AArch64 | `lsym`, as it was, for any instruction set |
+| build of the proofs | not measured: they need #837's fork of Kraken | `memcpy` 2 s, `keccak_f` 73 s |
+| build of the code | not measured | `memcpy` 20 s, `keccak_f` about 8 minutes of CPU |
+
+So about a third of the lines for each function. One round of `keccak_f` (some 170
+instructions) is one call of `lsym`, and what it leaves in each of 30 registers and slots is
+the model's lane or parity by `bv_decide`. #837's layout of the lanes at the loop head was
+reused; finding it was not part of the cost here.
+
+### What the numbers do not say
+
+The two theorems are weaker than #837's, in ways the roadmap closes once and not for each
+function:
+
+- **Nothing about the machine.** The lift of AArch64 is not proved (M4); the contracts are about
+  the lifted program.
+- **Partial correctness.** A run that never returns meets the contract (M2); #837 proves that
+  the function returns. Each loop here would need its measure, which both proofs already have
+  as the induction.
+- **The memory is a model**: bytes by address, with no access that faults, so the contracts need
+  no condition that the stack or the buffers are mapped, and say nothing of it (M4).
+- **The round constants are assumed** to be in the table at `0x2002b0`, a precondition of
+  `keccak_f_contract` until constant data is checked against the ELF
+  ([#76](https://github.com/Verified-zkEVM/machine-checked/issues/76)).
+- **`keccak_f`'s state is 25 words** at the buffer (`StateAt`), where #837's is 200 bytes; the
+  lemma between the two is not here.
+- **Axioms.** `bv_decide` trusts its certificate checker as compiled code, through one axiom for
+  each use; the repository allows that (`AxiomCheck.lean`), and #837's theorems depend on
+  Lean's three only. The identities are of `xor`, `and`, `not` and rotations, and can be proved
+  without it.
+
+And two costs that will matter at 150 functions: the kernel's check of a function's lift
+against the image is slow on the whole-program route (8 minutes for `keccak_f`'s 575
+instructions), and a loop head is given to `lsym` as a position in the lifted body, counted by
+hand.

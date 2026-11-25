@@ -109,3 +109,14 @@ jobs:
           if grep -E '^warning: .*\.lean:' build.log; then
             echo "::error::the build has warnings"; exit 1
           fi
+
+      - name: Axiom check
+        run: |
+          set -eo pipefail
+          lake env lean AxiomCheck.lean 2>&1 | tee axioms.log
+          # Every listed axiom must be a standard one or a bv_decide certificate.
+          bad=$(tr ',[]' '\n\n\n' < axioms.log | sed 's/^ *//; s/ *$//' \
+            | grep -vE "^$|depends on axioms:|does not depend on any axioms|^(propext|Classical\.choice|Quot\.sound)$|\.bv_decide\.ax_" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::non-standard axioms: $bad"; exit 1
+          fi
