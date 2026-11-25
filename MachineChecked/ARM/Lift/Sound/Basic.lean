@@ -181,6 +181,10 @@ theorem run_append (a b : List O) :
 @[simp] theorem run_set (d : Reg) (e : E) (os : List O) :
     run (.set d e :: os) regs m = run os (updReg regs d (e.eval regs)) m := rfl
 
+theorem updReg_updReg (R : Reg → BitVec 64) (d : Reg) (u v : BitVec 64) :
+    updReg (updReg R d u) d v = updReg R d v := by
+  funext x; simp only [updReg]; split <;> rfl
+
 /-- The registers of the lift's own, and the flags. -/
 def Own : Reg → Bool
   | .t0 | .t1 | .t2 | .nf | .zf | .cf | .vf => true
